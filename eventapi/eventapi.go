@@ -2,19 +2,37 @@ package eventapi
 
 import (
 	s "github.com/agoravoting/authapi/server"
+	"github.com/agoravoting/authapi/middleware"
 	"github.com/julienschmidt/httprouter"
 	"github.com/codegangsta/negroni"
 	"net/http"
 )
 
+const (
+	SESSION_EXPIRE = 3600
+)
+
 type EventApi struct {
-	Router *httprouter.Router
+	router *httprouter.Router
+	name string
 }
 
-func New() (ea *EventApi, err error) {
-	ea = &EventApi{}
-	ea.Router = httprouter.New()
-	ea.Router.GET("/", ea.get)
+func (ea *EventApi) Name() string {
+	return ea.name;
+}
+
+func (ea *EventApi) Init() (err error) {
+	// setup the routes
+	ea.router = httprouter.New()
+	ea.router.GET("/", middleware.Join(ea.get,
+		s.Server.CheckPerms("superuser", SESSION_EXPIRE)))
+
+	ea.router.GET("/:id", middleware.Join(ea.get,
+		s.Server.CheckPerms("(superuser|admin-auth-event-${id})", SESSION_EXPIRE)))
+
+	// add the routes to the server
+	handler := negroni.New(negroni.Wrap(ea.router))
+	s.Server.Mux.OnHandler("api/v1/event", handler)
 	return
 }
 
@@ -23,17 +41,7 @@ func (ea *EventApi) get(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 	w.Write([]byte("Hello world!"))
 }
 
+// add the modules to available modules on startup
 func init() {
-	s.Server.ModulesInit = append(s.Server.ModulesInit, func() {
-		var (
-			err error
-			ea *EventApi
-			handler *negroni.Negroni
-		)
-		if ea, err = New(); err != nil {
-			s.Server.Logger.Fatal(err)
-		}
-		handler = negroni.New(negroni.Wrap(ea.Router))
-		s.Server.Mux.OnHandler("event", handler)
-	})
+	s.Server.AvailableModules = append(s.Server.AvailableModules, &EventApi{name: "github.com/agoravoting/authapi/eventapi"})
 }

@@ -4,5 +4,8 @@
 	"DbConnectString": "user=authapi password=authapi dbname=authapi sslmode=disable",
 
 	"SharedSecret": "whatever should be here, should be secret",
-	"Admins": ["edulix@agoravoting.com", "danigm@agoravoting.com"]
+	"Admins": ["edulix@agoravoting.com", "danigm@agoravoting.com"],
+	"ActiveModules": [
+		"github.com/agoravoting/authapi/eventapi"
+	]
 }

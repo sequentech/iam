@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"os"
 	"runtime/debug"
 	"fmt"
 )
@@ -28,10 +27,8 @@ func NewErrorJson(err interface{}) *ErrorJson {
 }
 
 // NewRecoveryJson returns a new instance of RecoveryJson
-func NewRecoveryJson() *RecoveryJson {
-	return &RecoveryJson{
-		Logger: log.New(os.Stdout, "[negroni] ", 0),
-	}
+func NewRecoveryJson(Logger *log.Logger) *RecoveryJson {
+	return &RecoveryJson{Logger: Logger}
 }
 
 func (rec *RecoveryJson) ServeHTTP(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
