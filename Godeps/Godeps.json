@@ -1,0 +1,34 @@
+{
+	"ImportPath": "github.com/agoravoting/authapi",
+	"GoVersion": "go1.3",
+	"Deps": [
+		{
+			"ImportPath": "github.com/codegangsta/negroni",
+			"Comment": "v0.1-27-g46bd821",
+			"Rev": "46bd821940d86fb9777f7f86e9ae428132e110da"
+		},
+		{
+			"ImportPath": "github.com/imdario/medeina",
+			"Comment": "0.1.0-9-g48dfa7c",
+			"Rev": "48dfa7cf9f6a2e8100844d578395321c641986ab"
+		},
+		{
+			"ImportPath": "github.com/jmoiron/sqlx",
+			"Comment": "sqlx-v1.0-38-g44ed2f4",
+			"Rev": "44ed2f4ee47dcddfb171b808b312ccb0e31fa3ba"
+		},
+		{
+			"ImportPath": "github.com/julienschmidt/httprouter",
+			"Rev": "afa7ae29ca847252b56d9279b6a012c1a7a5e225"
+		},
+		{
+			"ImportPath": "github.com/lib/pq",
+			"Rev": "3c5c5bd6383b42aec97b5aa39fba2cddd35aea36"
+		},
+		{
+			"ImportPath": "github.com/oleiade/lane",
+			"Comment": "0.1.0-14-g9c340c8",
+			"Rev": "9c340c8dd6e1ccd26a5b2607770113691c2e2831"
+		}
+	]
+}
