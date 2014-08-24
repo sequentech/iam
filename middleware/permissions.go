@@ -19,7 +19,7 @@ type checkPerms struct{
 }
 
 /*
- CheckPerms is a decorator that checks that an HMAC with a specific permissions
+ CheckPerms is a middleware that checks that an HMAC with a specific permissions
  string is valid.
 
  The HMAC is read from the "Authorization" header, with data separated with
@@ -39,7 +39,7 @@ func CheckPerms(perm string, secret string, expire_secs int) (obj *checkPerms) {
 
 func (rec *checkPerms) ServeHTTP(w http.ResponseWriter, r *http.Request, p httprouter.Params, next httprouter.Handle) {
 	var (
-		fields = strings.Split(w.Header().Get("Authorized"), ":")
+		fields = strings.Split(r.Header.Get("Authorization"), ":")
 		l = len(fields)
 		timestamp int64
 		err error
@@ -52,7 +52,7 @@ func (rec *checkPerms) ServeHTTP(w http.ResponseWriter, r *http.Request, p httpr
 	}
 	message := []byte(strings.Join(fields[:l-1], ":"))
 	messageMAC := []byte(fields[l-1])
-	if util.CheckMAC(message, messageMAC, rec.secret) {
+	if !util.CheckMAC(message, messageMAC, rec.secret) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -62,7 +62,8 @@ func (rec *checkPerms) ServeHTTP(w http.ResponseWriter, r *http.Request, p httpr
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	if int64(time.Now().Unix()) - timestamp > int64(rec.expire_secs) {
+
+	if int64(time.Now().Unix()) - timestamp >= int64(rec.expire_secs) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -73,7 +74,7 @@ func (rec *checkPerms) ServeHTTP(w http.ResponseWriter, r *http.Request, p httpr
 	})
 
 	// compile regexp
-	rx, err := regexp.Compile(required_perm)
+	rx, err := regexp.Compile("^" + required_perm + "$")
     if err != nil {
         w.WriteHeader(http.StatusInternalServerError)
         return
@@ -92,4 +93,13 @@ func (rec *checkPerms) ServeHTTP(w http.ResponseWriter, r *http.Request, p httpr
 	}
 
 	next(w, r, p)
+}
+
+// Given a secret and a perm string, generates a valid content for
+// the Authorization header
+func AuthHeader(perm string, secret string) string {
+	msg := perm + ":" + strconv.FormatInt(time.Now().Unix(), 10)
+	MAC := string(util.GenerateMAC([]byte(msg), []byte(secret)))
+
+	return msg + ":" + MAC
 }

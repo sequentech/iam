@@ -5,6 +5,7 @@ import (
 	"io"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/hex"
 )
 
 // Contents reads a file into a string
@@ -47,11 +48,18 @@ func Append(slice, data[]byte) []byte {
 	return slice
 }
 
-// CheckMAC returns true if messageMAC is a valid HMAC tag for message.
-func CheckMAC(message, messageMAC, key []byte) bool {
+// Generates an HMAC using SHA256
+func GenerateMAC(message, key []byte) []byte {
 	mac := hmac.New(sha256.New, key)
 	mac.Write(message)
-	expectedMAC := mac.Sum(nil)
+	ret := make([]byte, 64)
+	hex.Encode(ret, mac.Sum(nil))
+	return ret
+}
+
+// CheckMAC returns true if messageMAC is a valid HMAC tag for message. Uses SHA256.
+func CheckMAC(message, messageMAC, key []byte) bool {
+	expectedMAC := GenerateMAC(message, key)
 
 	// careful! use hmac.Equal to be safe against timing side channel attacks
 	return hmac.Equal(messageMAC, expectedMAC)
