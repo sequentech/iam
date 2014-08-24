@@ -25,7 +25,6 @@ func loadStandard() http.Handler {
 
 	mux.GET("/user/:id/hello", Join(hello, CheckPerms("user-$id", secret, 1)))
 
-
 	mux.GET("/useroradmin/:id/hello", Join(hello, CheckPerms("(admin|user-$id)", secret, 10)))
 
 	return negroni.New(negroni.Wrap(mux))

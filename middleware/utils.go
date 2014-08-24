@@ -48,6 +48,7 @@ func lastMiddleware(handle httprouter.Handle) middlew {
 	}
 }
 
+// Join allows you to add middleware to a handle, returning a handle
 func Join(handle httprouter.Handle, handlers ...Handler) httprouter.Handle {
 	return func(rw http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		mware := build(handlers, handle)
@@ -55,7 +56,6 @@ func Join(handle httprouter.Handle, handlers ...Handler) httprouter.Handle {
 	}
 }
 
-//  Wrap() function allows to convert a negroni middleware into our own type of middleware
 type Wrapper struct {
 	handler negroni.Handler
 }
@@ -66,6 +66,7 @@ func (w Wrapper) ServeHTTP(rw http.ResponseWriter, r *http.Request, p httprouter
 	next(rw, r, p)
 }
 
+//  Wrap allows to convert a negroni middleware into our own type of middleware
 func Wrap(handler negroni.Handler) Handler {
 	return &Wrapper{handler: handler}
 }
