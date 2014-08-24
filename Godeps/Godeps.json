@@ -9,8 +9,8 @@
 		},
 		{
 			"ImportPath": "github.com/imdario/medeina",
-			"Comment": "0.1.0-9-g48dfa7c",
-			"Rev": "48dfa7cf9f6a2e8100844d578395321c641986ab"
+			"Comment": "0.1.0-12-g21bb301",
+			"Rev": "21bb301a48e8ada3785af7aee968c976d46ad45a"
 		},
 		{
 			"ImportPath": "github.com/jmoiron/sqlx",
