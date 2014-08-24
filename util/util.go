@@ -3,6 +3,8 @@ package util
 import (
 	"os"
 	"io"
+	"reflect"
+	"testing"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -63,4 +65,17 @@ func CheckMAC(message, messageMAC, key []byte) bool {
 
 	// careful! use hmac.Equal to be safe against timing side channel attacks
 	return hmac.Equal(messageMAC, expectedMAC)
+}
+
+/* Test Helpers */
+func Expect(t *testing.T, a interface{}, b interface{}) {
+	if a != b {
+		t.Errorf("Expected %v (type %v) - Got %v (type %v)", b, reflect.TypeOf(b), a, reflect.TypeOf(a))
+	}
+}
+
+func Refute(t *testing.T, a interface{}, b interface{}) {
+	if a == b {
+		t.Errorf("Did not expect %v (type %v) - Got %v (type %v)", b, reflect.TypeOf(b), a, reflect.TypeOf(a))
+	}
 }

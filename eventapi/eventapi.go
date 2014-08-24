@@ -32,7 +32,7 @@ func (ea *EventApi) Init() (err error) {
 
 	// add the routes to the server
 	handler := negroni.New(negroni.Wrap(ea.router))
-	s.Server.Mux.OnHandler("api/v1/event", handler)
+	s.Server.Mux.OnMux("api/v1/event", handler)
 	return
 }
 
