@@ -1,3 +1,6 @@
 development:
     driver: postgres
-    open: "user=authapi password=authapi dbname=authapi sslmode=disable"
+    open: user=authapi password=authapi dbname=authapi sslmode=disable
+test:
+    driver: postgres
+    open: user=test_authapi password=test_authapi dbname=test_authapi sslmode=disable

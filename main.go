@@ -3,6 +3,7 @@ package main
 import (
 	s "github.com/agoravoting/authapi/server"
 	_ "github.com/agoravoting/authapi/eventapi"
+	_ "bitbucket.org/liamstask/goose/lib/goose"
 
 	"flag"
 	"os"

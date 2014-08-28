@@ -12,7 +12,7 @@ import (
 )
 
 // struct that stores information about the checkPerms
-type checkPerms struct{
+type checkPerms struct {
 	secret []byte
 	expire_secs int
 	perm string

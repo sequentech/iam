@@ -36,6 +36,7 @@ func (rec *RecoveryJson) ServeHTTP(w http.ResponseWriter, r *http.Request, next 
 		if err := recover(); err != nil {
 			w.Header().Set("Content-Type", JSON_MIMETYPE)
 			w.WriteHeader(http.StatusInternalServerError)
+
 			rec.Logger.Printf(PANIC_LOG_FMT, err, debug.Stack())
 			content, err := json.Marshal(NewErrorJson(err))
 			if err != nil {

@@ -3,7 +3,7 @@
 	"DbMaxIddleConnections": 5,
 	"DbConnectString": "user=authapi password=authapi dbname=authapi sslmode=disable",
 
-	"SharedSecret": "whatever should be here, should be secret",
+	"SharedSecret": "<PASSWORD>",
 	"Admins": ["edulix@agoravoting.com", "danigm@agoravoting.com"],
 	"ActiveModules": [
 		"github.com/agoravoting/authapi/eventapi"

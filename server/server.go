@@ -24,6 +24,7 @@ type server struct {
 	Admins []string
 	ActiveModules []string
 	Debug bool
+	Initialized bool // denotes if the server has already been initialized
 
 	Logger *log.Logger
 	Http *negroni.Negroni
@@ -39,8 +40,12 @@ type Module interface {
 	Init() error
 }
 
-// initServer initializes the global Server variable. Should be called only once.
+// initServer initializes the global Server variable. Should be called only once: after the first call, it does nothing
 func (s *server) Init(confPath string) (err error) {
+	// do not let be Initialized multiple times
+	if s.Initialized {
+		return
+	}
 	s.Logger = log.New(os.Stdout, "[authapi] ", 0)
 	s.Mux = medeina.NewMedeina()
 
@@ -93,6 +98,7 @@ func (s *server) Init(confPath string) (err error) {
 			}
 		}
 
+	s.Initialized = true
 	return
 }
 

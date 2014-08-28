@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"os"
 	"io"
 	"reflect"
@@ -8,6 +9,8 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"net/http"
 )
 
 // Contents reads a file into a string
@@ -67,6 +70,21 @@ func CheckMAC(message, messageMAC, key []byte) bool {
 	return hmac.Equal(messageMAC, expectedMAC)
 }
 
+// given an http reponse object and a sql result, returns in json the id of
+// the new object inside the result
+func WriteIdJson(w http.ResponseWriter, id int) (err error) {
+	json_id, err := json.Marshal(map[string]interface{}{"id": id})
+	if err != nil {
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
+	w.Header().Set("Content-Type", "application/json")
+	if l, err := w.Write(json_id); err != nil {
+		panic(err)
+	}
+	return
+}
+
 /* Test Helpers */
 func Expect(t *testing.T, a interface{}, b interface{}) {
 	if a != b {
@@ -78,4 +96,22 @@ func Refute(t *testing.T, a interface{}, b interface{}) {
 	if a == b {
 		t.Errorf("Did not expect %v (type %v) - Got %v (type %v)", b, reflect.TypeOf(b), a, reflect.TypeOf(a))
 	}
+}
+
+type Marhsaller interface {
+	Marshal() ([]byte, error)
+}
+
+func JsonMarshalOne(w http.ResponseWriter, m Marhsaller) {
+	var (
+		data []byte
+		err error
+	)
+
+	w.Header().Set("Content-Type", "content/json")
+	if data, err = m.Marshal(); err != nil {
+		panic(err)
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
 }
