@@ -2,10 +2,10 @@ package eventapi
 
 import (
 	"fmt"
+	"github.com/agoravoting/authapi/middleware"
+	stest "github.com/agoravoting/authapi/server/testing"
 	"net/http"
 	"testing"
-	stest "github.com/agoravoting/authapi/server/testing"
-	"github.com/agoravoting/authapi/middleware"
 )
 
 const (
@@ -28,6 +28,6 @@ func TestEventApi(t *testing.T) {
 	newEvent := ts.RequestJson("POST", "/api/v1/event/", http.StatusAccepted, auth_admin, newEvent).(map[string]interface{})
 	apiPath := fmt.Sprintf("/api/v1/event/%.0f", newEvent["id"])
 	ts.Request("GET", apiPath, http.StatusOK, auth_admin, "")
-// 	fmt.Printf("req-out = %s\n", ret)
+	// 	fmt.Printf("req-out = %s\n", ret)
 
 }

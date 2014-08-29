@@ -2,11 +2,11 @@ package middleware
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/kisielk/raven-go/raven"
 	"log"
 	"net/http"
 	"runtime/debug"
-	"fmt"
 )
 
 const (
@@ -17,7 +17,7 @@ const (
 // RecoveryJSON is a Negroni middleware that recovers from any panics and writes a 500 if there was one.
 type RecoveryJson struct {
 	Logger *log.Logger
-	Raven *raven.Client
+	Raven  *raven.Client
 }
 
 type errorJson struct {

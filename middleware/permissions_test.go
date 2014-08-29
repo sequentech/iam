@@ -1,12 +1,12 @@
 package middleware
 
 import (
-	"time"
-	"net/http"
-	"testing"
-	"net/http/httptest"
-	"github.com/julienschmidt/httprouter"
 	"github.com/codegangsta/negroni"
+	"github.com/julienschmidt/httprouter"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
 )
 
 var standard http.Handler
@@ -61,7 +61,7 @@ func TestHandlers(t *testing.T) {
 	testRequests(t, "GET", "/useroradmin/2/hello", http.StatusUnauthorized, auth_user1)
 	testRequests(t, "GET", "/useroradmin/1/hello", http.StatusOK, auth_admin)
 
-	time.Sleep(1100  * time.Millisecond)
+	time.Sleep(1100 * time.Millisecond)
 
 	testRequests(t, "GET", "/admin/hello", http.StatusUnauthorized, auth_admin)
 	testRequests(t, "GET", "/user/1/hello", http.StatusUnauthorized, auth_user1)

@@ -1,13 +1,13 @@
 package eventapi
 
 import (
+	"github.com/agoravoting/authapi/middleware"
 	s "github.com/agoravoting/authapi/server"
 	"github.com/agoravoting/authapi/util"
-	"github.com/agoravoting/authapi/middleware"
-	"github.com/julienschmidt/httprouter"
 	"github.com/codegangsta/negroni"
 	"github.com/jmoiron/sqlx"
-// 	"net/http/httputil"
+	"github.com/julienschmidt/httprouter"
+	// 	"net/http/httputil"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -19,14 +19,14 @@ const (
 
 type EventApi struct {
 	router *httprouter.Router
-	name string
+	name   string
 
 	insertStmt *sqlx.NamedStmt
-	getStmt *sqlx.Stmt
+	getStmt    *sqlx.Stmt
 }
 
 func (ea *EventApi) Name() string {
-	return ea.name;
+	return ea.name
 }
 
 func (ea *EventApi) Init() (err error) {
@@ -68,11 +68,11 @@ func (ea *EventApi) list(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 // returns an event
 func (ea *EventApi) get(w http.ResponseWriter, r *http.Request, p httprouter.Params) *middleware.HandledError {
 	var (
-		e []Event
+		e   []Event
 		err error
-		id int
+		id  int
 	)
-	if id, err := strconv.ParseInt(p.ByName("id"), 10, 32); err !=  nil || id <= 0 {
+	if id, err := strconv.ParseInt(p.ByName("id"), 10, 32); err != nil || id <= 0 {
 		return &middleware.HandledError{err, 400, "Invalid id format"}
 	}
 
@@ -98,7 +98,7 @@ func (ea *EventApi) get(w http.ResponseWriter, r *http.Request, p httprouter.Par
 // parses an event from a request.
 // TODO: generalize and move to utils pkg
 func parseEvent(r *http.Request) (e Event, err error) {
-// 	rb, err := httputil.DumpRequest(r, true)
+	// 	rb, err := httputil.DumpRequest(r, true)
 	if err != nil {
 		return
 	}
@@ -113,10 +113,10 @@ func parseEvent(r *http.Request) (e Event, err error) {
 // add a new event
 func (ea *EventApi) post(w http.ResponseWriter, r *http.Request, _ httprouter.Params) *middleware.HandledError {
 	var (
-		tx = s.Server.Db.MustBegin()
+		tx    = s.Server.Db.MustBegin()
 		event Event
-		id int
-		err error
+		id    int
+		err   error
 	)
 	event, err = parseEvent(r)
 	if err != nil {

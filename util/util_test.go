@@ -1,8 +1,8 @@
 package util
 
 import (
-	"testing"
 	"io/ioutil"
+	"testing"
 )
 
 func TestContents(t *testing.T) {

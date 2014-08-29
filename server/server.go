@@ -1,17 +1,17 @@
 package server
 
 /* Creates the http server, with the routes etc
-*/
+ */
 
 import (
-	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
-	"github.com/kisielk/raven-go/raven"
+	"encoding/json"
 	"github.com/agoravoting/authapi/middleware"
 	"github.com/agoravoting/authapi/util"
 	"github.com/codegangsta/negroni"
 	"github.com/imdario/medeina"
-	"encoding/json"
+	"github.com/jmoiron/sqlx"
+	"github.com/kisielk/raven-go/raven"
+	_ "github.com/lib/pq"
 	"log"
 	"os"
 )
@@ -20,24 +20,25 @@ import (
 type server struct {
 	// settings loaded from the json config file
 	DbMaxIddleConnections int
-	DbConnectString string // expanded using os.ExpandEnv
-	SharedSecret string
-	Admins []string
-	ActiveModules []string
-	Debug bool
-	Initialized bool // denotes if the server has already been initialized
-	RavenDSN string
+	DbConnectString       string // expanded using os.ExpandEnv
+	SharedSecret          string
+	Admins                []string
+	ActiveModules         []string
+	Debug                 bool
+	Initialized           bool // denotes if the server has already been initialized
+	RavenDSN              string
 
-	Logger *log.Logger
-	Http *negroni.Negroni
-	Mux *medeina.Medeina
-	Db *sqlx.DB
+	Logger           *log.Logger
+	Http             *negroni.Negroni
+	Mux              *medeina.Medeina
+	Db               *sqlx.DB
 	AvailableModules []Module
-	Raven *raven.Client
+	Raven            *raven.Client
 
 	// some middleware objects
 	ErrorWrap *middleware.ErrorWrap
 }
+
 // global server inside this variable
 var Server server
 
@@ -69,10 +70,10 @@ func (s *server) Init(confPath string) (err error) {
 	// configure database
 	s.DbConnectString = os.ExpandEnv(s.DbConnectString)
 	s.Logger.Print("connecting to postgres: " + s.DbConnectString)
-    s.Db, err = sqlx.Connect("postgres", s.DbConnectString)
-    if err != nil {
-        return
-    }
+	s.Db, err = sqlx.Connect("postgres", s.DbConnectString)
+	if err != nil {
+		return
+	}
 	s.Db.SetMaxIdleConns(s.DbMaxIddleConnections)
 
 	// construct the http server
@@ -97,23 +98,23 @@ func (s *server) Init(confPath string) (err error) {
 
 	// init modules, only once the server instance has been configured, and
 	// only those modules that user wants to activate
-	ModulesLoop:
-		for _, module := range s.AvailableModules {
-			var (
-				mod_name = module.Name()
-			)
-			// find the module, and init it if found
-			for _, active_module := range s.ActiveModules {
-				if mod_name != active_module {
-					continue
-				}
-				s.Logger.Print("Loading module: " + mod_name)
-				if err = module.Init(); err != nil {
-					s.Logger.Fatal(err)
-				}
-				continue ModulesLoop
+ModulesLoop:
+	for _, module := range s.AvailableModules {
+		var (
+			mod_name = module.Name()
+		)
+		// find the module, and init it if found
+		for _, active_module := range s.ActiveModules {
+			if mod_name != active_module {
+				continue
 			}
+			s.Logger.Print("Loading module: " + mod_name)
+			if err = module.Init(); err != nil {
+				s.Logger.Fatal(err)
+			}
+			continue ModulesLoop
 		}
+	}
 
 	s.Initialized = true
 	return

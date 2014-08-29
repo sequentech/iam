@@ -5,9 +5,9 @@ import (
 )
 
 type Event struct {
-	Id int64 `json:"-"`
-	Name string `json:"name" db:"name"`
-	AuthMethod string `json:"auth_method" db:"auth_method"`
+	Id               int64       `json:"-"`
+	Name             string      `json:"name" db:"name"`
+	AuthMethod       string      `json:"auth_method" db:"auth_method"`
 	AuthMethodConfig interface{} `json:"auth_method_config" db:"auth_method_config"`
 }
 
@@ -31,9 +31,9 @@ func (e *Event) Json() (ret map[string]interface{}, err error) {
 		return
 	}
 
-	ret = map[string]interface{} {
-		"name": e.Name,
-		"auth_method": e.AuthMethod,
+	ret = map[string]interface{}{
+		"name":               e.Name,
+		"auth_method":        e.AuthMethod,
 		"auth_method_config": config,
 	}
 	return

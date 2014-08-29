@@ -1,12 +1,12 @@
 package middleware
 
 import (
-	"fmt"
-	"net/http"
 	"encoding/json"
-	"runtime/debug"
+	"fmt"
 	"github.com/julienschmidt/httprouter"
 	"github.com/kisielk/raven-go/raven"
+	"net/http"
+	"runtime/debug"
 )
 
 type Ravenable interface {
@@ -15,8 +15,8 @@ type Ravenable interface {
 
 // HandledError is the type of managed error that can happen in app views
 type HandledError struct {
-	Err error
-	Code int
+	Err     error
+	Code    int
 	Message string
 }
 

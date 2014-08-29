@@ -1,15 +1,15 @@
 package util
 
 import (
-	"os"
-	"io"
-	"reflect"
-	"testing"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"net/http"
+	"os"
+	"reflect"
+	"testing"
 )
 
 // Contents reads a file into a string
@@ -18,7 +18,7 @@ func Contents(filepath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()  // f.Close will run when we're finished.
+	defer f.Close() // f.Close will run when we're finished.
 
 	var result []byte
 	buf := make([]byte, 100)
@@ -29,23 +29,23 @@ func Contents(filepath string) (string, error) {
 			if err == io.EOF {
 				break
 			}
-			return "", err  // f will be closed if we return here.
+			return "", err // f will be closed if we return here.
 		}
 	}
 	return string(result), nil // f will be closed if we return here.
 }
 
 // Append bytes to a slice
-func Append(slice, data[]byte) []byte {
+func Append(slice, data []byte) []byte {
 	l := len(slice)
-	if l + len(data) > cap(slice) {  // reallocate
+	if l+len(data) > cap(slice) { // reallocate
 		// Allocate double what's needed, for future growth.
 		newSlice := make([]byte, (l+len(data))*2)
 		// The copy function is predeclared and works for any slice type.
 		copy(newSlice, slice)
 		slice = newSlice
 	}
-	slice = slice[0:l+len(data)]
+	slice = slice[0 : l+len(data)]
 	for i, c := range data {
 		slice[l+i] = c
 	}
@@ -102,7 +102,7 @@ type Marhsaller interface {
 func JsonMarshalOne(w http.ResponseWriter, m Marhsaller) {
 	var (
 		data []byte
-		err error
+		err  error
 	)
 
 	w.Header().Set("Content-Type", "content/json")

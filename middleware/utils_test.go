@@ -1,11 +1,11 @@
 package middleware
 
 import (
-	"net/http"
-	"testing"
-	"net/http/httptest"
-	"github.com/julienschmidt/httprouter"
 	"github.com/codegangsta/negroni"
+	"github.com/julienschmidt/httprouter"
+	"net/http"
+	"net/http/httptest"
+	"testing"
 )
 
 func hello_utils(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
