@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"bytes"
-	"fmt"
 )
 
 type TestServer struct {
@@ -70,7 +69,7 @@ func (ts *TestServer) TearDown() {
 
 func (ts *TestServer) Request(method, path string, expectedStatus int, headers map[string]string, requesTBody string) string {
 	r, _ := http.NewRequest(method, path, bytes.NewBufferString(requesTBody))
-	w := new(httptest.ResponseRecorder)
+	w := httptest.NewRecorder()
 	u := r.URL
 	r.RequestURI = u.RequestURI()
 	for key, value := range headers {
@@ -78,7 +77,6 @@ func (ts *TestServer) Request(method, path string, expectedStatus int, headers m
 	}
 	s.Server.Http.ServeHTTP(w, r)
 	body := w.Body.String()
-	fmt.Printf("response-body %v\n", w.Body)
 	if w.Code != expectedStatus {
 		ts.t.Errorf("Expected %d for route %s %s found: Code=%d, req-Headers=%v ret-body=%s\n", expectedStatus, method, u, w.Code, headers, body)
 	}
@@ -86,7 +84,7 @@ func (ts *TestServer) Request(method, path string, expectedStatus int, headers m
 	return body
 }
 
-func (ts *TestServer) JsonRequest(method, path string, expectedStatus int, headers map[string]string, requestBody string) interface{} {
+func (ts *TestServer) RequestJson(method, path string, expectedStatus int, headers map[string]string, requestBody string) interface{} {
 	body := ts.Request(method, path, expectedStatus, headers, requestBody)
 	var f interface{}
 	err := json.Unmarshal([]byte(body), &f)
