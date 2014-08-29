@@ -1,7 +1,6 @@
 package util
 
 import (
-	"fmt"
 	"os"
 	"io"
 	"reflect"
@@ -79,9 +78,7 @@ func WriteIdJson(w http.ResponseWriter, id int) (err error) {
 	}
 	w.WriteHeader(http.StatusAccepted)
 	w.Header().Set("Content-Type", "application/json")
-	if l, err := w.Write(json_id); err != nil {
-		panic(err)
-	}
+	w.Write(json_id)
 	return
 }
 
