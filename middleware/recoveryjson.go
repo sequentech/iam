@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"encoding/json"
+	"github.com/kisielk/raven-go/raven"
 	"log"
 	"net/http"
 	"runtime/debug"
@@ -16,19 +17,20 @@ const (
 // RecoveryJSON is a Negroni middleware that recovers from any panics and writes a 500 if there was one.
 type RecoveryJson struct {
 	Logger *log.Logger
+	Raven *raven.Client
 }
 
-type ErrorJson struct {
+type errorJson struct {
 	Error string `json:"error"`
 }
 
-func NewErrorJson(err interface{}) *ErrorJson {
-	return &ErrorJson{fmt.Sprintf("%v", err)}
+func newErrorJson(err interface{}) *errorJson {
+	return &errorJson{fmt.Sprintf("%v", err)}
 }
 
 // NewRecoveryJson returns a new instance of RecoveryJson
-func NewRecoveryJson(Logger *log.Logger) *RecoveryJson {
-	return &RecoveryJson{Logger: Logger}
+func NewRecoveryJson(logger *log.Logger, raven *raven.Client) *RecoveryJson {
+	return &RecoveryJson{Logger: logger, Raven: raven}
 }
 
 func (rec *RecoveryJson) ServeHTTP(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
@@ -37,8 +39,12 @@ func (rec *RecoveryJson) ServeHTTP(w http.ResponseWriter, r *http.Request, next 
 			w.Header().Set("Content-Type", JSON_MIMETYPE)
 			w.WriteHeader(http.StatusInternalServerError)
 
-			rec.Logger.Printf(PANIC_LOG_FMT, err, debug.Stack())
-			content, err := json.Marshal(NewErrorJson(err))
+			msg := fmt.Sprintf(PANIC_LOG_FMT, err, debug.Stack())
+			rec.Logger.Print(msg)
+			if rec.Raven != nil {
+				rec.Raven.CaptureMessage(msg)
+			}
+			content, err := json.Marshal(newErrorJson(err))
 			if err != nil {
 				panic(err)
 			}

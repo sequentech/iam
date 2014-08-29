@@ -27,7 +27,8 @@ var (
 	"Admins": ["test@example.com"],
 	"ActiveModules": [
 		"github.com/agoravoting/authapi/eventapi"
-	]
+	],
+	"RavenDSN": ""
 }`
 )
 

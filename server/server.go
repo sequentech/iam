@@ -6,6 +6,7 @@ package server
 import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"github.com/kisielk/raven-go/raven"
 	"github.com/agoravoting/authapi/middleware"
 	"github.com/agoravoting/authapi/util"
 	"github.com/codegangsta/negroni"
@@ -25,12 +26,17 @@ type server struct {
 	ActiveModules []string
 	Debug bool
 	Initialized bool // denotes if the server has already been initialized
+	RavenDSN string
 
 	Logger *log.Logger
 	Http *negroni.Negroni
 	Mux *medeina.Medeina
 	Db *sqlx.DB
 	AvailableModules []Module
+	Raven *raven.Client
+
+	// some middleware objects
+	ErrorWrap *middleware.ErrorWrap
 }
 // global server inside this variable
 var Server server
@@ -40,7 +46,8 @@ type Module interface {
 	Init() error
 }
 
-// initServer initializes the global Server variable. Should be called only once: after the first call, it does nothing
+// initServer initializes the global Server variable.
+// Should be called only once: after the first call, it does nothing.
 func (s *server) Init(confPath string) (err error) {
 	// do not let be Initialized multiple times
 	if s.Initialized {
@@ -71,12 +78,22 @@ func (s *server) Init(confPath string) (err error) {
 	// construct the http server
 	s.Http = negroni.Classic()
 	s.Http.Use(negroni.NewRecovery())
-	s.Http.Use(middleware.NewRecoveryJson(s.Logger))
 	if s.Debug {
 		s.Logger.Print("In debug mode")
 		s.Http.Use(negroni.NewLogger())
 	}
 	s.Http.UseHandler(s.Mux)
+
+	// if there's a DSN configured, try to connect with raven
+	if len(s.RavenDSN) > 0 {
+		if s.Raven, err = raven.NewClient(s.RavenDSN); err != nil {
+			s.Logger.Printf("Error configuring raven with DSN %s: %v", s.RavenDSN, err)
+		}
+	}
+	s.Http.Use(middleware.NewRecoveryJson(s.Logger, s.Raven))
+
+	// create the errorwrap middleware
+	s.ErrorWrap = middleware.NewErrorWrap(s)
 
 	// init modules, only once the server instance has been configured, and
 	// only those modules that user wants to activate
@@ -102,6 +119,12 @@ func (s *server) Init(confPath string) (err error) {
 	return
 }
 
+// RavenClient implements middleware.Ravenable, needed for the ErrorWrap middleware
+func (s *server) RavenClient() *raven.Client {
+	return s.Raven
+}
+
+// wrapper over CheckPerms middleware
 func (s *server) CheckPerms(perm string, expire_secs int) middleware.Handler {
 	return middleware.CheckPerms(perm, s.SharedSecret, expire_secs)
 }

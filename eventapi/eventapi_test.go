@@ -25,9 +25,9 @@ func TestEventApi(t *testing.T) {
 	auth_admin := map[string]string{"Authorization": middleware.AuthHeader("superuser", stest.SharedSecret)}
 
 	// do a post and get it back
-	ret := ts.Request("POST", "/api/v1/event/", http.StatusAccepted, auth_admin, newEvent)
-	fmt.Printf("what-req-out = %s\n", ret)
-	ret = ts.Request("GET", "/api/v1/event/1", http.StatusAccepted, auth_admin, "")
-	fmt.Printf("req-out = %s\n", ret)
+	newEvent := ts.RequestJson("POST", "/api/v1/event/", http.StatusAccepted, auth_admin, newEvent).(map[string]interface{})
+	apiPath := fmt.Sprintf("/api/v1/event/%.0f", newEvent["id"])
+	ts.Request("GET", apiPath, http.StatusOK, auth_admin, "")
+// 	fmt.Printf("req-out = %s\n", ret)
 
 }

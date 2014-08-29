@@ -7,11 +7,10 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/codegangsta/negroni"
 	"github.com/jmoiron/sqlx"
-	"net/http/httputil"
+// 	"net/http/httputil"
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"errors"
 )
 
 const (
@@ -33,12 +32,15 @@ func (ea *EventApi) Name() string {
 func (ea *EventApi) Init() (err error) {
 	// setup the routes
 	ea.router = httprouter.New()
-	ea.router.GET("/", middleware.Join(ea.list,
+	ea.router.GET("/", middleware.Join(
+		s.Server.ErrorWrap.Do(ea.list),
 		s.Server.CheckPerms("superuser", SESSION_EXPIRE)))
-	ea.router.POST("/", middleware.Join(ea.post,
+	ea.router.POST("/", middleware.Join(
+		s.Server.ErrorWrap.Do(ea.post),
 		s.Server.CheckPerms("superuser", SESSION_EXPIRE)))
 
-	ea.router.GET("/:id", middleware.Join(ea.get,
+	ea.router.GET("/:id", middleware.Join(
+		s.Server.ErrorWrap.Do(ea.get),
 		s.Server.CheckPerms("(superuser|admin-auth-event-${id})", SESSION_EXPIRE)))
 
 	// setup prepared sql queries
@@ -57,76 +59,89 @@ func (ea *EventApi) Init() (err error) {
 }
 
 // lists the available events
-func (ea *EventApi) list(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (ea *EventApi) list(w http.ResponseWriter, r *http.Request, _ httprouter.Params) *middleware.HandledError {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Hello world!"))
+	return nil
 }
 
 // returns an event
-func (ea *EventApi) get(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+func (ea *EventApi) get(w http.ResponseWriter, r *http.Request, p httprouter.Params) *middleware.HandledError {
 	var (
 		e []Event
 		err error
 		id int
 	)
 	if id, err := strconv.ParseInt(p.ByName("id"), 10, 32); err !=  nil || id <= 0 {
-		panic(errors.New("Invalid Id"))
+		return &middleware.HandledError{err, 400, "Invalid id format"}
 	}
 
 	if err = ea.getStmt.Select(&e, id); err != nil {
-		panic(err)
+		return &middleware.HandledError{err, 500, "Database error"}
 	}
 
-	if len(e) > 0 {
-		w.WriteHeader(http.StatusNotFound)
-		return
+	if len(e) == 0 {
+		return &middleware.HandledError{err, 404, "Not found"}
 	}
 
 	b, err := e[0].Marshal()
 	if err != nil {
-		return
+		return &middleware.HandledError{err, 500, "Error marshalling the data"}
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(b)
+	return nil
 }
 
-func parseEvent(r *http.Request) (e Event) {
-	rb, err := httputil.DumpRequest(r, true)
+// parses an event from a request.
+// TODO: generalize and move to utils pkg
+func parseEvent(r *http.Request) (e Event, err error) {
+// 	rb, err := httputil.DumpRequest(r, true)
 	if err != nil {
-		panic(err)
+		return
 	}
 	decoder := json.NewDecoder(r.Body)
 	err = decoder.Decode(&e)
 	if err != nil {
-		s.Server.Logger.Println(string(rb))
-		panic(err)
+		return
 	}
 	return
 }
 
 // add a new event
-func (ea *EventApi) post(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (ea *EventApi) post(w http.ResponseWriter, r *http.Request, _ httprouter.Params) *middleware.HandledError {
 	var (
 		tx = s.Server.Db.MustBegin()
-		event = parseEvent(r)
+		event Event
 		id int
+		err error
 	)
+	event, err = parseEvent(r)
+	if err != nil {
+		return &middleware.HandledError{err, 400, "Invalid json-encoded event"}
+	}
 	event_json, err := event.Json()
 	if err != nil {
-		panic(err)
+		return &middleware.HandledError{err, 500, "Error re-writing the data to json"}
 	}
 
 	if err = tx.NamedStmt(ea.insertStmt).QueryRowx(event_json).Scan(&id); err != nil {
 		tx.Rollback()
-		panic(err)
+		return &middleware.HandledError{err, 500, "Error inserting the event"}
 	}
-	tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		tx.Rollback()
+		return &middleware.HandledError{err, 500, "Error comitting the event"}
+	}
 
 	// return id
 	if err = util.WriteIdJson(w, id); err != nil {
-		panic(err)
+		return &middleware.HandledError{err, 500, "Error returing the id"}
 	}
+	return nil
 }
 
 // add the modules to available modules on startup

@@ -7,5 +7,6 @@
 	"Admins": ["edulix@agoravoting.com", "danigm@agoravoting.com"],
 	"ActiveModules": [
 		"github.com/agoravoting/authapi/eventapi"
-	]
+	],
+	"RavenDSN": ""
 }
