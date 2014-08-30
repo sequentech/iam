@@ -73,20 +73,20 @@ func (ea *EventApi) get(w http.ResponseWriter, r *http.Request, p httprouter.Par
 		id  int
 	)
 	if id, err := strconv.ParseInt(p.ByName("id"), 10, 32); err != nil || id <= 0 {
-		return &middleware.HandledError{err, 400, "Invalid id format", "invalid-format"}
+		return &middleware.HandledError{Err: err, Code: 400, Message: "Invalid id format", CodedMessage: "invalid-format"}
 	}
 
 	if err = ea.getStmt.Select(&e, id); err != nil {
-		return &middleware.HandledError{err, 500, "Database error", "error-select"}
+		return &middleware.HandledError{Err: err, Code: 500, Message: "Database error", CodedMessage: "error-select"}
 	}
 
 	if len(e) == 0 {
-		return &middleware.HandledError{err, 404, "Not found", "not-found"}
+		return &middleware.HandledError{Err: err, Code: 404, Message: "Not found", CodedMessage: "not-found"}
 	}
 
 	b, err := e[0].Marshal()
 	if err != nil {
-		return &middleware.HandledError{err, 500, "Error marshalling the data", "marshall-error"}
+		return &middleware.HandledError{Err: err, Code: 500, Message: "Error marshalling the data", CodedMessage: "marshall-error"}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -120,26 +120,26 @@ func (ea *EventApi) post(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 	)
 	event, err = parseEvent(r)
 	if err != nil {
-		return &middleware.HandledError{err, 400, "Invalid json-encoded event", "invalid-json"}
+		return &middleware.HandledError{Err: err, Code: 400, Message: "Invalid json-encoded event", CodedMessage: "invalid-json"}
 	}
 	event_json, err := event.Json()
 	if err != nil {
-		return &middleware.HandledError{err, 500, "Error re-writing the data to json", "error-json-encode"}
+		return &middleware.HandledError{Err: err, Code: 500, Message: "Error re-writing the data to json", CodedMessage: "error-json-encode"}
 	}
 
 	if err = tx.NamedStmt(ea.insertStmt).QueryRowx(event_json).Scan(&id); err != nil {
 		tx.Rollback()
-		return &middleware.HandledError{err, 500, "Error inserting the event", "error-insert"}
+		return &middleware.HandledError{Err: err, Code: 500, Message: "Error inserting the event", CodedMessage: "error-insert"}
 	}
 	err = tx.Commit()
 	if err != nil {
 		tx.Rollback()
-		return &middleware.HandledError{err, 500, "Error comitting the event", "error-commit"}
+		return &middleware.HandledError{Err: err, Code: 500, Message: "Error comitting the event", CodedMessage: "error-commit"}
 	}
 
 	// return id
 	if err = util.WriteIdJson(w, id); err != nil {
-		return &middleware.HandledError{err, 500, "Error returing the id", "error-return"}
+		return &middleware.HandledError{Err: err, Code: 500, Message: "Error returing the id", CodedMessage: "error-return"}
 	}
 	return nil
 }
