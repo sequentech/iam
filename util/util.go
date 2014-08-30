@@ -85,20 +85,23 @@ func WriteIdJson(w http.ResponseWriter, id int) (err error) {
 /* Test Helpers */
 func Expect(t *testing.T, a interface{}, b interface{}) {
 	if a != b {
-		t.Errorf("Expected %v (type %v) - Got %v (type %v)", b, reflect.TypeOf(b), a, reflect.TypeOf(a))
+		t.Errorf("Expected '%v' (type %v) - Got '%v' (type %v)", b, reflect.TypeOf(b), a, reflect.TypeOf(a))
 	}
 }
 
 func Refute(t *testing.T, a interface{}, b interface{}) {
 	if a == b {
-		t.Errorf("Did not expect %v (type %v) - Got %v (type %v)", b, reflect.TypeOf(b), a, reflect.TypeOf(a))
+		t.Errorf("Did not expect '%v' (type %v) - Got '%v' (type %v)", b, reflect.TypeOf(b), a, reflect.TypeOf(a))
 	}
 }
 
+// Marhsaller is any object that allows to marshal itself into JSON
 type Marhsaller interface {
 	Marshal() ([]byte, error)
 }
 
+// JsonMarshalOne prints any marshaller into the response.
+// NOTE: if m.Marshall() fails, it panics.
 func JsonMarshalOne(w http.ResponseWriter, m Marhsaller) {
 	var (
 		data []byte
@@ -111,4 +114,11 @@ func JsonMarshalOne(w http.ResponseWriter, m Marhsaller) {
 	}
 	w.WriteHeader(http.StatusOK)
 	w.Write(data)
+}
+
+// JsonSortedMarshal sorts map keys so that the resulting bytes is reproducible.
+// This can be useful if you for example are going to hash the marshalled string.
+// Currently, this is already done by encoding/json marshaller.
+func JsonSortedMarshal(v interface{}) ([]byte, error) {
+	return json.Marshal(v)
 }

@@ -1,9 +1,8 @@
 package middleware
 
 import (
-	"encoding/json"
+	"github.com/agoravoting/authapi/util"
 	"fmt"
-	"github.com/kisielk/raven-go/raven"
 	"log"
 	"net/http"
 	"runtime/debug"
@@ -17,7 +16,7 @@ const (
 // RecoveryJSON is a Negroni middleware that recovers from any panics and writes a 500 if there was one.
 type RecoveryJson struct {
 	Logger *log.Logger
-	Raven  *raven.Client
+	Raven  RavenClientIface
 }
 
 type errorJson struct {
@@ -29,7 +28,7 @@ func newErrorJson(err interface{}) *errorJson {
 }
 
 // NewRecoveryJson returns a new instance of RecoveryJson
-func NewRecoveryJson(logger *log.Logger, raven *raven.Client) *RecoveryJson {
+func NewRecoveryJson(logger *log.Logger, raven RavenClientIface) *RecoveryJson {
 	return &RecoveryJson{Logger: logger, Raven: raven}
 }
 
@@ -44,7 +43,7 @@ func (rec *RecoveryJson) ServeHTTP(w http.ResponseWriter, r *http.Request, next 
 			if rec.Raven != nil {
 				rec.Raven.CaptureMessage(msg)
 			}
-			content, err := json.Marshal(newErrorJson(err))
+			content, err := util.JsonSortedMarshal(newErrorJson(err))
 			if err != nil {
 				panic(err)
 			}

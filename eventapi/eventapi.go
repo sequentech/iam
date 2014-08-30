@@ -77,7 +77,7 @@ func (ea *EventApi) get(w http.ResponseWriter, r *http.Request, p httprouter.Par
 	}
 
 	if err = ea.getStmt.Select(&e, id); err != nil {
-		return &middleware.HandledError{err, 500, "Database error", "db-error"}
+		return &middleware.HandledError{err, 500, "Database error", "error-select"}
 	}
 
 	if len(e) == 0 {
@@ -124,22 +124,22 @@ func (ea *EventApi) post(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 	}
 	event_json, err := event.Json()
 	if err != nil {
-		return &middleware.HandledError{err, 500, "Error re-writing the data to json", "rewrite-json"}
+		return &middleware.HandledError{err, 500, "Error re-writing the data to json", "error-json-encode"}
 	}
 
 	if err = tx.NamedStmt(ea.insertStmt).QueryRowx(event_json).Scan(&id); err != nil {
 		tx.Rollback()
-		return &middleware.HandledError{err, 500, "Error inserting the event", "insert"}
+		return &middleware.HandledError{err, 500, "Error inserting the event", "error-insert"}
 	}
 	err = tx.Commit()
 	if err != nil {
 		tx.Rollback()
-		return &middleware.HandledError{err, 500, "Error comitting the event", "commit"}
+		return &middleware.HandledError{err, 500, "Error comitting the event", "error-commit"}
 	}
 
 	// return id
 	if err = util.WriteIdJson(w, id); err != nil {
-		return &middleware.HandledError{err, 500, "Error returing the id", "return"}
+		return &middleware.HandledError{err, 500, "Error returing the id", "error-return"}
 	}
 	return nil
 }

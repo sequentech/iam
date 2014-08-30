@@ -1,18 +1,12 @@
 package middleware
 
 import (
-	"encoding/json"
+	"github.com/agoravoting/authapi/util"
 	"fmt"
 	"github.com/julienschmidt/httprouter"
 	"net/http"
 	"runtime/debug"
 )
-
-// RavenClientIface is used so that we do not really depend on an specific
-// implementation of the RavenClient in this file
-type RavenClientIface interface {
-	CaptureMessage(...string) (string, error)
-}
 
 // Ravenable is used to get the RavenClient from an object
 type Ravenable interface {
@@ -26,8 +20,6 @@ type HandledError struct {
 	Message string
 	CodedMessage string
 }
-
-
 
 type handledErrorJson struct {
 	Message string `json:"error"`
@@ -51,13 +43,13 @@ func NewErrorWrap(r Ravenable) *ErrorWrap {
 func (ew *ErrorWrap) Do(handle ErrorHandler) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		if err := handle(w, r, p); err != nil {
-			// record internal errors
-			if err.Code == http.StatusInternalServerError && ew.Raven != nil {
-				msg := fmt.Sprintf("500 Internal Server Error: message='%s', err=%v, stack=%v", err.Message, err.Err, debug.Stack())
+			// record strange or internal errors
+			if err.Code >= http.StatusRequestTimeout && ew.Raven != nil {
+				msg := fmt.Sprintf("Error: code=%d, message='%s', err=%v, stack=%v", err.Code, err.Message, err.Err, debug.Stack())
 				ew.Raven.CaptureMessage(msg)
 			}
 
-			content, err2 := json.Marshal(&handledErrorJson{err.Message, err.CodedMessage})
+			content, err2 := util.JsonSortedMarshal(&handledErrorJson{err.Message, err.CodedMessage})
 			if err2 != nil {
 				panic(err2)
 			}

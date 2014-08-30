@@ -6,6 +6,12 @@ import (
 	"net/http"
 )
 
+// RavenClientIface is used so that we do not really depend on an specific
+// implementation of the RavenClient in this file
+type RavenClientIface interface {
+	CaptureMessage(...string) (string, error)
+}
+
 type HandlerFunc func(rw http.ResponseWriter, r *http.Request, p httprouter.Params, next httprouter.Handle)
 
 type Handler interface {

@@ -2,6 +2,7 @@ package eventapi
 
 import (
 	"encoding/json"
+	"github.com/agoravoting/authapi/util"
 )
 
 type Event struct {
@@ -22,11 +23,11 @@ func (e *Event) Marshal() ([]byte, error) {
 	if err != nil {
 		return []byte(""), err
 	}
-	return json.Marshal(j)
+	return util.JsonSortedMarshal(j)
 }
 
 func (e *Event) Json() (ret map[string]interface{}, err error) {
-	config, err := json.Marshal(e.AuthMethodConfig)
+	config, err := util.JsonSortedMarshal(e.AuthMethodConfig)
 	if err != nil {
 		return
 	}

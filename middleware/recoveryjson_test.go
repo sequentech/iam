@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"strings"
 	"bytes"
 	"github.com/agoravoting/authapi/util"
 	"github.com/codegangsta/negroni"
@@ -10,11 +11,27 @@ import (
 	"testing"
 )
 
+// recoveryServer is a test type used for testing the ErrorWrap Raven handling
+type recoveryServer struct {
+	Msgs string
+}
+
+// RavenClient implements middleware.Ravenable, needed for the middleware
+func (s *recoveryServer) RavenClient() RavenClientIface {
+	return s
+}
+
+// CaptureMessage registers in Msgs the last captured message
+func (s *recoveryServer) CaptureMessage(msgs ...string) (id string, err error) {
+	s.Msgs = strings.Join(msgs, ";")
+	return "1", nil
+}
+
 func TestRecoveryJson(t *testing.T) {
 	buff := bytes.NewBufferString("")
 	recorder := httptest.NewRecorder()
-
-	rec := NewRecoveryJson(log.New(buff, "[recoveryjson] ", 0))
+	recServer := &recoveryServer{}
+	rec := NewRecoveryJson(log.New(buff, "[recoveryjson] ", 0), recServer)
 
 	n := negroni.New()
 	// replace log for testing
@@ -26,4 +43,5 @@ func TestRecoveryJson(t *testing.T) {
 	util.Expect(t, recorder.Code, http.StatusInternalServerError)
 	util.Refute(t, recorder.Body.Len(), 0)
 	util.Refute(t, len(buff.String()), 0)
+	util.Refute(t, len(recServer.Msgs), 0)
 }
