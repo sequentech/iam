@@ -1,14 +1,14 @@
 package middleware
 
 import (
-	"strings"
-	"github.com/julienschmidt/httprouter"
+	"errors"
 	"github.com/agoravoting/authapi/util"
 	"github.com/codegangsta/negroni"
+	"github.com/julienschmidt/httprouter"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
-	"errors"
 )
 
 // wrapServer is a test type used for testing the ErrorWrap Raven handling
@@ -23,7 +23,7 @@ func (s *wrapServer) RavenClient() RavenClientIface {
 
 // CaptureMessage registers in Msgs the last captured message
 func (s *wrapServer) CaptureMessage(msgs ...string) (id string, err error) {
-		s.Msgs = strings.Join(msgs, ";")
+	s.Msgs = strings.Join(msgs, ";")
 	return "1", nil
 }
 

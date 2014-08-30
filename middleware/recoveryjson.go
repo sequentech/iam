@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"github.com/agoravoting/authapi/util"
 	"fmt"
+	"github.com/agoravoting/authapi/util"
 	"log"
 	"net/http"
 	"runtime/debug"

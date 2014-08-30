@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"github.com/agoravoting/authapi/util"
 	"fmt"
+	"github.com/agoravoting/authapi/util"
 	"github.com/julienschmidt/httprouter"
 	"net/http"
 	"runtime/debug"
@@ -15,14 +15,14 @@ type Ravenable interface {
 
 // HandledError is the type of managed error that can happen in app views
 type HandledError struct {
-	Err     error
-	Code    int
-	Message string
+	Err          error
+	Code         int
+	Message      string
 	CodedMessage string
 }
 
 type handledErrorJson struct {
-	Message string `json:"error"`
+	Message      string `json:"error"`
 	CodedMessage string `json:"error_code"`
 }
 

@@ -1,14 +1,14 @@
 package testing
 
 import (
+	"bytes"
+	"encoding/json"
 	s "github.com/agoravoting/authapi/server"
-	"os/exec"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os/exec"
 	"testing"
-	"io/ioutil"
-	"encoding/json"
-	"bytes"
 )
 
 type TestServer struct {
@@ -16,9 +16,9 @@ type TestServer struct {
 }
 
 var (
-	NoHeader = map[string]string{}
+	NoHeader     = map[string]string{}
 	SharedSecret = "somesecret"
-	Config = `{
+	Config       = `{
 	"Debug": true,
 	"DbMaxIddleConnections": 5,
 	"DbConnectString": "user=test_authapi password=test_authapi dbname=test_authapi sslmode=disable",
@@ -40,7 +40,7 @@ func New(t *testing.T) (ts *TestServer) {
 
 	// generate config file. needs to be done this way, because go test could be
 	// being executed in any path and we can't assume it's anywhere
-	if (!s.Server.Initialized) {
+	if !s.Server.Initialized {
 		f, _ := ioutil.TempFile("", "testfile")
 		name = f.Name()
 		f.Write([]byte(Config))

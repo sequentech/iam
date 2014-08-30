@@ -1,13 +1,13 @@
 package middleware
 
 import (
-	"strings"
 	"bytes"
 	"github.com/agoravoting/authapi/util"
 	"github.com/codegangsta/negroni"
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
