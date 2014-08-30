@@ -121,7 +121,7 @@ ModulesLoop:
 }
 
 // RavenClient implements middleware.Ravenable, needed for the ErrorWrap middleware
-func (s *server) RavenClient() *raven.Client {
+func (s *server) RavenClient() middleware.RavenClientIface {
 	return s.Raven
 }
 

@@ -4,13 +4,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/julienschmidt/httprouter"
-	"github.com/kisielk/raven-go/raven"
 	"net/http"
 	"runtime/debug"
 )
 
+// RavenClientIface is used so that we do not really depend on an specific
+// implementation of the RavenClient in this file
+type RavenClientIface interface {
+	CaptureMessage(...string) (string, error)
+}
+
+// Ravenable is used to get the RavenClient from an object
 type Ravenable interface {
-	RavenClient() *raven.Client
+	RavenClient() RavenClientIface
 }
 
 // HandledError is the type of managed error that can happen in app views
@@ -18,6 +24,14 @@ type HandledError struct {
 	Err     error
 	Code    int
 	Message string
+	CodedMessage string
+}
+
+
+
+type handledErrorJson struct {
+	Message string `json:"error"`
+	CodedMessage string `json:"error_code"`
 }
 
 // ErrorHandler is the signature of an app view that handles errors
@@ -25,9 +39,10 @@ type ErrorHandler func(rw http.ResponseWriter, r *http.Request, p httprouter.Par
 
 // ErrorWrap is a struct used to create an instance of this middleware.
 type ErrorWrap struct {
-	Raven *raven.Client
+	Raven RavenClientIface
 }
 
+// NewErrorWrap instantiates the ErrorWrap middleware
 func NewErrorWrap(r Ravenable) *ErrorWrap {
 	return &ErrorWrap{Raven: r.RavenClient()}
 }
@@ -42,7 +57,7 @@ func (ew *ErrorWrap) Do(handle ErrorHandler) httprouter.Handle {
 				ew.Raven.CaptureMessage(msg)
 			}
 
-			content, err2 := json.Marshal(&errorJson{err.Message})
+			content, err2 := json.Marshal(&handledErrorJson{err.Message, err.CodedMessage})
 			if err2 != nil {
 				panic(err2)
 			}

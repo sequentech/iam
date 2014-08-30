@@ -73,20 +73,20 @@ func (ea *EventApi) get(w http.ResponseWriter, r *http.Request, p httprouter.Par
 		id  int
 	)
 	if id, err := strconv.ParseInt(p.ByName("id"), 10, 32); err != nil || id <= 0 {
-		return &middleware.HandledError{err, 400, "Invalid id format"}
+		return &middleware.HandledError{err, 400, "Invalid id format", "invalid-format"}
 	}
 
 	if err = ea.getStmt.Select(&e, id); err != nil {
-		return &middleware.HandledError{err, 500, "Database error"}
+		return &middleware.HandledError{err, 500, "Database error", "db-error"}
 	}
 
 	if len(e) == 0 {
-		return &middleware.HandledError{err, 404, "Not found"}
+		return &middleware.HandledError{err, 404, "Not found", "not-found"}
 	}
 
 	b, err := e[0].Marshal()
 	if err != nil {
-		return &middleware.HandledError{err, 500, "Error marshalling the data"}
+		return &middleware.HandledError{err, 500, "Error marshalling the data", "marshall-error"}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -120,26 +120,26 @@ func (ea *EventApi) post(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 	)
 	event, err = parseEvent(r)
 	if err != nil {
-		return &middleware.HandledError{err, 400, "Invalid json-encoded event"}
+		return &middleware.HandledError{err, 400, "Invalid json-encoded event", "invalid-json"}
 	}
 	event_json, err := event.Json()
 	if err != nil {
-		return &middleware.HandledError{err, 500, "Error re-writing the data to json"}
+		return &middleware.HandledError{err, 500, "Error re-writing the data to json", "rewrite-json"}
 	}
 
 	if err = tx.NamedStmt(ea.insertStmt).QueryRowx(event_json).Scan(&id); err != nil {
 		tx.Rollback()
-		return &middleware.HandledError{err, 500, "Error inserting the event"}
+		return &middleware.HandledError{err, 500, "Error inserting the event", "insert"}
 	}
 	err = tx.Commit()
 	if err != nil {
 		tx.Rollback()
-		return &middleware.HandledError{err, 500, "Error comitting the event"}
+		return &middleware.HandledError{err, 500, "Error comitting the event", "commit"}
 	}
 
 	// return id
 	if err = util.WriteIdJson(w, id); err != nil {
-		return &middleware.HandledError{err, 500, "Error returing the id"}
+		return &middleware.HandledError{err, 500, "Error returing the id", "return"}
 	}
 	return nil
 }
