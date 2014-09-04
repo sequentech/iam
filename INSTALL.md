@@ -1,17 +1,19 @@
 # Install
 
-You should know first how the Go ecosystem works. All code should directly
-reside in $GOPATH/src. So for example, you should download and use the authapi
-source in $GOPATH/src/github.com/agoravoting/authapi. This is important, 
-because otherwise it will create problems with dependencies.
-
 ## Install dependencies
 
-Configure your go paths. You can execute these commands manually and add them
-to ~/.bashrc for convenience:
+Configure your go paths. To do so, first install mercurial and git. This can
+be done for example in opensuse this way (in other distros will vary):
 
-    export GOPATH=$(godep path):$GOPATH
-    export GOBIN=$(godep path)/bin
+    sudo zypper install git-core mercurial
+
+Then configure your paths and install godep:
+
+    echo 'export GOPATH=$HOME/go' >> ~/.bashrc
+    echo 'export PATH=$GOPATH/bin:$PATH' >> ~/.bashrc
+    echo 'export GOBIN=$GOPATH/bin' >> ~/.bashrc
+    source ~/.bashrc
+    go get github.com/tools/godep
 
 Once that's done, you can install dependencies, compile and install authapi:
 
@@ -21,6 +23,16 @@ Once that's done, you can install dependencies, compile and install authapi:
 
 ## Setup the database
 
+
+The configuration of the database is setup in two places. One used for
+goose, a go database migration tool placed in `authapi/db/dbconf.yml`, and the
+other for the general configuration of authapi, which can be placed anywhere,
+but there's a provided example `authapi/config.json`.
+
+Here we will use the default configuration for the database for convenience,
+but you should obviously do not use it (especially for the passwords) in a
+production environment.
+
 Prerequisites: install postgresql database server in your system. Then, create
 the database (typically, with the postgres system user):
 
@@ -28,17 +40,17 @@ the database (typically, with the postgres system user):
     createuser -P authapi
     createdb -O authapi authapi
 
-Note that the configuration of the database is setup in two places, 
+By default, the configuration uses 
 
 Then create the tables using the goose migration system:
 
     cd path/to/authapi
-    goose up
+    godep goose up
 
 If you want to run the unit tests, you'll need an additional database and user:
 
-    createuser -P authapi
-    createdb -O authapi authapi    
+    createuser -P test_authapi
+    createdb -O test_authapi test_authapi    
 
 ## Run
 
