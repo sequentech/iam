@@ -70,9 +70,11 @@ func (ea *EventApi) get(w http.ResponseWriter, r *http.Request, p httprouter.Par
 	var (
 		e   []Event
 		err error
-		id  int
+		id  int64
 	)
-	if id, err := strconv.ParseInt(p.ByName("id"), 10, 32); err != nil || id <= 0 {
+
+	id, err = strconv.ParseInt(p.ByName("id"), 10, 32)
+	if err != nil || id <= 0 {
 		return &middleware.HandledError{Err: err, Code: 400, Message: "Invalid id format", CodedMessage: "invalid-format"}
 	}
 
