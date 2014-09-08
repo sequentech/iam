@@ -28,6 +28,9 @@ func TestEventApi(t *testing.T) {
 	newEvent := ts.RequestJson("POST", "/api/v1/event/", http.StatusAccepted, auth_admin, newEvent).(map[string]interface{})
 	apiPath := fmt.Sprintf("/api/v1/event/%.0f", newEvent["id"])
 	ts.Request("GET", apiPath, http.StatusOK, auth_admin, "")
+	// deleting the event
+	ts.Request("DELETE", apiPath, http.StatusOK, auth_admin, "")
+	ts.Request("GET", apiPath, http.StatusNotFound, auth_admin, "")
 	// 	fmt.Printf("req-out = %s\n", ret)
 
 }

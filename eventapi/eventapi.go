@@ -23,6 +23,7 @@ type EventApi struct {
 
 	insertStmt *sqlx.NamedStmt
 	getStmt    *sqlx.Stmt
+	delStmt    *sqlx.Stmt
 }
 
 func (ea *EventApi) Name() string {
@@ -42,6 +43,9 @@ func (ea *EventApi) Init() (err error) {
 	ea.router.GET("/:id", middleware.Join(
 		s.Server.ErrorWrap.Do(ea.get),
 		s.Server.CheckPerms("(superuser|admin-auth-event-${id})", SESSION_EXPIRE)))
+	ea.router.DELETE("/:id", middleware.Join(
+		s.Server.ErrorWrap.Do(ea.delete),
+		s.Server.CheckPerms("superuser", SESSION_EXPIRE)))
 
 	// setup prepared sql queries
 	if ea.insertStmt, err = s.Server.Db.PrepareNamed("INSERT INTO event (name, auth_method, auth_method_config) VALUES (:name, :auth_method, :auth_method_config) RETURNING id"); err != nil {
@@ -49,6 +53,10 @@ func (ea *EventApi) Init() (err error) {
 	}
 
 	if ea.getStmt, err = s.Server.Db.Preparex("SELECT * FROM event WHERE id = $1"); err != nil {
+		return
+	}
+
+	if ea.delStmt, err = s.Server.Db.Preparex("DELETE FROM event WHERE id = $1"); err != nil {
 		return
 	}
 
@@ -94,6 +102,35 @@ func (ea *EventApi) get(w http.ResponseWriter, r *http.Request, p httprouter.Par
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(b)
+	return nil
+}
+
+func (ea *EventApi) delete(w http.ResponseWriter, r *http.Request, p httprouter.Params) *middleware.HandledError {
+	var (
+		e   []Event
+		err error
+		id  int64
+	)
+
+	id, err = strconv.ParseInt(p.ByName("id"), 10, 32)
+	if err != nil || id <= 0 {
+		return &middleware.HandledError{Err: err, Code: 400, Message: "Invalid id format", CodedMessage: "invalid-format"}
+	}
+
+	if err = ea.getStmt.Select(&e, id); err != nil {
+		return &middleware.HandledError{Err: err, Code: 500, Message: "Database error", CodedMessage: "error-select"}
+	}
+
+	if len(e) == 0 {
+		return &middleware.HandledError{Err: err, Code: 404, Message: "Not found", CodedMessage: "not-found"}
+	}
+
+	if _, err := ea.delStmt.Exec(id); err != nil {
+		return &middleware.HandledError{Err: err, Code: 500, Message: "Error deleting the data", CodedMessage: "sql-error"}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	return nil
 }
 
