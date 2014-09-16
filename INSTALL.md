@@ -23,7 +23,6 @@ Once that's done, you can install dependencies, compile and install authapi:
 
 ## Setup the database
 
-
 The configuration of the database is setup in two places. One used for
 goose, a go database migration tool placed in `authapi/db/dbconf.yml`, and the
 other for the general configuration of authapi, which can be placed anywhere,
@@ -40,7 +39,9 @@ the database (typically, with the postgres system user):
     createuser -P authapi
     createdb -O authapi authapi
 
-By default, the configuration uses 
+You must also have goose installed, if it is not use
+
+godep go install bitbucket.org/liamstask/goose/cmd/goose
 
 Then create the tables using the goose migration system:
 
@@ -50,7 +51,7 @@ Then create the tables using the goose migration system:
 If you want to run the unit tests, you'll need an additional database and user:
 
     createuser -P test_authapi
-    createdb -O test_authapi test_authapi    
+    createdb -O test_authapi test_authapi
 
 ## Run
 
