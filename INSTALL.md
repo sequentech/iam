@@ -41,7 +41,7 @@ the database (typically, with the postgres system user):
 
 You must also have goose installed, if it is not use
 
-godep go install bitbucket.org/liamstask/goose/cmd/goose
+    godep go install bitbucket.org/liamstask/goose/cmd/goose
 
 Then create the tables using the goose migration system:
 

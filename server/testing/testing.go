@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"os/exec"
+	// "os/exec"
 	"testing"
 )
 
@@ -48,11 +48,11 @@ func New(t *testing.T) (ts *TestServer) {
 	}
 
 	ts = &TestServer{t: t}
-
-	c := exec.Command("bash", "-c", "cd $GOPATH/src/github.com/agoravoting/authapi; goose -env test up")
+	// moved to test script
+	/* c := exec.Command("bash", "-c", "cd $GOPATH/src/github.com/agoravoting/authapi; goose -env test up")
 	if _, err := c.Output(); err != nil {
 		panic(err)
-	}
+	}*/
 
 	if err := s.Server.Init(name); err != nil {
 		panic(err)
@@ -62,10 +62,11 @@ func New(t *testing.T) (ts *TestServer) {
 
 // tears down the test server
 func (ts *TestServer) TearDown() {
-	c := exec.Command("bash", "-c", "cd $GOPATH/src/github.com/agoravoting/authapi; goose -env test down")
+	// moved to test script
+	/*c := exec.Command("bash", "-c", "cd $GOPATH/src/github.com/agoravoting/authapi; goose -env test down")
 	if _, err := c.Output(); err != nil {
 		panic(err)
-	}
+	}*/
 }
 
 func (ts *TestServer) Request(method, path string, expectedStatus int, headers map[string]string, requesTBody string) string {

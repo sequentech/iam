@@ -98,7 +98,6 @@ func (s *server) Init(confPath string) (err error) {
 
 	// init modules, only once the server instance has been configured, and
 	// only those modules that user wants to activate
-ModulesLoop:
 	for _, module := range s.AvailableModules {
 		var (
 			mod_name = module.Name()
@@ -112,7 +111,7 @@ ModulesLoop:
 			if err = module.Init(); err != nil {
 				s.Logger.Fatal(err)
 			}
-			continue ModulesLoop
+			break
 		}
 	}
 

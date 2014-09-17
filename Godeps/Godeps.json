@@ -3,10 +3,6 @@
 	"GoVersion": "go1.3",
 	"Deps": [
 		{
-			"ImportPath": "bitbucket.org/liamstask/goose/cmd/goose",
-			"Rev": "d895b7d4e840c1048395df986ca797bea46bb2c8"
-		},
-		{
 			"ImportPath": "bitbucket.org/liamstask/goose/lib/goose",
 			"Rev": "d895b7d4e840c1048395df986ca797bea46bb2c8"
 		},
@@ -28,6 +24,10 @@
 		{
 			"ImportPath": "github.com/julienschmidt/httprouter",
 			"Rev": "afa7ae29ca847252b56d9279b6a012c1a7a5e225"
+		},
+		{
+			"ImportPath": "github.com/kisielk/raven-go/raven",
+			"Rev": ""
 		},
 		{
 			"ImportPath": "github.com/kylelemons/go-gypsy/yaml",
@@ -61,9 +61,6 @@
 			"ImportPath": "github.com/ziutek/mymysql/native",
 			"Comment": "v1.5.3-19-g7ca4f17",
 			"Rev": "7ca4f179436c56d1bdefcb1ce9f1f74ea42a8b79"
-		},
-		{
-			"ImportPath": "github.com/kisielk/raven-go/raven"
 		}
 	]
 }
