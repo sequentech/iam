@@ -1,13 +1,14 @@
-## authapi [![Build Status][1]][2] [![Coverage Status](https://coveralls.io/repos/agoravoting/authapi/badge.png)](https://coveralls.io/r/agoravoting/authapi)
+# authapi [![Build Status][1]][2] [![Coverage Status](https://coveralls.io/repos/agoravoting/authapi/badge.png)](https://coveralls.io/r/agoravoting/authapi)
 
 [1]: https://travis-ci.org/agoravoting/authapi.png
 [2]: https://travis-ci.org/agoravoting/authapi
 
 The authapi is an isolated server-side component written in go language that
-provides authentication primitives. It's important that is completely decoupled
-from agora-core, and it's ignorant of concepts like "election", "vote" or
-"agora". It could be used for authentication for other services, completely
-unrelated to elections.
+provides authentication and authorization primitives. It's is completely
+decoupled from agora-core, and it's ignorant of concepts like "election",
+"vote" or "agora", even though its primarily developed with Agora voting
+use-case in mind. It can be used for other services, completely unrelated
+to elections.
 
 An Authentication Event (or auth-event) is an important concept in the
 authapi. Let's explain it with an example: imagine you're creating a single
@@ -17,27 +18,27 @@ will have an associated event auth in an authapi, configured with a
 census, configured to use the "SMS-code" authentication method, and the SMS
 provider credentials details needed to be able to send emails.
 
-Another important entity in authapi is an "AuthUser". An user represents
+Another important entity in authapi is an "User". An user represents
 someone related to an auth-event. Each auth-user can be uniquely referenced
 by the user-id. Note that the same physical person might have multiple
-uath-users associated, one per auth-event. AuthUsers also have associated
+uath-users associated, one per auth-event. Users also have associated
 metadata, like Full Name, email, tlf number, etc.
 
 The exact details that each auth-user has associated may vary on each
 auth-event. Also, some auth-events might have associated a census, while
 in others the census might be generated on the go.
 
-Not everyone can create a new auth-event, and not every-one can administrate an
-auth-event to configure its details. This requires special permissions, but
-the handling of those administration details is delegated externally, using
-a trusted HMAC received in the API calls that need priviledges.
+Authorization is provided using an Access Control Lists (ACLs) mechanism. Not
+everyone can create a new auth-event, and not every-one can administrate an
+auth-event to configure its details. ACLs are stored in a table of the database,
+with an id, a permission string, an object id, an object type, and an user-id.
 
-The HMAC used for authentication of some requests always contains two
-semi-colon separated fields: `<granted-permission>:<expiration-timestamp>`.
-
-Part of the API does not require priviledges, like the API-call to
-authenticate. Each authentication attempt gets registered, even if it's not
-successful. This information can be useful for diagnosis.
+With ACLs, you can for example say "user 34 has 'create' permission
+of object type 'AuthEvent'" or "user 122 has 'admin' permission on object 33 of
+type 'Election'", for example. This information can be extracted in the form of
+an HMAC credential token that can be used by a third-party application to
+verify that the given user has permission to execute any kind of action to any
+kind of object.
 
 Technically, authapi should:
  * be developed in the Go language
@@ -51,39 +52,91 @@ Basic Database tables:
     * name: string (255), user-friendly name
     * auth_method: string (255), unix-name of the auth method plugin used
     * auth_method_config: json-string, json configuration string
-* AuthUser
+    * metadata: json-string
+* User
     * id: string (255), random uuid, identifies the user uniquely
-    * auth_event_id: int, foreign key, to AuthEvent.id
     * metadata: json-string
     * status: string (255): used to flag the user
-* AuthAttempt
+<!--* LogEntry
     * id: autoinc int, identifies the event uniquely
-    * auth_user_id: string (255) foreign key, to  AuthUser.id
+    * user_id: string (255) foreign key, to  User.id
     * credentials: json-string with the credentials provider by the user
-    * action: string (255): action being executed by the user
-    * status: string (255): status of the attempt
+    * action: string (255): action being executed by the user. For example, login, sms-code, get_perm..
+    * status: string (255): status of the attempt-->
+* ACL
+    * id: autoinc int, identifies the event uniquely
+    * user_id: string (255) foreign key, to  User.id, required
+    * perm_name: string (255) title of the permitted action. required
+    * object_type: string (255) type of object to which the user is granted permission to. required
+    * object_id: string (255) object related to which the user is granted permission to
 
-The authapi is extensible using plugins. There are two kind of plugins: the
-ones that provide an auth method, and the ones that provide a pipeline
-function. A plugin can add new entry points.
+
+The authapi is extensible using modules. The mudile can extend authapi in
+different entry points defined in authapi, providing:
+
+* new authentication methods
+* new pipeline
+* in general, new API methods under /<module-name>
+
+Examples:
 
 * email-link (required for a minimum version)
-Provides authentication by sending a custom email for a set of users. It adds
-the entry point for email-sending "POST /p/email-link/send-mail"
 
+Provides authentication by sending a custom email for a set of users. It adds
+the entry point for email-sending "POST /email-link/send-mail"
 
 * sms-code
+
 Provides authentication using an SMS code. It adds the entry point for SMS-code
-verification "POST /p/sms-code/verify".
+verification "POST /sms-code/verify".
 
 .....
 
-API:
+## API:
+
+## POST /login
+
+The requester provides the data used by an authentication mechanism. Example:
+
+{
+  "auth-method": "user-and-password",
+  "auth-data": {
+    "username": "foo",
+    "password": "bar"
+  }
+}
+
+If successful, returns a keyed-HMAC session token.
+{
+  "auth-token": "khmac:///sha-256;deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/userid:timestamp"
+}
+
+## POST /get-perms
+
+Requires a session auth-token set in the AuthToken header. Requests a given
+permission to a given object type and object id  (object id not required).
+Example:
+
+{
+  "permission": "create",
+  "object-type": "User",
+  "object-id": "deadbeef"
+}
+
+If successful, returns a keyed-HMAC permission token:
+
+{
+  "permission-token": "khmac:///sha-256;deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/userid:create:timestamp:user-deadbeef"
+}
+
+## GET /acl/?userid=<foo>&object_type=<bar>&permission=<perm>
+## POST /acl
+## DELETE /acl
 
 # POST /auth-event
 
-The requester tries to create a new auth-event. Requires an HMAC with
-permissions "superuser".
+The requester tries to create a new auth-event. Requires a session auth-token
+set in the AuthToken header, with an user with permissions "superuser".
 
 Valid Input example:
 
@@ -140,57 +193,26 @@ If everything is ok, it returns STATUS 200 with data:
 
     {"id": 1}
 
-### authapi Admin API
 
 #### GET /auth-event/:id
 
-Returns similar data to the data posted in POST /auth-event. Requires an HMAC
-with permission `admin-auth-event-<id>`.
+Returns similar data to the data posted in POST /auth-event. Requires user
+with permission `admin-auth-event` over the given event.
 
 #### GET /auth-event
 
-List auth events. Accepts filtering and paging. Requires an HMAC with
+List auth events. Accepts filtering and paging. Requires user with
 permission `superuser`
 
 #### PUT /auth-event/:id
 
-Receives similar data to POST /auth-event. Requires an HMAC with permission
-`admin-auth-event-<id>`.
+Receives similar data to POST /auth-event. Requires user
+with permission `admin-auth-event` over the given event.
 
 #### DELETE /auth-event/:id
 
-Requires an HMAC with permission `admin-auth-event-<id>`.
+Requires user with permission `admin-auth-event` over the given event.
 
-#### GET /auth-event/:id/user
-
-Lists the users. Accepts filtering and paging. Requires an HMAC with permission
-`admin-auth-event-<id>`.
-
-#### GET /auth-event/:id/user/:id2
-
-Gets an user details. Requires an HMAC with permission `admin-auth-event-<id>`.
-
-#### POST /auth-event/:id/user/:id2
-
-Removes an user. Requires an HMAC with permission `admin-auth-event-<id>`.
-
-#### POST /auth-event/:id/user
-
-Posts an user. Unusually used, because they are usually created in other ways
-using the auth-method plugins. Requires an HMAC with permission
-`admin-auth-event-<id>`.
-
-#### GET /auth-event/:id/attempt
-
-Lists the authentication attempts. Supports filtering. Requires an HMAC with
-permission `admin-auth-event-<id>`.
-
-# GET /auth-event/:id/attempt/:id2
-
-Gets an authentication attempt details. Supports filtering. Requires an HMAC
-with permission `admin-auth-event-<id>`.
-
-### authapi User API
 
 #### POST /auth-event/:id/auth
 
@@ -204,7 +226,7 @@ Depending on the authentication method, the authentication process might
 involve more steps and thus it might be delayed. For example, when using
 sms-code auth method, a valid answer will be an empty STATUS 200.
 
-#### POST /p/sms-code/verify
+#### POST /plugin/sms-code/verify
 
 Allows an user to verify its SMS code. A valid input could be:
 
@@ -216,4 +238,4 @@ Allows an user to verify its SMS code. A valid input could be:
 
 A valid answer would be a STATUS 200 with the following data:
 
-    {"hmac": ["auth:<event-id>:<user-id>:<timestamp>", "deadbeefdeadbeef"]}
+    {"hmac": ["auth-event:<event-id>:<user-id>:<timestamp>", "deadbeefdeadbeef"]}
