@@ -1,14 +1,6 @@
-language: go
-go:
-  - tip
-env:
-  global:
-    - PATH=$HOME/gopath/bin:$HOME/bin:$PATH
-before_install:
-  - go get github.com/tools/godep
-  - godep restore
-  - go get github.com/axw/gocov/gocov
-  - go get github.com/mattn/goveralls
-  - go get code.google.com/p/go.tools/cmd/cover
-script:
-  - $HOME/gopath/bin/goveralls -repotoken TYngtSspxeEBDcCsJILS8W3IkSvp2DY08
+language: python
+python:
+  - "3.4"
+install: "pip install -r requirements.txt"
+# command to run tests
+#script: python runtests.py
