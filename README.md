@@ -51,12 +51,6 @@ Basic Database tables:
     * id: string (255), random uuid, identifies the user uniquely
     * metadata: json-string
     * status: string (255): used to flag the user
-<!--* LogEntry
-    * id: autoinc int, identifies the event uniquely
-    * user_id: string (255) foreign key, to  User.id
-    * credentials: json-string with the credentials provider by the user
-    * action: string (255): action being executed by the user. For example, login, sms-code, get_perm..
-    * status: string (255): status of the attempt-->
 * ACL
     * id: autoinc int, identifies the event uniquely
     * user_id: string (255) foreign key, to  User.id, required
@@ -92,18 +86,18 @@ verification "POST /sms-code/verify".
 
 The requester provides the data used by an authentication mechanism. Example:
 
-{
-  "auth-method": "user-and-password",
-  "auth-data": {
-    "username": "foo",
-    "password": "bar"
-  }
-}
+    {
+      "auth-method": "user-and-password",
+      "auth-data": {
+        "username": "foo",
+        "password": "bar"
+      }
+    }
 
 If successful, returns a keyed-HMAC session token.
-{
-  "auth-token": "khmac:///sha-256;deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/userid:timestamp"
-}
+    {
+      "auth-token": "khmac:///sha-256;deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/userid:timestamp"
+    }
 
 ## POST /get-perms
 
@@ -111,17 +105,17 @@ Requires a session auth-token set in the AuthToken header. Requests a given
 permission to a given object type and object id  (object id not required).
 Example:
 
-{
-  "permission": "create",
-  "object-type": "User",
-  "object-id": "deadbeef"
-}
+    {
+      "permission": "create",
+      "object-type": "User",
+      "object-id": "deadbeef"
+    }
 
 If successful, returns a keyed-HMAC permission token:
 
-{
-  "permission-token": "khmac:///sha-256;deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/userid:create:timestamp:user-deadbeef"
-}
+    {
+      "permission-token": "khmac:///sha-256;deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/userid:create:timestamp:user-deadbeef"
+    }
 
 ## GET /acl/?userid=<foo>&object_type=<bar>&permission=<perm>
 ## POST /acl
@@ -214,7 +208,9 @@ Provides authentication. Depending on the auth-method used, the
 input details needed may vary. If authentication is successful, it returns
 STATUS 200 with data:
 
-    {"hmac": ["auth:<event-id>:<user-id>:<timestamp>", "deadbeefdeadbeef"]}
+    {
+      "auth-token": "khmac:///sha-256;deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/userid:timestamp"
+    }
 
 Depending on the authentication method, the authentication process might
 involve more steps and thus it might be delayed. For example, when using
@@ -232,4 +228,6 @@ Allows an user to verify its SMS code. A valid input could be:
 
 A valid answer would be a STATUS 200 with the following data:
 
-    {"hmac": ["auth-event:<event-id>:<user-id>:<timestamp>", "deadbeefdeadbeef"]}
+    {
+      "auth-token": "khmac:///sha-256;deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/userid:timestamp"
+    }
