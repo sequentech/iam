@@ -18,18 +18,12 @@ will have an associated event auth in an authapi, configured with a
 census, configured to use the "SMS-code" authentication method, and the SMS
 provider credentials details needed to be able to send emails.
 
-Another important entity in authapi is an "User". An user represents
-someone related to an auth-event. Each auth-user can be uniquely referenced
-by the user-id. Note that the same physical person might have multiple
-uath-users associated, one per auth-event. Users also have associated
-metadata, like Full Name, email, tlf number, etc.
-
-The exact details that each auth-user has associated may vary on each
-auth-event. Also, some auth-events might have associated a census, while
-in others the census might be generated on the go.
+Another important entity in authapi is an "User". Each auth-user can be uniquely
+referenced by the user-id. The users have some authorization to act over some
+objects using ACLs.
 
 Authorization is provided using an Access Control Lists (ACLs) mechanism. Not
-everyone can create a new auth-event, and not every-one can administrate an
+every user can create a new auth-event, and not every-one can administrate an
 auth-event to configure its details. ACLs are stored in a table of the database,
 with an id, a permission string, an object id, an object type, and an user-id.
 
@@ -226,7 +220,7 @@ Depending on the authentication method, the authentication process might
 involve more steps and thus it might be delayed. For example, when using
 sms-code auth method, a valid answer will be an empty STATUS 200.
 
-#### POST /plugin/sms-code/verify
+#### POST /sms-code/verify
 
 Allows an user to verify its SMS code. A valid input could be:
 
