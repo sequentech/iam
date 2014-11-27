@@ -1,4 +1,2 @@
-Godeps/_workspace
-Godeps/Readme
-*.test
-/authapi
+*.pyc
+*.swp
