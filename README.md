@@ -3,12 +3,11 @@
 [1]: https://travis-ci.org/agoravoting/authapi.png
 [2]: https://travis-ci.org/agoravoting/authapi
 
-The authapi is an isolated server-side component written in go language that
-provides authentication and authorization primitives. It's is completely
-decoupled from agora-core, and it's ignorant of concepts like "election",
-"vote" or "agora", even though its primarily developed with Agora voting
-use-case in mind. It can be used for other services, completely unrelated
-to elections.
+The authapi is an isolated server-side component that provides
+authentication and authorization primitives. It's is completely decoupled
+from agora-core, and it's ignorant of concepts like "election", "vote" or
+"agora", even though its primarily developed with Agora voting use-case in
+mind. It can be used for other services, completely unrelated to elections.
 
 An Authentication Event (or auth-event) is an important concept in the
 authapi. Let's explain it with an example: imagine you're creating a single
@@ -35,8 +34,6 @@ verify that the given user has permission to execute any kind of action to any
 kind of object.
 
 Technically, authapi should:
- * be developed in the Go language
- * use postgresql as the database. We don't really need to use DB-abstractions
  * allow migrations
  * implement unit-tests for the API calls
 
@@ -57,7 +54,6 @@ Basic Database tables:
     * perm_name: string (255) title of the permitted action. required
     * object_type: string (255) type of object to which the user is granted permission to. required
     * object_id: string (255) object related to which the user is granted permission to
-
 
 The authapi is extensible using modules. The mudile can extend authapi in
 different entry points defined in authapi, providing:
