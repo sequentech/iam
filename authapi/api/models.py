@@ -26,6 +26,9 @@ class UserData(models.Model):
     metadata = JSONField(default="{}")
     status = models.CharField(max_length=255, choices=STATUSES, default="act")
 
+    def has_perms(self, permission):
+        return self.acls.filter(perm=permission).count()
+
 @receiver(post_save, sender=User)
 def create_user_data(sender, instance, created, *args, **kwargs):
     ud, _ = UserData.objects.get_or_create(user=instance)
@@ -33,5 +36,5 @@ def create_user_data(sender, instance, created, *args, **kwargs):
 
 
 class ACL(models.Model):
-    user = models.ForeignKey(UserData, related_name="admin")
+    user = models.ForeignKey(UserData, related_name="acls")
     perm = models.CharField(max_length=255)

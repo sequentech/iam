@@ -22,7 +22,7 @@ class PWD:
         if not u.check_password(pwd):
             return self.login_error()
 
-        d['auth-token'] = genhmac(settings.SHARED_SECRET, msg.encode('utf-8'))
+        d['auth-token'] = genhmac(settings.SHARED_SECRET, msg)
         return d
 
 

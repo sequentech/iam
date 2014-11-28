@@ -15,16 +15,32 @@ def genhmac(key, msg):
 
 
 def verifyhmac(key, msg, seconds=300):
-    msg = msg[len('khmac:///'):]
-    digest, msg = msg.split(';')
-    orig_hmac, msg = msg.split('/')
-    h = hmac.new(key, msg.encode('utf-8'), digest)
-    valid = hmac.compare_digest(h.hexdigest(), orig_hmac)
+    at = HMACToken(msg)
+    h = hmac.new(key, at.msg.encode('utf-8'), at.digest)
+    valid = hmac.compare_digest(h.hexdigest(), at.hash)
 
-    t = msg.split(':')[-1]
+    t = at.timestamp
     n = datetime.datetime.now()
     d = datetime.datetime.fromtimestamp(int(t))
     d = d + datetime.timedelta(seconds=seconds)
 
     valid = valid and d > n
     return valid
+
+
+class HMACToken:
+    def __init__(self, token):
+        self.token = token
+        l = len('khmac:///')
+        self.head = token[0:l]
+        msg = token[l:]
+        self.digest, msg = msg.split(';')
+        self.hash, msg = msg.split('/')
+        self.msg = msg
+        self.timestamp = self.msg.split(':')[-1]
+
+
+class AuthToken(HMACToken):
+    def __init__(self, token):
+        super(AuthToken, self).__init__(token)
+        self.userid, self.timestamp = self.msg.split(':')
