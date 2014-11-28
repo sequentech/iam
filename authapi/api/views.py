@@ -5,6 +5,14 @@ from utils import genhmac
 from django.conf import settings
 from .decorators import login_required
 import json
+from django.core.exceptions import PermissionDenied
+
+from .models import AuthEvent
+
+
+def permission_required(user, permission):
+    if not user.userdata.has_perms(permission):
+        raise PermissionDenied('Permission required: ' + permission)
 
 
 class Test(View):
@@ -68,3 +76,39 @@ class GetPerms(View):
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
 getperms = login_required(GetPerms.as_view())
+
+
+class AuthEventView(View):
+    def post(self, request):
+        '''
+            Creates a new auth-event.
+            create_authevent permission required
+        '''
+        permission_required(request.user, 'create_authevent')
+        req = json.loads(request.body.decode('utf-8'))
+
+        ae = AuthEvent(name=req['name'],
+                       auth_method=req['auth_method'],
+                       auth_method_config=req['auth_method_config'],
+                       metadata=req)
+        ae.save()
+
+        data = {'status': 'ok', 'id': ae.pk}
+        jsondata = json.dumps(data)
+        return HttpResponse(jsondata, content_type='application/json')
+
+    def get(self, request):
+        '''
+            Lists all AuthEvents
+        '''
+        permission_required(request.user, 'list_authevent')
+        # TODO paginate and filter with GET params
+        events = AuthEvent.objects.all()
+        aes = []
+        for e in events:
+            aes.append(e.serialize())
+
+        data = {'status': 'ok', 'events': aes}
+        jsondata = json.dumps(data)
+        return HttpResponse(jsondata, content_type='application/json')
+authevent = login_required(AuthEventView.as_view())

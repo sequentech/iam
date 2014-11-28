@@ -13,6 +13,15 @@ class AuthEvent(models.Model):
     auth_method_config = JSONField()
     metadata = JSONField()
 
+    def serialize(self):
+        d = {
+            'id': self.id,
+            'name': self.name,
+            'auth_method': self.auth_method,
+            'metadata': self.metadata,
+        }
+        return d
+
 
 STATUSES = (
     ('act', 'Active'),

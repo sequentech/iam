@@ -9,11 +9,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from .models import ACL
 
-PWD_AUTH_DATA = {
-    'auth-method': 'user-and-password',
-    'auth-data': {'username': 'john', 'password': 'smith'}
-}
-
+from . import test_data
 
 class JClient(Client):
     def __init__(self, *args, **kwargs):
@@ -56,6 +52,12 @@ class ApiTestCase(TestCase):
         u.save()
 
         acl = ACL(user=u.userdata, perm='create_user')
+        acl.save()
+
+        acl = ACL(user=u.userdata, perm='create_authevent')
+        acl.save()
+
+        acl = ACL(user=u.userdata, perm='list_authevent')
         acl.save()
 
     def test_api(self):
@@ -115,7 +117,7 @@ class ApiTestCase(TestCase):
 
     def test_getperms_noperm(self):
         c = JClient()
-        c.login(PWD_AUTH_DATA)
+        c.login(test_data.pwd_auth)
 
         data = {
             "permission": "delete_user",
@@ -127,9 +129,9 @@ class ApiTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'nok')
 
-    def test_getperms_noperm(self):
+    def test_getperms_perm(self):
         c = JClient()
-        c.login(PWD_AUTH_DATA)
+        c.login(test_data.pwd_auth)
 
         data = {
             "permission": "create_user",
@@ -142,3 +144,24 @@ class ApiTestCase(TestCase):
         self.assertEqual(r['status'], 'ok')
         self.assertEqual(verifyhmac(settings.SHARED_SECRET,
             r['permission-token']), True)
+
+    def test_create_event(self):
+        c = JClient()
+        c.login(test_data.pwd_auth)
+
+        data = test_data.auth_event1
+        response = c.post('/api/auth-event/', data)
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['id'], 1)
+
+    def test_list_event(self):
+        self.test_create_event()
+        c = JClient()
+        c.login(test_data.pwd_auth)
+
+        response = c.get('/api/auth-event/', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['events']), 1)
+        self.assertEqual(r['events'][0]['name'], 'foo election')
