@@ -10,7 +10,7 @@ def auth_login(method, data):
 
 
 def register_method(name, klass):
-    METHODS[name] = klass
+    METHODS[name] = klass()
 
 
 files = os.listdir(os.path.dirname(__file__))

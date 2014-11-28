@@ -14,11 +14,17 @@ class AuthEvent(models.Model):
     metadata = JSONField()
 
 
+STATUSES = (
+    ('act', 'Active'),
+    ('pen', 'Pending'),
+    ('dis', 'Disabled'),
+)
+
 class UserData(models.Model):
     user = models.OneToOneField(User, related_name="userdata")
     event = models.ForeignKey(AuthEvent, related_name="userdata", null=True)
-    metadata = JSONField()
-    status = models.CharField(max_length=255) 
+    metadata = JSONField(default="{}")
+    status = models.CharField(max_length=255, choices=STATUSES, default="act")
 
 @receiver(post_save, sender=User)
 def create_user_data(sender, instance, created, *args, **kwargs):
