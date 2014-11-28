@@ -20,68 +20,72 @@ method we can add the module authapi/authmethods/m\_dnie.py.
 To register the new method you should call the register\_method function,
 for example:
 
-    from . import register_method
-    from utils import genhmac
-    from django.conf import settings
+```python
+from . import register_method
+from utils import genhmac
+from django.conf import settings
 
-    class DNIe:
-        def login(self, data):
-            d = {'status': 'ok'}
-            username = data['username']
-            dnidata = data['dnidata']
+class DNIe:
+    def login(self, data):
+        d = {'status': 'ok'}
+        username = data['username']
+        dnidata = data['dnidata']
 
-            verified = func_that_verify_the_dni(username, dnidata)
+        verified = func_that_verify_the_dni(username, dnidata)
 
-            if verified:
-                d['auth-token'] = genhmac(settings.SHARED_SECRET, username)
-                return d
-            else:
-                d = {'status': 'nok'}
-                return d
+        if verified:
+            d['auth-token'] = genhmac(settings.SHARED_SECRET, username)
+            return d
+        else:
+            d = {'status': 'nok'}
+            return d
 
-    register_method('dnie', DNIe)
+register_method('dnie', DNIe)
+```
 
 ### Custom views in custom auth method
 
 You can add custom views to auth methods to make validations, user
 creation, etc. for example:
 
-    from django.conf.urls import patterns, url
-    from django.http import HttpResponse
-    from api.models import User
-    import json
+```python
+from django.conf.urls import patterns, url
+from django.http import HttpResponse
+from api.models import User
+import json
 
 
-    def verifydni(request, dni):
-        req = json.loads(request.body.decode('utf-8'))
+def verifydni(request, dni):
+    req = json.loads(request.body.decode('utf-8'))
 
-        data = {'status': 'ok'}
-        u = User(username=randomusername())
-        u.save()
-        u.userdata.metadata['dni'] = dni
-        u.userdata.metadata['dni_verified'] = True
-        u.userdata.metadata['dni_data'] = req['dnidata']
-        u.save()
+    data = {'status': 'ok'}
+    u = User(username=randomusername())
+    u.save()
+    u.userdata.metadata['dni'] = dni
+    u.userdata.metadata['dni_verified'] = True
+    u.userdata.metadata['dni_data'] = req['dnidata']
+    u.save()
 
-        # giving perms
-        acl = ACL(user=u.userdata, perm='vote')
-        acl.save()
+    # giving perms
+    acl = ACL(user=u.userdata, perm='vote')
+    acl.save()
 
-        data['username'] = u.username
+    data['username'] = u.username
 
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, content_type='application/json')
+    jsondata = json.dumps(data)
+    return HttpResponse(jsondata, content_type='application/json')
 
 
-    class DNIe:
-        def login(self, data):
-            ...
+class DNIe:
+    def login(self, data):
+        ...
 
-        views = patterns('',
-            url(r'^verify/(\w+)$', verifydni),
-        )
+    views = patterns('',
+        url(r'^verify/(\w+)$', verifydni),
+    )
 
-    register_method('dnie', DNIe)
+register_method('dnie', DNIe)
+```
 
 Whit this code the following url will exists:
 
