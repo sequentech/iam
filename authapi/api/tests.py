@@ -1,3 +1,4 @@
+import time
 import json
 from django.test import TestCase
 from django.test import Client
@@ -86,7 +87,11 @@ class ApiTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
-        self.assertEqual(verifyhmac(settings.SHARED_SECRET, r['auth-token']), True)
+        self.assertEqual(verifyhmac(settings.SHARED_SECRET,
+            r['auth-token']), True)
+        time.sleep(3)
+        self.assertEqual(verifyhmac(settings.SHARED_SECRET,
+            r['auth-token'], seconds=3), False)
 
         data = {
             'auth-method': 'user-and-password',
@@ -135,4 +140,5 @@ class ApiTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
-        self.assertEqual(verifyhmac(settings.SHARED_SECRET, r['permission-token']), True)
+        self.assertEqual(verifyhmac(settings.SHARED_SECRET,
+            r['permission-token']), True)
