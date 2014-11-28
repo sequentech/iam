@@ -111,4 +111,18 @@ class AuthEventView(View):
         data = {'status': 'ok', 'events': aes}
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
+
+    def delete(self, request, pk):
+        '''
+            Delete a auth-event.
+            delete_authevent permission required
+        '''
+        permission_required(request.user, 'delete_authevent')
+
+        ae = AuthEvent.objects.get(pk=pk)
+        ae.delete()
+
+        data = {'status': 'ok'}
+        jsondata = json.dumps(data)
+        return HttpResponse(jsondata, content_type='application/json')
 authevent = login_required(AuthEventView.as_view())
