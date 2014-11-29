@@ -4,18 +4,13 @@ from django.test import TestCase
 import json
 from api.tests import JClient
 from api.models import AuthEvent
+from .m_email import Email
 
 
 class AuthMethodTestCase(TestCase):
     def setUp(self):
-        j = {
-               'subject': 'subject',
-               'timestamp': 5,
-               'url': 'http://localhost:80',
-               'msg': 'This is a validator link: ',
-               'mail_from': 'mail_from' }
         ae = AuthEvent(pk=1, name='test', auth_method='email',
-                auth_method_config=json.dumps(j))
+                auth_method_config=json.dumps(Email.TPL_CONFIG))
         ae.save()
 
     def test_method_custom_view(self):

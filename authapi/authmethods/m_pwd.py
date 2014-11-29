@@ -14,6 +14,9 @@ def testview(request, param):
 
 
 class PWD:
+    DESCRIPTION = 'Register using user and password. '
+    TPL_CONFIG = {}
+
     def login_error(self):
         d = {'status': 'nok'}
         return d

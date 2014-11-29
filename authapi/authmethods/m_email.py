@@ -23,12 +23,12 @@ def register(request, method):
     if eo.auth_method == 'email':
         conf = json.loads(eo.auth_method_config)
         subject = conf.get('subject')
-        link = conf.get('url')
         mail_from = conf.get('mail_from')
 
         code = random_username(64, ascii_letters+digits)
-        validate_link = '%s/authmethod/email/validate/%d/%s' % (link, u.pk,  code)
-        msg = conf.get('msg') + validate_link
+        valid_link = request.build_absolute_uri(
+                '/authmethod/email/validate/%d/%s' % (u.pk,  code))
+        msg = conf.get('msg') + valid_link
 
         u.userdata.event = eo
         u.userdata.metadata = json.dumps({
@@ -67,6 +67,12 @@ def validate(request, user, code):
 
 
 class Email:
+    DESCRIPTION = 'Register by email. You need to confirm your email.'
+    TPL_CONFIG = {
+            'subject': 'Confirm your email',
+            'msg': 'Click in this link for validate your email: ',
+            'mail_from': 'authapi@agoravoting.com'
+    }
 
     def login_error(self):
         d = {'status': 'nok'}
