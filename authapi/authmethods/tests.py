@@ -11,9 +11,7 @@ from .m_sms import Sms
 
 class AuthMethodTestCase(TestCase):
     def setUp(self):
-        ae = AuthEvent(pk=1, name='test', auth_method='email',
-                auth_method_config=json.dumps(Email.TPL_CONFIG))
-        ae.save()
+        pass
 
     def test_method_custom_view(self):
         c = JClient()
@@ -25,7 +23,24 @@ class AuthMethodTestCase(TestCase):
         response = c.get('/api/authmethod/user-and-password/test/asdfdsf/cxzvcx/', {})
         self.assertEqual(response.status_code, 404)
 
-    def test_method_email(self):
+
+class AuthMethodEmailTestCase(TestCase):
+    def setUp(self):
+        ae = AuthEvent(pk=1, name='test', auth_method='email',
+                auth_method_config=json.dumps(Email.TPL_CONFIG))
+        ae.save()
+
+        u = User(pk=1, username='test')
+        u.save()
+        u.userdata.event = ae
+        u.userdata.metadata = json.dumps({
+                'email': 'test@test.com',
+                'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+                'email_verified': False
+        })
+        u.userdata.save()
+
+    def test_method_email_register(self):
         c = JClient()
         response = c.post('/api/authmethod/email/register/1/',
                 {'email': 'test@test.com'})
@@ -33,20 +48,21 @@ class AuthMethodTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
 
-        body = mail.outbox[0].body
-        for word in body.split():
-            if word.startswith('http://'):
-                user = word.split('/')[-2]
-                code = word.split('/')[-1]
-                break
+    def test_method_email_valid_code(self):
+        user = 1
+        code = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 
-        # valid code
+        c = JClient()
         response = c.get('/api/authmethod/email/validate/%s/%s/' % (user, code), {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
 
-        # invalid code
+    def test_method_email_invalid_code(self):
+        user = 1
+        code = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+
+        c = JClient()
         response = c.get('/api/authmethod/email/validate/%s/bad/' % (user), {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
