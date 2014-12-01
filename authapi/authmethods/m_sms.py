@@ -7,8 +7,7 @@ from string import ascii_letters, digits
 from utils import genhmac
 
 from . import register_method
-from . import random_username
-from . import random_code
+from authmethods.utils import random_username, random_code
 from api.models import AuthEvent, ACL
 
 
