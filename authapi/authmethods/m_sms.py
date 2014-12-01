@@ -7,7 +7,7 @@ from string import ascii_letters, digits
 from utils import genhmac
 
 from . import register_method
-from authmethods.utils import random_username, random_code
+from authmethods.utils import *
 from api.models import AuthEvent, ACL
 
 
@@ -16,37 +16,63 @@ def send_sms(provider, user, pwd, msg, tlf):
     pass
 
 
-def register(request, method):
+def register(request, event):
     req = json.loads(request.body.decode('utf-8'))
+    data = {'status': 'ok', 'msg': ''}
+
+    email = req.get('email')
+    if not email_constraint(email):
+        data['status'] = 'nok'
+        data['msg'] += 'Invalid email.'
+
+    dni = req.get('dni')
+    if not dni_constraint(dni):
+        data['status'] = 'nok'
+        data['msg'] += 'Invalid dni. '
+
+    if data['status'] == 'nok':
+        jsondata = json.dumps(data)
+        return HttpResponse(jsondata, content_type='application/json')
+
     tlf = req.get('tlf')
+    ip = req.get('ip')
+    data['tlf'] = tlf
+    data['ip_addr'] = ip
+    check_tlf_whitelisted(data)
+    check_ip_whitelisted(data)
+    check_tlf_blacklisted(data)
+    check_ip_blacklisted(data)
+
+    first_name = req.get('first_name')
+    last_name = req.get('last_name')
+
     u = User(username=random_username())
+    u.email = email
     u.save()
 
-    # check method event
-    eo = AuthEvent.objects.get(pk=method)
-    if eo.auth_method == 'sms-code':
-        conf = json.loads(eo.auth_method_config)
-        provider = conf.get('provider')
-        user = conf.get('user')
-        pwd = conf.get('pwd')
+    eo = AuthEvent.objects.get(pk=event)
+    conf = json.loads(eo.auth_method_config)
+    provider = conf.get('provider')
+    user = conf.get('user')
+    pwd = conf.get('pwd')
 
-        code = random_code(8, ascii_letters+digits)
-        valid_link = request.build_absolute_uri(
-                '/authmethod/sms-code/validate/%d/%s' % (u.pk,  code))
-        msg = conf.get('msg') + valid_link
+    code = random_code(8, ascii_letters+digits)
+    valid_link = request.build_absolute_uri(
+            '/authmethod/sms-code/validate/%d/%s' % (u.pk,  code))
+    msg = conf.get('msg') + valid_link
 
-        u.userdata.event = eo
-        u.userdata.metadata = json.dumps({
-                'tlf': tlf,
-                'code': code,
-                'sms_verified': False
-        })
-        u.userdata.save()
+    u.userdata.event = eo
+    u.userdata.metadata = json.dumps({
+            'first_name': first_name,
+            'last_name': last_name,
+            'tlf': tlf,
+            'code': code,
+            'sms_verified': False
+    })
+    u.userdata.save()
 
-        send_sms(provider, user, pwd, msg, tlf)
-        data = {'status': 'ok', 'code': code}
-    else:
-        data = {'status': 'nok'}
+    send_sms(provider, user, pwd, msg, tlf)
+    data['code'] = code
 
     jsondata = json.dumps(data)
     return HttpResponse(jsondata, content_type='application/json')
@@ -102,7 +128,7 @@ class Sms:
         return d
 
     views = patterns('',
-        url(r'^register/(?P<method>\d+)$', register),
+        url(r'^register/(?P<event>\d+)$', register),
         url(r'^validate/(?P<user>\w+)/(?P<code>\w+)$', validate),
     )
 

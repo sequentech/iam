@@ -127,21 +127,50 @@ class AuthMethodSmsTestCase(TestCase):
                 'sms_verified': False
         })
         u2.userdata.save()
+        self.c = JClient()
 
     def test_method_sms_regiter(self):
-        c = JClient()
-        response = c.post('/api/authmethod/sms-code/register/1/',
-                {'tlf': '+34666666666', 'password': '123456'})
+        response = self.c.post('/api/authmethod/sms-code/register/1/',
+                {'tlf': '+34666666666', 'password': '123456',
+                    'email': 'test@test.com', 'dni': '11111111H'})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
+
+    def test_method_sms_register_valid_dni(self):
+        response = self.c.post('/api/authmethod/sms-code/register/1/',
+                {'tlf': '+34666666666', 'password': '123456', 'dni': '11111111H'})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'].find('Invalid dni'), -1)
+
+    def test_method_sms_register_invalid_dni(self):
+        response = self.c.post('/api/authmethod/sms-code/register/1/',
+                {'tlf': '+34666666666', 'password': '123456', 'dni': '999'})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertNotEqual(r['msg'].find('Invalid dni'), -1)
+
+    def test_method_sms_register_valid_email(self):
+        response = self.c.post('/api/authmethod/sms-code/register/1/',
+                {'tlf': '+34666666666', 'password': '123456',
+                    'email': 'test@test.com'})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'].find('Invalid email'), -1)
+
+    def test_method_sms_register_invalid_email(self):
+        response = self.c.post('/api/authmethod/sms-code/register/1/',
+                {'tlf': '+34666666666', 'password': '123456', 'email': 'test@@'})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertNotEqual(r['msg'].find('Invalid email'), -1)
 
     def test_method_sms_valid_code(self):
         user = 'test1'
         code = 'AAAAAAAA'
 
-        c = JClient()
-        response = c.get('/api/authmethod/sms-code/validate/%s/%s/' % (user, code), {})
+        response = self.c.get('/api/authmethod/sms-code/validate/%s/%s/' % (user, code), {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
@@ -150,15 +179,13 @@ class AuthMethodSmsTestCase(TestCase):
         user = 'test1'
         code = 'BBBBBBBB'
 
-        c = JClient()
-        response = c.get('/api/authmethod/sms-code/validate/%s/%s/' % (user, code), {})
+        response = self.c.get('/api/authmethod/sms-code/validate/%s/%s/' % (user, code), {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'nok')
 
     def test_method_email_login_valid_code(self):
-        c = JClient()
-        response = c.post('/api/login/',
+        response = self.c.post('/api/login/',
                 {'auth-method': 'sms-code', 'auth-data':
                     {'user': 'test1', 'password': '123456'}})
         self.assertEqual(response.status_code, 200)
@@ -166,8 +193,7 @@ class AuthMethodSmsTestCase(TestCase):
         self.assertTrue(r['auth-token'].startswith('khmac:///sha256'))
 
     def test_method_email_login_invalid_code(self):
-        c = JClient()
-        response = c.post('/api/login/',
+        response = self.c.post('/api/login/',
                 {'auth-method': 'sms-code', 'auth-data':
                     {'user': 'test2', 'password': '123456'}})
         self.assertEqual(response.status_code, 200)
