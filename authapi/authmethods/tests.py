@@ -76,7 +76,7 @@ class AuthMethodEmailTestCase(TestCase):
         code = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 
         c = JClient()
-        response = c.get('/api/authmethod/email/validate/%s/bad/' % (user), {})
+        response = c.get('/api/authmethod/email/validate/%s/%s/' % (user, code), {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'nok')
@@ -106,26 +106,38 @@ class AuthMethodSmsTestCase(TestCase):
                 auth_method_config=json.dumps(Sms.TPL_CONFIG))
         ae.save()
 
-        u = User(pk=1, username='test')
+        u = User(pk=1, username='test1')
+        u.set_password('123456')
         u.save()
         u.userdata.event = ae
         u.userdata.metadata = json.dumps({
                 'tlf': '+34666666666',
                 'code': 'AAAAAAAA',
-                'sms_verified': False
+                'sms_verified': True
         })
         u.userdata.save()
+
+        u2 = User(pk=2, username='test2')
+        u2.set_password('123456')
+        u2.save()
+        u2.userdata.event = ae
+        u2.userdata.metadata = json.dumps({
+                'tlf': '+34766666666',
+                'code': 'AAAAAAAA',
+                'sms_verified': False
+        })
+        u2.userdata.save()
 
     def test_method_sms_regiter(self):
         c = JClient()
         response = c.post('/api/authmethod/sms-code/register/1/',
-                {'tlf': '+34666666666'})
+                {'tlf': '+34666666666', 'password': '123456'})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
 
     def test_method_sms_valid_code(self):
-        user = 1
+        user = 'test1'
         code = 'AAAAAAAA'
 
         c = JClient()
@@ -135,11 +147,30 @@ class AuthMethodSmsTestCase(TestCase):
         self.assertEqual(r['status'], 'ok')
 
     def test_method_sms_invalid_code(self):
-        user = 1
+        user = 'test1'
         code = 'BBBBBBBB'
 
         c = JClient()
-        response = c.get('/api/authmethod/sms-code/validate/%s/bad/' % (user), {})
+        response = c.get('/api/authmethod/sms-code/validate/%s/%s/' % (user, code), {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'nok')
+
+    def test_method_email_login_valid_code(self):
+        c = JClient()
+        response = c.post('/api/login/',
+                {'auth-method': 'sms-code', 'auth-data':
+                    {'user': 'test1', 'password': '123456'}})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertTrue(r['auth-token'].startswith('khmac:///sha256'))
+
+    def test_method_email_login_invalid_code(self):
+        c = JClient()
+        response = c.post('/api/login/',
+                {'auth-method': 'sms-code', 'auth-data':
+                    {'user': 'test2', 'password': '123456'}})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['status'], 'nok')
+

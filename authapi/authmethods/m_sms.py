@@ -8,6 +8,7 @@ from utils import genhmac
 
 from . import register_method
 from . import random_username
+from . import random_code
 from api.models import AuthEvent, ACL
 
 
@@ -30,7 +31,7 @@ def register(request, method):
         user = conf.get('user')
         pwd = conf.get('pwd')
 
-        code = random_username(8, ascii_letters+digits)
+        code = random_code(8, ascii_letters+digits)
         valid_link = request.build_absolute_uri(
                 '/authmethod/sms-code/validate/%d/%s' % (u.pk,  code))
         msg = conf.get('msg') + valid_link
@@ -53,7 +54,7 @@ def register(request, method):
 
 
 def validate(request, user, code):
-    u = User.objects.get(pk=int(user))
+    u = User.objects.get(username=user)
     u_meta = json.loads(u.userdata.metadata)
     if u_meta.get('code') == code:
         u_meta.update({ 'sms_verified': True })
@@ -94,7 +95,8 @@ class Sms:
         except:
             return self.login_error()
 
-        if not u.check_password(pwd):
+        u_meta = json.loads(u.userdata.metadata)
+        if not u.check_password(pwd) or not u_meta['sms_verified']:
             return self.login_error()
 
         d['auth-token'] = genhmac(settings.SHARED_SECRET, msg)
@@ -102,7 +104,7 @@ class Sms:
 
     views = patterns('',
         url(r'^register/(?P<method>\d+)$', register),
-        url(r'^validate/(?P<user>\d+)/(?P<code>\w+)$', validate),
+        url(r'^validate/(?P<user>\w+)/(?P<code>\w+)$', validate),
     )
 
 register_method('sms-code', Sms)

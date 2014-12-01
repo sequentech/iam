@@ -8,7 +8,7 @@ from string import ascii_letters, digits
 from utils import genhmac
 
 from . import register_method
-from . import random_username
+from . import random_code
 from api.models import AuthEvent, ACL
 
 
@@ -34,7 +34,7 @@ def register(request, method):
         subject = conf.get('subject')
         mail_from = conf.get('mail_from')
 
-        code = random_username(64, ascii_letters+digits)
+        code = random_code(64, ascii_letters+digits)
         valid_link = request.build_absolute_uri(
                 '/authmethod/email/validate/%d/%s' % (u.pk,  code))
         msg = conf.get('msg') + valid_link
