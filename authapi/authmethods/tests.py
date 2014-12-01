@@ -30,26 +30,39 @@ class AuthMethodEmailTestCase(TestCase):
                 auth_method_config=json.dumps(Email.TPL_CONFIG))
         ae.save()
 
-        u = User(pk=1, username='test')
+        u = User(pk=1, username='test1')
+        u.set_password('123456')
         u.save()
         u.userdata.event = ae
         u.userdata.metadata = json.dumps({
                 'email': 'test@test.com',
                 'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
-                'email_verified': False
+                'email_verified': True
         })
         u.userdata.save()
+
+        u2 = User(pk=2, username='test2')
+        u2.set_password('123456')
+        u2.save()
+        u2.userdata.event = ae
+        u2.userdata.metadata = json.dumps({
+                'email': 'test2@test.com',
+                'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+                'email_verified': False
+        })
+        u2.userdata.save()
+
 
     def test_method_email_register(self):
         c = JClient()
         response = c.post('/api/authmethod/email/register/1/',
-                {'email': 'test@test.com'})
+                {'email': 'test@test.com', 'user': 'test', 'password': '123456'})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
 
     def test_method_email_valid_code(self):
-        user = 1
+        user = 'test1'
         code = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 
         c = JClient()
@@ -59,11 +72,29 @@ class AuthMethodEmailTestCase(TestCase):
         self.assertEqual(r['status'], 'ok')
 
     def test_method_email_invalid_code(self):
-        user = 1
+        user = 'test1'
         code = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 
         c = JClient()
         response = c.get('/api/authmethod/email/validate/%s/bad/' % (user), {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['status'], 'nok')
+
+    def test_method_email_login_valid_code(self):
+        c = JClient()
+        response = c.post('/api/login/',
+                {'auth-method': 'email', 'auth-data':
+                    {'user': 'test1', 'password': '123456'}})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertTrue(r['auth-token'].startswith('khmac:///sha256'))
+
+    def test_method_email_login_invalid_code(self):
+        c = JClient()
+        response = c.post('/api/login/',
+                {'auth-method': 'email', 'auth-data':
+                    {'user': 'test2', 'password': '123456'}})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'nok')

@@ -15,8 +15,17 @@ from api.models import AuthEvent, ACL
 def register(request, method):
     req = json.loads(request.body.decode('utf-8'))
     mail_to = req.get('email')
-    u = User(username=random_username())
-    u.save()
+    user = req.get('user')
+    pwd = req.get('password')
+
+    try:
+        u = User(username=user)
+        u.set_password(pwd)
+        u.save()
+    except:
+        data = {'status': 'nok', 'msg': 'user already exist'}
+        jsondata = json.dumps(data)
+        return HttpResponse(jsondata, content_type='application/json')
 
     # check method event
     eo = AuthEvent.objects.get(pk=method)
@@ -48,7 +57,7 @@ def register(request, method):
 
 
 def validate(request, user, code):
-    u = User.objects.get(pk=int(user))
+    u = User.objects.get(username=user)
     u_meta = json.loads(u.userdata.metadata)
     if u_meta.get('code') == code:
         u_meta.update({ 'email_verified': True })
@@ -80,23 +89,24 @@ class Email:
 
     def login(self, data):
         d = {'status': 'ok'}
-        msg = data['email']
+        user = data['user']
         pwd = data['password']
 
         try:
-            u = User.objects.get(username=msg)
+            u = User.objects.get(username=user)
         except:
             return self.login_error()
 
-        if not u.check_password(pwd):
+        u_meta = json.loads(u.userdata.metadata)
+        if not u.check_password(pwd) or not u_meta.get('email_verified'):
             return self.login_error()
 
-        d['auth-token'] = genhmac(settings.SHARED_SECRET, msg)
+        d['auth-token'] = genhmac(settings.SHARED_SECRET, user)
         return d
 
     views = patterns('',
         url(r'^register/(?P<method>\d+)$', register),
-        url(r'^validate/(?P<user>\d+)/(?P<code>\w+)$', validate),
+        url(r'^validate/(?P<user>\w+)/(?P<code>\w+)$', validate),
     )
 
 register_method('email', Email)
