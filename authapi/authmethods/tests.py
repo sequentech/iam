@@ -128,7 +128,13 @@ class AuthMethodSmsTestCase(TestCase):
         })
         u2.userdata.save()
         self.c = JClient()
-        self.total_max = 7
+        pipe = Sms.TPL_CONFIG.get('register-pipeline')
+        for p in pipe:
+            if p[0] == 'check_total_max':
+                if p[1].get('field') == 'tlf':
+                    self.total_max_tlf = p[1].get('max')
+                elif p[1].get('field') == 'ip':
+                    self.total_max_ip = p[1].get('max')
 
     def test_method_sms_regiter(self):
         response = self.c.post('/api/authmethod/sms-code/register/1/',
@@ -201,9 +207,9 @@ class AuthMethodSmsTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'nok')
 
-    def test_method_sms_regiter_max(self):
+    def test_method_sms_regiter_max_tlf(self):
         x = 0
-        while x < self.total_max + 1:
+        while x < self.total_max_tlf + 1:
             x += 1
             response = self.c.post('/api/authmethod/sms-code/register/1/',
                     {'tlf': '+34666666666', 'password': '123456',

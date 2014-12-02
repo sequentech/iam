@@ -164,10 +164,11 @@ def check_ip_blacklisted(data):
     return RET_PIPE_CONTINUE
 
 
-def check_tlf_total_max(data, total_max=7):
+def check_tlf_total_max(data, **kwargs):
     '''
     if tlf has been sent >= MAX_SMS_LIMIT failed-sms in total->blacklist, error
     '''
+    total_max = kwargs.get('max')
     if data.get('whitelisted', False) == True:
         return RET_PIPE_CONTINUE
 
@@ -185,11 +186,12 @@ def check_tlf_total_max(data, total_max=7):
     return RET_PIPE_CONTINUE
 
 
-def check_ip_total_max(data, total_max=7):
+def check_ip_total_max(data, **kwargs):
     '''
     if the ip has been sent more than <total_max> messages that have not been
     authenticated, blacklist it
     '''
+    total_max = kwargs.get('max')
     if data.get('whitelisted', False) == True:
         return RET_PIPE_CONTINUE
 

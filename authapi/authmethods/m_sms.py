@@ -12,16 +12,8 @@ from authmethods.models import Message
 from api.models import AuthEvent, ACL
 
 
-def send_sms(provider, user, pwd, msg, tlf, ip):
-    # TODO: send sms
-    m = Message(ip=ip, tlf=tlf)
-    m.save()
-
-
-def register(request, event):
+def check_request(request, data):
     req = json.loads(request.body.decode('utf-8'))
-    data = {'status': 'ok', 'msg': ''}
-
     email = req.get('email')
     if not email_constraint(email):
         data['status'] = 'nok'
@@ -36,60 +28,96 @@ def register(request, event):
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
 
-    tlf = req.get('tlf')
-    data['tlf'] = tlf
+    data['tlf'] = req.get('tlf')
     data['ip_addr'] = get_client_ip(request)
+    return 0
 
-    c = check_tlf_whitelisted(data)
-    if c != 0:
-        return c
-    c = check_ip_whitelisted(data)
-    if c != 0:
-        return c
-    c = check_tlf_blacklisted(data)
-    if c != 0:
-        return c
-    c = check_ip_blacklisted(data)
-    if c != 0:
-        return c
 
-    c = check_tlf_total_max(data)
-    if c != 0:
-        return c
-    c = check_ip_total_max(data)
-    if c != 0:
-        return c
+def check_whitelisted(data, **kwargs):
+    field = kwargs.get('field')
+    if field == 'tlf':
+        check = check_tlf_whitelisted(data)
+    elif field == 'ip':
+        check = check_tlf_whitelisted(data)
+    return 0 if check == 0 else check
 
-    first_name = req.get('first_name')
-    last_name = req.get('last_name')
+
+def check_blacklisted(data, **kwargs):
+    field = kwargs.get('field')
+    if field == 'tlf':
+        check = check_tlf_blacklisted(data)
+    elif field == 'ip':
+        check = check_tlf_blacklisted(data)
+    return 0 if check == 0 else check
+
+
+def check_total_max(data, **kwargs):
+    check = check_tlf_total_max(data, **kwargs)
+    if check != 0:
+        return check
+    check = check_ip_total_max(data, **kwargs)
+    return 0 if check == 0 else check
+
+
+def register_request(data, request):
+    req = json.loads(request.body.decode('utf-8'))
 
     u = User(username=random_username())
-    u.email = email
+    u.email = req.get('email')
     u.save()
 
-    eo = AuthEvent.objects.get(pk=event)
-    conf = json.loads(eo.auth_method_config)
-    provider = conf.get('provider')
-    user = conf.get('user')
-    pwd = conf.get('pwd')
-
-    code = random_code(8, ascii_letters+digits)
+    data['code'] = random_code(8, ascii_letters+digits)
     valid_link = request.build_absolute_uri(
-            '/authmethod/sms-code/validate/%d/%s' % (u.pk,  code))
+            '/authmethod/sms-code/validate/%d/%s' % (u.pk,  data['code']))
+    eo = AuthEvent.objects.get(pk=data.get('event'))
+    conf = json.loads(eo.auth_method_config)
     msg = conf.get('msg') + valid_link
 
     u.userdata.event = eo
     u.userdata.metadata = json.dumps({
-            'first_name': first_name,
-            'last_name': last_name,
-            'tlf': tlf,
-            'code': code,
+            'first_name': req.get('first_name'),
+            'last_name': req.get('last_name'),
+            'tlf': req.get('tlf'),
+            'code': data['code'],
             'sms_verified': False
     })
     u.userdata.save()
+    return 0
 
-    send_sms(provider, user, pwd, msg, tlf, get_client_ip(request))
-    data['code'] = code
+
+def send_sms(data, conf):
+    # TODO: send sms
+    provider = conf.get('provider')
+    user = conf.get('user')
+    pwd = conf.get('pwd')
+
+    m = Message(ip=data.get('ip_addr'), tlf=data.get('tlf'))
+    m.save()
+    return 0
+
+
+
+def register(request, event):
+    data = {'status': 'ok', 'msg': '', 'event': event}
+
+    check = check_request(request, data)
+    if check != 0:
+        return check
+
+    eo = AuthEvent.objects.get(pk=event)
+    conf = json.loads(eo.auth_method_config)
+    pipeline = conf.get('register-pipeline')
+    for pipe in pipeline:
+        classname = pipe[0]
+        if classname == 'register_request':
+            check = getattr(eval(classname), '__call__')(data, request)
+        elif classname == 'send_sms':
+            check = getattr(eval(classname), '__call__')(data, conf)
+        else:
+            check = getattr(eval(classname), '__call__')(data, **pipe[1])
+
+        if check != 0:
+            return check
 
     jsondata = json.dumps(data)
     return HttpResponse(jsondata, content_type='application/json')
@@ -121,6 +149,22 @@ class Sms:
             'user': 'user',
             'pwd': 'pwd',
             'msg': 'Confirm your sms code: ',
+            'register-pipeline': [
+                #["check_tlf_expire_max", {"field": "tlf", "expire-secs": 120}],
+                ["check_whitelisted", {"field": "tlf"}],
+                ["check_whitelisted", {"field": "ip"}],
+                ["check_blacklisted", {"field": "ip"}],
+                ["check_blacklisted", {"field": "tlf"}],
+                #["check_ip_total_unconfirmed_requests_max", {"max": 30}],
+                ["check_total_max", {"field": "ip", "max": 8}],
+                ["check_total_max", {"field": "tlf", "max": 7}],
+                #["check_total_max", {"field": "tlf", "period": 1440, "max": 5}],
+                #["check_total_max", {"field": "tlf", "period": 60, "max": 3}],
+                #["check_id_in_census", {"fields": "tlf"}],
+                ["register_request"],
+                #["generate_token", {"land_line_rx": "^\+34[89]"}],
+                ["send_sms"],
+            ],
     }
 
     def login_error(self):
