@@ -86,15 +86,14 @@ def register_request(data, request):
 
 
 def send_sms(data, conf):
-    # TODO: send sms
-    provider = conf.get('provider')
-    user = conf.get('user')
-    pwd = conf.get('pwd')
+    from authmethods.sms_provider import SMSProvider
 
-    m = Message(ip=data.get('ip_addr'), tlf=data.get('tlf'))
+    con = SMSProvider.get_instance(conf)
+    con.send_sms(receiver=data['tlf'], content=conf['msg'], is_audio="sss")
+
+    m = Message(ip=data['ip_addr'], tlf=data['tlf'])
     m.save()
     return 0
-
 
 
 def register(request, event):
@@ -145,9 +144,13 @@ def validate(request, user, code):
 class Sms:
     DESCRIPTION = 'Provides authentication using an SMS code.'
     TPL_CONFIG = {
-            'provider': 'provider',
-            'user': 'user',
-            'pwd': 'pwd',
+            'SMS_PROVIDER': 'console',
+            'SMS_DOMAIN_ID': '',
+            'SMS_LOGIN': '',
+            'SMS_PASSWORD': '',
+            'SMS_URL': '',
+            'SMS_SENDER_ID': '',
+            'SMS_VOICE_LANG_CODE': '',
             'msg': 'Confirm your sms code: ',
             'register-pipeline': [
                 #["check_tlf_expire_max", {"field": "tlf", "expire-secs": 120}],
