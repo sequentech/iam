@@ -8,12 +8,14 @@ from utils import genhmac
 
 from . import register_method
 from authmethods.utils import *
+from authmethods.models import Message
 from api.models import AuthEvent, ACL
 
 
-def send_sms(provider, user, pwd, msg, tlf):
-    # TODO
-    pass
+def send_sms(provider, user, pwd, msg, tlf, ip):
+    # TODO: send sms
+    m = Message(ip=ip, tlf=tlf)
+    m.save()
 
 
 def register(request, event):
@@ -35,13 +37,28 @@ def register(request, event):
         return HttpResponse(jsondata, content_type='application/json')
 
     tlf = req.get('tlf')
-    ip = req.get('ip')
     data['tlf'] = tlf
-    data['ip_addr'] = ip
-    check_tlf_whitelisted(data)
-    check_ip_whitelisted(data)
-    check_tlf_blacklisted(data)
-    check_ip_blacklisted(data)
+    data['ip_addr'] = get_client_ip(request)
+
+    c = check_tlf_whitelisted(data)
+    if c != 0:
+        return c
+    c = check_ip_whitelisted(data)
+    if c != 0:
+        return c
+    c = check_tlf_blacklisted(data)
+    if c != 0:
+        return c
+    c = check_ip_blacklisted(data)
+    if c != 0:
+        return c
+
+    c = check_tlf_total_max(data)
+    if c != 0:
+        return c
+    c = check_ip_total_max(data)
+    if c != 0:
+        return c
 
     first_name = req.get('first_name')
     last_name = req.get('last_name')
@@ -71,7 +88,7 @@ def register(request, event):
     })
     u.userdata.save()
 
-    send_sms(provider, user, pwd, msg, tlf)
+    send_sms(provider, user, pwd, msg, tlf, get_client_ip(request))
     data['code'] = code
 
     jsondata = json.dumps(data)

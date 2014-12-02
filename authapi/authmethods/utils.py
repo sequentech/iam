@@ -1,10 +1,12 @@
+import json
 import re
 from django.contrib.auth.models import User
+from django.http import HttpResponse
 from random import choice
 from string import ascii_lowercase, digits
 from uuid import uuid4
 
-from .models import ColorList
+from .models import ColorList, Message
 
 
 
@@ -24,9 +26,9 @@ def error(message="", status=400, field=None, error_codename=None):
     '''
     Returns an error message
     '''
-
     data = dict(message=message, field=field, error_codename=error_codename)
-    return make_response(json.dumps(data), status)
+    jsondata = json.dumps(data)
+    return HttpResponse(jsondata, status=status, content_type='application/json')
 
 
 def random_username():
@@ -41,6 +43,15 @@ def random_username():
 def random_code(length=16, chars=ascii_lowercase+digits):
     return ''.join([choice(chars) for i in range(length)])
     return code;
+
+
+def get_client_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
 
 
 def email_constraint(val):
@@ -103,6 +114,7 @@ def check_ip_whitelisted(data):
         for item in items:
             if item.action == ColorList.ACTION_WHITELIST:
                 data['whitelisted'] = True
+                break
     except:
         pass
     return RET_PIPE_CONTINUE
@@ -149,4 +161,43 @@ def check_ip_blacklisted(data):
         return error("Blacklisted", error_codename="blacklisted")
     except:
         pass
+    return RET_PIPE_CONTINUE
+
+
+def check_tlf_total_max(data, total_max=7):
+    '''
+    if tlf has been sent >= MAX_SMS_LIMIT failed-sms in total->blacklist, error
+    '''
+    if data.get('whitelisted', False) == True:
+        return RET_PIPE_CONTINUE
+
+    ip_addr = data['ip_addr']
+    tlf = data['tlf']
+    item = Message.objects.filter(tlf=tlf)
+    if len(item) >= total_max:
+        c1 = ColorList(action=ColorList.ACTION_BLACKLIST,
+                       key=ColorList.KEY_IP, value=ip_addr)
+        c1.save()
+        c2 = ColorList(action=ColorList.ACTION_BLACKLIST,
+                       key=ColorList.KEY_TLF, value=tlf)
+        c2.save()
+        return error("Blacklisted", error_codename="blacklisted")
+    return RET_PIPE_CONTINUE
+
+
+def check_ip_total_max(data, total_max=7):
+    '''
+    if the ip has been sent more than <total_max> messages that have not been
+    authenticated, blacklist it
+    '''
+    if data.get('whitelisted', False) == True:
+        return RET_PIPE_CONTINUE
+
+    ip_addr = data['ip_addr']
+    item = Message.objects.filter(ip=ip_addr)
+    if len(item) >= total_max:
+        cl = ColorList(action=ColorList.ACTION_BLACKLIST,
+                       key=ColorList.KEY_IP, value=ip_addr)
+        cl.save()
+        return error("Blacklisted", error_codename="blacklisted")
     return RET_PIPE_CONTINUE

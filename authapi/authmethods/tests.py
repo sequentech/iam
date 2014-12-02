@@ -128,6 +128,7 @@ class AuthMethodSmsTestCase(TestCase):
         })
         u2.userdata.save()
         self.c = JClient()
+        self.total_max = 7
 
     def test_method_sms_regiter(self):
         response = self.c.post('/api/authmethod/sms-code/register/1/',
@@ -200,3 +201,16 @@ class AuthMethodSmsTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'nok')
 
+    def test_method_sms_regiter_max(self):
+        x = 0
+        while x < self.total_max + 1:
+            x += 1
+            response = self.c.post('/api/authmethod/sms-code/register/1/',
+                    {'tlf': '+34666666666', 'password': '123456',
+                        'email': 'test@test.com', 'dni': '11111111H'})
+        response = self.c.post('/api/authmethod/sms-code/register/1/',
+                {'tlf': '+34666666666', 'password': '123456',
+                    'email': 'test@test.com', 'dni': '11111111H'})
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertNotEqual(r['message'].find('Blacklisted'), -1)
