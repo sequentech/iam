@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import datetime, timedelta
 from django.contrib.auth.models import User
 from django.http import HttpResponse
 from random import choice
@@ -166,15 +167,21 @@ def check_ip_blacklisted(data):
 
 def check_tlf_total_max(data, **kwargs):
     '''
-    if tlf has been sent >= MAX_SMS_LIMIT failed-sms in total->blacklist, error
+    if tlf has been sent >= MAX_SMS_LIMIT (in a period time) failed-sms
+    in total->blacklist, error
     '''
     total_max = kwargs.get('max')
+    period = kwargs.get('period')
     if data.get('whitelisted', False) == True:
         return RET_PIPE_CONTINUE
 
     ip_addr = data['ip_addr']
     tlf = data['tlf']
-    item = Message.objects.filter(tlf=tlf)
+    if period:
+        time_threshold = datetime.now() - timedelta(seconds=period)
+        item = Message.objects.filter(tlf=tlf, created__lt=time_threshold)
+    else:
+        item = Message.objects.filter(tlf=tlf)
     if len(item) >= total_max:
         c1 = ColorList(action=ColorList.ACTION_BLACKLIST,
                        key=ColorList.KEY_IP, value=ip_addr)

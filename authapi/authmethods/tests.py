@@ -3,6 +3,7 @@ from django.core import mail
 from django.test import TestCase
 
 import json
+import time
 from api.tests import JClient
 from api.models import AuthEvent
 from .m_email import Email
@@ -132,7 +133,11 @@ class AuthMethodSmsTestCase(TestCase):
         for p in pipe:
             if p[0] == 'check_total_max':
                 if p[1].get('field') == 'tlf':
-                    self.total_max_tlf = p[1].get('max')
+                    if p[1].get('period'):
+                        self.period_tlf = p[1].get('period')
+                        self.total_max_tlf_period = p[1].get('max')
+                    else:
+                        self.total_max_tlf = p[1].get('max')
                 elif p[1].get('field') == 'ip':
                     self.total_max_ip = p[1].get('max')
 
@@ -220,3 +225,23 @@ class AuthMethodSmsTestCase(TestCase):
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertNotEqual(r['message'].find('Blacklisted'), -1)
+
+    def test_method_sms_regiter_max_tlf_period(self):
+        x = 0
+        time_now = time.time()
+        while x < self.total_max_tlf_period + 1:
+            x += 1
+            response = self.c.post('/api/authmethod/sms-code/register/1/',
+                    {'tlf': '+34666666666', 'password': '123456',
+                        'email': 'test@test.com', 'dni': '11111111H'})
+        response = self.c.post('/api/authmethod/sms-code/register/1/',
+                {'tlf': '+34666666666', 'password': '123456',
+                    'email': 'test@test.com', 'dni': '11111111H'})
+
+        total_time = time.time() - time_now
+        if total_time < self.period_tlf:
+            self.assertEqual(response.status_code, 400)
+            r = json.loads(response.content.decode('utf-8'))
+            self.assertNotEqual(r['message'].find('Blacklisted'), -1)
+        else:
+            self.assertEqual(response.status_code, 200)
