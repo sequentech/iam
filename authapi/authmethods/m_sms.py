@@ -131,8 +131,10 @@ def validate(request, user, code):
         u.save()
 
         # giving perms
-        acl = ACL(user=u.userdata, perm='vote')
-        acl.save()
+        conf = json.loads(u.userdata.event.auth_method_config)
+        for perm in conf.get('register-perm'):
+            acl = ACL(user=u.userdata, perm=perm)
+            acl.save()
         data = {'status': 'ok', 'username': u.username}
     else:
         data = {'status': 'nok'}
@@ -168,6 +170,7 @@ class Sms:
                 #["generate_token", {"land_line_rx": "^\+34[89]"}],
                 ["send_sms"],
             ],
+            'register-perm': [ 'add_vote', ],
     }
 
     def login_error(self):

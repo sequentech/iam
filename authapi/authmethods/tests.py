@@ -5,7 +5,7 @@ from django.test import TestCase
 import json
 import time
 from api.tests import JClient
-from api.models import AuthEvent
+from api.models import AuthEvent, ACL
 from .m_email import Email
 from .m_sms import Sms
 
@@ -117,6 +117,9 @@ class AuthMethodSmsTestCase(TestCase):
                 'sms_verified': True
         })
         u.userdata.save()
+        for perm in Sms.TPL_CONFIG.get('register-perm'):
+            acl = ACL(user=u.userdata, perm=perm)
+            acl.save()
 
         u2 = User(pk=2, username='test2')
         u2.set_password('123456')
@@ -196,7 +199,30 @@ class AuthMethodSmsTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'nok')
 
-    def test_method_email_login_valid_code(self):
+    def test_method_sms_get_perm(self):
+        auth = {
+            'auth-method': 'sms-code',
+            'auth-data': {
+                'user': 'test1',
+                'password': '123456'
+            }
+        }
+        data1 = { "permission": "add_vote", }
+        data2 = { "permission": "rm_vote", }
+
+        response = self.c.post('/api/get-perms', data1)
+        self.assertEqual(response.status_code, 301)
+        response = self.c.post('/api/get-perms', data2)
+        self.assertEqual(response.status_code, 301)
+
+        self.c.login(auth)
+        response = self.c.post('/api/get-perms/', data1)
+        self.assertEqual(response.status_code, 200)
+        response = self.c.post('/api/get-perms/', data2)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['status'], 'nok')
+
+    def test_method_sms_login_valid_code(self):
         response = self.c.post('/api/login/',
                 {'auth-method': 'sms-code', 'auth-data':
                     {'user': 'test1', 'password': '123456'}})
@@ -204,7 +230,7 @@ class AuthMethodSmsTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(r['auth-token'].startswith('khmac:///sha256'))
 
-    def test_method_email_login_invalid_code(self):
+    def test_method_sms_login_invalid_code(self):
         response = self.c.post('/api/login/',
                 {'auth-method': 'sms-code', 'auth-data':
                     {'user': 'test2', 'password': '123456'}})
