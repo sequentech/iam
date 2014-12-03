@@ -8,4 +8,6 @@ urlpatterns = patterns('',
     url(r'^get-perms/', 'api.views.getperms', name='getperms'),
     url(r'^auth-event/$', 'api.views.authevent', name='authevent'),
     url(r'^auth-event/(?P<pk>\d+)/$', 'api.views.authevent', name='authevent'),
+    url(r'^acl/$', 'api.views.acl', name='acl'),
+    url(r'^acl/(?P<userid>\d+)/(?P<perm>\w+)/$', 'api.views.acl', name='acl'),
 )

@@ -50,6 +50,7 @@ class ApiTestCase(TestCase):
         u = User(username='john')
         u.set_password('smith')
         u.save()
+        self.userid = u.pk
 
         acl = ACL(user=u.userdata, perm='create_user')
         acl.save()
@@ -61,6 +62,15 @@ class ApiTestCase(TestCase):
         acl.save()
 
         acl = ACL(user=u.userdata, perm='delete_authevent')
+        acl.save()
+
+        acl = ACL(user=u.userdata, perm='delete_acl')
+        acl.save()
+
+        acl = ACL(user=u.userdata, perm='view_acl')
+        acl.save()
+
+        acl = ACL(user=u.userdata, perm='create_acl')
         acl.save()
 
     def test_api(self):
@@ -178,3 +188,38 @@ class ApiTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
+
+    def test_create_acl(self):
+        c = JClient()
+        c.login(test_data.pwd_auth)
+        data = {
+                'userid': self.userid,
+                'perms': ['vote', ]
+        }
+        response = c.post('/api/acl/', data)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotEqual(0, ACL.objects.filter(user=self.userid, perm='vote').count())
+
+    def test_delete_acl(self):
+        c = JClient()
+        c.login(test_data.pwd_auth)
+        data = {
+                'userid': self.userid,
+                'perms': ['vote', ]
+        }
+        response = c.delete('/api/acl/', data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(0, ACL.objects.filter(user=self.userid, perm='vote').count())
+
+    def test_view_acl(self):
+        c = JClient()
+        c.login(test_data.pwd_auth)
+        response = c.get('/api/acl/%d/%s/' % (self.userid, 'create_user'), {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['perm'], True)
+
+        response = c.get('/api/acl/%d/%s/' % (self.userid, 'vote'), {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['perm'], False)
