@@ -14,10 +14,10 @@ class ColorList(models.Model):
     key = models.CharField(max_length=3, default=KEY_IP)
     value = models.CharField(max_length=255)
     action = models.CharField(max_length=255, choices=ACTION, default="black")
-    created = models.DateField(auto_now_add=True)
+    created = models.DateTimeField(auto_now_add=True)
 
 
 class Message(models.Model):
     ip = models.CharField(max_length=15)
     tlf = models.CharField(max_length=20)
-    created = models.DateField(auto_now_add=True)
+    created = models.DateTimeField(auto_now_add=True)
