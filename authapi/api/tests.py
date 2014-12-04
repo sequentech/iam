@@ -61,6 +61,9 @@ class ApiTestCase(TestCase):
         acl = ACL(user=u.userdata, perm='list_authevent')
         acl.save()
 
+        acl = ACL(user=u.userdata, perm='edit_authevent')
+        acl.save()
+
         acl = ACL(user=u.userdata, perm='delete_authevent')
         acl.save()
 
@@ -178,6 +181,23 @@ class ApiTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(len(r['events']), 1)
         self.assertEqual(r['events'][0]['name'], 'foo election')
+
+    def test_edit_event_success(self):
+        self.test_create_event()
+        c = JClient()
+        c.login(test_data.pwd_auth)
+
+        data = test_data.auth_event2
+        response = c.post('/api/auth-event/1/', data)
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['status'], 'ok')
+
+        response = c.get('/api/auth-event/', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['events']), 1)
+        self.assertEqual(r['events'][0]['name'], 'bar election')
 
     def test_delete_event_success(self):
         self.test_create_event()

@@ -116,18 +116,26 @@ acl = login_required(ACLView.as_view())
 
 
 class AuthEventView(View):
-    def post(self, request):
+    def post(self, request, pk=None):
         '''
-            Creates a new auth-event.
-            create_authevent permission required
+            Creates a new auth-event or edit auth_event
+            create_authevent permission required or
+            edit_authevent permission required
         '''
-        permission_required(request.user, 'create_authevent')
         req = json.loads(request.body.decode('utf-8'))
-
-        ae = AuthEvent(name=req['name'],
-                       auth_method=req['auth_method'],
-                       auth_method_config=req['auth_method_config'],
-                       metadata=req)
+        if pk is None: # create
+            permission_required(request.user, 'create_authevent')
+            ae = AuthEvent(name=req['name'],
+                           auth_method=req['auth_method'],
+                           auth_method_config=req['auth_method_config'],
+                           metadata=req)
+        else: # edit
+            permission_required(request.user, 'edit_authevent')
+            ae = AuthEvent.objects.get(pk=pk)
+            ae.name = req['name']
+            ae.auth_method = req['auth_method']
+            ae.auth_method_config = req['auth_method_config']
+            ae.metadata = req
         ae.save()
 
         data = {'status': 'ok', 'id': ae.pk}
