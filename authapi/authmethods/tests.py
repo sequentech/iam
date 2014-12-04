@@ -8,6 +8,7 @@ from api.tests import JClient
 from api.models import AuthEvent, ACL
 from .m_email import Email
 from .m_sms import Sms
+from .models import Message
 
 
 class AuthMethodTestCase(TestCase):
@@ -117,9 +118,16 @@ class AuthMethodSmsTestCase(TestCase):
                 'sms_verified': True
         })
         u.userdata.save()
-        for perm in Sms.TPL_CONFIG.get('register-perm'):
-            acl = ACL(user=u.userdata, perm=perm)
-            acl.save()
+        m = Message(tlf='+34666666666')
+        m.save()
+        pipe = Sms.TPL_CONFIG.get('feedback-pipeline')
+        for p in pipe:
+            if p[0] == 'check_sms_code':
+                self.timestamp = p[1].get('timestamp')
+            if p[0] == 'give_perms':
+                for perm in p[1]:
+                    acl = ACL(user=u.userdata, perm=perm)
+                    acl.save()
 
         u2 = User(pk=2, username='test2')
         u2.set_password('123456')
@@ -190,14 +198,24 @@ class AuthMethodSmsTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
 
+    def test_method_sms_valid_code_timeout(self):
+        user = 'test1'
+        code = 'AAAAAAAA'
+
+        time.sleep(self.timestamp)
+        response = self.c.get('/api/authmethod/sms-code/validate/%s/%s/' % (user, code), {})
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['message'], 'Timeout.')
+
     def test_method_sms_invalid_code(self):
         user = 'test1'
         code = 'BBBBBBBB'
 
         response = self.c.get('/api/authmethod/sms-code/validate/%s/%s/' % (user, code), {})
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['status'], 'nok')
+        self.assertEqual(r['message'], 'Invalid code.')
 
     def test_method_sms_get_perm(self):
         auth = {

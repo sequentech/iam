@@ -3,6 +3,7 @@ from django.conf import settings
 from django.conf.urls import patterns, url
 from django.contrib.auth.models import User
 from django.http import HttpResponse
+from django.utils import timezone
 from string import ascii_letters, digits
 from utils import genhmac
 
@@ -96,6 +97,34 @@ def send_sms(data, conf):
     return 0
 
 
+def check_sms_code(data, **kwargs):
+    user = data['user']
+    u_meta = json.loads(user.userdata.metadata)
+    conf = json.loads(user.userdata.event.auth_method_config)
+
+    # check code
+    if u_meta.get('code') != data['code']:
+        return error('Invalid code.', error_codename='check_sms_code')
+    
+    # check timestamp
+    time_thr = timezone.now() - timedelta(seconds=kwargs.get('timestamp'))
+    if not Message.objects.filter(tlf=u_meta.get('tlf'), created__gt=time_thr):
+        return error('Timeout.', error_codename='check_sms_code')
+
+    u_meta.update({ 'sms_verified': True })
+    user.userdata.metadata = json.dumps(u_meta)
+    user.save()
+    return 0
+
+
+def give_perms(data, **kwargs):
+    user = data['user']
+    for perm in kwargs.get('perms'):
+        acl = ACL(user=user.userdata, perm=perm)
+        acl.save()
+    return 0
+
+
 def register(request, event):
     data = {'status': 'ok', 'msg': '', 'event': event}
 
@@ -124,21 +153,19 @@ def register(request, event):
 
 def validate(request, user, code):
     u = User.objects.get(username=user)
+    data = {'status': 'ok', 'user': u, 'code': code}
     u_meta = json.loads(u.userdata.metadata)
-    if u_meta.get('code') == code:
-        u_meta.update({ 'sms_verified': True })
-        u.userdata.metadata = json.dumps(u_meta)
-        u.save()
 
-        # giving perms
-        conf = json.loads(u.userdata.event.auth_method_config)
-        for perm in conf.get('register-perm'):
-            acl = ACL(user=u.userdata, perm=perm)
-            acl.save()
-        data = {'status': 'ok', 'username': u.username}
-    else:
-        data = {'status': 'nok'}
+    conf = json.loads(u.userdata.event.auth_method_config)
+    pipeline = conf.get('feedback-pipeline')
+    for pipe in pipeline:
+        check = getattr(eval(pipe[0]), '__call__')(data, **pipe[1])
 
+        if check != 0:
+            return check
+
+    data['username'] = u.username
+    data.pop('user')
     jsondata = json.dumps(data)
     return HttpResponse(jsondata, content_type='application/json')
 
@@ -170,7 +197,10 @@ class Sms:
                 #["generate_token", {"land_line_rx": "^\+34[89]"}],
                 ["send_sms"],
             ],
-            'register-perm': [ 'add_vote', ],
+            'feedback-pipeline': [
+                ['check_sms_code', {'timestamp': 5 }], # seconds
+                ['give_perms', {'perms': ['add_vote',] }],
+            ],
     }
 
     def login_error(self):

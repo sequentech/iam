@@ -1,14 +1,14 @@
 import json
 import re
-from datetime import datetime, timedelta
+from datetime import timedelta
 from django.contrib.auth.models import User
 from django.http import HttpResponse
+from django.utils import timezone
 from random import choice
 from string import ascii_lowercase, digits
 from uuid import uuid4
 
 from .models import ColorList, Message
-
 
 
 EMAIL_RX = re.compile(
@@ -178,7 +178,7 @@ def check_tlf_total_max(data, **kwargs):
     ip_addr = data['ip_addr']
     tlf = data['tlf']
     if period:
-        time_threshold = datetime.now() - timedelta(seconds=period)
+        time_threshold = timezone.now() - timedelta(seconds=period)
         item = Message.objects.filter(tlf=tlf, created__lt=time_threshold)
     else:
         item = Message.objects.filter(tlf=tlf)
