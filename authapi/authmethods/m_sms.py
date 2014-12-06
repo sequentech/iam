@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.utils import timezone
 from string import ascii_letters, digits
-from utils import genhmac
+from utils import genhmac, constant_time_compare
 
 from . import register_method
 from authmethods.utils import *
@@ -103,7 +103,7 @@ def check_sms_code(data, **kwargs):
     conf = json.loads(user.userdata.event.auth_method_config)
 
     # check code
-    if u_meta.get('code') != data['code']:
+    if not constant_time_compare(u_meta.get('code'), data['code']):
         return error('Invalid code.', error_codename='check_sms_code')
     
     # check timestamp

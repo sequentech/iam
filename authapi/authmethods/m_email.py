@@ -59,7 +59,7 @@ def register(request, method):
 def validate(request, user, code):
     u = User.objects.get(username=user)
     u_meta = json.loads(u.userdata.metadata)
-    if u_meta.get('code') == code:
+    if constant_time_compare(u_meta.get('code'), code):
         u_meta.update({ 'email_verified': True })
         u.userdata.metadata = json.dumps(u_meta)
         u.save()
