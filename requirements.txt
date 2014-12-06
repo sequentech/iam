@@ -3,3 +3,4 @@ ipdb
 jsonfield
 requests
 xmltodict
+six

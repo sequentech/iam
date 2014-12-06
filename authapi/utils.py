@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-
-
 import hmac
 import datetime
 import time
+import six
 
 
 def genhmac(key, msg):

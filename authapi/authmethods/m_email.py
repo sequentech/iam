@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from django.http import HttpResponse
 from string import ascii_letters, digits
-from utils import genhmac
+from utils import genhmac, constant_time_compare
 
 from . import register_method
 from authmethods.utils import random_code
