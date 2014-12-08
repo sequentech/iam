@@ -52,28 +52,28 @@ class ApiTestCase(TestCase):
         u.save()
         self.userid = u.pk
 
-        acl = ACL(user=u.userdata, perm='create_user')
+        acl = ACL(user=u.userdata, obj_type='User', perm='create')
         acl.save()
 
-        acl = ACL(user=u.userdata, perm='create_authevent')
+        acl = ACL(user=u.userdata, obj_type='AuthEvent', perm='create')
         acl.save()
 
-        acl = ACL(user=u.userdata, perm='list_authevent')
+        acl = ACL(user=u.userdata, obj_type='AuthEvent', perm='view')
         acl.save()
 
-        acl = ACL(user=u.userdata, perm='edit_authevent')
+        acl = ACL(user=u.userdata, obj_type='AuthEvent', perm='edit')
         acl.save()
 
-        acl = ACL(user=u.userdata, perm='delete_authevent')
+        acl = ACL(user=u.userdata, obj_type='AuthEvent', perm='delete')
         acl.save()
 
-        acl = ACL(user=u.userdata, perm='delete_acl')
+        acl = ACL(user=u.userdata, obj_type='ACL', perm='delete')
         acl.save()
 
-        acl = ACL(user=u.userdata, perm='view_acl')
+        acl = ACL(user=u.userdata, obj_type='ACL', perm='view')
         acl.save()
 
-        acl = ACL(user=u.userdata, perm='create_acl')
+        acl = ACL(user=u.userdata, obj_type='ACL', perm='create')
         acl.save()
 
     def test_api(self):
@@ -136,8 +136,8 @@ class ApiTestCase(TestCase):
         c.login(test_data.pwd_auth)
 
         data = {
-            "permission": "delete_user",
-            "permission_data": "newuser"
+            "obj_type": "User",
+            "permission": "delete"
         }
         response = c.post('/api/get-perms/', data)
 
@@ -150,8 +150,8 @@ class ApiTestCase(TestCase):
         c.login(test_data.pwd_auth)
 
         data = {
-            "permission": "create_user",
-            "permission_data": "newuser"
+            "obj_type": "User",
+            "permission": "create"
         }
         response = c.post('/api/get-perms/', data)
 
@@ -234,12 +234,12 @@ class ApiTestCase(TestCase):
     def test_view_acl(self):
         c = JClient()
         c.login(test_data.pwd_auth)
-        response = c.get('/api/acl/%d/%s/' % (self.userid, 'create_user'), {})
+        response = c.get('/api/acl/%d/%s/%s/' % (self.userid, 'User', 'create'), {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['perm'], True)
 
-        response = c.get('/api/acl/%d/%s/' % (self.userid, 'vote'), {})
+        response = c.get('/api/acl/%d/%s/%s/' % (self.userid, 'Vote', 'create'), {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['perm'], False)

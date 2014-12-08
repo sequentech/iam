@@ -11,8 +11,8 @@ from .decorators import login_required
 from .models import AuthEvent, ACL
 
 
-def permission_required(user, permission):
-    if not user.userdata.has_perms(permission):
+def permission_required(user, obj_type, permission):
+    if not user.userdata.has_perms(obj_type, permission):
         raise PermissionDenied('Permission required: ' + permission)
 
 
@@ -60,18 +60,18 @@ class GetPerms(View):
             jsondata = json.dumps(data)
             return HttpResponse(jsondata, content_type='application/json')
 
-        p = req['permission']
-        d = req.get('permission_data', '')
+        obj = req.get('obj_type')
+        per = req['permission']
 
-        if not request.user.userdata.has_perms(p):
+        if not request.user.userdata.has_perms(obj, per):
             data = {'status': 'nok'}
             jsondata = json.dumps(data)
             return HttpResponse(jsondata, content_type='application/json')
 
-        if d:
-            msg = '%s:%s:%s' % (request.user.username, p, d)
+        if obj:
+            msg = '%s:%s:%s' % (request.user.username, obj, per)
         else:
-            msg = '%s:%s' % (request.user.username, p)
+            msg = '%s:%s' % (request.user.username, per)
 
         data['permission-token'] = genhmac(settings.SHARED_SECRET, msg)
         jsondata = json.dumps(data)
@@ -83,7 +83,7 @@ class ACLView(View):
     ''' Returns the permission token if the user has this perm '''
 
     def delete(self, request):
-        permission_required(request.user, 'delete_acl')
+        permission_required(request.user, 'ACL', 'delete')
         req = json.loads(request.body.decode('utf-8'))
         u = User.objects.get(pk=req['userid'])
         for acl in ACL.objects.filter(user=u.userdata, perm=['perm']):
@@ -92,10 +92,10 @@ class ACLView(View):
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
 
-    def get(self, request, userid, perm):
-        permission_required(request.user, 'view_acl')
+    def get(self, request, userid, obj_type, perm):
+        permission_required(request.user, 'ACL', 'view')
         data = {'status': 'ok'}
-        if ACL.objects.filter(user=userid, perm=perm).count() > 0:
+        if ACL.objects.filter(user=userid, obj_type=obj_type, perm=perm).count() > 0:
             data['perm'] = True
         else:
             data['perm'] = False
@@ -103,7 +103,7 @@ class ACLView(View):
         return HttpResponse(jsondata, content_type='application/json')
 
     def post(self, request):
-        permission_required(request.user, 'create_acl')
+        permission_required(request.user, 'ACL', 'create')
         data = {'status': 'ok'}
         req = json.loads(request.body.decode('utf-8'))
         u = User.objects.get(pk=req['userid'])
@@ -124,13 +124,13 @@ class AuthEventView(View):
         '''
         req = json.loads(request.body.decode('utf-8'))
         if pk is None: # create
-            permission_required(request.user, 'create_authevent')
+            permission_required(request.user, 'AuthEvent', 'create')
             ae = AuthEvent(name=req['name'],
                            auth_method=req['auth_method'],
                            auth_method_config=req['auth_method_config'],
                            metadata=req)
         else: # edit
-            permission_required(request.user, 'edit_authevent')
+            permission_required(request.user, 'AuthEvent', 'edit')
             ae = AuthEvent.objects.get(pk=pk)
             ae.name = req['name']
             ae.auth_method = req['auth_method']
@@ -146,7 +146,7 @@ class AuthEventView(View):
         '''
             Lists all AuthEvents
         '''
-        permission_required(request.user, 'list_authevent')
+        permission_required(request.user, 'AuthEvent', 'view')
         # TODO paginate and filter with GET params
         events = AuthEvent.objects.all()
         aes = []
@@ -162,7 +162,7 @@ class AuthEventView(View):
             Delete a auth-event.
             delete_authevent permission required
         '''
-        permission_required(request.user, 'delete_authevent')
+        permission_required(request.user, 'AuthEvent', 'delete')
 
         ae = AuthEvent.objects.get(pk=pk)
         ae.delete()

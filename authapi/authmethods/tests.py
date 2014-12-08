@@ -125,8 +125,9 @@ class AuthMethodSmsTestCase(TestCase):
             if p[0] == 'check_sms_code':
                 self.timestamp = p[1].get('timestamp')
             if p[0] == 'give_perms':
-                for perm in p[1]:
-                    acl = ACL(user=u.userdata, perm=perm)
+                obj = p[1].get('obj_type')
+                for perm in p[1].get('perms'):
+                    acl = ACL(user=u.userdata, obj_type=obj, perm=perm)
                     acl.save()
 
         u2 = User(pk=2, username='test2')

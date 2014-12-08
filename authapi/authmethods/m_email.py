@@ -65,7 +65,7 @@ def validate(request, user, code):
         u.save()
 
         # giving perms
-        acl = ACL(user=u.userdata, perm='vote')
+        acl = ACL(user=u.userdata, obj_type='Vote', perm='create')
         acl.save()
         data = {'status': 'ok', 'username': u.username}
     else:

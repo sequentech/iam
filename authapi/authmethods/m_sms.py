@@ -119,8 +119,9 @@ def check_sms_code(data, **kwargs):
 
 def give_perms(data, **kwargs):
     user = data['user']
+    obj = kwargs.get('obj_type')
     for perm in kwargs.get('perms'):
-        acl = ACL(user=user.userdata, perm=perm)
+        acl = ACL(user=user.userdata, obj_type=obj, perm=perm)
         acl.save()
     return 0
 
@@ -199,7 +200,7 @@ class Sms:
             ],
             'feedback-pipeline': [
                 ['check_sms_code', {'timestamp': 5 }], # seconds
-                ['give_perms', {'perms': ['add_vote',] }],
+                ['give_perms', {'obj_type': 'Vote', 'perms': ['create',] }],
             ],
     }
 
