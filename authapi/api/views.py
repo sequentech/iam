@@ -11,8 +11,8 @@ from .decorators import login_required
 from .models import AuthEvent, ACL
 
 
-def permission_required(user, obj_type, permission):
-    if not user.userdata.has_perms(obj_type, permission):
+def permission_required(user, obj_type, permission, objectid=None):
+    if not user.userdata.has_perms(obj_type, permission, objectid):
         raise PermissionDenied('Permission required: ' + permission)
 
 
@@ -63,7 +63,7 @@ class GetPerms(View):
         obj = req.get('obj_type')
         per = req['permission']
 
-        if not request.user.userdata.has_perms(obj, per):
+        if not request.user.userdata.has_perms(obj, per, None):
             jsondata = json.dumps(data)
             return HttpResponse(jsondata, status=400, content_type='application/json')
 
@@ -146,11 +146,15 @@ class AuthEventView(View):
             Lists all AuthEvents
         '''
         permission_required(request.user, 'AuthEvent', 'view')
+
         # TODO paginate and filter with GET params
         events = AuthEvent.objects.all()
         aes = []
         for e in events:
-            aes.append(e.serialize())
+            if request.user.userdata.has_perms('AuthEvent', e.id, 'admin'):
+                aes.append(e.serialize())
+            else:
+                aes.append(e.serialize_restrict())
 
         data = {'status': 'ok', 'events': aes}
         jsondata = json.dumps(data)

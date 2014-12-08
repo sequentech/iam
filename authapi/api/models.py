@@ -18,6 +18,16 @@ class AuthEvent(models.Model):
             'id': self.id,
             'name': self.name,
             'auth_method': self.auth_method,
+            'auth_method_config': self.auth_method_config,
+            'metadata': self.metadata,
+        }
+        return d
+
+    def serialize_restrict(self):
+        d = {
+            'id': self.id,
+            'name': self.name,
+            'auth_method': self.auth_method,
             'metadata': self.metadata,
         }
         return d
@@ -35,8 +45,8 @@ class UserData(models.Model):
     metadata = JSONField(default="{}")
     status = models.CharField(max_length=255, choices=STATUSES, default="act")
 
-    def has_perms(self, obj, permission):
-        return self.acls.filter(obj_type=obj, perm=permission).count()
+    def has_perms(self, obj, permission, objectid):
+        return self.acls.filter(obj_type=obj, objectid=objectid, perm=permission).count()
 
 @receiver(post_save, sender=User)
 def create_user_data(sender, instance, created, *args, **kwargs):
