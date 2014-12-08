@@ -43,8 +43,9 @@ class Login(View):
         m = req.get('auth-method', 'user-and-password')
         d = req.get('auth-data', '{}')
         data = auth_login(m, d)
+        status = 200 if data['status'] == 'ok' else 400
         jsondata = json.dumps(data)
-        return HttpResponse(jsondata, content_type='application/json')
+        return HttpResponse(jsondata, status=status, content_type='application/json')
 login = Login.as_view()
 
 
@@ -56,17 +57,15 @@ class GetPerms(View):
         req = json.loads(request.body.decode('utf-8'))
 
         if not 'permission' in req:
-            data = {'status': 'nok'}
             jsondata = json.dumps(data)
-            return HttpResponse(jsondata, content_type='application/json')
+            return HttpResponse(jsondata, status=400, content_type='application/json')
 
         obj = req.get('obj_type')
         per = req['permission']
 
         if not request.user.userdata.has_perms(obj, per):
-            data = {'status': 'nok'}
             jsondata = json.dumps(data)
-            return HttpResponse(jsondata, content_type='application/json')
+            return HttpResponse(jsondata, status=400, content_type='application/json')
 
         if obj:
             msg = '%s:%s:%s' % (request.user.username, obj, per)

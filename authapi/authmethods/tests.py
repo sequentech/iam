@@ -79,9 +79,7 @@ class AuthMethodEmailTestCase(TestCase):
 
         c = JClient()
         response = c.get('/api/authmethod/email/validate/%s/%s/' % (user, code), {})
-        self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['status'], 'nok')
+        self.assertEqual(response.status_code, 400)
 
     def test_method_email_login_valid_code(self):
         c = JClient()
@@ -97,9 +95,7 @@ class AuthMethodEmailTestCase(TestCase):
         response = c.post('/api/login/',
                 {'auth-method': 'email', 'auth-data':
                     {'user': 'test2', 'password': '123456'}})
-        self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['status'], 'nok')
+        self.assertEqual(response.status_code, 400)
 
 
 class AuthMethodSmsTestCase(TestCase):
@@ -164,14 +160,14 @@ class AuthMethodSmsTestCase(TestCase):
     def test_method_sms_register_valid_dni(self):
         response = self.c.post('/api/authmethod/sms-code/register/1/',
                 {'tlf': '+34666666666', 'password': '123456', 'dni': '11111111H'})
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['msg'].find('Invalid dni'), -1)
 
     def test_method_sms_register_invalid_dni(self):
         response = self.c.post('/api/authmethod/sms-code/register/1/',
                 {'tlf': '+34666666666', 'password': '123456', 'dni': '999'})
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertNotEqual(r['msg'].find('Invalid dni'), -1)
 
@@ -179,14 +175,14 @@ class AuthMethodSmsTestCase(TestCase):
         response = self.c.post('/api/authmethod/sms-code/register/1/',
                 {'tlf': '+34666666666', 'password': '123456',
                     'email': 'test@test.com'})
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['msg'].find('Invalid email'), -1)
 
     def test_method_sms_register_invalid_email(self):
         response = self.c.post('/api/authmethod/sms-code/register/1/',
                 {'tlf': '+34666666666', 'password': '123456', 'email': 'test@@'})
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertNotEqual(r['msg'].find('Invalid email'), -1)
 
@@ -226,8 +222,8 @@ class AuthMethodSmsTestCase(TestCase):
                 'password': '123456'
             }
         }
-        data1 = { "permission": "add_vote", }
-        data2 = { "permission": "rm_vote", }
+        data1 = { "obj_type": "Vote", "permission": "create", }
+        data2 = { "obj_type": "Vote", "permission": "remove", }
 
         response = self.c.post('/api/get-perms', data1)
         self.assertEqual(response.status_code, 301)
@@ -238,8 +234,7 @@ class AuthMethodSmsTestCase(TestCase):
         response = self.c.post('/api/get-perms/', data1)
         self.assertEqual(response.status_code, 200)
         response = self.c.post('/api/get-perms/', data2)
-        r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['status'], 'nok')
+        self.assertEqual(response.status_code, 400)
 
     def test_method_sms_login_valid_code(self):
         response = self.c.post('/api/login/',
@@ -253,9 +248,7 @@ class AuthMethodSmsTestCase(TestCase):
         response = self.c.post('/api/login/',
                 {'auth-method': 'sms-code', 'auth-data':
                     {'user': 'test2', 'password': '123456'}})
-        self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['status'], 'nok')
+        self.assertEqual(response.status_code, 400)
 
     def test_method_sms_regiter_max_tlf(self):
         x = 0

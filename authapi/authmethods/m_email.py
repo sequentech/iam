@@ -23,35 +23,32 @@ def register(request, method):
         u.set_password(pwd)
         u.save()
     except:
-        data = {'status': 'nok', 'msg': 'user already exist'}
+        data = {'msg': 'user already exist'}
         jsondata = json.dumps(data)
-        return HttpResponse(jsondata, content_type='application/json')
+        return HttpResponse(jsondata, status=400, content_type='application/json')
 
     # check method event
     eo = AuthEvent.objects.get(pk=method)
-    if eo.auth_method == 'email':
-        conf = json.loads(eo.auth_method_config)
-        subject = conf.get('subject')
-        mail_from = conf.get('mail_from')
 
-        code = random_code(64, ascii_letters+digits)
-        valid_link = request.build_absolute_uri(
-                '/authmethod/email/validate/%d/%s' % (u.pk,  code))
-        msg = conf.get('msg') + valid_link
+    conf = json.loads(eo.auth_method_config)
+    subject = conf.get('subject')
+    mail_from = conf.get('mail_from')
 
-        u.userdata.event = eo
-        u.userdata.metadata = json.dumps({
-                'email': mail_to,
-                'code': code,
-                'email_verified': False
-        })
-        u.userdata.save()
+    code = random_code(64, ascii_letters+digits)
+    valid_link = request.build_absolute_uri(
+            '/authmethod/email/validate/%d/%s' % (u.pk,  code))
+    msg = conf.get('msg') + valid_link
 
-        send_mail(subject, msg, mail_from, (mail_to,), fail_silently=False)
-        data = {'status': 'ok'}
-    else:
-        data = {'status': 'nok'}
+    u.userdata.event = eo
+    u.userdata.metadata = json.dumps({
+            'email': mail_to,
+            'code': code,
+            'email_verified': False
+    })
+    u.userdata.save()
 
+    send_mail(subject, msg, mail_from, (mail_to,), fail_silently=False)
+    data = {'status': 'ok'}
     jsondata = json.dumps(data)
     return HttpResponse(jsondata, content_type='application/json')
 
@@ -68,11 +65,13 @@ def validate(request, user, code):
         acl = ACL(user=u.userdata, obj_type='Vote', perm='create')
         acl.save()
         data = {'status': 'ok', 'username': u.username}
+        status = 200
     else:
         data = {'status': 'nok'}
+        status = 400
 
     jsondata = json.dumps(data)
-    return HttpResponse(jsondata, content_type='application/json')
+    return HttpResponse(jsondata, status=status, content_type='application/json')
 
 
 class Email:

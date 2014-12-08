@@ -116,10 +116,7 @@ class ApiTestCase(TestCase):
             'auth-data': {'username': 'john', 'password': 'fake'}
         }
         response = c.post('/api/login/', data)
-
-        self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['status'], 'nok')
+        self.assertEqual(response.status_code, 400)
 
     def test_getperms_noauth(self):
         c = JClient()
@@ -141,9 +138,7 @@ class ApiTestCase(TestCase):
         }
         response = c.post('/api/get-perms/', data)
 
-        self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['status'], 'nok')
+        self.assertEqual(response.status_code, 400)
 
     def test_getperms_perm(self):
         c = JClient()

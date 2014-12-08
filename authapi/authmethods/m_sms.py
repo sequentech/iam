@@ -27,7 +27,7 @@ def check_request(request, data):
 
     if data['status'] == 'nok':
         jsondata = json.dumps(data)
-        return HttpResponse(jsondata, content_type='application/json')
+        return HttpResponse(jsondata, status=400, content_type='application/json')
 
     data['tlf'] = req.get('tlf')
     data['ip_addr'] = get_client_ip(request)
