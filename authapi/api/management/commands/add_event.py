@@ -5,8 +5,8 @@ import json
 
 class Command(BaseCommand):
     help = '''Create a default config for authevent event and create authevent.
-Example(config): add_event --type sms-code --generate
-Example(create): add_event --config config.json --meta meta.json -t sms-code'''
+Example(config): add_event -t sms-code -g
+Example(create): add_event -c config.json -m meta.json -t sms-code -n test'''
     option_list = BaseCommand.option_list + (
             make_option(
                 '-c',
