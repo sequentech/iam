@@ -29,7 +29,8 @@ class AuthMethodTestCase(TestCase):
 class AuthMethodEmailTestCase(TestCase):
     def setUp(self):
         ae = AuthEvent(pk=1, name='test', auth_method='email',
-                auth_method_config=json.dumps(Email.TPL_CONFIG))
+                auth_method_config=json.dumps(Email.TPL_CONFIG),
+                metadata=json.dumps(Email.METADATA_DEFAULT))
         ae.save()
 
         u = User(pk=1, username='test1')
@@ -101,7 +102,8 @@ class AuthMethodEmailTestCase(TestCase):
 class AuthMethodSmsTestCase(TestCase):
     def setUp(self):
         ae = AuthEvent(pk=1, name='test', auth_method='sms-code',
-                auth_method_config=json.dumps(Sms.TPL_CONFIG))
+                auth_method_config=json.dumps(Sms.TPL_CONFIG),
+                metadata=json.dumps(Sms.METADATA_DEFAULT))
         ae.save()
 
         u = User(pk=1, username='test1')

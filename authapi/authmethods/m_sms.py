@@ -15,15 +15,18 @@ from api.models import AuthEvent, ACL
 
 def check_request(request, data):
     req = json.loads(request.body.decode('utf-8'))
-    email = req.get('email')
-    if not email_constraint(email):
-        data['status'] = 'nok'
-        data['msg'] += 'Invalid email.'
 
-    dni = req.get('dni')
-    if not dni_constraint(dni):
-        data['status'] = 'nok'
-        data['msg'] += 'Invalid dni. '
+    eo = AuthEvent.objects.get(pk=data['event'])
+    conf = json.loads(eo.metadata)
+    pipeline = conf.get('fields')
+    for pipe in pipeline:
+        classname = pipe.get('name')
+        if classname not in ('dni', 'email'):
+            continue
+        attr = req.get(classname)
+        if not getattr(eval(classname + '_constraint'), '__call__')(attr):
+            data['status'] = 'nok'
+            data['msg'] += 'Invalid %s.' % classname
 
     if data['status'] == 'nok':
         jsondata = json.dumps(data)
@@ -203,6 +206,16 @@ class Sms:
                 ['check_sms_code', {'timestamp': 5 }], # seconds
                 ['give_perms', {'obj_type': 'Vote', 'perms': ['create',] }],
             ],
+    }
+    METADATA_DEFAULT = {
+        'fields': [
+            {'name': 'name', 'type': 'text', 'required': False},
+            {'name': 'surname', 'type': 'text', 'required': False},
+            {'name': 'dni', 'type': 'text', 'required': True, 'max': 9},
+            {'name': 'phone', 'type': 'text', 'required': True, 'max': 12},
+            {'name': 'email', 'type': 'text', 'required': True},
+            {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
+        ],
     }
 
     def login_error(self):

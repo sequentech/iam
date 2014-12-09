@@ -82,6 +82,12 @@ class Email:
             'msg': 'Click in this link for validate your email: ',
             'mail_from': 'authapi@agoravoting.com'
     }
+    METADATA_DEFAULT = {
+        'fields': [
+            {'name': 'email', 'type': 'text', 'required': True},
+            {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
+        ],
+    }
 
     def login_error(self):
         d = {'status': 'nok'}
