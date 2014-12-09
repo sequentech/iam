@@ -1,8 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError, make_option
 from api.models import AuthEvent
 from authmethods import METHODS
-from authmethods.m_sms import Sms
-from authmethods.m_email import Email
 import json
 
 class Command(BaseCommand):
@@ -62,8 +60,7 @@ Example(create): add_event --config config.json --meta meta.json -t sms-code'''
                     json.dump(meta, f2, indent=4)
                 return
             except:
-                print("ERROR")
-                pass
+                print("Error creating default configuration files.")
         elif options['conf'] and options['meta'] and options['name'] and options['type']:
             conf = open(options['conf'], 'r')
             meta = open(options['meta'], 'r')
