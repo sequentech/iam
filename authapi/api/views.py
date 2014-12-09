@@ -115,7 +115,8 @@ acl = login_required(ACLView.as_view())
 
 
 class AuthEventView(View):
-    def post(self, request, pk=None):
+    @login_required
+    def post(request, pk=None):
         '''
             Creates a new auth-event or edit auth_event
             create_authevent permission required or
@@ -145,22 +146,18 @@ class AuthEventView(View):
         '''
             Lists all AuthEvents
         '''
-        permission_required(request.user, 'AuthEvent', 'view')
-
         # TODO paginate and filter with GET params
         events = AuthEvent.objects.all()
         aes = []
         for e in events:
-            if request.user.userdata.has_perms('AuthEvent', e.id, 'admin'):
-                aes.append(e.serialize())
-            else:
-                aes.append(e.serialize_restrict())
+            aes.append(e.serialize_restrict())
 
         data = {'status': 'ok', 'events': aes}
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
 
-    def delete(self, request, pk):
+    @login_required
+    def delete(request, pk):
         '''
             Delete a auth-event.
             delete_authevent permission required
@@ -173,4 +170,4 @@ class AuthEventView(View):
         data = {'status': 'ok'}
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
-authevent = login_required(AuthEventView.as_view())
+authevent = AuthEventView.as_view()
