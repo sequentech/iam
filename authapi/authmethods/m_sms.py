@@ -85,6 +85,7 @@ def register_request(data, request):
             'code': data['code'],
             'sms_verified': False
     })
+    data['user'] = u.pk
     u.userdata.save()
     return 0
 
