@@ -213,7 +213,7 @@ class Sms:
             {'name': 'name', 'type': 'text', 'required': False},
             {'name': 'surname', 'type': 'text', 'required': False},
             {'name': 'dni', 'type': 'text', 'required': True, 'max': 9},
-            {'name': 'phone', 'type': 'text', 'required': True, 'max': 12},
+            {'name': 'tlf', 'type': 'text', 'required': True, 'max': 12},
             {'name': 'email', 'type': 'text', 'required': True},
             {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
         ],
