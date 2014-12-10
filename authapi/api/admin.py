@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib import admin
 from api.models import AuthEvent, UserData, ACL
+from authmethods.models import Message, ColorList
 from authmethods import METHODS
 
 # Register your models here.
@@ -30,6 +31,16 @@ class ACLAdmin(admin.ModelAdmin):
     pass
 
 
+class ColorListAdmin(admin.ModelAdmin):
+    pass
+
+
+class MessageAdmin(admin.ModelAdmin):
+    pass
+
+
 admin.site.register(AuthEvent, AuthEventAdmin)
 admin.site.register(UserData, UserDataAdmin)
 admin.site.register(ACL, ACLAdmin)
+admin.site.register(ColorList, ColorListAdmin)
+admin.site.register(Message, MessageAdmin)
