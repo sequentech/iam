@@ -142,15 +142,19 @@ class AuthEventView(View):
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
 
-    def get(self, request):
+    def get(self, request, pk=None):
         '''
             Lists all AuthEvents
         '''
         # TODO paginate and filter with GET params
-        events = AuthEvent.objects.all()
-        aes = []
-        for e in events:
-            aes.append(e.serialize_restrict())
+        if pk:
+            e = AuthEvent.objects.get(pk=pk)
+            aes = e.serialize_restrict()
+        else:
+            events = AuthEvent.objects.all()
+            aes = []
+            for e in events:
+                aes.append(e.serialize_restrict())
 
         data = {'status': 'ok', 'events': aes}
         jsondata = json.dumps(data)
