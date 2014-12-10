@@ -9,7 +9,7 @@ from utils import genhmac, constant_time_compare
 
 from . import register_method
 from authmethods.utils import *
-from authmethods.models import Message
+from authmethods.models import Message, Code, Connection
 from api.models import AuthEvent, ACL
 
 
@@ -85,8 +85,11 @@ def register_request(data, request):
             'code': data['code'],
             'sms_verified': False
     })
-    data['user'] = u.pk
     u.userdata.save()
+    code = Code(user=u.userdata, tlf=req.get('tlf'), dni=req.get('dni'), code=req.get('dni'))
+    code.save()
+
+    data['user'] = u.pk
     return 0
 
 
@@ -101,32 +104,50 @@ def send_sms(data, conf):
     return 0
 
 
-def check_sms_code(data, **kwargs):
-    user = data['user']
-    u_meta = json.loads(user.userdata.metadata)
-    conf = json.loads(user.userdata.event.auth_method_config)
+def check_total_connection(data, req, **kwargs):
+    conn = Connection.objects.filter(tlf=req.get('tlf'), dni=req.get('dni')).count()
+    if conn >= kwargs.get('times'):
+        return error('Exceeded the level os attempts',
+                error_codename='check_total_connection')
+    conn = Connection(ip=data['ip'], tlf=req.get('tlf'), dni=req.get('dni'))
+    conn.save()
+    return 0
+
+
+def check_sms_code(data, req, **kwargs):
+    eo = AuthEvent.objects.get(pk=data['event'])
+    conf = json.loads(eo.auth_method_config)
 
     # check code
-    if not constant_time_compare(u_meta.get('code'), data['code']):
+    code = Code.objects.filter(code=req.get('code'), tlf=req.get('tlf'), dni=req.get('dni'))
+    if not code:
+        return error('Invalid code.', error_codename='check_sms_code')
+    else:
+        code = code[0]
+
+    # check code constant_time
+    if not constant_time_compare(code.code, req.get('code')):
         return error('Invalid code.', error_codename='check_sms_code')
     
     # check timestamp
     time_thr = timezone.now() - timedelta(seconds=kwargs.get('timestamp'))
-    if not Message.objects.filter(tlf=u_meta.get('tlf'), created__gt=time_thr):
+    if not Message.objects.filter(tlf=req.get('tlf'), created__gt=time_thr):
         return error('Timeout.', error_codename='check_sms_code')
 
+    user = code.user
+    data['user'] = user
+    u_meta = json.loads(user.metadata)
     u_meta.update({ 'sms_verified': True })
-    user.userdata.metadata = json.dumps(u_meta)
+    user.metadata = json.dumps(u_meta)
     user.save()
     return 0
 
 
-def give_perms(data, **kwargs):
+def give_perms(data, req, **kwargs):
     user = data['user']
     obj = kwargs.get('obj_type')
     for perm in kwargs.get('perms'):
-        acl = ACL(user=user.userdata, obj_type=obj, perm=perm,
-                objectid=user.userdata.event.id)
+        acl = ACL(user=user, obj_type=obj, perm=perm, objectid=data['event'])
         acl.save()
     return 0
 
@@ -157,20 +178,19 @@ def register(request, event):
     return HttpResponse(jsondata, content_type='application/json')
 
 
-def validate(request, user, code):
-    u = User.objects.get(username=user)
-    data = {'status': 'ok', 'user': u, 'code': code}
-    u_meta = json.loads(u.userdata.metadata)
+def validate(request, event):
+    data = {'status': 'ok', 'event': event, 'ip': get_client_ip(request)}
+    req = json.loads(request.body.decode('utf-8'))
 
-    conf = json.loads(u.userdata.event.auth_method_config)
+    eo = AuthEvent.objects.get(pk=event)
+    conf = json.loads(eo.auth_method_config)
     pipeline = conf.get('feedback-pipeline')
     for pipe in pipeline:
-        check = getattr(eval(pipe[0]), '__call__')(data, **pipe[1])
+        check = getattr(eval(pipe[0]), '__call__')(data, req, **pipe[1])
 
         if check != 0:
             return check
 
-    data['username'] = u.username
     data.pop('user')
     jsondata = json.dumps(data)
     return HttpResponse(jsondata, content_type='application/json')
@@ -204,6 +224,7 @@ class Sms:
                 ["send_sms"],
             ],
             'feedback-pipeline': [
+                ['check_total_connection', {'times': 5 }],
                 ['check_sms_code', {'timestamp': 5 }], # seconds
                 ['give_perms', {'obj_type': 'Vote', 'perms': ['create',] }],
             ],
@@ -242,7 +263,7 @@ class Sms:
 
     views = patterns('',
         url(r'^register/(?P<event>\d+)$', register),
-        url(r'^validate/(?P<user>\w+)/(?P<code>\w+)$', validate),
+        url(r'^validate/(?P<event>\d+)$', validate),
     )
 
 register_method('sms-code', Sms)

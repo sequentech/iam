@@ -1,4 +1,5 @@
 from django.db import models
+from api.models import UserData
 
 
 class ColorList(models.Model):
@@ -20,4 +21,19 @@ class ColorList(models.Model):
 class Message(models.Model):
     ip = models.CharField(max_length=15)
     tlf = models.CharField(max_length=20)
+    created = models.DateTimeField(auto_now_add=True)
+
+
+class Connection(models.Model):
+    ip = models.CharField(max_length=15)
+    tlf = models.CharField(max_length=20)
+    dni = models.CharField(max_length=16)
+    created = models.DateTimeField(auto_now_add=True)
+
+
+class Code(models.Model):
+    user = models.ForeignKey(UserData, related_name="codes")
+    tlf = models.CharField(max_length=20)
+    dni = models.CharField(max_length=16)
+    code = models.CharField(max_length=16)
     created = models.DateTimeField(auto_now_add=True)
