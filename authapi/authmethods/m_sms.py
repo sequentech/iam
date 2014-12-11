@@ -86,7 +86,7 @@ def register_request(data, request):
             'sms_verified': False
     })
     u.userdata.save()
-    code = Code(user=u.userdata, tlf=req.get('tlf'), dni=req.get('dni'), code=req.get('dni'))
+    code = Code(user=u.userdata, tlf=req.get('tlf'), dni=req.get('dni'), code=data['code'])
     code.save()
 
     data['user'] = u.pk
