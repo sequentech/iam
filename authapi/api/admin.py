@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib import admin
 from api.models import AuthEvent, UserData, ACL
-from authmethods.models import Message, ColorList
+from authmethods.models import Message, ColorList, Code, Connection
 from authmethods import METHODS
 
 # Register your models here.
@@ -39,8 +39,18 @@ class MessageAdmin(admin.ModelAdmin):
     pass
 
 
+class CodeAdmin(admin.ModelAdmin):
+    pass
+
+
+class ConnectionAdmin(admin.ModelAdmin):
+    pass
+
+
 admin.site.register(AuthEvent, AuthEventAdmin)
 admin.site.register(UserData, UserDataAdmin)
 admin.site.register(ACL, ACLAdmin)
 admin.site.register(ColorList, ColorListAdmin)
 admin.site.register(Message, MessageAdmin)
+admin.site.register(Code, CodeAdmin)
+admin.site.register(Connection, ConnectionAdmin)
