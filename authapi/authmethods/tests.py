@@ -8,7 +8,7 @@ from api.tests import JClient
 from api.models import AuthEvent, ACL
 from .m_email import Email
 from .m_sms import Sms
-from .models import Message, Code
+from .models import Message, Code, Connection
 
 
 class AuthMethodTestCase(TestCase):
@@ -206,7 +206,8 @@ class AuthMethodSmsTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
-        #self.assertGreaterEqual(1, Connection.objects.filter(tlf='+34666666666', dni='11111111H').count())
+        self.assertGreaterEqual(Connection.objects.filter(tlf='+34666666666',
+                dni='11111111H').count(), 1)
 
     def test_method_sms_valid_code_timeout(self):
         time.sleep(self.timestamp)
