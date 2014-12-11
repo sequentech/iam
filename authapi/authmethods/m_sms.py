@@ -128,7 +128,7 @@ def check_sms_code(data, req, **kwargs):
     # check code constant_time
     if not constant_time_compare(code.code, req.get('code')):
         return error('Invalid code.', error_codename='check_sms_code')
-    
+
     # check timestamp
     time_thr = timezone.now() - timedelta(seconds=kwargs.get('timestamp'))
     if not Message.objects.filter(tlf=req.get('tlf'), created__gt=time_thr):
@@ -174,6 +174,7 @@ def register(request, event):
         if check != 0:
             return check
 
+    data.pop('code')
     jsondata = json.dumps(data)
     return HttpResponse(jsondata, content_type='application/json')
 
