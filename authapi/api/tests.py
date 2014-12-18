@@ -133,7 +133,7 @@ class ApiTestCase(TestCase):
         c.login(test_data.pwd_auth)
 
         data = {
-            "obj_type": "User",
+            "object_type": "User",
             "permission": "delete"
         }
         response = c.post('/api/get-perms/', data)
@@ -145,7 +145,7 @@ class ApiTestCase(TestCase):
         c.login(test_data.pwd_auth)
 
         data = {
-            "obj_type": "User",
+            "object_type": "User",
             "permission": "create"
         }
         response = c.post('/api/get-perms/', data)

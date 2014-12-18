@@ -129,7 +129,7 @@ class AuthMethodSmsTestCase(TestCase):
             if p[0] == 'check_sms_code':
                 self.timestamp = p[1].get('timestamp')
             if p[0] == 'give_perms':
-                obj = p[1].get('obj_type')
+                obj = p[1].get('object_type')
                 for perm in p[1].get('perms'):
                     acl = ACL(user=u.userdata, obj_type=obj, perm=perm)
                     acl.save()
@@ -240,8 +240,8 @@ class AuthMethodSmsTestCase(TestCase):
                 'password': '123456'
             }
         }
-        data1 = { "obj_type": "Vote", "permission": "create", }
-        data2 = { "obj_type": "Vote", "permission": "remove", }
+        data1 = { "object_type": "Vote", "permission": "create", }
+        data2 = { "object_type": "Vote", "permission": "remove", }
 
         response = self.c.post('/api/get-perms', data1)
         self.assertEqual(response.status_code, 301)

@@ -64,14 +64,14 @@ class GetPerms(View):
         perm = req['permission']
         obj_id = req.get('object_id', None)
 
-        if not request.user.userdata.has_perms(obj, perm, obj_id):
+        if not request.user.userdata.has_perms(obj_type, perm, obj_id):
             jsondata = json.dumps(data)
             return HttpResponse(jsondata, status=400, content_type='application/json')
 
         if not obj_id:
-            msg = ':'.join(request.user.username, obj_type, perm)
+            msg = ':'.join((request.user.username, obj_type, perm))
         else:
-            msg = ':'.join(request.user.username, obj_type, obj_id, perm)
+            msg = ':'.join((request.user.username, obj_type, obj_id, perm))
 
         data['permission-token'] = genhmac(settings.SHARED_SECRET, msg)
         jsondata = json.dumps(data)

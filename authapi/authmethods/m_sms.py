@@ -145,7 +145,7 @@ def check_sms_code(data, req, **kwargs):
 
 def give_perms(data, req, **kwargs):
     user = data['user']
-    obj = kwargs.get('obj_type')
+    obj = kwargs.get('object_type')
     for perm in kwargs.get('perms'):
         acl = ACL(user=user, obj_type=obj, perm=perm, objectid=data['event'])
         acl.save()
@@ -227,7 +227,7 @@ class Sms:
             'feedback-pipeline': [
                 ['check_total_connection', {'times': 5 }],
                 ['check_sms_code', {'timestamp': 5 }], # seconds
-                ['give_perms', {'obj_type': 'Vote', 'perms': ['create',] }],
+                ['give_perms', {'object_type': 'Vote', 'perms': ['create',] }],
             ],
     }
     METADATA_DEFAULT = {
