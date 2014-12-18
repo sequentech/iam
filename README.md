@@ -103,14 +103,14 @@ Example:
 
     {
       "permission": "create",
-      "object-type": "User",
-      "object-id": "deadbeef"
+      "object_type": "User",
+      "object_id": "deadbeef"
     }
 
 If successful, returns a keyed-HMAC permission token:
 
     {
-      "permission-token": "khmac:///sha-256;deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/userid:create:timestamp:user-deadbeef"
+      "permission-token": "khmac:///sha-256;deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/userid:User:deadbeef:create:timestamp"
     }
 
 ## GET /acl/?userid=<foo>&object_type=<bar>&permission=<perm>
