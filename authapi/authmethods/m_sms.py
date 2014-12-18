@@ -119,11 +119,11 @@ def check_sms_code(data, req, **kwargs):
     conf = json.loads(eo.auth_method_config)
 
     # check code
-    code = Code.objects.filter(code=req.get('code'), tlf=req.get('tlf'), dni=req.get('dni'))
+    code = Code.objects.filter(tlf=req.get('tlf'), dni=req.get('dni'))
     if not code:
-        return error('Invalid code.', error_codename='check_sms_code')
+        return error('Not exist any code.', error_codename='check_sms_code')
     else:
-        code = code[0]
+        code = code.last()
 
     # check code constant_time
     if not constant_time_compare(code.code, req.get('code')):
