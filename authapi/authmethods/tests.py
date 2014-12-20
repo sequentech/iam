@@ -89,7 +89,7 @@ class AuthMethodEmailTestCase(TestCase):
                     {'user': 'test1', 'password': '123456'}})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertTrue(r['auth-token'].startswith('khmac:///sha256'))
+        self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
 
     def test_method_email_login_invalid_code(self):
         c = JClient()
@@ -260,7 +260,7 @@ class AuthMethodSmsTestCase(TestCase):
                     {'user': 'test1', 'password': '123456'}})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertTrue(r['auth-token'].startswith('khmac:///sha256'))
+        self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
 
     def test_method_sms_login_invalid_code(self):
         response = self.c.post('/api/login/',

@@ -10,7 +10,7 @@ def genhmac(key, msg):
     msg = "%s:%s" % (msg, str(timestamp))
 
     h = hmac.new(key, msg.encode('utf-8'), "sha256")
-    return 'khmac:///sha256;' + h.hexdigest() + '/' + msg
+    return 'khmac:///sha-256;' + h.hexdigest() + '/' + msg
 
 
 def verifyhmac(key, msg, seconds=300):
