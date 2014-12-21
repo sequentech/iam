@@ -67,6 +67,7 @@ def register_request(data, request):
     req = json.loads(request.body.decode('utf-8'))
 
     u = User(username=random_username())
+    u.set_password(req.get('password'))
     u.email = req.get('email')
     u.save()
 
@@ -249,11 +250,11 @@ class Sms:
 
     def login(self, data):
         d = {'status': 'ok'}
-        msg = data['user']
+        email = data['email']
         pwd = data['password']
 
         try:
-            u = User.objects.get(username=msg)
+            u = User.objects.get(email=email)
         except:
             return self.login_error()
 
@@ -261,7 +262,7 @@ class Sms:
         if not u.check_password(pwd) or not u_meta['sms_verified']:
             return self.login_error()
 
-        d['auth-token'] = genhmac(settings.SHARED_SECRET, msg)
+        d['auth-token'] = genhmac(settings.SHARED_SECRET, email)
         return d
 
     views = patterns('',
