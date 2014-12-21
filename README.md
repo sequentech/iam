@@ -60,7 +60,9 @@ different entry points defined in authapi, providing:
 
 * new authentication methods
 * new pipeline
-* in general, new API methods under /<module-name>
+* in general, new API methods under /\<module-name\>
+
+For create a new module: [Development guide](Development.md)
 
 Examples:
 
