@@ -3,6 +3,8 @@
 [1]: https://travis-ci.org/agoravoting/authapi.png
 [2]: https://travis-ci.org/agoravoting/authapi
 
+# Introduction
+
 The authapi is an isolated server-side component that provides
 authentication and authorization primitives. It's is completely decoupled
 from agora-core, and it's ignorant of concepts like "election", "vote" or
@@ -32,6 +34,9 @@ type 'Election'", for example. This information can be extracted in the form of
 an HMAC credential token that can be used by a third-party application to
 verify that the given user has permission to execute any kind of action to any
 kind of object.
+
+
+# Tecnical detail
 
 Technically, authapi should:
  * allow migrations
@@ -78,7 +83,7 @@ verification "POST /sms-code/verify".
 
 .....
 
-## API:
+# API:
 
 ## POST /login
 
@@ -115,11 +120,37 @@ If successful, returns a keyed-HMAC permission token:
       "permission-token": "khmac:///sha-256;deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/userid:User:deadbeef:create:timestamp"
     }
 
-## GET /acl/?userid=<foo>&object_type=<bar>&permission=<perm>
+## GET /acl/:userid/:object_type/:perm/
+
+If successful, return: { "perm": True } if not { "perm": False }
+
 ## POST /acl
+
+Required user with write permission for give permissions. Create an ACL entry.
+Example:
+
+{
+  "user": "someone"
+  "object_type": "User",
+  "permission": "create",
+}
+
+If everything is ok, it returns STATUS 200
+
 ## DELETE /acl
 
-# POST /auth-event
+Required user with write permission for delete permissions. Delete an ACL entry.
+Example:
+
+{
+  "user": "someone"
+  "object_type": "User",
+  "permission": "create",
+}
+
+If everything is ok, it returns STATUS 200
+
+## POST /auth-event
 
 The requester tries to create a new auth-event. Requires a session auth-token
 set in the AuthToken header, with an user with permissions "superuser".
@@ -180,27 +211,31 @@ If everything is ok, it returns STATUS 200 with data:
     {"id": 1}
 
 
-#### GET /auth-event/:id
+## GET /auth-event
 
-Returns similar data to the data posted in POST /auth-event. Requires user
-with permission `admin-auth-event` over the given event.
+List auth events. Accepts filtering and paging. Not requires user with
+permission
 
-#### GET /auth-event
+## GET /auth-event/:id
 
-List auth events. Accepts filtering and paging. Requires user with
-permission `superuser`
+Returns some neccesary data for register or login in an event. Not requires user
+with permission
 
-#### PUT /auth-event/:id
+## DELETE /auth-event/:id
+
+Requires user with permission `admin-auth-event` over the given event.
+
+## POST /auth-event/:id
+
+Edit the event with id given. Requires user with permission `admin-auth-event`
+over the given event.
+
+## PUT /auth-event/:id *
 
 Receives similar data to POST /auth-event. Requires user
 with permission `admin-auth-event` over the given event.
 
-#### DELETE /auth-event/:id
-
-Requires user with permission `admin-auth-event` over the given event.
-
-
-#### POST /auth-event/:id/auth
+## POST /authmethod/:authmethod/register/:id
 
 Provides authentication. Depending on the auth-method used, the
 input details needed may vary. If authentication is successful, it returns
@@ -214,12 +249,13 @@ Depending on the authentication method, the authentication process might
 involve more steps and thus it might be delayed. For example, when using
 sms-code auth method, a valid answer will be an empty STATUS 200.
 
-#### POST /sms-code/verify
+## POST /authmethod/:authmethod/validate/:id
 
 Allows an user to verify its SMS code. A valid input could be:
 
     {
-        "auth-event-id": 12,
+        "dni": "11111111H",
+        "mail": "test@agoravoting.com",
         "tlf": "+34666666666",
         "sms-code": "deadbeef"
     }

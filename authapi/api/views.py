@@ -145,7 +145,7 @@ class AuthEventView(View):
 
     def get(self, request, pk=None):
         '''
-            Lists all AuthEvents
+            Lists all AuthEvents if not pk. If pk show the event with this pk
         '''
         # TODO paginate and filter with GET params
         if pk:
