@@ -192,6 +192,8 @@ def validate(request, event):
         if check != 0:
             return check
 
+    pwd = data['user'].user.password
+    data['auth-token'] = genhmac(settings.SHARED_SECRET, pwd)
     data.pop('user')
     jsondata = json.dumps(data)
     return HttpResponse(jsondata, content_type='application/json')

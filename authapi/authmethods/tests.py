@@ -208,6 +208,7 @@ class AuthMethodSmsTestCase(TestCase):
         self.assertEqual(r['status'], 'ok')
         self.assertGreaterEqual(Connection.objects.filter(tlf='+34666666666',
                 dni='11111111H').count(), 1)
+        self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
 
     def test_method_sms_valid_code_timeout(self):
         time.sleep(self.timestamp)
