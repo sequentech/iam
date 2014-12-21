@@ -15,7 +15,8 @@ def genhmac(key, msg):
 
 def verifyhmac(key, msg, seconds=300):
     at = HMACToken(msg)
-    h = hmac.new(key, at.msg.encode('utf-8'), at.digest)
+    digest = at.digest if at.digest != 'sha-256' else 'sha256'
+    h = hmac.new(key, at.msg.encode('utf-8'), digest)
     valid = hmac.compare_digest(h.hexdigest(), at.hash)
 
     t = at.timestamp
