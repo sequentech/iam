@@ -52,28 +52,28 @@ class ApiTestCase(TestCase):
         u.save()
         self.userid = u.pk
 
-        acl = ACL(user=u.userdata, obj_type='User', perm='create')
+        acl = ACL(user=u.userdata, object_type='User', perm='create')
         acl.save()
 
-        acl = ACL(user=u.userdata, obj_type='AuthEvent', perm='create')
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='create')
         acl.save()
 
-        acl = ACL(user=u.userdata, obj_type='AuthEvent', perm='view')
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='view')
         acl.save()
 
-        acl = ACL(user=u.userdata, obj_type='AuthEvent', perm='edit')
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit')
         acl.save()
 
-        acl = ACL(user=u.userdata, obj_type='AuthEvent', perm='delete')
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='delete')
         acl.save()
 
-        acl = ACL(user=u.userdata, obj_type='ACL', perm='delete')
+        acl = ACL(user=u.userdata, object_type='ACL', perm='delete')
         acl.save()
 
-        acl = ACL(user=u.userdata, obj_type='ACL', perm='view')
+        acl = ACL(user=u.userdata, object_type='ACL', perm='view')
         acl.save()
 
-        acl = ACL(user=u.userdata, obj_type='ACL', perm='create')
+        acl = ACL(user=u.userdata, object_type='ACL', perm='create')
         acl.save()
 
     def test_api(self):

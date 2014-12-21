@@ -11,8 +11,8 @@ from .decorators import login_required
 from .models import AuthEvent, ACL
 
 
-def permission_required(user, obj_type, permission, objectid=None):
-    if not user.userdata.has_perms(obj_type, permission, objectid):
+def permission_required(user, object_type, permission, object_id=None):
+    if not user.userdata.has_perms(object_type, permission, object_id):
         raise PermissionDenied('Permission required: ' + permission)
 
 
@@ -60,18 +60,18 @@ class GetPerms(View):
             jsondata = json.dumps(data)
             return HttpResponse(jsondata, status=400, content_type='application/json')
 
-        obj_type = req['object_type']
+        object_type = req['object_type']
         perm = req['permission']
         obj_id = req.get('object_id', None)
 
-        if not request.user.userdata.has_perms(obj_type, perm, obj_id):
+        if not request.user.userdata.has_perms(object_type, perm, obj_id):
             jsondata = json.dumps(data)
             return HttpResponse(jsondata, status=400, content_type='application/json')
 
         if not obj_id:
-            msg = ':'.join((request.user.username, obj_type, perm))
+            msg = ':'.join((request.user.username, object_type, perm))
         else:
-            msg = ':'.join((request.user.username, obj_type, obj_id, perm))
+            msg = ':'.join((request.user.username, object_type, obj_id, perm))
 
         data['permission-token'] = genhmac(settings.SHARED_SECRET, msg)
         jsondata = json.dumps(data)
@@ -92,10 +92,10 @@ class ACLView(View):
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
 
-    def get(self, request, userid, obj_type, perm):
+    def get(self, request, userid, object_type, perm):
         permission_required(request.user, 'ACL', 'view')
         data = {'status': 'ok'}
-        if ACL.objects.filter(user=userid, obj_type=obj_type, perm=perm).count() > 0:
+        if ACL.objects.filter(user=userid, object_type=object_type, perm=perm).count() > 0:
             data['perm'] = True
         else:
             data['perm'] = False

@@ -147,7 +147,7 @@ def give_perms(data, req, **kwargs):
     user = data['user']
     obj = kwargs.get('object_type')
     for perm in kwargs.get('perms'):
-        acl = ACL(user=user, obj_type=obj, perm=perm, objectid=data['event'])
+        acl = ACL(user=user, object_type=obj, perm=perm, object_id=data['event'])
         acl.save()
     return 0
 

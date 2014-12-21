@@ -51,7 +51,7 @@ Basic Database tables:
 * ACL
     * id: autoinc int, identifies the event uniquely
     * user_id: string (255) foreign key, to  User.id, required
-    * perm_name: string (255) title of the permitted action. required
+    * perm: string (255) title of the permitted action. required
     * object_type: string (255) type of object to which the user is granted permission to. required
     * object_id: string (255) object related to which the user is granted permission to
 

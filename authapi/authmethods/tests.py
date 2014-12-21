@@ -131,7 +131,7 @@ class AuthMethodSmsTestCase(TestCase):
             if p[0] == 'give_perms':
                 obj = p[1].get('object_type')
                 for perm in p[1].get('perms'):
-                    acl = ACL(user=u.userdata, obj_type=obj, perm=perm)
+                    acl = ACL(user=u.userdata, object_type=obj, perm=perm)
                     acl.save()
 
         u2 = User(pk=2, username='test2')

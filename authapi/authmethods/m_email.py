@@ -62,8 +62,8 @@ def validate(request, user, code):
         u.save()
 
         # giving perms
-        acl = ACL(user=u.userdata, obj_type='Vote', perm='create',
-                objectid=u.userdata.event.id)
+        acl = ACL(user=u.userdata, object_type='Vote', perm='create',
+                object_id=u.userdata.event.id)
         acl.save()
         data = {'status': 'ok', 'username': u.username}
         status = 200

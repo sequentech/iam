@@ -9,5 +9,5 @@ urlpatterns = patterns('',
     url(r'^auth-event/$', 'api.views.authevent', name='authevent'),
     url(r'^auth-event/(?P<pk>\d+)/$', 'api.views.authevent', name='authevent'),
     url(r'^acl/$', 'api.views.acl', name='acl'),
-    url(r'^acl/(?P<userid>\d+)/(?P<obj_type>\w+)/(?P<perm>\w+)/$', 'api.views.acl', name='acl'),
+    url(r'^acl/(?P<userid>\d+)/(?P<object_type>\w+)/(?P<perm>\w+)/$', 'api.views.acl', name='acl'),
 )
