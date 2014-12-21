@@ -35,8 +35,32 @@ an HMAC credential token that can be used by a third-party application to
 verify that the given user has permission to execute any kind of action to any
 kind of object.
 
+# Installation
 
-# Tecnical detail
+1. Download from the git repository if you haven't got a copy
+    ```
+    $ git clone https://github.com/agoraciudadana/authapi && cd authapi
+    ```
+
+2. Install package and its dependencies
+    ```
+    $ mkvirtualenv myenv
+    $ pip install -r requirements.txt
+    ```
+
+3. Create postgres database:
+    ```
+    $ sudo su postgres
+    $ createuser -P campus
+    $ createdb -O campus campus
+    ```
+
+4. Run:
+    ```
+    $ ./manage.py runserver
+    ```
+
+# Tecnical details
 
 Technically, authapi should:
  * allow migrations
@@ -265,3 +289,10 @@ A valid answer would be a STATUS 200 with the following data:
     {
       "auth-token": "khmac:///sha-256;deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/userid:timestamp"
     }
+
+# Utils Commands
+
+* Generate config auth-event and create auth-event:
+    ```
+    ./manage.py add_event --help
+    ```
