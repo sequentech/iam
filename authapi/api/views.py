@@ -15,6 +15,8 @@ from django.db.models import Q
 
 
 def permission_required(user, object_type, permission, object_id=None):
+    if object_id and user.userdata.has_perms(object_type, permission, None):
+        return
     if not user.userdata.has_perms(object_type, permission, object_id):
         raise PermissionDenied('Permission required: ' + permission)
 
@@ -158,8 +160,14 @@ class AuthEventView(View):
                            auth_method=req['auth_method'],
                            auth_method_config=req['auth_method_config'],
                            metadata=req['metadata'])
+            acl = ACL(user=request.user.userdata, perm='AuthEvent', object_type='edit',
+                    object_id=ae.id)
+            acl.save()
+            acl = ACL(user=request.user.userdata, perm='AuthEvent', object_type='delete',
+                    object_id=ae.id)
+            acl.save()
         else: # edit
-            permission_required(request.user, 'AuthEvent', 'edit')
+            permission_required(request.user, 'AuthEvent', 'edit', pk)
             ae = AuthEvent.objects.get(pk=pk)
             ae.name = req['name']
             ae.auth_method = req['auth_method']
@@ -195,7 +203,7 @@ class AuthEventView(View):
             Delete a auth-event.
             delete_authevent permission required
         '''
-        permission_required(request.user, 'AuthEvent', 'delete')
+        permission_required(request.user, 'AuthEvent', 'delete', pk)
 
         ae = AuthEvent.objects.get(pk=pk)
         ae.delete()
