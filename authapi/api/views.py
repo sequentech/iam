@@ -6,7 +6,7 @@ from django.http import HttpResponse
 from django.views.generic import View
 from django.shortcuts import get_object_or_404
 
-from authmethods import auth_login
+from authmethods import auth_login, METHODS
 from utils import genhmac
 from .decorators import login_required
 from .models import AuthEvent, ACL
@@ -204,3 +204,38 @@ class AuthEventView(View):
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
 authevent = AuthEventView.as_view()
+
+
+class AuthEventModule(View):
+    def get(self, request, name=None):
+        '''
+            Lists all existing modules if not pk. If pk show the module given.
+        '''
+        if name is None: # show all
+            data = {'methods': []}
+            for k in METHODS.keys():
+                desc = METHODS.get(k).DESCRIPTION
+                config = METHODS.get(k).TPL_CONFIG
+                meta = METHODS.get(k).METADATA_DEFAULT
+                data['methods'].append(
+                        [k, {
+                                'description': desc,
+                                'config': config,
+                                'meta': meta,
+                            }]
+                )
+        elif name in METHODS.keys(): # show module
+            desc = METHODS.get(name).DESCRIPTION
+            config = METHODS.get(name).TPL_CONFIG
+            meta = METHODS.get(name).METADATA_DEFAULT
+            data = {
+                    name: {
+                        'description': desc,
+                        'config': config,
+                        'meta': meta,
+                    }
+            }
+
+        jsondata = json.dumps(data)
+        return HttpResponse(jsondata, content_type='application/json')
+authevent_module = AuthEventModule.as_view()
