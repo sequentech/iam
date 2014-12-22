@@ -51,6 +51,7 @@ class ApiTestCase(TestCase):
         u.set_password('smith')
         u.save()
         self.userid = u.pk
+        self.testuser = u
 
         acl = ACL(user=u.userdata, object_type='User', perm='create')
         acl.save()
@@ -209,7 +210,10 @@ class ApiTestCase(TestCase):
         c.login(test_data.pwd_auth)
         data = {
                 'userid': self.userid,
-                'perms': ['vote', ]
+                'perms': [{
+                    'object_type': 'election',
+                    'perm': 'vote',
+                    'user': self.testuser.username}, ]
         }
         response = c.post('/api/acl/', data)
         self.assertEqual(response.status_code, 200)
@@ -218,23 +222,19 @@ class ApiTestCase(TestCase):
     def test_delete_acl(self):
         c = JClient()
         c.login(test_data.pwd_auth)
-        data = {
-                'userid': self.userid,
-                'perms': ['vote', ]
-        }
-        response = c.delete('/api/acl/', data)
+        response = c.delete('/api/acl/%s/%s/%s/' % (self.testuser.username, 'election', 'vote'), {})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(0, ACL.objects.filter(user=self.userid, perm='vote').count())
 
     def test_view_acl(self):
         c = JClient()
         c.login(test_data.pwd_auth)
-        response = c.get('/api/acl/%d/%s/%s/' % (self.userid, 'User', 'create'), {})
+        response = c.get('/api/acl/%s/%s/%s/' % (self.testuser.username, 'User', 'create'), {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['perm'], True)
 
-        response = c.get('/api/acl/%d/%s/%s/' % (self.userid, 'Vote', 'create'), {})
+        response = c.get('/api/acl/%s/%s/%s/' % (self.testuser.username, 'Vote', 'create'), {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['perm'], False)

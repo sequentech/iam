@@ -5,6 +5,7 @@ from jsonfield import JSONField
 
 from django.dispatch import receiver
 from django.db.models.signals import post_save
+from django.db.models import Q
 
 
 class AuthEvent(models.Model):
@@ -45,8 +46,16 @@ class UserData(models.Model):
     metadata = JSONField(default="{}")
     status = models.CharField(max_length=255, choices=STATUSES, default="act")
 
-    def has_perms(self, obj, permission, object_id):
-        return self.acls.filter(object_type=obj, object_id=object_id, perm=permission).count()
+    def get_perms(self, obj, permission, object_id=None):
+        q = Q(object_type=obj, perm=permission)
+        q2 = Q(object_id=object_id)
+        if not object_id:
+            q2 |= Q(object_id='')
+
+        return self.acls.filter(q & q2)
+
+    def has_perms(self, obj, permission, object_id=None):
+        return bool(self.get_perms(obj, permission, object_id).count())
 
     def __str__(self):
         return self.user.username

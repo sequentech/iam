@@ -4,11 +4,13 @@ from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse
 from django.views.generic import View
+from django.shortcuts import get_object_or_404
 
 from authmethods import auth_login
 from utils import genhmac
 from .decorators import login_required
 from .models import AuthEvent, ACL
+from .models import User, UserData
 
 
 def permission_required(user, object_type, permission, object_id=None):
@@ -82,20 +84,20 @@ getperms = login_required(GetPerms.as_view())
 class ACLView(View):
     ''' Returns the permission token if the user has this perm '''
 
-    def delete(self, request):
+    def delete(self, request, username, object_type, perm, object_id=None):
         permission_required(request.user, 'ACL', 'delete')
-        req = json.loads(request.body.decode('utf-8'))
-        u = User.objects.get(pk=req['userid'])
-        for acl in ACL.objects.filter(user=u.userdata, perm=['perm']):
+        u = get_object_or_404(User, username=username)
+        for acl in u.userdata.get_perms(object_type, perm, object_id):
             acl.delete()
         data = {'status': 'ok'}
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
 
-    def get(self, request, userid, object_type, perm):
+    def get(self, request, username, object_type, perm, object_id=None):
         permission_required(request.user, 'ACL', 'view')
         data = {'status': 'ok'}
-        if ACL.objects.filter(user=userid, object_type=object_type, perm=perm).count() > 0:
+        u = get_object_or_404(User, username=username)
+        if u.userdata.has_perms(object_type, perm, object_id):
             data['perm'] = True
         else:
             data['perm'] = False
@@ -108,7 +110,8 @@ class ACLView(View):
         req = json.loads(request.body.decode('utf-8'))
         u = User.objects.get(pk=req['userid'])
         for perm in req['perms']:
-            acl = ACL(user=u.userdata, perm=perm)
+            user = get_object_or_404(UserData, user__username=perm['user'])
+            acl = ACL(user=user, perm=perm['perm'], object_type=perm['object_type'])
             acl.save()
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
