@@ -157,14 +157,14 @@ class AuthEventView(View):
             ae = AuthEvent(name=req['name'],
                            auth_method=req['auth_method'],
                            auth_method_config=req['auth_method_config'],
-                           metadata=req)
+                           metadata=req['metadata'])
         else: # edit
             permission_required(request.user, 'AuthEvent', 'edit')
             ae = AuthEvent.objects.get(pk=pk)
             ae.name = req['name']
             ae.auth_method = req['auth_method']
             ae.auth_method_config = req['auth_method_config']
-            ae.metadata = req
+            ae.metadata = req['metadata']
         ae.save()
 
         data = {'status': 'ok', 'id': ae.pk}
@@ -220,8 +220,8 @@ class AuthEventModule(View):
                 data['methods'].append(
                         [k, {
                                 'description': desc,
-                                'config': config,
-                                'meta': meta,
+                                'auth_method_config': config,
+                                'metadata': meta,
                             }]
                 )
         elif name in METHODS.keys(): # show module
@@ -231,8 +231,8 @@ class AuthEventModule(View):
             data = {
                     name: {
                         'description': desc,
-                        'config': config,
-                        'meta': meta,
+                        'auth_method_config': config,
+                        'metadata': meta,
                     }
             }
 

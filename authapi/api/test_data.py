@@ -11,6 +11,7 @@ pwd_auth_email = {
 auth_event1 = {
     "hmac": ["superuser:11114341", "deadbeefdeadbeef"],
     "name": "foo election",
+    "description": "foo election description",
     "auth_method": "sms-code",
     "auth_method_config": {
         "sms-provider": "esendex",
@@ -53,12 +54,19 @@ auth_event1 = {
                 "sms-code"}],
             ["mark_as", {"field-auth": "tlf", "status": "voted"}],
         ]
+    },
+    "metadata": {
+        'fields': [
+            {'name': 'email', 'type': 'text', 'required': True},
+            {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
+        ],
     }
 }
 
 auth_event2 = {
     "hmac": ["superuser:11114341", "deadbeefdeadbeef"],
     "name": "bar election",
+    "description": "foo election description",
     "auth_method": "sms-code",
     "auth_method_config": {
         "sms-provider": "esendex",
@@ -101,5 +109,11 @@ auth_event2 = {
                 "sms-code"}],
             ["mark_as", {"field-auth": "tlf", "status": "voted"}],
         ]
+    },
+    "metadata": {
+        'fields': [
+            {'name': 'email', 'type': 'text', 'required': True},
+            {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
+        ],
     }
 }
