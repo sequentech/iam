@@ -21,14 +21,16 @@ class AuthEventAdminForm(forms.ModelForm):
 
 class AuthEventAdmin(admin.ModelAdmin):
     form = AuthEventAdminForm
+    list_display = ('id', 'name', 'auth_method')
 
 
 class UserDataAdmin(admin.ModelAdmin):
-    pass
+    list_display = ('user', 'status')
 
 
 class ACLAdmin(admin.ModelAdmin):
-    pass
+    list_display = ('user', 'perm', 'object_type', 'object_id')
+    list_filter = ('perm', 'object_type')
 
 
 class ColorListAdmin(admin.ModelAdmin):

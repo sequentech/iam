@@ -48,6 +48,9 @@ class UserData(models.Model):
     def has_perms(self, obj, permission, object_id):
         return self.acls.filter(object_type=obj, object_id=object_id, perm=permission).count()
 
+    def __str__(self):
+        return self.user.username
+
 @receiver(post_save, sender=User)
 def create_user_data(sender, instance, created, *args, **kwargs):
     ud, _ = UserData.objects.get_or_create(user=instance)
@@ -57,5 +60,5 @@ def create_user_data(sender, instance, created, *args, **kwargs):
 class ACL(models.Model):
     user = models.ForeignKey(UserData, related_name="acls")
     perm = models.CharField(max_length=255)
-    object_id = models.CharField(max_length=255, null=True)
     object_type = models.CharField(max_length=255, null=True)
+    object_id = models.CharField(max_length=255, null=True, blank=True)
