@@ -11,6 +11,7 @@ from utils import genhmac
 from .decorators import login_required
 from .models import AuthEvent, ACL
 from .models import User, UserData
+from django.db.models import Q
 
 
 def permission_required(user, object_type, permission, object_id=None):
@@ -116,6 +117,30 @@ class ACLView(View):
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
 acl = login_required(ACLView.as_view())
+
+
+class ACLMine(View):
+    ''' Returns the user ACL perms '''
+
+    def get(self, request):
+        object_type = request.GET.get('object_type', None)
+        object_id = request.GET.get('object_id', None)
+        perm = request.GET.get('perm', None)
+
+        data = {'status': 'ok', 'perms': []}
+        q = Q()
+        if object_type:
+            q = Q(object_type=object_type)
+        if object_id:
+            q &= Q(object_id=object_id)
+        if perm:
+            q &= Q(perm=perm)
+
+        for p in request.user.userdata.acls.filter(q):
+            data['perms'].append(p.serialize())
+        jsondata = json.dumps(data)
+        return HttpResponse(jsondata, content_type='application/json')
+aclmine = login_required(ACLMine.as_view())
 
 
 class AuthEventView(View):

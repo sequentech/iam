@@ -10,4 +10,5 @@ urlpatterns = patterns('',
     url(r'^auth-event/(?P<pk>\d+)/$', 'api.views.authevent', name='authevent'),
     url(r'^acl/$', 'api.views.acl', name='acl'),
     url(r'^acl/(?P<username>\w+)/(?P<object_type>\w+)/(?P<perm>\w+)/(?P<object_id>\w+)?$', 'api.views.acl', name='acl'),
+    url(r'^acl/mine/$', 'api.views.aclmine', name='aclmine'),
 )

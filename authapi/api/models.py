@@ -71,3 +71,11 @@ class ACL(models.Model):
     perm = models.CharField(max_length=255)
     object_type = models.CharField(max_length=255, null=True)
     object_id = models.CharField(max_length=255, null=True, blank=True)
+
+    def serialize(self):
+        d = {
+            'perm': self.perm,
+            'object_type': self.object_type or '',
+            'object_id': self.object_id or '',
+        }
+        return d

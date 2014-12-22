@@ -238,3 +238,16 @@ class ApiTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['perm'], False)
+
+    def test_acl_mine(self):
+        c = JClient()
+        c.login(test_data.pwd_auth)
+        response = c.get('/api/acl/mine/', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['perms']), 8)
+
+        response = c.get('/api/acl/mine/?object_type=ACL', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['perms']), 3)
