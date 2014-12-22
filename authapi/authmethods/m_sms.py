@@ -262,7 +262,7 @@ class Sms:
         if not u.check_password(pwd) or not u_meta['sms_verified']:
             return self.login_error()
 
-        d['auth-token'] = genhmac(settings.SHARED_SECRET, pwd)
+        d['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
         return d
 
     views = patterns('',
