@@ -73,7 +73,7 @@ def register_request(data, request):
 
     data['code'] = random_code(8, ascii_letters+digits)
     valid_link = request.build_absolute_uri(
-            '/authmethod/sms-code/validate/%d/%s' % (u.pk,  data['code']))
+            '/authmethod/sms-code/validate/%s/' % (data['code']))
     eo = AuthEvent.objects.get(pk=data.get('event'))
     conf = json.loads(eo.auth_method_config)
     msg = conf.get('msg') + valid_link
@@ -254,7 +254,7 @@ class Sms:
         pwd = data['password']
 
         try:
-            u = User.objects.get(email=email)
+            u = User.objects.filter(email=email)[0]
         except:
             return self.login_error()
 
@@ -262,7 +262,7 @@ class Sms:
         if not u.check_password(pwd) or not u_meta['sms_verified']:
             return self.login_error()
 
-        d['auth-token'] = genhmac(settings.SHARED_SECRET, email)
+        d['auth-token'] = genhmac(settings.SHARED_SECRET, pwd)
         return d
 
     views = patterns('',

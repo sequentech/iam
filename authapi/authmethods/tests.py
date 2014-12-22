@@ -106,7 +106,7 @@ class AuthMethodSmsTestCase(TestCase):
                 metadata=json.dumps(Sms.METADATA_DEFAULT))
         ae.save()
 
-        u = User(pk=1, username='test1')
+        u = User(pk=1, username='test1', email='test1@agoravoting.com')
         u.set_password('123456')
         u.save()
         u.userdata.event = ae
@@ -134,7 +134,7 @@ class AuthMethodSmsTestCase(TestCase):
                     acl = ACL(user=u.userdata, object_type=obj, perm=perm)
                     acl.save()
 
-        u2 = User(pk=2, username='test2')
+        u2 = User(pk=2, username='test2', email='test2@agoravoting.com')
         u2.set_password('123456')
         u2.save()
         u2.userdata.event = ae
@@ -237,7 +237,7 @@ class AuthMethodSmsTestCase(TestCase):
         auth = {
             'auth-method': 'sms-code',
             'auth-data': {
-                'user': 'test1',
+                'email': 'test1@agoravoting.com',
                 'password': '123456'
             }
         }
@@ -258,7 +258,7 @@ class AuthMethodSmsTestCase(TestCase):
     def test_method_sms_login_valid_code(self):
         response = self.c.post('/api/login/',
                 {'auth-method': 'sms-code', 'auth-data':
-                    {'user': 'test1', 'password': '123456'}})
+                    {'email': 'test1@agoravoting.com', 'password': '123456'}})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
@@ -266,7 +266,7 @@ class AuthMethodSmsTestCase(TestCase):
     def test_method_sms_login_invalid_code(self):
         response = self.c.post('/api/login/',
                 {'auth-method': 'sms-code', 'auth-data':
-                    {'user': 'test2', 'password': '123456'}})
+                    {'email': 'test2@agoravoting.com', 'password': '123456'}})
         self.assertEqual(response.status_code, 400)
 
     def test_method_sms_regiter_max_tlf(self):

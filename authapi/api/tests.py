@@ -47,7 +47,7 @@ class JClient(Client):
 
 class ApiTestCase(TestCase):
     def setUp(self):
-        u = User(username='john')
+        u = User(username='john', email='john@agoravoting.com')
         u.set_password('smith')
         u.save()
         self.userid = u.pk

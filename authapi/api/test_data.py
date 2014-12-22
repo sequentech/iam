@@ -3,6 +3,10 @@ pwd_auth = {
     'auth-data': {'username': 'john', 'password': 'smith'}
 }
 
+pwd_auth_email = {
+    'auth-method': 'user-and-password',
+    'auth-data': {'email': 'john@agoravoting.com', 'password': 'smith'}
+}
 
 auth_event1 = {
     "hmac": ["superuser:11114341", "deadbeefdeadbeef"],
