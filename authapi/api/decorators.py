@@ -13,7 +13,9 @@ class login_required(object):
         functools.wraps(self.func)(self)
 
     def __call__(self, request, *args, **kwargs):
-        key = request.META.get('HTTP_AUTH', None)
+        key = request.META.get('HTTP_AUTHORIZATION', None)
+        if not key:
+            key = request.META.get('HTTP_AUTH', None)
 
         if not key:
             return HttpResponseForbidden('Invalid auth token')

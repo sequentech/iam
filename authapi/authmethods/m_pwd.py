@@ -38,7 +38,8 @@ class PWD:
         if not u.check_password(pwd):
             return self.login_error()
 
-        d['auth-token'] = genhmac(settings.SHARED_SECRET, msg)
+        d['username'] = u.username
+        d['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
         return d
 
     views = patterns('',
