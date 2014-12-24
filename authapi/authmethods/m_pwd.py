@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.conf.urls import patterns, url
 from django.http import HttpResponse
+from django.db.models import Q
 
 
 def testview(request, param):
@@ -23,11 +24,14 @@ class PWD:
         return d
     def login(self, data):
         d = {'status': 'ok'}
-        msg = data['username']
+        msg = data.get('username', '')
+        if not msg:
+            msg = data.get('email', '')
+
         pwd = data['password']
 
         try:
-            u = User.objects.get(username=msg)
+            u = User.objects.get(Q(username=msg)|Q(email=msg))
         except:
             return self.login_error()
 
