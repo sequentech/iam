@@ -1,1 +1,2 @@
 SHARED_SECRET = b"<PASSWORD>"
+TIMEOUT = 3600 # one hour

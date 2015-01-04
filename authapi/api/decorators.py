@@ -20,7 +20,7 @@ class login_required(object):
         if not key:
             return HttpResponseForbidden('Invalid auth token')
 
-        v = verifyhmac(settings.SHARED_SECRET, key)
+        v = verifyhmac(settings.SHARED_SECRET, key, settings.TIMEOUT)
 
         if not v:
             return HttpResponseForbidden('Invalid auth token')
