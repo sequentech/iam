@@ -91,11 +91,10 @@ CORS_ORIGIN_WHITELIST = (
         'localhost:9001',
 )
 
+# Auth api settings
+from auth_settings import *
+
 try:
     from custom_settings import *
 except:
     pass
-
-
-# Auth api settings
-from auth_settings import *
