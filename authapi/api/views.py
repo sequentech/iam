@@ -156,10 +156,15 @@ class AuthEventView(View):
         req = json.loads(request.body.decode('utf-8'))
         if pk is None: # create
             permission_required(request.user, 'AuthEvent', 'create')
+
+            auth_method = req['auth_method']
+            auth_method_config = req['auth_method_config'] if req['auth_method_config'] else METHODS.get(auth_method).TPL_CONFIG
+            metadata = req['metadata'] if req['metadata'] else METHODS.get(auth_method).METADATA_DEFAULT
+
             ae = AuthEvent(name=req['name'],
-                           auth_method=req['auth_method'],
-                           auth_method_config=req['auth_method_config'],
-                           metadata=req['metadata'])
+                           auth_method=auth_method,
+                           auth_method_config=auth_method_config,
+                           metadata=metadata)
             acl = ACL(user=request.user.userdata, perm='AuthEvent', object_type='edit',
                     object_id=ae.id)
             acl.save()
