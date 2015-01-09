@@ -7,7 +7,7 @@ from django.conf import settings
 
 
 from django.contrib.auth.models import User
-from .models import ACL
+from .models import ACL, Pack
 
 from . import test_data
 
@@ -76,6 +76,10 @@ class ApiTestCase(TestCase):
 
         acl = ACL(user=u.userdata, object_type='ACL', perm='create')
         acl.save()
+
+        pack = Pack(user=u.userdata)
+        pack.save()
+        self.packid = pack.pk
 
     def test_api(self):
         c = JClient()
@@ -251,3 +255,26 @@ class ApiTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(len(r['perms']), 3)
+
+    def test_create_pack(self):
+        c = JClient()
+        c.login(test_data.pwd_auth)
+
+        response = c.post('/api/pack/', {'name': 'b'})
+        self.assertEqual(response.status_code, 200)
+
+    def test_edit_packs(self):
+        c = JClient()
+        c.login(test_data.pwd_auth)
+
+        response = c.post('/api/pack/', {'pack': self.packid, 'status': 'pai'})
+        self.assertEqual(response.status_code, 200)
+
+    def test_view_packs(self):
+        c = JClient()
+        c.login(test_data.pwd_auth)
+
+        response = c.get('/api/pack/', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['packs']), 1)

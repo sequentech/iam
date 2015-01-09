@@ -13,4 +13,6 @@ urlpatterns = patterns('',
     url(r'^acl/$', 'api.views.acl', name='acl'),
     url(r'^acl/(?P<username>\w+)/(?P<object_type>\w+)/(?P<perm>\w+)/(?P<object_id>\w+)?$', 'api.views.acl', name='acl'),
     url(r'^acl/mine/$', 'api.views.aclmine', name='aclmine'),
+    url(r'^pack/$', 'api.views.pack', name='pack'),
+    url(r'^pack/(?P<user>\d+)/$', 'api.views.pack', name='pack'),
 )

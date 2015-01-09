@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404
 from authmethods import auth_login, METHODS
 from utils import genhmac
 from .decorators import login_required
-from .models import AuthEvent, ACL
+from .models import AuthEvent, ACL, Pack
 from .models import User, UserData
 from django.db.models import Q
 
@@ -252,3 +252,53 @@ class AuthEventModule(View):
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
 authevent_module = AuthEventModule.as_view()
+
+
+class PackView(View):
+    def get(self, request, user=None):
+        '''
+            Lists all existing packs of an user.
+        '''
+        if user is None:
+            packs = Pack.objects.filter(user=request.user.userdata)
+        else:
+            permission_required(request.user, 'Pack', 'view')
+            packs = Pack.objects.filter(user=user)
+
+        data = {'packs': []}
+        for p in packs:
+            data['packs'].append(p.serialize())
+        jsondata = json.dumps(data)
+        return HttpResponse(jsondata, content_type='application/json')
+
+    def post(self, request, user=None):
+        '''
+            Create or edit a pack.
+        '''
+        req = json.loads(request.body.decode('utf-8'))
+        try:
+            packid = req['pack']
+        except:
+            packid = None
+
+        if packid is None: # create
+            if user is None:
+                pack = Pack(user=request.user.userdata, name=req['name'])
+            else:
+                permission_required(request.user, 'Pack', 'create')
+                pack = Pack(user=pk, name=req['name'])
+            pack.save()
+        else: # edit
+            pack = get_object_or_404(Pack, pk=req['pack'])
+            if user is not None:
+                permission_required(request.user, 'Pack', 'edit')
+            if req['status'] != pack.status:
+                pack.status = req['status']
+                pack.save()
+            else:
+                return HttpResponse( json.dumps({}), status=400, content_type='application/json', )
+
+        data = {'status': 'ok', 'id': pack.pk}
+        jsondata = json.dumps(data)
+        return HttpResponse(jsondata, content_type='application/json')
+pack = login_required(PackView.as_view())

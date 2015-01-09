@@ -79,3 +79,35 @@ class ACL(models.Model):
             'object_id': self.object_id or '',
         }
         return d
+
+
+NAMES_PACK = (
+    ('f', 'Free'),
+    ('b', 'Basic'),
+    ('p', 'Premium'),
+)
+
+STATUSES_PACK = (
+    ('pen', 'Pending'),
+    ('pai', 'Paid'),
+    ('act', 'Active'),
+    ('dis', 'Disabled'),
+)
+
+class Pack(models.Model):
+    user = models.ForeignKey(UserData, related_name="packs")
+    name = models.CharField(max_length=3, choices=NAMES_PACK, default="b")
+    status = models.CharField(max_length=3, choices=STATUSES_PACK, default="pen")
+    created = models.DateTimeField(auto_now_add=True)
+
+    def serialize(self):
+        d = {
+            'id': self.id,
+            'name': self.name,
+            'status': self.status,
+            'created': self.created.isoformat(),
+        }
+        return d
+
+    def __str__(self):
+        return self.name
