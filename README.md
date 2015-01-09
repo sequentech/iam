@@ -290,6 +290,36 @@ A valid answer would be a STATUS 200 with the following data:
       "auth-token": "khmac:///sha-256;deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/userid:timestamp"
     }
 
+## GET /pack/
+
+Allows a login user view his packs:
+
+If successful, return list of packs.
+
+## POST /pack/
+
+Allows a login user create or edit a own package. A valid input could be:
+
+Create:
+
+    {
+        "name": "b",
+    }
+
+Edit:
+
+    {
+        "pack": 1,
+        "status": "pai",
+    }
+
+A valid answer would be a STATUS 200 with the following data:
+
+    {
+      "status": "ok",
+      "id": 1
+    }
+
 # Utils Commands
 
 * Generate config auth-event and create auth-event:
