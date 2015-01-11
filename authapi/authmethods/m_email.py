@@ -89,11 +89,11 @@ class Email:
     }
     METADATA_DEFAULT = {
         'steps': [ 'register', 'validate', 'login' ],
-        'fields-register': [
+        'fieldsRegister': [
             {'name': 'email', 'type': 'text', 'required': True},
             {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
         ],
-        'fields-validate': 'Link sent. Click for activate account.',
+        'fieldsValidate': 'Link sent. Click for activate account.',
         'capcha': False,
     }
 

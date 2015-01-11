@@ -18,7 +18,7 @@ def check_request(request, data):
 
     eo = AuthEvent.objects.get(pk=data['event'])
     conf = json.loads(eo.metadata)
-    pipeline = conf.get('fields-register')
+    pipeline = conf.get('fieldsRegister')
     for pipe in pipeline:
         classname = pipe.get('name')
         if classname not in ('dni', 'email'):
@@ -235,7 +235,7 @@ class Sms:
     }
     METADATA_DEFAULT = {
         'steps': [ 'register', 'validate', 'login' ],
-        'fields-register': [
+        'fieldsRegister': [
             {'name': 'name', 'type': 'text', 'required': False},
             {'name': 'surname', 'type': 'text', 'required': False},
             {'name': 'dni', 'type': 'text', 'required': True, 'max': 9},
@@ -243,7 +243,7 @@ class Sms:
             {'name': 'email', 'type': 'text', 'required': True},
             {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
         ],
-        'fields-validate': [
+        'fieldsValidate': [
             {'name': 'dni', 'type': 'text', 'required': True, 'max': 9},
             {'name': 'tlf', 'type': 'text', 'required': True, 'max': 12},
             {'name': 'code', 'type': 'password', 'required': True, 'min': 4},
