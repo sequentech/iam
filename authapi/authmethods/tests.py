@@ -122,7 +122,7 @@ class AuthMethodSmsTestCase(TestCase):
         code.save()
         m = Message(tlf='+34666666666')
         m.save()
-        pipe = Sms.TPL_CONFIG.get('feedback-pipeline')
+        pipe = Sms.TPL_CONFIG.get('validate-pipeline')
         for p in pipe:
             if p[0] == 'check_total_connection':
                 self.times = p[1].get('times')

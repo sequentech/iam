@@ -8,14 +8,14 @@ from string import ascii_letters, digits
 from utils import genhmac, constant_time_compare
 
 from . import register_method
-from authmethods.utils import random_code
+from authmethods.utils import random_code, random_username
 from api.models import AuthEvent, ACL
 
 
 def register(request, method):
     req = json.loads(request.body.decode('utf-8'))
     mail_to = req.get('email')
-    user = req.get('user')
+    user = random_username()
     pwd = req.get('password')
 
     try:
@@ -83,10 +83,13 @@ class Email:
             'mail_from': 'authapi@agoravoting.com'
     }
     METADATA_DEFAULT = {
-        'fields': [
+        'steps': [ 'register', 'validate', 'login' ],
+        'fields-register': [
             {'name': 'email', 'type': 'text', 'required': True},
             {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
         ],
+        'fields-validate': 'Link sent. Click for activate account.',
+        'capcha': False,
     }
 
     def login_error(self):

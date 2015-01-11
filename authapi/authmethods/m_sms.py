@@ -18,7 +18,7 @@ def check_request(request, data):
 
     eo = AuthEvent.objects.get(pk=data['event'])
     conf = json.loads(eo.metadata)
-    pipeline = conf.get('fields')
+    pipeline = conf.get('fields-register')
     for pipe in pipeline:
         classname = pipe.get('name')
         if classname not in ('dni', 'email'):
@@ -186,7 +186,7 @@ def validate(request, event):
 
     eo = AuthEvent.objects.get(pk=event)
     conf = json.loads(eo.auth_method_config)
-    pipeline = conf.get('feedback-pipeline')
+    pipeline = conf.get('validate-pipeline')
     for pipe in pipeline:
         check = getattr(eval(pipe[0]), '__call__')(data, req, **pipe[1])
 
@@ -227,14 +227,15 @@ class Sms:
                 #["generate_token", {"land_line_rx": "^\+34[89]"}],
                 ["send_sms"],
             ],
-            'feedback-pipeline': [
+            'validate-pipeline': [
                 ['check_total_connection', {'times': 5 }],
                 ['check_sms_code', {'timestamp': 5 }], # seconds
                 ['give_perms', {'object_type': 'Vote', 'perms': ['create',] }],
             ],
     }
     METADATA_DEFAULT = {
-        'fields': [
+        'steps': [ 'register', 'validate', 'login' ],
+        'fields-register': [
             {'name': 'name', 'type': 'text', 'required': False},
             {'name': 'surname', 'type': 'text', 'required': False},
             {'name': 'dni', 'type': 'text', 'required': True, 'max': 9},
@@ -242,6 +243,12 @@ class Sms:
             {'name': 'email', 'type': 'text', 'required': True},
             {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
         ],
+        'fields-validate': [
+            {'name': 'dni', 'type': 'text', 'required': True, 'max': 9},
+            {'name': 'tlf', 'type': 'text', 'required': True, 'max': 12},
+            {'name': 'code', 'type': 'password', 'required': True, 'min': 4},
+        ],
+        'capcha': False,
     }
 
     def login_error(self):
