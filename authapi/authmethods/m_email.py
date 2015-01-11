@@ -62,9 +62,13 @@ def validate(request, user, code):
         u.save()
 
         # giving perms
-        acl = ACL(user=u.userdata, object_type='Vote', perm='create',
-                object_id=u.userdata.event.id)
-        acl.save()
+        authconfig = json.loads(u.userdata.event.auth_method_config)
+        give_perms = authconfig.get('give_perms')
+        obj = give_perms.get('object_type')
+        for perm in give_perms.get('perms'):
+            acl = ACL(user=u.userdata, object_type=obj, perm=perm,
+                    object_id=u.userdata.event.id)
+            acl.save()
         data = {'status': 'ok', 'username': u.username}
         status = 200
     else:
@@ -80,7 +84,8 @@ class Email:
     TPL_CONFIG = {
             'subject': 'Confirm your email',
             'msg': 'Click in this link for validate your email: ',
-            'mail_from': 'authapi@agoravoting.com'
+            'mail_from': 'authapi@agoravoting.com',
+            'give_perms': {'object_type': 'Vote', 'perms': ['create',] },
     }
     METADATA_DEFAULT = {
         'steps': [ 'register', 'validate', 'login' ],
