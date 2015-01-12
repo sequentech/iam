@@ -158,8 +158,14 @@ class AuthEventView(View):
             permission_required(request.user, 'AuthEvent', 'create')
 
             auth_method = req['auth_method']
-            auth_method_config = req['auth_method_config'] if req['auth_method_config'] else METHODS.get(auth_method).TPL_CONFIG
-            metadata = req['metadata'] if req['metadata'] else METHODS.get(auth_method).METADATA_DEFAULT
+            try:
+                auth_method_config = req['auth_method_config']
+            except:
+                auth_method_config = METHODS.get(auth_method).TPL_CONFIG
+            try:
+                metadata = req['metadata']
+            except:
+                metadata = METHODS.get(auth_method).METADATA_DEFAULT
 
             ae = AuthEvent(name=req['name'],
                            auth_method=auth_method,
