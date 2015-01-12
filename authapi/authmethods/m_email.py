@@ -65,9 +65,13 @@ def validate(request, userid, code):
         authconfig = json.loads(u.userdata.event.auth_method_config)
         give_perms = authconfig.get('give_perms')
         obj = give_perms.get('object_type')
+        if give_perms.get('object_id') == 'all':
+            object_id = None
+        else:
+            object_id = u.userdata.event.id
         for perm in give_perms.get('perms'):
             acl = ACL(user=u.userdata, object_type=obj, perm=perm,
-                    object_id=u.userdata.event.id)
+                    object_id=object_id)
             acl.save()
         data = {'status': 'ok', 'username': u.username}
         status = 200
