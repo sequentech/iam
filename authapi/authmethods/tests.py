@@ -33,7 +33,7 @@ class AuthMethodEmailTestCase(TestCase):
                 metadata=json.dumps(Email.METADATA_DEFAULT))
         ae.save()
 
-        u = User(pk=1, username='test1')
+        u = User(pk=1, username='test1', email='test1@agoravoting.com')
         u.set_password('123456')
         u.save()
         u.userdata.event = ae
@@ -65,28 +65,28 @@ class AuthMethodEmailTestCase(TestCase):
         self.assertEqual(r['status'], 'ok')
 
     def test_method_email_valid_code(self):
-        user = 'test1'
+        userid = 1
         code = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 
         c = JClient()
-        response = c.get('/api/authmethod/email/validate/%s/%s/' % (user, code), {})
+        response = c.get('/api/authmethod/email/validate/%d/%s/' % (userid, code), {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
 
     def test_method_email_invalid_code(self):
-        user = 'test1'
+        userid = 1
         code = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 
         c = JClient()
-        response = c.get('/api/authmethod/email/validate/%s/%s/' % (user, code), {})
+        response = c.get('/api/authmethod/email/validate/%d/%s/' % (userid, code), {})
         self.assertEqual(response.status_code, 400)
 
     def test_method_email_login_valid_code(self):
         c = JClient()
         response = c.post('/api/login/',
                 {'auth-method': 'email', 'auth-data':
-                    {'user': 'test1', 'password': '123456'}})
+                    {'email': 'test1@agoravoting.com', 'password': '123456'}})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
@@ -95,7 +95,7 @@ class AuthMethodEmailTestCase(TestCase):
         c = JClient()
         response = c.post('/api/login/',
                 {'auth-method': 'email', 'auth-data':
-                    {'user': 'test2', 'password': '123456'}})
+                    {'email': 'test2@agoravoting.com', 'password': '123456'}})
         self.assertEqual(response.status_code, 400)
 
 

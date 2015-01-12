@@ -19,7 +19,7 @@ def register(request, method):
     pwd = req.get('password')
 
     try:
-        u = User(username=user)
+        u = User(username=user, email=mail_to)
         u.set_password(pwd)
         u.save()
     except:
@@ -36,7 +36,7 @@ def register(request, method):
 
     code = random_code(64, ascii_letters+digits)
     valid_link = request.build_absolute_uri(
-            '/authmethod/email/validate/%d/%s' % (u.pk,  code))
+            '/api/authmethod/email/validate/%d/%s/' % (u.pk,  code))
     msg = conf.get('msg') + valid_link
 
     u.userdata.event = eo
@@ -53,8 +53,8 @@ def register(request, method):
     return HttpResponse(jsondata, content_type='application/json')
 
 
-def validate(request, user, code):
-    u = User.objects.get(username=user)
+def validate(request, userid, code):
+    u = User.objects.get(pk=userid)
     u_meta = json.loads(u.userdata.metadata)
     if constant_time_compare(u_meta.get('code'), code):
         u_meta.update({ 'email_verified': True })
@@ -103,11 +103,11 @@ class Email:
 
     def login(self, data):
         d = {'status': 'ok'}
-        user = data['user']
+        email = data['email']
         pwd = data['password']
 
         try:
-            u = User.objects.get(username=user)
+            u = User.objects.get(email=email)
         except:
             return self.login_error()
 
@@ -115,12 +115,12 @@ class Email:
         if not u.check_password(pwd) or not u_meta.get('email_verified'):
             return self.login_error()
 
-        d['auth-token'] = genhmac(settings.SHARED_SECRET, user)
+        d['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
         return d
 
     views = patterns('',
         url(r'^register/(?P<method>\d+)$', register),
-        url(r'^validate/(?P<user>\w+)/(?P<code>\w+)$', validate),
+        url(r'^validate/(?P<userid>\d+)/(?P<code>\w+)$', validate),
     )
 
 register_method('email', Email)
