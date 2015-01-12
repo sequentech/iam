@@ -59,7 +59,7 @@ def validate(request, userid, code):
     if constant_time_compare(u_meta.get('code'), code):
         u_meta.update({ 'email_verified': True })
         u.userdata.metadata = json.dumps(u_meta)
-        u.save()
+        u.userdata.save()
 
         # giving perms
         authconfig = json.loads(u.userdata.event.auth_method_config)
@@ -105,9 +105,10 @@ class Email:
         d = {'status': 'ok'}
         email = data['email']
         pwd = data['password']
+        eo = AuthEvent.objects.get(pk=int(data['authevent']))
 
         try:
-            u = User.objects.get(email=email)
+            u = User.objects.get(email=email, userdata__event=eo)
         except:
             return self.login_error()
 

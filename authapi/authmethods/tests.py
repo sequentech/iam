@@ -86,7 +86,8 @@ class AuthMethodEmailTestCase(TestCase):
         c = JClient()
         response = c.post('/api/login/',
                 {'auth-method': 'email', 'auth-data':
-                    {'email': 'test1@agoravoting.com', 'password': '123456'}})
+                    {'email': 'test1@agoravoting.com', 'password': '123456',
+                        'authevent': '1'}})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
@@ -95,7 +96,8 @@ class AuthMethodEmailTestCase(TestCase):
         c = JClient()
         response = c.post('/api/login/',
                 {'auth-method': 'email', 'auth-data':
-                    {'email': 'test2@agoravoting.com', 'password': '123456'}})
+                    {'email': 'test2@agoravoting.com', 'password': '123456',
+                        'authevent': '1'}})
         self.assertEqual(response.status_code, 400)
 
 
