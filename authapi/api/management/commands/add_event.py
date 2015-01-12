@@ -65,8 +65,8 @@ Example(create): add_event -c config.json -m meta.json -t sms-code -n test'''
             conf = open(options['conf'], 'r')
             meta = open(options['meta'], 'r')
             ae = AuthEvent(name=options['name'], auth_method=options['type'],
-                    auth_method_config=json.dumps(json.load(conf)),
-                    metadata=json.dumps(json.load(meta)))
+                    auth_method_config=json.load(conf),
+                    metadata=json.load(meta))
             ae.save()
         else:
             print(self.help)
