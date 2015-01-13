@@ -30,7 +30,7 @@ def register(request, method):
     # check method event
     eo = AuthEvent.objects.get(pk=method)
 
-    conf = json.loads(eo.auth_method_config)
+    conf = eo.auth_method_config
     subject = conf.get('subject')
     mail_from = conf.get('mail_from')
 
@@ -62,7 +62,7 @@ def validate(request, userid, code):
         u.userdata.save()
 
         # giving perms
-        authconfig = json.loads(u.userdata.event.auth_method_config)
+        authconfig = u.userdata.event.auth_method_config
         give_perms = authconfig.get('give_perms')
         obj = give_perms.get('object_type')
         if give_perms.get('object_id') == 'all':

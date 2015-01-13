@@ -4,6 +4,7 @@ from django.test import TestCase
 
 import json
 import time
+from api import test_data
 from api.tests import JClient
 from api.models import AuthEvent, ACL
 from .m_email import Email
@@ -28,9 +29,9 @@ class AuthMethodTestCase(TestCase):
 
 class AuthMethodEmailTestCase(TestCase):
     def setUp(self):
-        ae = AuthEvent(pk=1, name='test', auth_method='email',
-                auth_method_config=json.dumps(Email.TPL_CONFIG),
-                metadata=json.dumps(Email.METADATA_DEFAULT))
+        ae = AuthEvent(pk=1, name='test', auth_method=test_data.auth_event3['auth_method'],
+                auth_method_config=test_data.auth_event3['auth_method_config'],
+                metadata=test_data.auth_event3['metadata'])
         ae.save()
 
         u = User(pk=1, username='test1', email='test1@agoravoting.com')
@@ -103,9 +104,9 @@ class AuthMethodEmailTestCase(TestCase):
 
 class AuthMethodSmsTestCase(TestCase):
     def setUp(self):
-        ae = AuthEvent(pk=1, name='test', auth_method='sms-code',
-                auth_method_config=json.dumps(Sms.TPL_CONFIG),
-                metadata=json.dumps(Sms.METADATA_DEFAULT))
+        ae = AuthEvent(pk=1, name='test', auth_method=test_data.auth_event1['auth_method'],
+                auth_method_config=test_data.auth_event1['auth_method_config'],
+                metadata=test_data.auth_event1['metadata'])
         ae.save()
 
         u = User(pk=1, username='test1', email='test1@agoravoting.com')

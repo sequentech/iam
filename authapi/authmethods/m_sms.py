@@ -17,7 +17,7 @@ def check_request(request, data):
     req = json.loads(request.body.decode('utf-8'))
 
     eo = AuthEvent.objects.get(pk=data['event'])
-    conf = json.loads(eo.metadata)
+    conf = eo.metadata
     pipeline = conf.get('fieldsRegister')
     for pipe in pipeline:
         classname = pipe.get('name')
@@ -75,8 +75,8 @@ def register_request(data, request):
     valid_link = request.build_absolute_uri(
             '/authmethod/sms-code/validate/%s/' % (data['code']))
     eo = AuthEvent.objects.get(pk=data.get('event'))
-    conf = json.loads(eo.auth_method_config)
-    msg = conf.get('msg') + valid_link
+    conf = eo.auth_method_config
+    msg = conf.get('sms-message') + valid_link
 
     u.userdata.event = eo
     u.userdata.metadata = json.dumps({
@@ -98,7 +98,7 @@ def send_sms(data, conf):
     from authmethods.sms_provider import SMSProvider
 
     con = SMSProvider.get_instance(conf)
-    con.send_sms(receiver=data['tlf'], content=conf['msg'], is_audio="sss")
+    con.send_sms(receiver=data['tlf'], content=conf['sms-message'], is_audio="sss")
 
     m = Message(ip=data['ip_addr'], tlf=data['tlf'])
     m.save()
@@ -117,7 +117,7 @@ def check_total_connection(data, req, **kwargs):
 
 def check_sms_code(data, req, **kwargs):
     eo = AuthEvent.objects.get(pk=data['event'])
-    conf = json.loads(eo.auth_method_config)
+    conf = eo.auth_method_config
 
     # check code
     code = Code.objects.filter(tlf=req.get('tlf'), dni=req.get('dni'))
@@ -161,7 +161,7 @@ def register(request, event):
         return check
 
     eo = AuthEvent.objects.get(pk=event)
-    conf = json.loads(eo.auth_method_config)
+    conf = eo.auth_method_config
     pipeline = conf.get('register-pipeline')
     for pipe in pipeline:
         classname = pipe[0]
@@ -185,7 +185,7 @@ def validate(request, event):
     req = json.loads(request.body.decode('utf-8'))
 
     eo = AuthEvent.objects.get(pk=event)
-    conf = json.loads(eo.auth_method_config)
+    conf = eo.auth_method_config
     pipeline = conf.get('validate-pipeline')
     for pipe in pipeline:
         check = getattr(eval(pipe[0]), '__call__')(data, req, **pipe[1])
@@ -210,7 +210,7 @@ class Sms:
             'SMS_URL': '',
             'SMS_SENDER_ID': '',
             'SMS_VOICE_LANG_CODE': '',
-            'msg': 'Confirm your sms code: ',
+            'SMS_MESSAGE': 'Confirm your sms code: ',
             'register-pipeline': [
                 #["check_tlf_expire_max", {"field": "tlf", "expire-secs": 120}],
                 ["check_whitelisted", {"field": "tlf"}],

@@ -14,52 +14,52 @@ auth_event1 = {
     "description": "foo election description",
     "auth_method": "sms-code",
     "auth_method_config": {
-        "sms-provider": "esendex",
-        "user": "foo",
-        "password": "wahtever",
-        "sms-message": "%(server_name)s: your token is: %(token)s",
-        "sms-token-expire-secs": 600,
-        "max-token-guesses": 3,
-        "authapi": {
-            "mode": "on-the-go",
-            "fields": [
-                {
-                    "name": "Name",
-                    "type": "string",
-                    "length": [13, 255],
-                }
-            ]
-        },
+        "SMS_PROVIDER": "console",
+        "SMS_DOMAIN_ID": "",
+        "SMS_LOGIN": "",
+        "SMS_PASSWORD": "",
+        "SMS_URL": "",
+        "SMS_SENDER_ID": "",
+        "SMS_VOICE_LANG_CODE": "",
+        "sms-message": "Confirm your sms code: ",
         "register-pipeline": [
-            ["register_request"],
-            ["check_has_not_status", {"field": "tlf", "status": "voted"}],
-            ["check_has_not_voted", {"field": "dni", "status": "voted"}],
-            ["check_tlf_expire_max", {"field": "tlf", "expire-secs": 120}],
+            #["check_tlf_expire_max", {"field": "tlf", "expire-secs": 120}],
             ["check_whitelisted", {"field": "tlf"}],
             ["check_whitelisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "tlf"}],
-            ["check_ip_total_unconfirmed_requests_max",
-                {"max": 30}],
+            #["check_ip_total_unconfirmed_requests_max", {"max": 30}],
             ["check_total_max", {"field": "ip", "max": 8}],
             ["check_total_max", {"field": "tlf", "max": 7}],
             ["check_total_max", {"field": "tlf", "period": 1440, "max": 5}],
             ["check_total_max", {"field": "tlf", "period": 60, "max": 3}],
-            ["check_id_in_census", {"fields": "tlf"}],
-            ["generate_token", {"land_line_rx": "^\+34[89]"}],
-            ["send_sms_pipe"],
+            #["check_id_in_census", {"fields": "tlf"}],
+            ["register_request"],
+            #["generate_token", {"land_line_rx": "^\+34[89]"}],
+            ["send_sms"],
         ],
-        "feedback-pipeline": [
-            ["check_sms_code", {"field-auth": "tlf", "field-code":
-                "sms-code"}],
-            ["mark_as", {"field-auth": "tlf", "status": "voted"}],
+        "validate-pipeline": [
+            ['check_total_connection', {'times': 5 }],
+            ['check_sms_code', {'timestamp': 5 }], # seconds
+            ['give_perms', {'object_type': 'Vote', 'perms': ['create',] }],
         ]
     },
     "metadata": {
-        'fields': [
+        'steps': [ 'register', 'validate', 'login' ],
+        'fieldsRegister': [
+            {'name': 'name', 'type': 'text', 'required': False},
+            {'name': 'surname', 'type': 'text', 'required': False},
+            {'name': 'dni', 'type': 'text', 'required': True, 'max': 9},
+            {'name': 'tlf', 'type': 'text', 'required': True, 'max': 12},
             {'name': 'email', 'type': 'text', 'required': True},
             {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
         ],
+        'fieldsValidate': [
+            {'name': 'dni', 'type': 'text', 'required': True, 'max': 9},
+            {'name': 'tlf', 'type': 'text', 'required': True, 'max': 12},
+            {'name': 'code', 'type': 'password', 'required': True, 'min': 4},
+        ],
+        'capcha': False,
     }
 }
 
@@ -69,51 +69,73 @@ auth_event2 = {
     "description": "foo election description",
     "auth_method": "sms-code",
     "auth_method_config": {
-        "sms-provider": "esendex",
-        "user": "foo",
-        "password": "wahtever",
-        "sms-message": "%(server_name)s: your token is: %(token)s",
-        "sms-token-expire-secs": 600,
-        "max-token-guesses": 3,
-        "authapi": {
-            "mode": "on-the-go",
-            "fields": [
-                {
-                    "name": "Name",
-                    "type": "string",
-                    "length": [13, 255],
-                }
-            ]
-        },
+        "SMS_PROVIDER": "console",
+        "SMS_DOMAIN_ID": "",
+        "SMS_LOGIN": "",
+        "SMS_PASSWORD": "",
+        "SMS_URL": "",
+        "SMS_SENDER_ID": "",
+        "SMS_VOICE_LANG_CODE": "",
+        "sms-message": "Confirm your sms code: ",
         "register-pipeline": [
-            ["register_request"],
-            ["check_has_not_status", {"field": "tlf", "status": "voted"}],
-            ["check_has_not_voted", {"field": "dni", "status": "voted"}],
-            ["check_tlf_expire_max", {"field": "tlf", "expire-secs": 120}],
+            #["check_tlf_expire_max", {"field": "tlf", "expire-secs": 120}],
             ["check_whitelisted", {"field": "tlf"}],
             ["check_whitelisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "tlf"}],
-            ["check_ip_total_unconfirmed_requests_max",
-                {"max": 30}],
+            #["check_ip_total_unconfirmed_requests_max", {"max": 30}],
             ["check_total_max", {"field": "ip", "max": 8}],
             ["check_total_max", {"field": "tlf", "max": 7}],
             ["check_total_max", {"field": "tlf", "period": 1440, "max": 5}],
             ["check_total_max", {"field": "tlf", "period": 60, "max": 3}],
-            ["check_id_in_census", {"fields": "tlf"}],
-            ["generate_token", {"land_line_rx": "^\+34[89]"}],
-            ["send_sms_pipe"],
+            #["check_id_in_census", {"fields": "tlf"}],
+            ["register_request"],
+            #["generate_token", {"land_line_rx": "^\+34[89]"}],
+            ["send_sms"],
         ],
-        "feedback-pipeline": [
-            ["check_sms_code", {"field-auth": "tlf", "field-code":
-                "sms-code"}],
-            ["mark_as", {"field-auth": "tlf", "status": "voted"}],
+        "validate-pipeline": [
+            ['check_total_connection', {'times': 5 }],
+            ['check_sms_code', {'timestamp': 5 }], # seconds
+            ['give_perms', {'object_type': 'Vote', 'perms': ['create',] }],
         ]
     },
     "metadata": {
-        'fields': [
+        'steps': [ 'register', 'validate', 'login' ],
+        'fieldsRegister': [
+            {'name': 'name', 'type': 'text', 'required': False},
+            {'name': 'surname', 'type': 'text', 'required': False},
+            {'name': 'dni', 'type': 'text', 'required': True, 'max': 9},
+            {'name': 'tlf', 'type': 'text', 'required': True, 'max': 12},
             {'name': 'email', 'type': 'text', 'required': True},
             {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
         ],
+        'fieldsValidate': [
+            {'name': 'dni', 'type': 'text', 'required': True, 'max': 9},
+            {'name': 'tlf', 'type': 'text', 'required': True, 'max': 12},
+            {'name': 'code', 'type': 'password', 'required': True, 'min': 4},
+        ],
+        'capcha': False,
+    }
+}
+
+auth_event3 = {
+    "hmac": ["superuser:11114341", "deadbeefdeadbeef"],
+    "name": "main election",
+    "description": "main election description",
+    "auth_method": "email",
+    "auth_method_config": {
+        'subject': 'Confirm your email',
+        'msg': 'Click in this link for validate your email: ',
+        'mail_from': 'authapi@agoravoting.com',
+        'give_perms': {'object_type': 'Vote', 'perms': ['create',] },
+    },
+    "metadata": {
+        'steps': [ 'register', 'validate', 'login' ],
+        'fieldsRegister': [
+            {'name': 'email', 'type': 'text', 'required': True},
+            {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
+        ],
+        'fieldsValidate': 'Link sent. Click for activate account.',
+        'capcha': False,
     }
 }
