@@ -48,6 +48,7 @@ STATUSES = (
 class UserData(models.Model):
     user = models.OneToOneField(User, related_name="userdata")
     event = models.ForeignKey(AuthEvent, related_name="userdata", null=True)
+    credits = models.FloatField(default=0)
     metadata = JSONField(default="{}")
     status = models.CharField(max_length=255, choices=STATUSES, default="act")
 
@@ -61,6 +62,14 @@ class UserData(models.Model):
 
     def has_perms(self, obj, permission, object_id=None):
         return bool(self.get_perms(obj, permission, object_id).count())
+
+    def serialize(self):
+        d = {
+            'username': self.user.username,
+            'email': self.user.email,
+            'credits': self.credits,
+        }
+        return d
 
     def __str__(self):
         return self.user.username
@@ -98,33 +107,39 @@ class ACL(models.Model):
                                       self.object_type, self.object_id)
 
 
-NAMES_PACK = (
-    ('f', 'Free'),
-    ('b', 'Basic'),
-    ('p', 'Premium'),
+ACTIONS = (
+    ('add', 'add_credits'),
+    ('spend', 'spend_credits'),
 )
 
-STATUSES_PACK = (
-    ('pen', 'Pending'),
-    ('pai', 'Paid'),
-    ('act', 'Active'),
-    ('dis', 'Disabled'),
+STATUSES_CREDITS = (
+    ('created', 'created'),
+    ('done', 'done'),
+    ('cancelled', 'cancelled'),
 )
 
-class Pack(models.Model):
-    user = models.ForeignKey(UserData, related_name="packs")
-    name = models.CharField(max_length=3, choices=NAMES_PACK, default="b")
-    status = models.CharField(max_length=3, choices=STATUSES_PACK, default="pen")
+class CreditsAction(models.Model):
+    user = models.ForeignKey(UserData, related_name="creditsactions")
+    action = models.CharField(max_length=5, choices=ACTIONS, default="add")
+    status = models.CharField(max_length=10, choices=STATUSES_CREDITS,
+            default="created")
+    quantity = models.FloatField()
+    authevent = models.ForeignKey(AuthEvent, related_name="creditsactions", null=True)
+    payment_metadata = JSONField(default="{}")
     created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now_add=True)
 
-    def serialize(self):
-        d = {
-            'id': self.id,
-            'name': self.name,
-            'status': self.status,
-            'created': self.created.isoformat(),
-        }
-        return d
+    #def serialize(self):
+    #    d = {
+    #        'id': self.id,
+    #        'user': self.user.serialize(),
+    #        'quantity': self.quantity,
+    #        'action': self.action,
+    #        'status': self.status,
+    #        'created': self.created.isoformat(),
+    #        'updated': self.updated.isoformat(),
+    #    }
+    #    return d
 
     def __str__(self):
         return self.name

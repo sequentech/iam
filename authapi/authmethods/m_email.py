@@ -21,6 +21,8 @@ def register(request, method):
         u = User(username=user, email=mail_to)
         u.set_password(pwd)
         u.save()
+        acl = ACL(user=u.userdata, object_type='UserData', perm='view', object_id=u.pk)
+        acl.save()
     except:
         data = {'msg': 'user already exist'}
         jsondata = json.dumps(data)

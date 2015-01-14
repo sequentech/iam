@@ -18,4 +18,6 @@ urlpatterns = patterns('',
     url(r'^available-packs/$', 'api.views.available_packs', name='available_packs'),
     url(r'^available-payment-methods/$', 'api.views.available_payment_methods',
         name='available_payment_methods'),
+    url(r'^user/(?P<pk>\d+)/$', 'api.views.user', name='user'),
+    url(r'^user/add-credits/$', 'api.views.creditsaction', name='creditsaction'),
 )

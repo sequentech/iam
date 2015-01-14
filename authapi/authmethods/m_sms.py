@@ -70,6 +70,8 @@ def register_request(data, request):
     u.set_password(req.get('password'))
     u.email = req.get('email')
     u.save()
+    acl = ACL(user=u.userdata, object_type='UserData', perm='view', object_id=u.pk)
+    acl.save()
 
     data['code'] = random_code(8, ascii_letters+digits)
     valid_link = request.build_absolute_uri(

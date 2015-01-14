@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404
 from authmethods import auth_login, METHODS
 from utils import genhmac
 from .decorators import login_required
-from .models import AuthEvent, ACL, Pack
+from .models import AuthEvent, ACL, CreditsAction
 from .models import User, UserData
 from django.db.models import Q
 
@@ -261,55 +261,31 @@ class AuthEventModule(View):
 authevent_module = AuthEventModule.as_view()
 
 
-class PackView(View):
-    def get(self, request, user=None):
-        '''
-            Lists all existing packs of an user.
-        '''
-        if user is None:
-            packs = Pack.objects.filter(user=request.user.userdata)
-        else:
-            permission_required(request.user, 'Pack', 'view')
-            packs = Pack.objects.filter(user=user)
-
-        data = {'packs': []}
-        for p in packs:
-            data['packs'].append(p.serialize())
-        jsondata = json.dumps(data)
+class UserView(View):
+    def get(self, request, pk):
+        ''' Get user info '''
+        permission_required(request.user, 'UserData', 'view', pk)
+        user = get_object_or_404(UserData, pk=pk)
+        jsondata = json.dumps(user.serialize())
         return HttpResponse(jsondata, content_type='application/json')
+user = login_required(UserView.as_view())
 
-    def post(self, request, user=None):
-        '''
-            Create or edit a pack.
-        '''
+
+class CreditsActionView(View):
+    def post(self, request):
+        ''' Create new action of add_credit in mode create '''
         req = json.loads(request.body.decode('utf-8'))
-        try:
-            packid = req['pack']
-        except:
-            packid = None
-
-        if packid is None: # create
-            if user is None:
-                pack = Pack(user=request.user.userdata, name=req['name'])
-            else:
-                permission_required(request.user, 'Pack', 'create')
-                pack = Pack(user=pk, name=req['name'])
-            pack.save()
-        else: # edit
-            pack = get_object_or_404(Pack, pk=req['pack'])
-            if user is not None:
-                permission_required(request.user, 'Pack', 'edit')
-            if req['status'] != pack.status:
-                pack.status = req['status']
-                pack.save()
-            else:
-                return HttpResponse( json.dumps({}), status=400, content_type='application/json', )
-
-        data = {'status': 'ok', 'id': pack.pk}
-        jsondata = json.dumps(data)
+        pack_id = req.get("pack_id")
+        quantity = req.get("num_credits")
+        payment = req.get("payment_method")
+        # TODO create paypal_url
+        paypal_url = 'foo'
+        action = CreditsAction(user=request.user.userdata, quantity=quantity,
+                payment_metadata={'payment_method': payment})
+        action.save()
+        jsondata = json.dumps({'paypal_url': paypal_url})
         return HttpResponse(jsondata, content_type='application/json')
-pack = login_required(PackView.as_view())
-
+creditsaction = login_required(CreditsActionView.as_view())
 
 def available_packs(request):
     jsondata = json.dumps(settings.AVAILABLE_PACKS)

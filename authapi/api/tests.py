@@ -7,7 +7,7 @@ from django.conf import settings
 
 
 from django.contrib.auth.models import User
-from .models import ACL, Pack
+from .models import ACL
 
 from . import test_data
 
@@ -76,10 +76,6 @@ class ApiTestCase(TestCase):
 
         acl = ACL(user=u.userdata, object_type='ACL', perm='create')
         acl.save()
-
-        pack = Pack(user=u.userdata)
-        pack.save()
-        self.packid = pack.pk
 
     def test_api(self):
         c = JClient()
@@ -256,29 +252,6 @@ class ApiTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(len(r['perms']), 3)
 
-    def test_create_pack(self):
-        c = JClient()
-        c.login(test_data.pwd_auth)
-
-        response = c.post('/api/pack/', {'name': 'b'})
-        self.assertEqual(response.status_code, 200)
-
-    def test_edit_packs(self):
-        c = JClient()
-        c.login(test_data.pwd_auth)
-
-        response = c.post('/api/pack/', {'pack': self.packid, 'status': 'pai'})
-        self.assertEqual(response.status_code, 200)
-
-    def test_view_packs(self):
-        c = JClient()
-        c.login(test_data.pwd_auth)
-
-        response = c.get('/api/pack/', {})
-        self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(len(r['packs']), 1)
-
     def test_available_packs(self):
         c = JClient()
         response = c.get('/api/available-packs/', {})
@@ -292,3 +265,29 @@ class ApiTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r, settings.AVAILABLE_PAYMENT_METHODS)
+
+    def test_get_user_info(self):
+        c = JClient()
+        c.login(test_data.pwd_auth_email)
+        response = c.get('/api/user/' + str(self.userid) + '/', {})
+        self.assertEqual(response.status_code, 403)
+        acl = ACL(user=self.testuser.userdata, object_type='UserData',
+                perm='view', object_id=self.userid)
+        acl.save()
+        response = c.get('/api/user/' + str(self.userid) + '/', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['email'], test_data.pwd_auth_email['auth-data']['email'])
+
+    def test_action_add_credits(self):
+        c = JClient()
+        c.login(test_data.pwd_auth_email)
+        data = {
+            "pack_id": 0,
+            "num_credits": 500,
+            "payment_method": "paypal"
+        }
+        response = c.post('/api/user/add-credits/', data)
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r, {'paypal_url': 'foo'})
