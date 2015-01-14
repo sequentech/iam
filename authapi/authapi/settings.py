@@ -12,6 +12,11 @@ https://docs.djangoproject.com/en/1.7/ref/settings/
 import os
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
+import djcelery
+djcelery.setup_loader()
+
+# Celery config
+BROKER_URL = "amqp://guest:guest@localhost:5672//"
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.7/howto/deployment/checklist/
@@ -39,6 +44,7 @@ INSTALLED_APPS = (
     'api',
     'authmethods',
     'corsheaders',
+    'djcelery',
 )
 
 MIDDLEWARE_CLASSES = (

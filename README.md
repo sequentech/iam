@@ -60,6 +60,12 @@ kind of object.
     $ ./manage.py runserver
     ```
 
+5. In production, for use celery, you need configure in setting the rabbitmq-server and execute:
+    ```
+    $ ./manage.py syncdb
+    $ ./manage.py celeryd
+    ```
+
 # Tecnical details
 
 Technically, authapi should:

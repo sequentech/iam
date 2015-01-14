@@ -3,6 +3,8 @@ import hmac
 import datetime
 import time
 import six
+from djcelery import celery
+from django.core.mail import send_mail
 
 
 def genhmac(key, msg):
@@ -65,3 +67,17 @@ def constant_time_compare(val1, val2):
         for x, y in zip(val1, val2):
             result |= ord(x) ^ ord(y)
     return result == 0
+
+
+@celery.task
+def send_email(subject, msg, mail_from, mails_to):
+    print("send email")
+    send_mail(subject, msg, mail_from, mails_to)
+
+
+@celery.task
+def send_sms_code(data, conf):
+    print("send code")
+    from authmethods.sms_provider import SMSProvider
+    con = SMSProvider.get_instance(conf)
+    con.send_sms(receiver=data['tlf'], content=conf['sms-message'], is_audio="sss")

@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.utils import timezone
 from string import ascii_letters, digits
-from utils import genhmac, constant_time_compare
+from utils import genhmac, constant_time_compare, send_sms_code
 
 from . import register_method
 from authmethods.utils import *
@@ -95,13 +95,9 @@ def register_request(data, request):
 
 
 def send_sms(data, conf):
-    from authmethods.sms_provider import SMSProvider
-
-    con = SMSProvider.get_instance(conf)
-    con.send_sms(receiver=data['tlf'], content=conf['sms-message'], is_audio="sss")
-
     m = Message(ip=data['ip_addr'], tlf=data['tlf'])
     m.save()
+    send_sms_code.apply_async(args=[data, conf])
     return 0
 
 

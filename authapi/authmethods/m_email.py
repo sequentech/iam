@@ -2,10 +2,9 @@ import json
 from django.conf import settings
 from django.conf.urls import patterns, url
 from django.contrib.auth.models import User
-from django.core.mail import send_mail
 from django.http import HttpResponse
 from string import ascii_letters, digits
-from utils import genhmac, constant_time_compare
+from utils import genhmac, constant_time_compare, send_email
 
 from . import register_method
 from authmethods.utils import random_code, random_username
@@ -47,7 +46,7 @@ def register(request, method):
     })
     u.userdata.save()
 
-    send_mail(subject, msg, mail_from, (mail_to,), fail_silently=False)
+    send_email.apply_async(args=[subject, msg, mail_from, (mail_to,)])
     data = {'status': 'ok'}
     jsondata = json.dumps(data)
     return HttpResponse(jsondata, content_type='application/json')

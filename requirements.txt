@@ -5,3 +5,4 @@ requests
 xmltodict
 six
 django-cors-headers
+django-celery
