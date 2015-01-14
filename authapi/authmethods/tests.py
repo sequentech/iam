@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from django.core import mail
 from django.test import TestCase
+from django.test.utils import override_settings
 
 import json
 import time
@@ -57,6 +58,9 @@ class AuthMethodEmailTestCase(TestCase):
         u2.userdata.save()
 
 
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
     def test_method_email_register(self):
         c = JClient()
         response = c.post('/api/authmethod/email/register/1/',
@@ -164,7 +168,10 @@ class AuthMethodSmsTestCase(TestCase):
                 elif p[1].get('field') == 'ip':
                     self.total_max_ip = p[1].get('max')
 
-    def test_method_sms_regiter(self):
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_method_sms_register(self):
         response = self.c.post('/api/authmethod/sms-code/register/1/',
                 {'tlf': '+34666666666', 'password': '123456',
                     'email': 'test@test.com', 'dni': '11111111H'})
@@ -272,7 +279,10 @@ class AuthMethodSmsTestCase(TestCase):
                     {'email': 'test2@agoravoting.com', 'password': '123456'}})
         self.assertEqual(response.status_code, 400)
 
-    def test_method_sms_regiter_max_tlf(self):
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_method_sms_register_max_tlf(self):
         x = 0
         while x < self.total_max_tlf + 1:
             x += 1
@@ -286,7 +296,10 @@ class AuthMethodSmsTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertNotEqual(r['message'].find('Blacklisted'), -1)
 
-    def test_method_sms_regiter_max_tlf_period(self):
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_method_sms_register_max_tlf_period(self):
         x = 0
         time_now = time.time()
         while x < self.total_max_tlf_period + 1:

@@ -71,13 +71,11 @@ def constant_time_compare(val1, val2):
 
 @celery.task
 def send_email(subject, msg, mail_from, mails_to):
-    print("send email")
     send_mail(subject, msg, mail_from, mails_to)
 
 
 @celery.task
 def send_sms_code(data, conf):
-    print("send code")
     from authmethods.sms_provider import SMSProvider
     con = SMSProvider.get_instance(conf)
     con.send_sms(receiver=data['tlf'], content=conf['sms-message'], is_audio="sss")
