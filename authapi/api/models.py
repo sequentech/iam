@@ -33,6 +33,9 @@ class AuthEvent(models.Model):
         }
         return d
 
+    def __str__(self):
+        return "%s - %s" % (self.id, self.name)
+
 
 STATUSES = (
     ('act', 'Active'),
@@ -79,6 +82,10 @@ class ACL(models.Model):
             'object_id': self.object_id or '',
         }
         return d
+
+    def __str__(self):
+        return "%s - %s - %s - %s" % (self.user.user.username, self.perm,
+                                      self.object_type, self.object_id)
 
 
 NAMES_PACK = (

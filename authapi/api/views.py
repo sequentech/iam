@@ -171,11 +171,10 @@ class AuthEventView(View):
                            auth_method=auth_method,
                            auth_method_config=auth_method_config,
                            metadata=metadata)
-            acl = ACL(user=request.user.userdata, perm='AuthEvent', object_type='edit',
-                    object_id=ae.id)
-            acl.save()
-            acl = ACL(user=request.user.userdata, perm='AuthEvent', object_type='delete',
-                    object_id=ae.id)
+            # Save before the acl creation to get the ae id
+            ae.save()
+            acl = ACL(user=request.user.userdata, perm='admin', object_type='AuthEvent',
+                      object_id=ae.id)
             acl.save()
         else: # edit
             permission_required(request.user, 'AuthEvent', 'edit', pk)
