@@ -206,7 +206,7 @@ class Sms:
             'SMS_URL': '',
             'SMS_SENDER_ID': '',
             'SMS_VOICE_LANG_CODE': '',
-            'SMS_MESSAGE': 'Confirm your sms code: ',
+            'sms-message': 'Confirm your sms code: ',
             'register-pipeline': [
                 #["check_tlf_expire_max", {"field": "tlf", "expire-secs": 120}],
                 ["check_whitelisted", {"field": "tlf"}],
