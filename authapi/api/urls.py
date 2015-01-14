@@ -15,4 +15,7 @@ urlpatterns = patterns('',
     url(r'^acl/mine/$', 'api.views.aclmine', name='aclmine'),
     url(r'^pack/$', 'api.views.pack', name='pack'),
     url(r'^pack/(?P<user>\d+)/$', 'api.views.pack', name='pack'),
+    url(r'^available-packs/$', 'api.views.available_packs', name='avaiable_packs'),
+    url(r'^available-payment-methods/$', 'api.views.available_payment_methods',
+        name='avaiable_payment_methods'),
 )

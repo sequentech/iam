@@ -278,3 +278,17 @@ class ApiTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(len(r['packs']), 1)
+
+    def test_avaiable_packs(self):
+        c = JClient()
+        response = c.get('/api/available-packs/', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r, settings.AVAILABLE_PACKS)
+
+    def test_avaiable_payment_methods(self):
+        c = JClient()
+        response = c.get('/api/available-payment-methods/', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r, settings.AVAILABLE_PAYMENT_METHODS)

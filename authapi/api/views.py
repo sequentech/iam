@@ -309,3 +309,13 @@ class PackView(View):
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
 pack = login_required(PackView.as_view())
+
+
+def available_packs(request):
+    jsondata = json.dumps(settings.AVAILABLE_PACKS)
+    return HttpResponse(jsondata, content_type='application/json')
+
+
+def available_payment_methods(request):
+    jsondata = json.dumps(settings.AVAILABLE_PAYMENT_METHODS)
+    return HttpResponse(jsondata, content_type='application/json')
