@@ -6,6 +6,8 @@ from jsonfield import JSONField
 from django.dispatch import receiver
 from django.db.models.signals import post_save
 from django.db.models import Q
+from django.conf import settings
+from utils import genhmac
 
 
 class AuthEvent(models.Model):
@@ -82,6 +84,14 @@ class ACL(models.Model):
             'object_id': self.object_id or '',
         }
         return d
+
+    def get_hmac(self):
+        if self.object_id:
+            msg = ':'.join((self.user.user.username, self.object_type, str(self.object_id), self.perm))
+        else:
+            msg = ':'.join((self.user.user.username, self.object_type, self.perm))
+        khmac = genhmac(settings.SHARED_SECRET, msg)
+        return khmac
 
     def __str__(self):
         return "%s - %s - %s - %s" % (self.user.user.username, self.perm,

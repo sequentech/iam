@@ -73,7 +73,7 @@ class GetPerms(View):
             jsondata = json.dumps(data)
             return HttpResponse(jsondata, status=400, content_type='application/json')
 
-        if not obj_id:
+        if obj_id is None:
             msg = ':'.join((request.user.username, object_type, perm))
         else:
             msg = ':'.join((request.user.username, object_type, obj_id, perm))
@@ -176,6 +176,9 @@ class AuthEventView(View):
             acl = ACL(user=request.user.userdata, perm='admin', object_type='AuthEvent',
                       object_id=ae.id)
             acl.save()
+            acl = ACL(user=request.user.userdata, perm='admin', object_type='election',
+                      object_id=ae.id)
+            acl.save()
         else: # edit
             permission_required(request.user, 'AuthEvent', 'edit', pk)
             ae = AuthEvent.objects.get(pk=pk)
@@ -185,7 +188,7 @@ class AuthEventView(View):
             ae.metadata = req['metadata']
         ae.save()
 
-        data = {'status': 'ok', 'id': ae.pk}
+        data = {'status': 'ok', 'id': ae.pk, 'perm': acl.get_hmac()}
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
 
