@@ -186,6 +186,8 @@ class AuthEventView(View):
             ae.auth_method = req['auth_method']
             ae.auth_method_config = req['auth_method_config']
             ae.metadata = req['metadata']
+            acl = request.user.userdata.acls.get(perm='admin',
+                    object_type='election', object_id=ae.id)
         ae.save()
 
         data = {'status': 'ok', 'id': ae.pk, 'perm': acl.get_hmac()}
