@@ -176,9 +176,6 @@ class AuthEventView(View):
             acl = ACL(user=request.user.userdata, perm='admin', object_type='AuthEvent',
                       object_id=ae.id)
             acl.save()
-            acl = ACL(user=request.user.userdata, perm='admin', object_type='election',
-                      object_id=ae.id)
-            acl.save()
         else: # edit
             permission_required(request.user, 'AuthEvent', 'edit', pk)
             ae = AuthEvent.objects.get(pk=pk)
@@ -187,7 +184,7 @@ class AuthEventView(View):
             ae.auth_method_config = req['auth_method_config']
             ae.metadata = req['metadata']
             acl = request.user.userdata.acls.get(perm='admin',
-                    object_type='election', object_id=ae.id)
+                    object_type='AuthEvent', object_id=ae.id)
         ae.save()
 
         data = {'status': 'ok', 'id': ae.pk, 'perm': acl.get_hmac()}
