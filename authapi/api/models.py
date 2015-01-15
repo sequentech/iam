@@ -10,9 +10,15 @@ from django.conf import settings
 from utils import genhmac
 
 
+CENSUS = (
+    ('close', 'Close census'),
+    ('open', 'Open census'),
+)
+
 class AuthEvent(models.Model):
     name = models.CharField(max_length=255)
     auth_method = models.CharField(max_length=255)
+    census = models.CharField(max_length=5, choices=CENSUS, default="close")
     auth_method_config = JSONField()
     metadata = JSONField()
 
@@ -21,6 +27,7 @@ class AuthEvent(models.Model):
             'id': self.id,
             'name': self.name,
             'auth_method': self.auth_method,
+            'census': self.census,
             'auth_method_config': self.auth_method_config,
             'metadata': self.metadata,
         }
@@ -31,6 +38,7 @@ class AuthEvent(models.Model):
             'id': self.id,
             'name': self.name,
             'auth_method': self.auth_method,
+            'census': self.census,
             'metadata': self.metadata,
         }
         return d
