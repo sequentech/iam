@@ -9,6 +9,14 @@ def auth_login(method, data):
     return METHODS[method].login(data)
 
 
+def validate_register(event, data):
+    return METHODS[event.auth_method].register(event, data)
+
+
+def validate_validate(event, data):
+    return METHODS[event.auth_method].validate(event, data)
+
+
 def register_method(name, klass):
     METHODS[name] = klass()
 

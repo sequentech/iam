@@ -4,6 +4,8 @@ urlpatterns = patterns('',
     url(r'^authmethod/(.*)/', 'authmethods.views.view'),
 
     url(r'^test/', 'api.views.test', name='test'),
+    url(r'^register/', 'api.views.register', name='register'),
+    url(r'^validate/', 'api.views.validate', name='validate'),
     url(r'^login/', 'api.views.login', name='login'),
     url(r'^get-perms/', 'api.views.getperms', name='getperms'),
     url(r'^auth-event/$', 'api.views.authevent', name='authevent'),

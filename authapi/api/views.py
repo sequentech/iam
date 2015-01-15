@@ -54,6 +54,36 @@ class Login(View):
 login = Login.as_view()
 
 
+class Register(View):
+    ''' Register into the authapi '''
+
+    def post(self, request):
+        req = json.loads(request.body.decode('utf-8'))
+        e = get_object_or_404(AuthEvent, pk=req.get('auth-event'))
+        d = req.get('data', '{}')
+        if (e.census == 'close'):
+            permission_required(request.user, 'UserData', 'create', e.pk)
+        data = validate_register(e, d)
+        status = 200 if data['status'] == 'ok' else 400
+        jsondata = json.dumps(data)
+        return HttpResponse(jsondata, status=status, content_type='application/json')
+register = Register.as_view()
+
+
+class Validate(View):
+    ''' Validate into the authapi '''
+
+    def post(self, request):
+        req = json.loads(request.body.decode('utf-8'))
+        e = req.get('auth-event')
+        d = req.get('data', '{}')
+        data = validate_validate(e, d)
+        status = 200 if data['status'] == 'ok' else 400
+        jsondata = json.dumps(data)
+        return HttpResponse(jsondata, status=status, content_type='application/json')
+validate = Validate.as_view()
+
+
 class GetPerms(View):
     ''' Returns the permission token if the user has this perm '''
 
@@ -176,6 +206,10 @@ class AuthEventView(View):
             acl = ACL(user=request.user.userdata, perm='admin', object_type='AuthEvent',
                       object_id=ae.id)
             acl.save()
+            if req.get('census', 'close') == 'close':
+                acl = ACL(user=request.user.userdata, perm='create',
+                        object_type='UserData', object_id=ae.id)
+                acl.save()
         else: # edit
             permission_required(request.user, 'AuthEvent', 'edit', pk)
             ae = AuthEvent.objects.get(pk=pk)
