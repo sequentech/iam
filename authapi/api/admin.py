@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib import admin
-from api.models import AuthEvent, UserData, ACL
+from api.models import AuthEvent, UserData, ACL, CreditsAction
 from authmethods.models import Message, ColorList, Code, Connection
 from authmethods import METHODS
 
@@ -48,6 +48,8 @@ class CodeAdmin(admin.ModelAdmin):
 class ConnectionAdmin(admin.ModelAdmin):
     pass
 
+class CreditsActionAdmin(admin.ModelAdmin):
+    pass
 
 admin.site.register(AuthEvent, AuthEventAdmin)
 admin.site.register(UserData, UserDataAdmin)
@@ -56,3 +58,4 @@ admin.site.register(ColorList, ColorListAdmin)
 admin.site.register(Message, MessageAdmin)
 admin.site.register(Code, CodeAdmin)
 admin.site.register(Connection, ConnectionAdmin)
+admin.site.register(CreditsAction, CreditsActionAdmin)
