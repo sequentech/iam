@@ -18,9 +18,10 @@ class captcha_required(object):
         if request.method == 'GET':
             code = request.GET.get('captcha_code', '')
             answer = request.GET.get('captcha_answer', '')
-        if request.method == 'POST':
-            code = request.POST.get('captcha_code', '')
-            answer = request.POST.get('captcha_answer', '')
+        else:
+            req = json.loads(request.body.decode('utf-8'))
+            code = req.get('captcha_code', '')
+            answer = req.get('captcha_answer', '')
 
         try:
             captcha = Captcha.objects.get(code=code)
