@@ -7,7 +7,7 @@ from django.views.generic import View
 from django.shortcuts import get_object_or_404
 
 from authmethods import auth_login, METHODS
-from utils import genhmac
+from utils import genhmac, paginate
 from .decorators import login_required
 from .models import AuthEvent, ACL, CreditsAction
 from .models import User, UserData
@@ -229,17 +229,19 @@ class AuthEventView(View):
         '''
             Lists all AuthEvents if not pk. If pk show the event with this pk
         '''
-        # TODO paginate and filter with GET params
+        data = {'status': 'ok'}
+
         if pk:
             e = AuthEvent.objects.get(pk=pk)
             aes = e.serialize_restrict()
+            data['events'] = aes
         else:
             events = AuthEvent.objects.all()
-            aes = []
-            for e in events:
-                aes.append(e.serialize_restrict())
+            aes = paginate(request, events,
+                           serialize_method='serialize_restrict',
+                           elements_name='events')
+            data.update(aes)
 
-        data = {'status': 'ok', 'events': aes}
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
 

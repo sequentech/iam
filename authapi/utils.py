@@ -5,6 +5,47 @@ import time
 import six
 from djcelery import celery
 from django.core.mail import send_mail
+from django.core.paginator import Paginator
+
+
+def paginate(request, queryset, serialize_method=None, elements_name='elements'):
+    '''
+    Function to paginate a queryset using the request params
+    ?page=1&n=10
+    '''
+
+    index = request.GET.get('page', 1)
+    elements = request.GET.get('n', 10)
+
+    try:
+        page = int(page)
+    except:
+        page = 1
+
+    try:
+        elements = int(elements)
+    except:
+        elements = 10
+
+    p = Paginator(queryset, elements)
+    page = p.page(index)
+
+    d = {
+        elements_name: page.object_list,
+        'page': index,
+        'total_count': p.count,
+        'page_range': p.page_range,
+        'start_index': page.start_index(),
+        'end_index': page.end_index(),
+        'has_next': page.has_next(),
+        'has_previous': page.has_previous(),
+    }
+
+    if serialize_method:
+        d[elements_name] = []
+        for i in page.object_list:
+            d[elements_name].append(getattr(i, serialize_method)())
+    return d
 
 
 def genhmac(key, msg):
