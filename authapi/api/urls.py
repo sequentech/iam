@@ -1,4 +1,4 @@
-from django.conf.urls import patterns, url
+from django.conf.urls import patterns, url, include
 
 urlpatterns = patterns('',
     url(r'^authmethod/(.*)/', 'authmethods.views.view'),
@@ -20,4 +20,6 @@ urlpatterns = patterns('',
         name='available_payment_methods'),
     url(r'^user/(?P<pk>\d+)/$', 'api.views.user', name='user'),
     url(r'^user/add-credits/$', 'api.views.creditsaction', name='creditsaction'),
+
+    url(r'^captcha/', include('captcha.urls')),
 )

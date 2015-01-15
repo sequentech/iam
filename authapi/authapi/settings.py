@@ -41,8 +41,13 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # custom
     'api',
     'authmethods',
+    'captcha',
+
+    #3rd party
     'corsheaders',
     'djcelery',
 )
@@ -90,6 +95,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/1.7/howto/static-files/
 
 STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # cors
 CORS_ORIGIN_ALLOW_ALL = False
@@ -97,13 +103,7 @@ CORS_ORIGIN_WHITELIST = (
         'localhost:9001',
 )
 
-# Auth api settings
-from auth_settings import *
-
-try:
-    from custom_settings import *
-except:
-    pass
+ENABLE_CAPTCHA = True
 
 # Packs
 AVAILABLE_PACKS = [
@@ -128,3 +128,11 @@ AVAILABLE_PACKS = [
         ]
 
 AVAILABLE_PAYMENT_METHODS = ["paypal"]
+
+# Auth api settings
+from auth_settings import *
+
+try:
+    from custom_settings import *
+except:
+    pass
