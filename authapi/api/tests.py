@@ -16,6 +16,11 @@ class JClient(Client):
         self.auth_token = ''
         super(JClient, self).__init__(*args, **kwargs)
 
+    def census(self, authevent, data):
+        response = self.post('/api/auth-event/%d/census/' % authevent, data)
+        r = json.loads(response.content.decode('utf-8'))
+        return response
+
     def register(self, authevent, data):
         response = self.post('/api/auth-event/%d/register/' % authevent, data)
         r = json.loads(response.content.decode('utf-8'))

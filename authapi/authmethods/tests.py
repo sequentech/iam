@@ -126,6 +126,25 @@ class AuthMethodEmailTestCase(TestCase):
         response = c.login(self.aeid, data)
         self.assertEqual(response.status_code, 400)
 
+    def test_method_email_create_census(self):
+        auth = {
+            'email': 'test1@agoravoting.com',
+            'password': '123456'
+        }
+        c = JClient()
+        c.login(self.aeid, auth)
+
+        data = []
+        x = 0
+        while x <= 10:
+            x += 1
+            data.append({
+                    'email': 'test%d@test.com' % x,
+                    'password': '123456',
+            })
+        response = c.census(self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
 
 class AuthMethodSmsTestCase(TestCase):
     def setUp(self):
@@ -340,3 +359,23 @@ class AuthMethodSmsTestCase(TestCase):
             self.assertNotEqual(r['message'].find('Blacklisted'), -1)
         else:
             self.assertEqual(response.status_code, 200)
+
+    def test_method_sms_create_census(self):
+        auth = {
+            'email': 'test1@agoravoting.com',
+            'password': '123456'
+        }
+        self.c.login(self.aeid, auth)
+
+        data = []
+        x = 0
+        while x <= 10:
+            x += 1
+            data.append({
+                    'tlf': '+34666666666',
+                    'password': '123456',
+                    'email': 'test%d@test.com' % x,
+                    'dni': '11111111H'
+            })
+        response = self.c.census(self.aeid, data)
+        self.assertEqual(response.status_code, 200)

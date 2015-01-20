@@ -6,7 +6,7 @@ from django.http import HttpResponse
 from django.views.generic import View
 from django.shortcuts import get_object_or_404
 
-from authmethods import auth_login, METHODS, auth_register, auth_validate
+from authmethods import auth_login, METHODS, auth_register, auth_validate, auth_census
 from utils import genhmac, paginate
 from utils import check_authmethod, check_pipeline, check_metadata
 from .decorators import login_required
@@ -41,6 +41,18 @@ class Test(View):
 test = Test.as_view()
 
 
+class Census(View):
+    ''' Add census in the auth-event '''
+
+    def post(self, request, pk):
+        e = get_object_or_404(AuthEvent, pk=pk)
+        data = auth_census(e, request)
+        status = 200 if data['status'] == 'ok' else 400
+        jsondata = json.dumps(data)
+        return HttpResponse(jsondata, status=status, content_type='application/json')
+census = login_required(Census.as_view())
+
+
 class Login(View):
     ''' Login into the authapi '''
 
@@ -60,7 +72,7 @@ class Register(View):
     def post(self, request, pk):
         e = get_object_or_404(AuthEvent, pk=pk)
         #if (e.census == 'close'):
-        #    permission_required(request.user, 'UserData', 'create', pk)
+        #    permission_required(request.user, 'UserEvent', 'edit', pk)
         data = auth_register(e, request)
         status = 200 if data['status'] == 'ok' else 400
         jsondata = json.dumps(data)

@@ -5,6 +5,10 @@ from importlib import import_module
 METHODS = {}
 
 
+def auth_census(event, data):
+     return METHODS[event.auth_method].census(event, data)
+
+
 def auth_register(event, data):
      return METHODS[event.auth_method].register(event, data)
 
