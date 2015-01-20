@@ -86,20 +86,19 @@ def validate(request, userid, code):
 
 class Email:
     DESCRIPTION = 'Register by email. You need to confirm your email.'
-    TPL_CONFIG = {
-            'subject': 'Confirm your email',
-            'msg': 'Click in this link for validate your email: ',
-            'mail_from': 'authapi@agoravoting.com',
-            'give_perms': {'object_type': 'Vote', 'perms': ['create',] },
+    VALID_PIPELINES = ('check_whitelisted', 'check_blacklisted',
+            'check_total_max')
+    VALID_FIELDS = ('name', 'type', 'required', 'regex', 'min', 'max')
+    CONFIG = {
+        'subject': 'Confirm your email',
+        'msg': 'Click in this link for validate your email: ',
+        'mail_from': 'authapi@agoravoting.com',
+        'give_perms': {'object_type': 'Vote', 'perms': ['create',] },
     }
-    METADATA_DEFAULT = {
-        'steps': [ 'register', 'validate', 'login' ],
-        'fieldsRegister': [
-            {'name': 'email', 'type': 'text', 'required': True},
-            {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
-        ],
-        'fieldsValidate': 'Link sent. Click for activate account.',
-        'capcha': False,
+    PIPELINES = {
+        "register-pipeline": [],
+        "validate-pipeline": [],
+        "login-pipeline": []
     }
 
     def login_error(self):

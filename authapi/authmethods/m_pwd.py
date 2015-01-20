@@ -16,8 +16,15 @@ def testview(request, param):
 
 class PWD:
     DESCRIPTION = 'Register using user and password. '
-    TPL_CONFIG = {}
-    METADATA_DEFAULT = {}
+    VALID_PIPELINES = ('check_whitelisted', 'check_blacklisted',
+            'check_total_max')
+    VALID_FIELDS = ('name', 'type', 'required', 'regex', 'min', 'max')
+    CONFIG = {}
+    PIPELINES = {
+        "register-pipeline": [],
+        "validate-pipeline": [],
+        "login-pipeline": []
+    }
 
     def login_error(self):
         d = {'status': 'nok'}

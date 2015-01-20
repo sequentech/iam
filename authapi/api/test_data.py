@@ -39,7 +39,7 @@ auth_event1 = {
         ]
     },
     "metadata": {
-        'steps': [ 'register', 'validate', 'login' ],
+        #'steps': [ 'register', 'validate', 'login' ],
         'fieldsRegister': [
             {'name': 'name', 'type': 'text', 'required': False},
             {'name': 'surname', 'type': 'text', 'required': False},
@@ -53,7 +53,7 @@ auth_event1 = {
             {'name': 'tlf', 'type': 'text', 'required': True, 'max': 12},
             {'name': 'code', 'type': 'password', 'required': True, 'min': 4},
         ],
-        'capcha': False,
+        #'capcha': False,
     }
 }
 
@@ -91,10 +91,13 @@ auth_event2 = {
             ['check_total_connection', {'times': 5 }],
             ['check_sms_code', {'timestamp': 5 }], # seconds
             ['give_perms', {'object_type': 'Vote', 'perms': ['create',] }],
+        ],
+        "login-pipeline": [
+            ["login_request"],
         ]
     },
     "metadata": {
-        'steps': [ 'register', 'validate', 'login' ],
+        #'steps': [ 'register', 'validate', 'login' ],
         'fieldsRegister': [
             {'name': 'name', 'type': 'text', 'required': False},
             {'name': 'surname', 'type': 'text', 'required': False},
@@ -108,7 +111,11 @@ auth_event2 = {
             {'name': 'tlf', 'type': 'text', 'required': True, 'max': 12},
             {'name': 'code', 'type': 'password', 'required': True, 'min': 4},
         ],
-        'capcha': False,
+        'fieldsLogin': [
+            {'name': 'dni', 'type': 'text', 'required': True, 'max': 9},
+            {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
+        ],
+        #'capcha': False,
     }
 }
 

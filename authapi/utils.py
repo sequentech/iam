@@ -3,6 +3,7 @@ import hmac
 import datetime
 import time
 import six
+from authmethods import METHODS
 from djcelery import celery
 from django.core.mail import send_mail
 from django.core.paginator import Paginator
@@ -123,3 +124,103 @@ def send_sms_code(data, conf):
     from authmethods.sms_provider import SMSProvider
     con = SMSProvider.get_instance(conf)
     con.send_sms(receiver=data['tlf'], content=conf['sms-message'], is_audio="sss")
+
+
+# CHECKERS AUTHEVENT
+def check_colorlist(fields):
+    msg = ''
+    for field in fields:
+        if field in ('field'):
+            if field == 'field':
+                if not fields[field] in ('tlf', 'ip'):
+                    msg += "Invalid pipeline field: bad %s.\n" % field
+        else:
+            msg += "Invalid pipeline field: %s not possible.\n" % field
+    return msg
+
+def check_whitelisted(fields):
+    return check_colorlist(fields)
+
+def check_blacklisted(fields):
+    return check_colorlist(fields)
+
+def check_total_max(fields):
+    msg = ''
+    for field in fields:
+        if field in ('field', 'max', 'period'):
+            if field == 'field':
+                if not fields[field] in ('tlf', 'ip'):
+                    msg += "Invalid pipeline field: bad %s.\n" % field
+            elif field == 'period':
+                if not isinstance(fields[field], int):
+                    msg += "Invalid pipeline field: bad %s.\n" % field
+            elif field == 'max':
+                if not isinstance(fields[field], int):
+                    msg += "Invalid pipeline field: bad %s.\n" % field
+        else:
+            msg += "Invalid pipeline field: %s not possible.\n" % field
+    return msg
+
+def check_total_connection(fields):
+    msg = ''
+    for field in fields:
+        if field in ('times'):
+            if field == 'times':
+                if not isinstance(fields[field], int):
+                    msg += "Invalid pipeline field: bad %s.\n" % field
+        else:
+            msg += "Invalid pipeline field: %s not possible.\n" % field
+    return msg
+
+def check_fields(fields, valid_meta):
+    msg = ''
+    for field in fields:
+        if field in valid_meta:
+            if field == 'name':
+                if len(fields[field]) > 255:
+                    msg += "Invalid metadata field: bad %s.\n" % field
+            elif field == 'type':
+                if not fields[field] in ('text', 'password'):
+                    msg += "Invalid metadata field: bad %s.\n" % field
+            elif field == 'required':
+                if not isinstance(fields[field], bool):
+                    msg += "Invalid metadata field: bad %s.\n" % field
+            elif field == 'regex':
+                pass
+            elif field == 'min':
+                if not isinstance(fields[field], int):
+                    msg += "Invalid metadata field: bad %s.\n" % field
+            elif field == 'max':
+                if not isinstance(fields[field], int):
+                    msg += "Invalid metadata field: bad %s.\n" % field
+        else:
+            msg += "Invalid metadata field: %s not possible.\n" % field
+    return msg
+
+def check_authmethod(method):
+    if method in METHODS.keys():
+        return ''
+    else:
+        return "Invalid authmethods\n"
+
+def check_pipeline(pipe, valid_pipe):
+    msg = ''
+    for p in pipe:
+        if not p in ('register-pipeline', 'validate-pipeline', 'login-pipeline'):
+            msg += "Invalid pipeline: %s not possible.\n" % p
+        for func in pipe[p]:
+            if func[0] in valid_pipe:
+                msg += getattr(eval(func[0]), '__call__')(func[1])
+            else:
+                msg += "Invalid pipeline functions: %s not possible.\n" % func
+    return msg
+
+def check_metadata(meta, valid_meta):
+    {'name': 'dni', 'type': 'text', 'required': True, 'max': 9},
+    msg = ''
+    for m in meta:
+        if not m in ('fieldsRegister', 'fieldsValidate', 'fieldsLogin'):
+            msg += "Invalid metadata: %s not possible.\n" % m
+        for fields in meta[m]:
+            msg += check_fields(fields, valid_meta)
+    return msg

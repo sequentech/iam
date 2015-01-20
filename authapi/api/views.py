@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404
 
 from authmethods import auth_login, METHODS
 from utils import genhmac, paginate
+from utils import check_authmethod, check_pipeline, check_metadata
 from .decorators import login_required
 from .models import AuthEvent, ACL, CreditsAction
 from .models import User, UserData
@@ -188,14 +189,24 @@ class AuthEventView(View):
             permission_required(request.user, 'AuthEvent', 'create')
 
             auth_method = req['auth_method']
+            msg = check_authmethod(auth_method)
+            
+            auth_method_config = METHODS.get(auth_method).CONFIG
             try:
-                auth_method_config = req['auth_method_config']
+                pipeline = req['pipeline']
             except:
-                auth_method_config = METHODS.get(auth_method).TPL_CONFIG
-            try:
-                metadata = req['metadata']
-            except:
-                metadata = METHODS.get(auth_method).METADATA_DEFAULT
+                pipeline = METHODS.get(auth_method).PIPELINES
+            auth_method_config.update(pipeline)
+            msg += check_pipeline(pipeline, METHODS.get(auth_method).VALID_PIPELINES)
+
+            metadata = req['metadata']
+            msg += check_metadata(metadata, METHODS.get(auth_method).VALID_FIELDS)
+
+            if msg:
+                print(msg)
+                data = {'msg': msg}
+                jsondata = json.dumps(data)
+                return HttpResponse(jsondata, status=400, content_type='application/json')
 
             ae = AuthEvent(name=req['name'],
                            auth_method=auth_method,
@@ -203,7 +214,7 @@ class AuthEventView(View):
                            metadata=metadata)
             # Save before the acl creation to get the ae id
             ae.save()
-            acl = ACL(user=request.user.userdata, perm='admin', object_type='AuthEvent',
+            acl = ACL(user=request.user.userdata, perm='edit', object_type='AuthEvent',
                       object_id=ae.id)
             acl.save()
             if req.get('census', 'close') == 'close':
@@ -252,7 +263,7 @@ class AuthEventView(View):
             Delete a auth-event.
             delete_authevent permission required
         '''
-        permission_required(request.user, 'AuthEvent', 'delete', pk)
+        permission_required(request.user, 'AuthEvent', 'edit', pk)
 
         ae = AuthEvent.objects.get(pk=pk)
         ae.delete()
@@ -272,23 +283,27 @@ class AuthEventModule(View):
             data = {'methods': []}
             for k in METHODS.keys():
                 desc = METHODS.get(k).DESCRIPTION
-                config = METHODS.get(k).TPL_CONFIG
-                meta = METHODS.get(k).METADATA_DEFAULT
+                config = METHODS.get(k).CONFIG
+                pipe = METHODS.get(k).VALID_PIPELINES
+                meta = METHODS.get(k).VALID_FIELDS
                 data['methods'].append(
                         [k, {
                                 'description': desc,
                                 'auth_method_config': config,
+                                'pipelines': pipe,
                                 'metadata': meta,
                             }]
                 )
         elif name in METHODS.keys(): # show module
             desc = METHODS.get(name).DESCRIPTION
-            config = METHODS.get(name).TPL_CONFIG
-            meta = METHODS.get(name).METADATA_DEFAULT
+            config = METHODS.get(name).CONFIG
+            pipe = METHODS.get(k).VALID_PIPELINES
+            meta = METHODS.get(k).VALID_FIELDS
             data = {
                     name: {
                         'description': desc,
                         'auth_method_config': config,
+                        'pipelines': pipe,
                         'metadata': meta,
                     }
             }

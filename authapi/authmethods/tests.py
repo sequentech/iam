@@ -111,9 +111,9 @@ class AuthMethodEmailTestCase(TestCase):
 
 class AuthMethodSmsTestCase(TestCase):
     def setUp(self):
-        ae = AuthEvent(pk=1, name='test', auth_method=test_data.auth_event1['auth_method'],
-                auth_method_config=test_data.auth_event1['auth_method_config'],
-                metadata=test_data.auth_event1['metadata'])
+        ae = AuthEvent(pk=1, name='test', auth_method=test_data.auth_event2['auth_method'],
+                auth_method_config=test_data.auth_event2['auth_method_config'],
+                metadata=test_data.auth_event2['metadata'])
         ae.save()
         self.aeid = ae.pk
 
@@ -133,7 +133,7 @@ class AuthMethodSmsTestCase(TestCase):
         code.save()
         m = Message(tlf='+34666666666')
         m.save()
-        pipe = Sms.TPL_CONFIG.get('validate-pipeline')
+        pipe = test_data.auth_event2['auth_method_config'].get('validate-pipeline')
         for p in pipe:
             if p[0] == 'check_total_connection':
                 self.times = p[1].get('times')
@@ -160,7 +160,7 @@ class AuthMethodSmsTestCase(TestCase):
                 code='AAAAAAAA')
         code.save()
         self.c = JClient()
-        pipe = Sms.TPL_CONFIG.get('register-pipeline')
+        pipe = test_data.auth_event2['auth_method_config'].get('register-pipeline')
         for p in pipe:
             if p[0] == 'check_total_max':
                 if p[1].get('field') == 'tlf':

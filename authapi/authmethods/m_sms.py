@@ -200,53 +200,34 @@ def validate(request, event):
 
 class Sms:
     DESCRIPTION = 'Provides authentication using an SMS code.'
-    TPL_CONFIG = {
-            'SMS_PROVIDER': 'console',
-            'SMS_DOMAIN_ID': '',
-            'SMS_LOGIN': '',
-            'SMS_PASSWORD': '',
-            'SMS_URL': '',
-            'SMS_SENDER_ID': '',
-            'SMS_VOICE_LANG_CODE': '',
-            'sms-message': 'Confirm your sms code: ',
-            'register-pipeline': [
-                #["check_tlf_expire_max", {"field": "tlf", "expire-secs": 120}],
-                ["check_whitelisted", {"field": "tlf"}],
-                ["check_whitelisted", {"field": "ip"}],
-                ["check_blacklisted", {"field": "ip"}],
-                ["check_blacklisted", {"field": "tlf"}],
-                #["check_ip_total_unconfirmed_requests_max", {"max": 30}],
-                ["check_total_max", {"field": "ip", "max": 8}],
-                ["check_total_max", {"field": "tlf", "max": 7}],
-                ["check_total_max", {"field": "tlf", "period": 1440, "max": 5}],
-                ["check_total_max", {"field": "tlf", "period": 60, "max": 3}],
-                #["check_id_in_census", {"fields": "tlf"}],
-                ["register_request"],
-                #["generate_token", {"land_line_rx": "^\+34[89]"}],
-                ["send_sms"],
-            ],
-            'validate-pipeline': [
-                ['check_total_connection', {'times': 5 }],
-                ['check_sms_code', {'timestamp': 5 }], # seconds
-                ['give_perms', {'object_type': 'Vote', 'perms': ['create',] }],
-            ],
+    VALID_PIPELINES = ('check_whitelisted', 'check_blacklisted',
+            'check_total_max', 'check_total_connection')
+    VALID_FIELDS = ('name', 'type', 'required', 'regex', 'min', 'max')
+    CONFIG = {
+        'SMS_PROVIDER': 'console',
+        'SMS_DOMAIN_ID': '',
+        'SMS_LOGIN': '',
+        'SMS_PASSWORD': '',
+        'SMS_URL': '',
+        'SMS_SENDER_ID': '',
+        'SMS_VOICE_LANG_CODE': '',
+        'sms-message': 'Confirm your sms code: ',
     }
-    METADATA_DEFAULT = {
-        'steps': [ 'register', 'validate', 'login' ],
-        'fieldsRegister': [
-            {'name': 'name', 'type': 'text', 'required': False},
-            {'name': 'surname', 'type': 'text', 'required': False},
-            {'name': 'dni', 'type': 'text', 'required': True, 'max': 9},
-            {'name': 'tlf', 'type': 'text', 'required': True, 'max': 12},
-            {'name': 'email', 'type': 'text', 'required': True},
-            {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
+    PIPELINES = {
+        "register-pipeline": [
+            ["check_whitelisted", {"field": "tlf"}],
+            ["check_whitelisted", {"field": "ip"}],
+            ["check_blacklisted", {"field": "ip"}],
+            ["check_blacklisted", {"field": "tlf"}],
+            ["check_total_max", {"field": "ip", "max": 8}],
+            ["check_total_max", {"field": "tlf", "max": 7}],
+            ["check_total_max", {"field": "tlf", "period": 1440, "max": 5}],
+            ["check_total_max", {"field": "tlf", "period": 60, "max": 3}],
         ],
-        'fieldsValidate': [
-            {'name': 'dni', 'type': 'text', 'required': True, 'max': 9},
-            {'name': 'tlf', 'type': 'text', 'required': True, 'max': 12},
-            {'name': 'code', 'type': 'password', 'required': True, 'min': 4},
+        "validate-pipeline": [
+            ['check_total_connection', {'times': 5 }],
         ],
-        'capcha': False,
+        "login-pipeline": []
     }
 
     def login_error(self):
