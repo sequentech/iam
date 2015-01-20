@@ -15,12 +15,18 @@ CENSUS = (
     ('open', 'Open census'),
 )
 
+AE_STATUSES = (
+    ('start', 'start'),
+    ('stop', 'stop'),
+)
+
 class AuthEvent(models.Model):
     name = models.CharField(max_length=255)
     auth_method = models.CharField(max_length=255)
     census = models.CharField(max_length=5, choices=CENSUS, default="close")
     auth_method_config = JSONField()
     metadata = JSONField()
+    status = models.CharField(max_length=5, choices=AE_STATUSES, default="stop")
 
     def serialize(self):
         d = {

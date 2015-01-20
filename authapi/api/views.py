@@ -80,6 +80,23 @@ class Validate(View):
 validate = Validate.as_view()
 
 
+class AuthEventStatus(View):
+    ''' Change the status of auth-event '''
+
+    def get(self, request, pk, status):
+        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        e = get_object_or_404(AuthEvent, pk=pk)
+        if e.status != status:
+            e.status = status
+            e.save()
+            st = 200
+        else:
+            st = 400
+        jsondata = json.dumps({})
+        return HttpResponse(jsondata, status=st, content_type='application/json')
+ae_status = login_required(AuthEventStatus.as_view())
+
+
 class GetPerms(View):
     ''' Returns the permission token if the user has this perm '''
 
