@@ -22,7 +22,7 @@ class PWD:
     def login_error(self):
         d = {'status': 'nok'}
         return d
-    def login(self, data):
+    def login(self, event, data):
         d = {'status': 'ok'}
         msg = data.get('username', '')
         if not msg:

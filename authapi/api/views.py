@@ -43,11 +43,11 @@ test = Test.as_view()
 class Login(View):
     ''' Login into the authapi '''
 
-    def post(self, request):
+    def post(self, request, pk):
         req = json.loads(request.body.decode('utf-8'))
-        m = req.get('auth-method', 'user-and-password')
+        e = get_object_or_404(AuthEvent, pk=pk)
         d = req.get('auth-data', '{}')
-        data = auth_login(m, d)
+        data = auth_login(e, req)
         status = 200 if data['status'] == 'ok' else 400
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, status=status, content_type='application/json')
@@ -217,8 +217,9 @@ class AuthEventView(View):
             ae.auth_method = req['auth_method']
             ae.auth_method_config = req['auth_method_config']
             ae.metadata = req['metadata']
-            acl = request.user.userdata.acls.get(perm='admin',
-                    object_type='AuthEvent', object_id=ae.id)
+            # TODO: Problem if object_id is None, change None by 0
+            acl = get_object_or_404(ACL, user=request.user.userdata,
+                    perm='edit', object_type='AuthEvent', object_id=ae.pk)
         ae.save()
 
         data = {'status': 'ok', 'id': ae.pk, 'perm': acl.get_hmac()}

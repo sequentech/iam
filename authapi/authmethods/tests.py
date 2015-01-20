@@ -34,6 +34,7 @@ class AuthMethodEmailTestCase(TestCase):
                 auth_method_config=test_data.auth_event3['auth_method_config'],
                 metadata=test_data.auth_event3['metadata'])
         ae.save()
+        self.aeid = ae.pk
 
         u = User(pk=1, username='test1', email='test1@agoravoting.com')
         u.set_password('123456')
@@ -89,20 +90,22 @@ class AuthMethodEmailTestCase(TestCase):
 
     def test_method_email_login_valid_code(self):
         c = JClient()
-        response = c.post('/api/login/',
-                {'auth-method': 'email', 'auth-data':
-                    {'email': 'test1@agoravoting.com', 'password': '123456',
-                        'authevent': '1'}})
+        data = {
+                'email': 'test1@agoravoting.com',
+                'password': '123456'
+        }
+        response = c.login(self.aeid, data)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
 
     def test_method_email_login_invalid_code(self):
         c = JClient()
-        response = c.post('/api/login/',
-                {'auth-method': 'email', 'auth-data':
-                    {'email': 'test2@agoravoting.com', 'password': '123456',
-                        'authevent': '1'}})
+        data = {
+                'email': 'test2@agoravoting.com',
+                'password': '123456'
+        }
+        response = c.login(self.aeid, data)
         self.assertEqual(response.status_code, 400)
 
 
@@ -112,6 +115,7 @@ class AuthMethodSmsTestCase(TestCase):
                 auth_method_config=test_data.auth_event1['auth_method_config'],
                 metadata=test_data.auth_event1['metadata'])
         ae.save()
+        self.aeid = ae.pk
 
         u = User(pk=1, username='test1', email='test1@agoravoting.com')
         u.set_password('123456')
@@ -245,11 +249,8 @@ class AuthMethodSmsTestCase(TestCase):
 
     def test_method_sms_get_perm(self):
         auth = {
-            'auth-method': 'sms-code',
-            'auth-data': {
-                'email': 'test1@agoravoting.com',
-                'password': '123456'
-            }
+            'email': 'test1@agoravoting.com',
+            'password': '123456'
         }
         data1 = { "object_type": "Vote", "permission": "create", }
         data2 = { "object_type": "Vote", "permission": "remove", }
@@ -259,24 +260,28 @@ class AuthMethodSmsTestCase(TestCase):
         response = self.c.post('/api/get-perms', data2)
         self.assertEqual(response.status_code, 301)
 
-        self.c.login(auth)
+        self.c.login(self.aeid, auth)
         response = self.c.post('/api/get-perms/', data1)
         self.assertEqual(response.status_code, 200)
         response = self.c.post('/api/get-perms/', data2)
         self.assertEqual(response.status_code, 400)
 
     def test_method_sms_login_valid_code(self):
-        response = self.c.post('/api/login/',
-                {'auth-method': 'sms-code', 'auth-data':
-                    {'email': 'test1@agoravoting.com', 'password': '123456'}})
+        data = {
+                'email': 'test1@agoravoting.com',
+                'password': '123456'
+        }
+        response = self.c.login(self.aeid, data)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
 
     def test_method_sms_login_invalid_code(self):
-        response = self.c.post('/api/login/',
-                {'auth-method': 'sms-code', 'auth-data':
-                    {'email': 'test2@agoravoting.com', 'password': '123456'}})
+        data = {
+                'email': 'test2@agoravoting.com',
+                'password': '123456'
+        }
+        response = self.c.login(self.aeid, data)
         self.assertEqual(response.status_code, 400)
 
     @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,

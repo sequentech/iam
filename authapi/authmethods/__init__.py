@@ -5,16 +5,16 @@ from importlib import import_module
 METHODS = {}
 
 
-def auth_login(method, data):
-    return METHODS[method].login(data)
+def auth_register(event, data):
+     return METHODS[event.auth_method].register(event, data)
 
 
-def validate_register(event, data):
-    return METHODS[event.auth_method].register(event, data)
+def auth_validate(event, data):
+     return METHODS[event.auth_method].validate(event, data)
 
 
-def validate_validate(event, data):
-    return METHODS[event.auth_method].validate(event, data)
+def auth_login(event, data):
+    return METHODS[event.auth_method].login(event, data)
 
 
 def register_method(name, klass):

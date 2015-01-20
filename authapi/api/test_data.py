@@ -1,12 +1,6 @@
-pwd_auth = {
-    'auth-method': 'user-and-password',
-    'auth-data': {'username': 'john', 'password': 'smith'}
-}
+pwd_auth = {'username': 'john', 'password': 'smith'}
 
-pwd_auth_email = {
-    'auth-method': 'user-and-password',
-    'auth-data': {'email': 'john@agoravoting.com', 'password': 'smith'}
-}
+pwd_auth_email = {'email': 'john@agoravoting.com', 'password': 'smith'}
 
 auth_event1 = {
     "hmac": ["superuser:11114341", "deadbeefdeadbeef"],
@@ -136,6 +130,26 @@ auth_event3 = {
             {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
         ],
         'fieldsValidate': 'Link sent. Click for activate account.',
+        'capcha': False,
+    }
+}
+
+auth_event4 = {
+    "hmac": ["superuser:11114341", "deadbeefdeadbeef"],
+    "name": "test1",
+    "description": "test1 description",
+    "auth_method": "user-and-password",
+    "auth_method_config": {
+        "login-pipeline": [
+            ["login_request"],
+        ]
+    },
+    "metadata": {
+        'steps': [ 'login' ],
+        'fieldsLogin': [
+            {'name': 'username', 'type': 'text', 'required': False},
+            {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
+        ],
         'capcha': False,
     }
 }

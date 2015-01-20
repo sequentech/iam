@@ -106,14 +106,13 @@ class Email:
         d = {'status': 'nok'}
         return d
 
-    def login(self, data):
+    def login(self, event, data):
         d = {'status': 'ok'}
         email = data['email']
         pwd = data['password']
-        eo = AuthEvent.objects.get(pk=int(data['authevent']))
 
         try:
-            u = User.objects.get(email=email, userdata__event=eo)
+            u = User.objects.get(email=email, userdata__event=event)
         except:
             return self.login_error()
 
