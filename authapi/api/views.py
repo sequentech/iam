@@ -225,9 +225,24 @@ class AuthEventView(View):
             permission_required(request.user, 'AuthEvent', 'edit', pk)
             ae = AuthEvent.objects.get(pk=pk)
             ae.name = req['name']
-            ae.auth_method = req['auth_method']
-            ae.auth_method_config = req['auth_method_config']
+            auth_method = req['auth_method']
+            ae.auth_method = auth_method
+            msg = check_authmethod(auth_method)
+
+            auth_method_config = METHODS.get(auth_method).CONFIG
+            pipeline = req['pipeline']
+            auth_method_config.update(pipeline)
+            ae.auth_method_config = auth_method_config
+            msg += check_pipeline(pipeline, METHODS.get(auth_method).VALID_PIPELINES)
+
             ae.metadata = req['metadata']
+            msg += check_metadata(req['metadata'], METHODS.get(auth_method).VALID_FIELDS)
+
+            if msg:
+                print(msg)
+                data = {'msg': msg}
+                jsondata = json.dumps(data)
+                return HttpResponse(jsondata, status=400, content_type='application/json')
             # TODO: Problem if object_id is None, change None by 0
             acl = get_object_or_404(ACL, user=request.user.userdata,
                     perm='edit', object_type='AuthEvent', object_id=ae.pk)

@@ -47,10 +47,12 @@ class JClient(Client):
 
 class ApiTestCase(TestCase):
     def setUp(self):
+        auth_method_config = test_data.auth_event4['config']
+        auth_method_config.update(test_data.auth_event4['pipeline'])
         ae = AuthEvent(pk=1,
                 name='test 1',
                 auth_method=test_data.auth_event4['auth_method'],
-                auth_method_config=test_data.auth_event4['auth_method_config'],
+                auth_method_config=auth_method_config,
                 metadata=test_data.auth_event4['metadata'])
         ae.save()
 

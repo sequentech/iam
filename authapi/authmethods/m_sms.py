@@ -172,6 +172,12 @@ def register(request, event):
 
         if check != 0:
             return check
+    check = register_request(data, request)
+    if check != 0:
+        return check
+    check = send_sms(data, conf)
+    if check != 0:
+        return check
 
     data.pop('code')
     jsondata = json.dumps(data)
@@ -201,7 +207,7 @@ def validate(request, event):
 class Sms:
     DESCRIPTION = 'Provides authentication using an SMS code.'
     VALID_PIPELINES = ('check_whitelisted', 'check_blacklisted',
-            'check_total_max', 'check_total_connection')
+            'check_total_max', 'check_total_connection', 'check_sms_code')
     VALID_FIELDS = ('name', 'type', 'required', 'regex', 'min', 'max')
     CONFIG = {
         'SMS_PROVIDER': 'console',

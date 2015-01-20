@@ -172,6 +172,17 @@ def check_total_connection(fields):
             msg += "Invalid pipeline field: %s not possible.\n" % field
     return msg
 
+def check_sms_code(fields):
+    msg = ''
+    for field in fields:
+        if field in ('timestamp'):
+            if field == 'timestamp':
+                if not isinstance(fields[field], int):
+                    msg += "Invalid pipeline field: bad %s.\n" % field
+        else:
+            msg += "Invalid pipeline field: %s not possible.\n" % field
+    return msg
+
 def check_fields(fields, valid_meta):
     msg = ''
     for field in fields:

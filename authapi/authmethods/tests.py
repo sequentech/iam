@@ -30,8 +30,10 @@ class AuthMethodTestCase(TestCase):
 
 class AuthMethodEmailTestCase(TestCase):
     def setUp(self):
+        auth_method_config = test_data.auth_event3['config']
+        auth_method_config.update(test_data.auth_event3['pipeline'])
         ae = AuthEvent(pk=1, name='test', auth_method=test_data.auth_event3['auth_method'],
-                auth_method_config=test_data.auth_event3['auth_method_config'],
+                auth_method_config=auth_method_config,
                 metadata=test_data.auth_event3['metadata'])
         ae.save()
         self.aeid = ae.pk
@@ -111,8 +113,10 @@ class AuthMethodEmailTestCase(TestCase):
 
 class AuthMethodSmsTestCase(TestCase):
     def setUp(self):
+        auth_method_config = test_data.auth_event2['config']
+        auth_method_config.update(test_data.auth_event2['pipeline'])
         ae = AuthEvent(pk=1, name='test', auth_method=test_data.auth_event2['auth_method'],
-                auth_method_config=test_data.auth_event2['auth_method_config'],
+                auth_method_config=auth_method_config,
                 metadata=test_data.auth_event2['metadata'])
         ae.save()
         self.aeid = ae.pk
@@ -128,22 +132,18 @@ class AuthMethodSmsTestCase(TestCase):
                 'sms_verified': True
         })
         u.userdata.save()
+        self.u = u.userdata
         code = Code(user=u.userdata, tlf='+34666666666', dni='11111111H',
                 code='AAAAAAAA')
         code.save()
         m = Message(tlf='+34666666666')
         m.save()
-        pipe = test_data.auth_event2['auth_method_config'].get('validate-pipeline')
+        pipe = auth_method_config.get('validate-pipeline')
         for p in pipe:
             if p[0] == 'check_total_connection':
                 self.times = p[1].get('times')
             if p[0] == 'check_sms_code':
                 self.timestamp = p[1].get('timestamp')
-            if p[0] == 'give_perms':
-                obj = p[1].get('object_type')
-                for perm in p[1].get('perms'):
-                    acl = ACL(user=u.userdata, object_type=obj, perm=perm)
-                    acl.save()
 
         u2 = User(pk=2, username='test2', email='test2@agoravoting.com')
         u2.set_password('123456')
@@ -160,7 +160,7 @@ class AuthMethodSmsTestCase(TestCase):
                 code='AAAAAAAA')
         code.save()
         self.c = JClient()
-        pipe = test_data.auth_event2['auth_method_config'].get('register-pipeline')
+        pipe = auth_method_config.get('register-pipeline')
         for p in pipe:
             if p[0] == 'check_total_max':
                 if p[1].get('field') == 'tlf':
@@ -260,6 +260,8 @@ class AuthMethodSmsTestCase(TestCase):
         response = self.c.post('/api/get-perms', data2)
         self.assertEqual(response.status_code, 301)
 
+        acl = ACL(user=self.u, object_type='Vote', perm='create')
+        acl.save()
         self.c.login(self.aeid, auth)
         response = self.c.post('/api/get-perms/', data1)
         self.assertEqual(response.status_code, 200)
