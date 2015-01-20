@@ -6,7 +6,7 @@ from django.http import HttpResponse
 from django.views.generic import View
 from django.shortcuts import get_object_or_404
 
-from authmethods import auth_login, METHODS
+from authmethods import auth_login, METHODS, auth_register, auth_validate
 from utils import genhmac, paginate
 from utils import check_authmethod, check_pipeline, check_metadata
 from .decorators import login_required
@@ -47,7 +47,6 @@ class Login(View):
     def post(self, request, pk):
         req = json.loads(request.body.decode('utf-8'))
         e = get_object_or_404(AuthEvent, pk=pk)
-        d = req.get('auth-data', '{}')
         data = auth_login(e, req)
         status = 200 if data['status'] == 'ok' else 400
         jsondata = json.dumps(data)
@@ -58,13 +57,11 @@ login = Login.as_view()
 class Register(View):
     ''' Register into the authapi '''
 
-    def post(self, request):
-        req = json.loads(request.body.decode('utf-8'))
-        e = get_object_or_404(AuthEvent, pk=req.get('auth-event'))
-        d = req.get('data', '{}')
-        if (e.census == 'close'):
-            permission_required(request.user, 'UserData', 'create', e.pk)
-        data = validate_register(e, d)
+    def post(self, request, pk):
+        e = get_object_or_404(AuthEvent, pk=pk)
+        #if (e.census == 'close'):
+        #    permission_required(request.user, 'UserData', 'create', pk)
+        data = auth_register(e, request)
         status = 200 if data['status'] == 'ok' else 400
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, status=status, content_type='application/json')
@@ -74,11 +71,9 @@ register = Register.as_view()
 class Validate(View):
     ''' Validate into the authapi '''
 
-    def post(self, request):
-        req = json.loads(request.body.decode('utf-8'))
-        e = req.get('auth-event')
-        d = req.get('data', '{}')
-        data = validate_validate(e, d)
+    def post(self, request, pk):
+        e = get_object_or_404(AuthEvent, pk=pk)
+        data = auth_validate(e, request)
         status = 200 if data['status'] == 'ok' else 400
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, status=status, content_type='application/json')

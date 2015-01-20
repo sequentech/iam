@@ -151,59 +151,6 @@ def give_perms(data, req, **kwargs):
     return 0
 
 
-def register(request, event):
-    data = {'status': 'ok', 'msg': '', 'event': event}
-
-    check = check_request(request, data)
-    if check != 0:
-        return check
-
-    eo = AuthEvent.objects.get(pk=event)
-    conf = eo.auth_method_config
-    pipeline = conf.get('register-pipeline')
-    for pipe in pipeline:
-        classname = pipe[0]
-        if classname == 'register_request':
-            check = getattr(eval(classname), '__call__')(data, request)
-        elif classname == 'send_sms':
-            check = getattr(eval(classname), '__call__')(data, conf)
-        else:
-            check = getattr(eval(classname), '__call__')(data, **pipe[1])
-
-        if check != 0:
-            return check
-    check = register_request(data, request)
-    if check != 0:
-        return check
-    check = send_sms(data, conf)
-    if check != 0:
-        return check
-
-    data.pop('code')
-    jsondata = json.dumps(data)
-    return HttpResponse(jsondata, content_type='application/json')
-
-
-def validate(request, event):
-    data = {'status': 'ok', 'event': event, 'ip': get_client_ip(request)}
-    req = json.loads(request.body.decode('utf-8'))
-
-    eo = AuthEvent.objects.get(pk=event)
-    conf = eo.auth_method_config
-    pipeline = conf.get('validate-pipeline')
-    for pipe in pipeline:
-        check = getattr(eval(pipe[0]), '__call__')(data, req, **pipe[1])
-
-        if check != 0:
-            return check
-
-    pwd = data['user'].user.password
-    data['auth-token'] = genhmac(settings.SHARED_SECRET, pwd)
-    data.pop('user')
-    jsondata = json.dumps(data)
-    return HttpResponse(jsondata, content_type='application/json')
-
-
 class Sms:
     DESCRIPTION = 'Provides authentication using an SMS code.'
     VALID_PIPELINES = ('check_whitelisted', 'check_blacklisted',
@@ -236,6 +183,59 @@ class Sms:
         "login-pipeline": []
     }
 
+    def register(self, ae, request):
+        data = {'status': 'ok', 'msg': '', 'event': ae.id}
+
+        check = check_request(request, data)
+        if check != 0:
+            data.update(json.loads(check.content.decode('utf-8')))
+            data['status'] = check.status_code
+            return data
+
+        conf = ae.auth_method_config
+        pipeline = conf.get('register-pipeline')
+        for pipe in pipeline:
+            classname = pipe[0]
+            check = getattr(eval(classname), '__call__')(data, **pipe[1])
+
+            if check != 0:
+                data.update(json.loads(check.content.decode('utf-8')))
+                data['status'] = check.status_code
+                return data
+        check = register_request(data, request)
+        if check != 0:
+            data.update(json.loads(check.content.decode('utf-8')))
+            data['status'] = check.status_code
+            return data
+        check = send_sms(data, conf)
+        if check != 0:
+            data.update(json.loads(check.content.decode('utf-8')))
+            data['status'] = check.status_code
+            return data
+
+        data.pop('code')
+        return data
+
+
+    def validate(self, ae, request):
+        data = {'status': 'ok', 'event': ae.id, 'ip': get_client_ip(request)}
+        req = json.loads(request.body.decode('utf-8'))
+
+        conf = ae.auth_method_config
+        pipeline = conf.get('validate-pipeline')
+        for pipe in pipeline:
+            check = getattr(eval(pipe[0]), '__call__')(data, req, **pipe[1])
+
+            if check != 0:
+                data.update(json.loads(check.content.decode('utf-8')))
+                data['status'] = check.status_code
+                return data
+
+        pwd = data['user'].user.password
+        data['auth-token'] = genhmac(settings.SHARED_SECRET, pwd)
+        data.pop('user')
+        return data
+
     def login_error(self):
         d = {'status': 'nok'}
         return d
@@ -256,10 +256,5 @@ class Sms:
 
         d['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
         return d
-
-    views = patterns('',
-        url(r'^register/(?P<event>\d+)$', register),
-        url(r'^validate/(?P<event>\d+)$', validate),
-    )
 
 register_method('sms-code', Sms)

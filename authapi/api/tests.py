@@ -16,6 +16,18 @@ class JClient(Client):
         self.auth_token = ''
         super(JClient, self).__init__(*args, **kwargs)
 
+    def register(self, authevent, data):
+        response = self.post('/api/auth-event/%d/register/' % authevent, data)
+        r = json.loads(response.content.decode('utf-8'))
+        self.set_auth_token(r.get('auth-token'))
+        return response
+
+    def validate(self, authevent, data):
+        response = self.post('/api/auth-event/%d/validate/' % authevent, data)
+        r = json.loads(response.content.decode('utf-8'))
+        self.set_auth_token(r.get('auth-token'))
+        return response
+
     def login(self, authevent, data):
         response = self.post('/api/auth-event/%d/login/' % authevent, data)
         r = json.loads(response.content.decode('utf-8'))

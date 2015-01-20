@@ -15,17 +15,32 @@ from .models import Message, Code, Connection
 
 class AuthMethodTestCase(TestCase):
     def setUp(self):
-        pass
+        auth_method_config = test_data.auth_event4['config']
+        auth_method_config.update(test_data.auth_event4['pipeline'])
+        ae = AuthEvent(pk=1, name='test', auth_method=test_data.auth_event4['auth_method'],
+                auth_method_config=auth_method_config,
+                metadata=test_data.auth_event4['metadata'])
+        ae.save()
+        self.aeid = ae.pk
+
+        u = User(pk=1, username=test_data.pwd_auth['username'])
+        u.set_password(test_data.pwd_auth['password'])
+        u.save()
+        u.userdata.event = ae
+        u.userdata.save()
+        self.userid = u.pk
+
 
     def test_method_custom_view(self):
         c = JClient()
-        response = c.get('/api/authmethod/user-and-password/test/asdfdsf/', {})
+        response = c.login(self.aeid, test_data.pwd_auth)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
 
-        response = c.get('/api/authmethod/user-and-password/test/asdfdsf/cxzvcx/', {})
-        self.assertEqual(response.status_code, 404)
+        data = { 'username': 'test', 'password': 'cxzvcx' }
+        response = c.login(self.aeid, data)
+        self.assertEqual(response.status_code, 400)
 
 
 class AuthMethodEmailTestCase(TestCase):
@@ -48,6 +63,7 @@ class AuthMethodEmailTestCase(TestCase):
                 'email_verified': True
         })
         u.userdata.save()
+        self.userid = u.pk
 
         u2 = User(pk=2, username='test2')
         u2.set_password('123456')
@@ -66,28 +82,28 @@ class AuthMethodEmailTestCase(TestCase):
                        BROKER_BACKEND='memory')
     def test_method_email_register(self):
         c = JClient()
-        response = c.post('/api/authmethod/email/register/1/',
-                {'email': 'test@test.com', 'user': 'test', 'password': '123456'})
+        data = {'email': 'test@test.com', 'user': 'test', 'password': '123456'}
+        response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
 
     def test_method_email_valid_code(self):
-        userid = 1
         code = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 
         c = JClient()
-        response = c.get('/api/authmethod/email/validate/%d/%s/' % (userid, code), {})
+        data = { 'userid': self.userid, 'code': code }
+        response = c.validate(self.aeid, data)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
 
     def test_method_email_invalid_code(self):
-        userid = 1
         code = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 
         c = JClient()
-        response = c.get('/api/authmethod/email/validate/%d/%s/' % (userid, code), {})
+        data = { 'userid': self.userid, 'code': code }
+        response = c.validate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
 
     def test_method_email_login_valid_code(self):
@@ -176,9 +192,9 @@ class AuthMethodSmsTestCase(TestCase):
                        CELERY_ALWAYS_EAGER=True,
                        BROKER_BACKEND='memory')
     def test_method_sms_register(self):
-        response = self.c.post('/api/authmethod/sms-code/register/1/',
-                {'tlf': '+34666666666', 'password': '123456',
-                    'email': 'test@test.com', 'dni': '11111111H'})
+        data = {'tlf': '+34666666666', 'password': '123456',
+                    'email': 'test@test.com', 'dni': '11111111H'}
+        response = self.c.register(self.aeid, data)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
@@ -186,37 +202,37 @@ class AuthMethodSmsTestCase(TestCase):
             dni='11111111H').count(), 1)
 
     def test_method_sms_register_valid_dni(self):
-        response = self.c.post('/api/authmethod/sms-code/register/1/',
-                {'tlf': '+34666666666', 'password': '123456', 'dni': '11111111H'})
+        data = {'tlf': '+34666666666', 'password': '123456', 'dni': '11111111H'}
+        response = self.c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['msg'].find('Invalid dni'), -1)
 
     def test_method_sms_register_invalid_dni(self):
-        response = self.c.post('/api/authmethod/sms-code/register/1/',
-                {'tlf': '+34666666666', 'password': '123456', 'dni': '999'})
+        data = {'tlf': '+34666666666', 'password': '123456', 'dni': '999'}
+        response = self.c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertNotEqual(r['msg'].find('Invalid dni'), -1)
 
     def test_method_sms_register_valid_email(self):
-        response = self.c.post('/api/authmethod/sms-code/register/1/',
-                {'tlf': '+34666666666', 'password': '123456',
-                    'email': 'test@test.com'})
+        data = {'tlf': '+34666666666', 'password': '123456',
+                'email': 'test@test.com'}
+        response = self.c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['msg'].find('Invalid email'), -1)
 
     def test_method_sms_register_invalid_email(self):
-        response = self.c.post('/api/authmethod/sms-code/register/1/',
-                {'tlf': '+34666666666', 'password': '123456', 'email': 'test@@'})
+        data = {'tlf': '+34666666666', 'password': '123456', 'email': 'test@@'}
+        response = self.c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertNotEqual(r['msg'].find('Invalid email'), -1)
 
     def test_method_sms_valid_code(self):
-        response = self.c.post('/api/authmethod/sms-code/validate/1/',
-                {'tlf': '+34666666666', 'code': 'AAAAAAAA', 'dni': '11111111H'})
+        data = {'tlf': '+34666666666', 'code': 'AAAAAAAA', 'dni': '11111111H'}
+        response = self.c.validate(self.aeid, data)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
@@ -226,23 +242,23 @@ class AuthMethodSmsTestCase(TestCase):
 
     def test_method_sms_valid_code_timeout(self):
         time.sleep(self.timestamp)
-        response = self.c.post('/api/authmethod/sms-code/validate/1/',
-                {'tlf': '+34666666666', 'code': 'AAAAAAAA', 'dni': '11111111H'})
+        data = {'tlf': '+34666666666', 'code': 'AAAAAAAA', 'dni': '11111111H'}
+        response = self.c.validate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['message'], 'Timeout.')
 
     def test_method_sms_invalid_code(self):
-        response = self.c.post('/api/authmethod/sms-code/validate/1/',
-                {'tlf': '+34666666666', 'code': 'BBBBBBBB', 'dni': '11111111H'})
+        data = {'tlf': '+34666666666', 'code': 'BBBBBBBB', 'dni': '11111111H'}
+        response = self.c.validate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['message'], 'Invalid code.')
 
     def test_method_sms_invalid_code_x_times(self):
         for i in range(self.times + 1):
-            response = self.c.post('/api/authmethod/sms-code/validate/1/',
-                    {'tlf': '+34666666666', 'code': 'BBBBBBBB', 'dni': '11111111H'})
+            data = {'tlf': '+34666666666', 'code': 'BBBBBBBB', 'dni': '11111111H'}
+            response = self.c.validate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['message'], 'Exceeded the level os attempts')
@@ -293,12 +309,12 @@ class AuthMethodSmsTestCase(TestCase):
         x = 0
         while x < self.total_max_tlf + 1:
             x += 1
-            response = self.c.post('/api/authmethod/sms-code/register/1/',
-                    {'tlf': '+34666666666', 'password': '123456',
-                        'email': 'test@test.com', 'dni': '11111111H'})
-        response = self.c.post('/api/authmethod/sms-code/register/1/',
-                {'tlf': '+34666666666', 'password': '123456',
-                    'email': 'test@test.com', 'dni': '11111111H'})
+            data = {'tlf': '+34666666666', 'password': '123456',
+                    'email': 'test@test.com', 'dni': '11111111H'}
+            response = self.c.register(self.aeid, data)
+        data = {'tlf': '+34666666666', 'password': '123456',
+                'email': 'test@test.com', 'dni': '11111111H'}
+        response = self.c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertNotEqual(r['message'].find('Blacklisted'), -1)
@@ -311,13 +327,12 @@ class AuthMethodSmsTestCase(TestCase):
         time_now = time.time()
         while x < self.total_max_tlf_period + 1:
             x += 1
-            response = self.c.post('/api/authmethod/sms-code/register/1/',
-                    {'tlf': '+34666666666', 'password': '123456',
-                        'email': 'test@test.com', 'dni': '11111111H'})
-        response = self.c.post('/api/authmethod/sms-code/register/1/',
-                {'tlf': '+34666666666', 'password': '123456',
-                    'email': 'test@test.com', 'dni': '11111111H'})
-
+            data = {'tlf': '+34666666666', 'password': '123456',
+                    'email': 'test@test.com', 'dni': '11111111H'}
+            response = self.c.register(self.aeid, data)
+        data = {'tlf': '+34666666666', 'password': '123456',
+                'email': 'test@test.com', 'dni': '11111111H'}
+        response = self.c.register(self.aeid, data)
         total_time = time.time() - time_now
         if total_time < self.period_tlf:
             self.assertEqual(response.status_code, 400)
