@@ -16,6 +16,8 @@ class login_required(object):
         key = request.META.get('HTTP_AUTHORIZATION', None)
         if not key:
             key = request.META.get('HTTP_AUTH', None)
+            if not key:
+                key = request.META.get('HTTP_HTTP_AUTH', None)
 
         if not key:
             return HttpResponseForbidden('Invalid auth token')
