@@ -188,22 +188,20 @@ class Sms:
         for r in req:
             user = random_username()
             mail_to = r.get('email')
-            pwd = r.get('password')
             tlf = r.get('tlf')
-            dni = r.get('dni')
 
             try:
                 u = User(username=user, email=mail_to)
-                u.set_password(pwd)
                 u.save()
-                u.userdata.event = ae
-                u.userdata.status = 'pen'
-                u.userdata.save()
-                acl = ACL(user=request.user.userdata, object_type='UserData', perm='edit', object_id=u.pk)
-                acl.save()
             except:
                 data = {'status': 'nok', 'msg': 'user already exist'}
                 return data
+            u.userdata.event = ae
+            u.userdata.status = 'pen'
+            u.userdata.metadata = json.dumps({ "tlf": tlf })
+            u.userdata.save()
+            acl = ACL(user=request.user.userdata, object_type='UserData', perm='edit', object_id=u.pk)
+            acl.save()
         data = {'status': 'ok'}
         return data
 

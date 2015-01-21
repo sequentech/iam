@@ -33,11 +33,9 @@ class Email:
         for r in req:
             user = random_username()
             mail_to = r.get('email')
-            pwd = r.get('password')
 
             try:
                 u = User(username=user, email=mail_to)
-                u.set_password(pwd)
                 u.save()
                 u.userdata.event = ae
                 u.userdata.status = 'pen'
