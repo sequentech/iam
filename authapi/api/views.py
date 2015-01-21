@@ -134,7 +134,7 @@ class GetPerms(View):
         if obj_id is None:
             msg = ':'.join((request.user.username, object_type, perm))
         else:
-            msg = ':'.join((request.user.username, object_type, obj_id, perm))
+            msg = ':'.join((request.user.username, object_type, str(obj_id), perm))
 
         data['permission-token'] = genhmac(settings.SHARED_SECRET, msg)
         jsondata = json.dumps(data)
