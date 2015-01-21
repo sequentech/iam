@@ -19,9 +19,9 @@ def paginate(request, queryset, serialize_method=None, elements_name='elements')
     elements = request.GET.get('n', 10)
 
     try:
-        page = int(page)
+        pageindex = int(index)
     except:
-        page = 1
+        pageindex = 1
 
     try:
         elements = int(elements)
@@ -32,11 +32,11 @@ def paginate(request, queryset, serialize_method=None, elements_name='elements')
         elements = 30
 
     p = Paginator(queryset, elements)
-    page = p.page(index)
+    page = p.page(pageindex)
 
     d = {
         elements_name: page.object_list,
-        'page': index,
+        'page': pageindex,
         'total_count': p.count,
         'page_range': p.page_range,
         'start_index': page.start_index(),

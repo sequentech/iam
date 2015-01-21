@@ -196,8 +196,13 @@ class ACLMine(View):
         if perm:
             q &= Q(perm=perm)
 
-        for p in request.user.userdata.acls.filter(q):
-            data['perms'].append(p.serialize())
+        query = request.user.userdata.acls.filter(q)
+
+        acls = paginate(request, query,
+                       serialize_method='serialize',
+                       elements_name='perms')
+        data.update(acls)
+
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
 aclmine = login_required(ACLMine.as_view())
