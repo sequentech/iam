@@ -106,18 +106,18 @@ class ApiTestCase(TestCase):
 
     def test_change_status(self):
         c = JClient()
-        response = c.get('/api/auth-event/%d/%s/' % (self.aeid, 'start'), {})
+        response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'start'), {})
         self.assertEqual(response.status_code, 403)
-        response = c.get('/api/auth-event/%d/%s/' % (self.aeid, 'stop'), {})
+        response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'stop'), {})
         self.assertEqual(response.status_code, 403)
 
         c.login(self.aeid, test_data.pwd_auth)
 
-        response = c.get('/api/auth-event/%d/%s/' % (self.aeid, 'start'), {})
+        response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'start'), {})
         self.assertEqual(response.status_code, 200)
-        response = c.get('/api/auth-event/%d/%s/' % (self.aeid, 'stop'), {})
+        response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'stop'), {})
         self.assertEqual(response.status_code, 200)
-        response = c.get('/api/auth-event/%d/%s/' % (self.aeid, 'stop'), {})
+        response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'stop'), {})
         self.assertEqual(response.status_code, 400)
 
 

@@ -98,7 +98,7 @@ validate = Validate.as_view()
 class AuthEventStatus(View):
     ''' Change the status of auth-event '''
 
-    def get(self, request, pk, status):
+    def post(self, request, pk, status):
         permission_required(request.user, 'AuthEvent', 'edit', pk)
         e = get_object_or_404(AuthEvent, pk=pk)
         if e.status != status:
@@ -107,7 +107,7 @@ class AuthEventStatus(View):
             st = 200
         else:
             st = 400
-        jsondata = json.dumps({})
+        jsondata = json.dumps({'msg': 'Authevent status:  %s' % status})
         return HttpResponse(jsondata, status=st, content_type='application/json')
 ae_status = login_required(AuthEventStatus.as_view())
 
