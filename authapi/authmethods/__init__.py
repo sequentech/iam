@@ -6,18 +6,20 @@ METHODS = {}
 
 
 def auth_census(event, data):
-     return METHODS[event.auth_method].census(event, data)
+    return METHODS[event.auth_method].census(event, data)
 
 
 def auth_register(event, data):
-     return METHODS[event.auth_method].register(event, data)
+    return METHODS[event.auth_method].register(event, data)
 
 
 def auth_validate(event, data):
-     return METHODS[event.auth_method].validate(event, data)
+    return METHODS[event.auth_method].validate(event, data)
 
 
 def auth_login(event, data):
+    if event == 0:
+        return METHODS['user-and-password'].login(event, data)
     return METHODS[event.auth_method].login(event, data)
 
 

@@ -29,6 +29,7 @@ class PWD:
     def login_error(self):
         d = {'status': 'nok'}
         return d
+
     def login(self, event, data):
         d = {'status': 'ok'}
         msg = data.get('username', '')
@@ -40,6 +41,9 @@ class PWD:
         try:
             u = User.objects.get(Q(username=msg)|Q(email=msg))
         except:
+            return self.login_error()
+
+        if event != 0 and u.userdata.event != event:
             return self.login_error()
 
         if not u.check_password(pwd):

@@ -58,7 +58,10 @@ class Login(View):
 
     def post(self, request, pk):
         req = json.loads(request.body.decode('utf-8'))
-        e = get_object_or_404(AuthEvent, pk=pk)
+        if int(pk) == 0:
+            e = 0
+        else:
+            e = get_object_or_404(AuthEvent, pk=pk)
         data = auth_login(e, req)
         status = 200 if data['status'] == 'ok' else 400
         jsondata = json.dumps(data)
