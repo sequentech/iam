@@ -19,7 +19,9 @@ class AuthMethodTestCase(TestCase):
         auth_method_config.update(test_data.auth_event4['pipeline'])
         ae = AuthEvent(pk=1, name='test', auth_method=test_data.auth_event4['auth_method'],
                 auth_method_config=auth_method_config,
-                metadata=test_data.auth_event4['metadata'])
+                metadata=test_data.auth_event4['metadata'],
+                status='start',
+                census=test_data.auth_event4['census'])
         ae.save()
         self.aeid = ae.pk
 
@@ -49,7 +51,9 @@ class AuthMethodEmailTestCase(TestCase):
         auth_method_config.update(test_data.auth_event3['pipeline'])
         ae = AuthEvent(pk=1, name='test', auth_method=test_data.auth_event3['auth_method'],
                 auth_method_config=auth_method_config,
-                metadata=test_data.auth_event3['metadata'])
+                metadata=test_data.auth_event3['metadata'],
+                status='start',
+                census=test_data.auth_event3['census'])
         ae.save()
         self.aeid = ae.pk
 
@@ -152,7 +156,9 @@ class AuthMethodSmsTestCase(TestCase):
         auth_method_config.update(test_data.auth_event2['pipeline'])
         ae = AuthEvent(pk=1, name='test', auth_method=test_data.auth_event2['auth_method'],
                 auth_method_config=auth_method_config,
-                metadata=test_data.auth_event2['metadata'])
+                metadata=test_data.auth_event2['metadata'],
+                status='start',
+                census=test_data.auth_event2['census'])
         ae.save()
         self.aeid = ae.pk
 

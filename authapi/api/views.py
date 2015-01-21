@@ -74,8 +74,14 @@ class Register(View):
 
     def post(self, request, pk):
         e = get_object_or_404(AuthEvent, pk=pk)
-        #if (e.census == 'close'):
-        #    permission_required(request.user, 'UserEvent', 'edit', pk)
+        if (e.census == 'close'):
+            permission_required(request.user, 'UserEvent', 'edit', pk)
+        if e.census == 'open' and e.status != 'start': # register is closing
+            jsondata = json.dumps({
+                "msg": "Register disable: the auth-event isn't working"
+            })
+            return HttpResponse(jsondata, status=400, content_type='application/json')
+
         data = auth_register(e, request)
         status = 200 if data['status'] == 'ok' else 400
         jsondata = json.dumps(data)
@@ -234,6 +240,10 @@ class AuthEventView(View):
             metadata = req['metadata']
             msg += check_metadata(metadata, METHODS.get(auth_method).VALID_FIELDS)
 
+            census = req.get('census', 'close')
+            if not census in ('open', 'close'):
+                msg += "Invalid type of census\n"
+
             if msg:
                 print(msg)
                 data = {'msg': msg}
@@ -243,16 +253,17 @@ class AuthEventView(View):
             ae = AuthEvent(name=req['name'],
                            auth_method=auth_method,
                            auth_method_config=auth_method_config,
-                           metadata=metadata)
+                           metadata=metadata,
+                           census=census)
             # Save before the acl creation to get the ae id
             ae.save()
             acl = ACL(user=request.user.userdata, perm='edit', object_type='AuthEvent',
                       object_id=ae.id)
             acl.save()
-            if req.get('census', 'close') == 'close':
-                acl = ACL(user=request.user.userdata, perm='create',
-                        object_type='UserData', object_id=ae.id)
-                acl.save()
+            acl = ACL(user=request.user.userdata, perm='create',
+                    object_type='UserData', object_id=ae.id)
+            acl.save()
+
         else: # edit
             permission_required(request.user, 'AuthEvent', 'edit', pk)
             ae = AuthEvent.objects.get(pk=pk)

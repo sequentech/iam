@@ -203,6 +203,28 @@ class ApiTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['id'], 2)
 
+    def test_create_event_open(self):
+        c = JClient()
+        c.login(self.aeid, test_data.pwd_auth)
+
+        data = test_data.auth_event3
+        response = c.post('/api/auth-event/', data)
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['id'], 2)
+        aeid = r['id']
+        # try register in stop auth-event
+        data = {'email': 'test@test.com', 'password': '123456'}
+        response = c.register(aeid, data)
+        self.assertEqual(response.status_code, 400)
+        # try register in start auth-event
+        c.login(self.aeid, test_data.pwd_auth)
+        response = c.post('/api/auth-event/%d/%s/' % (aeid, 'start'), {})
+        self.assertEqual(response.status_code, 200)
+        data = {'email': 'test@test.com', 'password': '123456'}
+        response = c.register(aeid, data)
+        self.assertEqual(response.status_code, 200)
+
     def test_list_event(self):
         self.test_create_event()
         c = JClient()

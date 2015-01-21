@@ -60,6 +60,7 @@ auth_event2 = {
     "name": "bar election",
     "description": "foo election description",
     "auth_method": "sms-code",
+    "census": "open",
     "config": {
         "SMS_PROVIDER": "console",
         "SMS_DOMAIN_ID": "",
@@ -119,6 +120,7 @@ auth_event3 = {
     "name": "main election",
     "description": "main election description",
     "auth_method": "email",
+    "census": "open",
     "config": {
         'subject': 'Confirm your email',
         'msg': 'Click in this link for validate your email: ',
@@ -135,8 +137,10 @@ auth_event3 = {
             {'name': 'email', 'type': 'text', 'required': True},
             {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
         ],
-        'fieldsValidate': 'Link sent. Click for activate account.',
-        'capcha': False,
+        'fieldsValidate': [
+            {'name': 'email', 'type': 'text', 'required': True},
+            {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
+        ]
     }
 }
 
@@ -145,6 +149,7 @@ auth_event4 = {
     "name": "test1",
     "description": "test1 description",
     "auth_method": "user-and-password",
+    "census": "open",
     "config": {},
     "pipeline": {
         "register-pipeline": [],
