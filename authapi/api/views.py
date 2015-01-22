@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404
 from authmethods import auth_login, METHODS, auth_register, auth_validate, auth_census
 from utils import genhmac, paginate
 from utils import check_authmethod, check_pipeline, check_metadata
-from .decorators import login_required
+from .decorators import login_required, get_login_user
 from .models import AuthEvent, ACL, CreditsAction
 from .models import User, UserData
 from django.db.models import Q
@@ -67,6 +67,24 @@ class Login(View):
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, status=status, content_type='application/json')
 login = Login.as_view()
+
+
+class Ping(View):
+    ''' Returns true if the user is authenticated, else returns false.
+        If the user is authenticated a new authtoken is sent
+    '''
+
+    def get(self, request, pk):
+        u = get_login_user(request)
+        data = {'status': 'ok', 'logged': False}
+
+        if u:
+            data['logged'] = True
+            data['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
+        status = 200 if data['status'] == 'ok' else 400
+        jsondata = json.dumps(data)
+        return HttpResponse(jsondata, status=status, content_type='application/json')
+ping = Ping.as_view()
 
 
 class Register(View):
