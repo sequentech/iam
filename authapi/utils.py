@@ -5,8 +5,9 @@ import time
 import six
 from authmethods import METHODS
 from djcelery import celery
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMessage
 from django.core.paginator import Paginator
+from django.conf import settings
 
 
 def paginate(request, queryset, serialize_method=None, elements_name='elements'):
@@ -123,8 +124,53 @@ def send_email(subject, msg, mail_from, mails_to):
 def send_sms_code(data, conf):
     from authmethods.sms_provider import SMSProvider
     con = SMSProvider.get_instance(conf)
-    con.send_sms(receiver=data['tlf'], content=conf['sms-message'], is_audio="sss")
+    con.send_sms(receiver=data['tlf'], content=conf['sms-message'], is_audio=False)
 
+def send_code(user, templ):
+    '''
+    Sends the code for authentication in the related auth event, to the user
+    in a message sent via sms or email, depending on the authentication method
+    of the auth event.
+
+    The template will be automatically completed with the base template in
+    settings.
+
+    NOTE: You are responsible of not calling this on a stopped auth event
+    '''
+    auth_method = user.userdata.event.auth_method
+    event_id = user.userdata.event.id
+
+    # TODO generate code, save and commit to the database before doing anything
+    # else
+    code = "foo"
+
+    if auth_method == "sms":
+        receiver = user.userdata.metadata.get("tlf", None)
+        url = settings.SMS_AUTH_CODE_URL % dict(event_id=event_id, code=code)
+    else: # email
+        receiver = user.userdata.metadata.get("email", None)
+        url = settings.EMAIL_AUTH_CODE_URL % dict(event_id=event_id, code=code)
+
+    if receiver is None:
+        return
+
+    raw_msg = templ % dict(event_id=event_id, code=code, url=url)
+    msg = base_msg % raw_msg
+
+    if auth_method == "sms":
+        from authmethods.sms_provider import SMSProvider
+        con = SMSProvider.get_instance(conf)
+        con.send_sms(receiver=receiver, content=msg, is_audio=False)
+    else: # email
+      email = EmailMessage(
+          settings.EMAIL_AUTH_CODE_SUBJECT,
+          msg,
+          settings.DEFAULT_FROM_EMAIL,
+          [receiver],
+          # TODO set reply-to auth.event admin email address
+          # headers = {'Reply-To': user.userdata.event.}
+      )
+      email.send()
 
 # CHECKERS AUTHEVENT
 def check_colorlist(fields):

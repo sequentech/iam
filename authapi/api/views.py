@@ -2,7 +2,7 @@ import json
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseBadRequest
 from django.views.generic import View
 from django.shortcuts import get_object_or_404
 
@@ -12,6 +12,7 @@ from utils import check_authmethod, check_pipeline, check_metadata
 from .decorators import login_required, get_login_user
 from .models import AuthEvent, ACL, CreditsAction
 from .models import User, UserData
+from .tasks import census_send_auth_task
 from django.db.models import Q
 
 
@@ -414,6 +415,32 @@ class CreditsActionView(View):
         jsondata = json.dumps({'paypal_url': paypal_url})
         return HttpResponse(jsondata, content_type='application/json')
 creditsaction = login_required(CreditsActionView.as_view())
+
+class CensusSendAuth(View):
+    def post(self, request, pk):
+        ''' Send authentication emails to the whole census '''
+        permission_required(request.user, 'AuthEvent', 'edit', pk)
+
+        # first, validate input
+        e = get_object_or_404(AuthEvent, pk=pk)
+        if e.status != 'start':
+          jsondata = json.dumps({'error': 'AuthEvent with id = %d has not started' % pk})
+          return HttpResponseBadRequest(json, content_type='application/json')
+
+        invalid_json = json.dumps({'error': "Invalid json"})
+        try:
+            req = json.loads(request.body.decode('utf-8'))
+        except:
+            return HttpResponseBadRequest(invalid_json, content_type='application/json')
+
+        templ = req.get("template", None)
+        if type(templ) != str or len(templ) > MAX_AUTH_MSG_SIZE[e.auth_method] or\
+            (not "__CODE__" not in templ and not "__URL__" not in templ):
+            return HttpResponseBadRequest(invalid_json, content_type='application/json')
+
+        census_send_auth_task.apply_async(args=[pk, templ])
+        return HttpResponse("", content_type='application/json')
+census_send_auth = login_required(CensusSendAuth.as_view())
 
 def available_packs(request):
     jsondata = json.dumps(settings.AVAILABLE_PACKS)

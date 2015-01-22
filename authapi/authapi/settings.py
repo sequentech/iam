@@ -105,29 +105,42 @@ CORS_ORIGIN_WHITELIST = (
 
 ENABLE_CAPTCHA = True
 
-# Packs
 AVAILABLE_PACKS = [
-        {
-            "id": 0,
-            "name": "basic",
-            "num_credits": 500,
-            "price": {
-                "quote": "250",
-                "unit": "EURO"
-            }
-        },
-        {
-            "id": 1,
-            "name": "premium",
-            "num_credits": 5000,
-            "price": {
-                "quote": "2500",
-                "unit": "EURO"
-            }
-        },
-        ]
+    {
+        "id": 0,
+        "name": "basic",
+        "num_credits": 500,
+        "price": {
+            "quote": "250",
+            "unit": "EURO"
+        }
+    },
+    {
+        "id": 1,
+        "name": "premium",
+        "num_credits": 5000,
+        "price": {
+            "quote": "2500",
+            "unit": "EURO"
+        }
+    }
+]
 
 AVAILABLE_PAYMENT_METHODS = ["paypal"]
+
+SMS_PROVIDER = "console"
+MAX_AUTH_MSG_SIZE = {
+  "sms": 120,
+  "emails": 10000
+}
+
+SMS_BASE_TEMPLATE = "%s . Using Agora Voting"
+
+EMAIL_BASE_TEMPLATE = "%s\n\n -- Agora Voting https://agoravoting.com"
+
+SMS_AUTH_CODE_URL = "https://agoravoting.example.com/#/election/%(authid)s/auth_code"
+EMAIL_AUTH_CODE_URL = "https://agoravoting.example.com/#/election/%(authid)s/auth_code/%(code)s"
+
 
 # Auth api settings
 from auth_settings import *

@@ -183,7 +183,7 @@ class EsendexSMSProvider(SMSProvider):
     # sets the <from> field
     sender_id = None
 
-    # header used in altiria requests
+    # header used in esendex requests
     headers = {
         'Content-type': 'application/xml; charset=UTF-8',
         'Accept': 'text/xml'
