@@ -17,7 +17,7 @@ def check_request(request, data):
     req = json.loads(request.body.decode('utf-8'))
 
     eo = AuthEvent.objects.get(pk=data['event'])
-    fields = eo.metadata
+    fields = eo.extra_fields
     for field in fields:
         classname = field.get('name')
         if classname not in ('dni', 'email'):

@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404
 
 from authmethods import auth_authenticate, METHODS, auth_register, auth_validate, auth_census
 from utils import genhmac, paginate, VALID_FIELDS, VALID_PIPELINES
-from utils import check_authmethod, check_pipeline, check_metadata, check_config
+from utils import check_authmethod, check_pipeline, check_extra_fields, check_config
 from .decorators import login_required, get_login_user
 from .models import AuthEvent, ACL, CreditsAction
 from .models import User, UserData
@@ -258,7 +258,7 @@ class AuthEventView(View):
 
             extra_fields = req.get('extra_fields', None)
             if extra_fields:
-                msg += check_metadata(extra_fields)
+                msg += check_extra_fields(extra_fields)
 
             census = req.get('census', 'close')
             if not census in ('open', 'close'):
@@ -275,7 +275,7 @@ class AuthEventView(View):
 
             ae = AuthEvent(auth_method=auth_method,
                            auth_method_config=auth_method_config,
-                           metadata=extra_fields,
+                           extra_fields=extra_fields,
                            census=census)
             # Save before the acl creation to get the ae id
             ae.save()
@@ -297,7 +297,7 @@ class AuthEventView(View):
 
             extra_fields = req.get('extra_fields', None)
             if extra_fields:
-                msg += check_metadata(extra_fields)
+                msg += check_extra_fields(extra_fields)
 
             if msg:
                 print(msg)
@@ -310,7 +310,7 @@ class AuthEventView(View):
             if config:
                 ae.auth_method_config.get('config').update(config)
             if extra_fields:
-                ae.metadata = extra_fields
+                ae.extra_fields = extra_fields
             ae.save()
 
             # TODO: Problem if object_id is None, change None by 0

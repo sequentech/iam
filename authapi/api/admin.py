@@ -9,7 +9,7 @@ from authmethods import METHODS
 class AuthEventAdminForm(forms.ModelForm):
     class Meta:
         model = AuthEvent
-        fields = ('name', 'auth_method', 'auth_method_config', 'metadata')
+        fields = ('auth_method', 'auth_method_config', 'extra_fields')
         choices = []
         for k in METHODS.keys():
             choices.append((k, k + ': ' + METHODS.get(k).DESCRIPTION))
@@ -21,7 +21,7 @@ class AuthEventAdminForm(forms.ModelForm):
 
 class AuthEventAdmin(admin.ModelAdmin):
     form = AuthEventAdminForm
-    list_display = ('id', 'name', 'auth_method')
+    list_display = ('id', 'auth_method')
 
 
 class UserDataAdmin(admin.ModelAdmin):

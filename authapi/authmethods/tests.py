@@ -147,7 +147,7 @@ class AuthMethodSmsTestCase(TestCase):
         auth_method_config = test_data.authmethod_config_sms_default
         ae = AuthEvent(auth_method=test_data.auth_event2['auth_method'],
                 auth_method_config=auth_method_config,
-                metadata=test_data.auth_event2['extra_fields'],
+                extra_fields=test_data.auth_event2['extra_fields'],
                 status='start',
                 census=test_data.auth_event2['census'])
         ae.save()

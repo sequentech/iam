@@ -238,24 +238,24 @@ def check_fields(key, value):
     msg = ''
     if key == 'name':
         if len(value) > 255:
-            msg += "Invalid metadata key: bad %s.\n" % key
+            msg += "Invalid extra_fields: bad %s.\n" % key
     elif key == 'type':
         if not value in ('text', 'password', 'int'):
-            msg += "Invalid metadata key: bad %s.\n" % key
+            msg += "Invalid extra_fields: bad %s.\n" % key
     elif key == 'required':
         if not isinstance(value, bool):
-            msg += "Invalid metadata key: bad %s.\n" % key
+            msg += "Invalid extra_fields: bad %s.\n" % key
     elif key == 'regex':
         pass
     elif key == 'min':
         if not isinstance(value, int):
-            msg += "Invalid metadata key: bad %s.\n" % key
+            msg += "Invalid extra_fields: bad %s.\n" % key
     elif key == 'max':
         if not isinstance(value, int):
-            msg += "Invalid metadata key: bad %s.\n" % key
+            msg += "Invalid extra_fields: bad %s.\n" % key
     elif key == 'required_on_authentication':
         if not isinstance(value, bool):
-            msg += "Invalid metadata key: bad %s.\n" % key
+            msg += "Invalid extra_fields: bad %s.\n" % key
     return msg
 
 def check_authmethod(method):
@@ -296,12 +296,12 @@ def check_pipeline(pipe):
                 msg += "Invalid pipeline functions: %s not possible.\n" % func
     return msg
 
-def check_metadata(meta):
+def check_extra_fields(fields):
     msg = ''
-    for m in meta:
-        for key in m.keys():
+    for field in fields:
+        for key in field.keys():
             if key in VALID_FIELDS:
-                msg += check_fields(key, m.get(key))
+                msg += check_fields(key, field.get(key))
             else:
                 msg += "Invalid extra_field: %s not possible.\n" % key
     return msg
