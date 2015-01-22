@@ -5,48 +5,68 @@ pwd_auth_email = {'email': 'john@agoravoting.com', 'password': 'smith'}
 auth_event1 = {
     "auth_method": "sms",
     "config": {"sms-message": "Enter in __LINK__ and put this code __CODE__"},
-    "extra_fields": {
-        'fieldsRegister': [
-            {'name': 'name', 'type': 'text', 'required': False},
-            {'name': 'surname', 'type': 'text', 'required': False},
-            {'name': 'dni', 'type': 'text', 'required': True, 'max': 9},
-            {'name': 'tlf', 'type': 'text', 'required': True, 'max': 12},
-            {'name': 'email', 'type': 'text', 'required': True},
-            {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
-        ],
-        'fieldsValidate': [
-            {'name': 'dni', 'type': 'text', 'required': True, 'max': 9},
-            {'name': 'tlf', 'type': 'text', 'required': True, 'max': 12},
-            {'name': 'code', 'type': 'password', 'required': True, 'min': 4},
-        ],
-        #'capcha': False,
-    }
+    "extra_fields": [
+            {
+            "name": "name",
+            "type": "text",
+            "required": True,
+            "max": 2,
+            "max": 64,
+            "required_on_authentication": True
+            },
+            {
+            "name": "email",
+            "type": "text",
+            "required": True,
+            "regex": "TODO",
+            "max": 9,
+            "max": 9,
+            "required_on_authentication": True
+            },
+            {
+            "name": "dni",
+            "type": "text",
+            "required": True,
+            "regex": "TODO",
+            "max": 9,
+            "max": 9,
+            "required_on_authentication": True
+            }
+    ]
 }
 
 auth_event2 = {
     "auth_method": "sms",
     "census": "open",
     "config": {"sms-message": "Enter in __LINK__ and put this code __CODE__"},
-    "extra_fields": {
-        'fieldsRegister': [
-            {'name': 'name', 'type': 'text', 'required': False},
-            {'name': 'surname', 'type': 'text', 'required': False},
-            {'name': 'dni', 'type': 'text', 'required': True, 'max': 9},
-            {'name': 'tlf', 'type': 'text', 'required': True, 'max': 12},
-            {'name': 'email', 'type': 'text', 'required': True},
-            {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
-        ],
-        'fieldsValidate': [
-            {'name': 'dni', 'type': 'text', 'required': True, 'max': 9},
-            {'name': 'tlf', 'type': 'text', 'required': True, 'max': 12},
-            {'name': 'code', 'type': 'password', 'required': True, 'min': 4},
-        ],
-        'fieldsLogin': [
-            {'name': 'dni', 'type': 'text', 'required': True, 'max': 9},
-            {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
-        ],
-        #'capcha': False,
-    }
+    "extra_fields": [
+            {
+            "name": "name",
+            "type": "text",
+            "required": True,
+            "max": 2,
+            "max": 64,
+            "required_on_authentication": True
+            },
+            {
+            "name": "email",
+            "type": "text",
+            "required": True,
+            "regex": "TODO",
+            "max": 9,
+            "max": 9,
+            "required_on_authentication": True
+            },
+            {
+            "name": "dni",
+            "type": "text",
+            "required": True,
+            "regex": "TODO",
+            "max": 9,
+            "max": 9,
+            "required_on_authentication": True
+            }
+    ]
 }
 
 auth_event3 = {
@@ -55,40 +75,28 @@ auth_event3 = {
     "config": {
         "subject": "Confirm your email",
         "msg": "Click __LINK__ and put this code __CODE__"
-    },
-    "extra_fields": {
-        'fieldsRegister': [
-            {'name': 'email', 'type': 'text', 'required': True},
-            {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
-        ],
-        'fieldsValidate': [
-            {'name': 'email', 'type': 'text', 'required': True},
-            {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
-        ]
     }
 }
 
 auth_event4 = {
     "auth_method": "user-and-password",
-    "census": "open",
-    "config": {},
-    "extra_fields": {
-        'fieldsLogin': [
-            {'name': 'username', 'type': 'text', 'required': False},
-            {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
-        ],
-    }
+    "census": "open"
 }
 
 auth_event5 = {
     "auth_method": "user-and-password",
     "census": "open",
     "config": {},
-    "extra_fields": {
-        'fieldsLogin': [
-            {'name': 'username', 'type': 'text', 'required': False},
-        ],
-    }
+    "extra_fields": [
+            {
+            "name": "name",
+            "type": "text",
+            "required": True,
+            "max": 2,
+            "max": 64,
+            "required_on_authentication": True
+            },
+    ]
 }
 
 # Users

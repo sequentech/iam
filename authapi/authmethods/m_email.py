@@ -13,9 +13,6 @@ from api.models import AuthEvent, ACL
 
 class Email:
     DESCRIPTION = 'Register by email. You need to confirm your email.'
-    VALID_PIPELINES = ('check_whitelisted', 'check_blacklisted',
-            'check_total_max')
-    VALID_FIELDS = ('name', 'type', 'required', 'regex', 'min', 'max')
     CONFIG = {
         'subject': 'Confirm your email',
         'msg': 'Click in this link for validate your email: ',

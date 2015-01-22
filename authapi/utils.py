@@ -173,6 +173,11 @@ def send_code(user, templ):
       email.send()
 
 # CHECKERS AUTHEVENT
+VALID_FIELDS = ('name', 'type', 'required', 'regex', 'min', 'max',
+    'required_on_authentication')
+VALID_PIPELINES = ('check_whitelisted', 'check_blacklisted',
+        'check_total_max', 'check_total_connection')
+
 def check_colorlist(fields):
     msg = ''
     for field in fields:
@@ -229,29 +234,28 @@ def check_sms_code(fields):
             msg += "Invalid pipeline field: %s not possible.\n" % field
     return msg
 
-def check_fields(fields, valid_meta):
+def check_fields(key, value):
     msg = ''
-    for field in fields:
-        if field in valid_meta:
-            if field == 'name':
-                if len(fields[field]) > 255:
-                    msg += "Invalid metadata field: bad %s.\n" % field
-            elif field == 'type':
-                if not fields[field] in ('text', 'password'):
-                    msg += "Invalid metadata field: bad %s.\n" % field
-            elif field == 'required':
-                if not isinstance(fields[field], bool):
-                    msg += "Invalid metadata field: bad %s.\n" % field
-            elif field == 'regex':
-                pass
-            elif field == 'min':
-                if not isinstance(fields[field], int):
-                    msg += "Invalid metadata field: bad %s.\n" % field
-            elif field == 'max':
-                if not isinstance(fields[field], int):
-                    msg += "Invalid metadata field: bad %s.\n" % field
-        else:
-            msg += "Invalid metadata field: %s not possible.\n" % field
+    if key == 'name':
+        if len(value) > 255:
+            msg += "Invalid metadata key: bad %s.\n" % key
+    elif key == 'type':
+        if not value in ('text', 'password', 'int'):
+            msg += "Invalid metadata key: bad %s.\n" % key
+    elif key == 'required':
+        if not isinstance(value, bool):
+            msg += "Invalid metadata key: bad %s.\n" % key
+    elif key == 'regex':
+        pass
+    elif key == 'min':
+        if not isinstance(value, int):
+            msg += "Invalid metadata key: bad %s.\n" % key
+    elif key == 'max':
+        if not isinstance(value, int):
+            msg += "Invalid metadata key: bad %s.\n" % key
+    elif key == 'required_on_authentication':
+        if not isinstance(value, bool):
+            msg += "Invalid metadata key: bad %s.\n" % key
     return msg
 
 def check_authmethod(method):
@@ -280,23 +284,24 @@ def check_config(config, method):
         msg += "Invalid method in check_conf"
     return msg
 
-def check_pipeline(pipe, valid_pipe):
+def check_pipeline(pipe):
     msg = ''
     for p in pipe:
         if not p in ('register-pipeline', 'authenticate-pipeline'):
             msg += "Invalid pipeline: %s not possible.\n" % p
         for func in pipe[p]:
-            if func[0] in valid_pipe:
+            if func[0] in VALID_PIPELINES:
                 msg += getattr(eval(func[0]), '__call__')(func[1])
             else:
                 msg += "Invalid pipeline functions: %s not possible.\n" % func
     return msg
 
-def check_metadata(meta, valid_meta):
+def check_metadata(meta):
     msg = ''
     for m in meta:
-        if not m in ('fieldsRegister', 'fieldsValidate', 'fieldsLogin'):
-            msg += "Invalid metadata: %s not possible.\n" % m
-        for fields in meta[m]:
-            msg += check_fields(fields, valid_meta)
+        for key in m.keys():
+            if key in VALID_FIELDS:
+                msg += check_fields(key, m.get(key))
+            else:
+                msg += "Invalid extra_field: %s not possible.\n" % key
     return msg

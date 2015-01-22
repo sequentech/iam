@@ -7,7 +7,7 @@ from django.views.generic import View
 from django.shortcuts import get_object_or_404
 
 from authmethods import auth_authenticate, METHODS, auth_register, auth_validate, auth_census
-from utils import genhmac, paginate
+from utils import genhmac, paginate, VALID_FIELDS, VALID_PIPELINES
 from utils import check_authmethod, check_pipeline, check_metadata, check_config
 from .decorators import login_required, get_login_user
 from .models import AuthEvent, ACL, CreditsAction
@@ -254,12 +254,11 @@ class AuthEventView(View):
             }
             config = req.get('config', None)
             if config:
-                auth_method_config['config'].update(config)
                 msg += check_config(config, auth_method)
 
             extra_fields = req.get('extra_fields', None)
             if extra_fields:
-                msg += check_metadata(extra_fields, METHODS.get(auth_method).VALID_FIELDS)
+                msg += check_metadata(extra_fields)
 
             census = req.get('census', 'close')
             if not census in ('open', 'close'):
@@ -270,6 +269,9 @@ class AuthEventView(View):
                 data = {'msg': msg}
                 jsondata = json.dumps(data)
                 return HttpResponse(jsondata, status=400, content_type='application/json')
+
+            if config:
+                auth_method_config.get('config').update(config)
 
             ae = AuthEvent(auth_method=auth_method,
                            auth_method_config=auth_method_config,
@@ -286,34 +288,34 @@ class AuthEventView(View):
 
         else: # edit
             permission_required(request.user, 'AuthEvent', 'edit', pk)
-            ae = AuthEvent.objects.get(pk=pk)
             auth_method = req['auth_method']
-            ae.auth_method = auth_method
             msg = check_authmethod(auth_method)
 
             config = req.get('config', None)
             if config:
-                # TODO: get error because the auth_method_config haven't config
-                ae.auth_method_config.get('config').update(config)
                 msg += check_config(config, auth_method)
 
             extra_fields = req.get('extra_fields', None)
             if extra_fields:
-                ae.metadata = extra_fields
-                msg += check_metadata(extra_fields, METHODS.get(auth_method).VALID_FIELDS)
-
-            ae.metadata = req['extra_fields']
-            msg += check_metadata(req['extra_fields'], METHODS.get(auth_method).VALID_FIELDS)
+                msg += check_metadata(extra_fields)
 
             if msg:
                 print(msg)
                 data = {'msg': msg}
                 jsondata = json.dumps(data)
                 return HttpResponse(jsondata, status=400, content_type='application/json')
+
+            ae = AuthEvent.objects.get(pk=pk)
+            ae.auth_method = auth_method
+            if config:
+                ae.auth_method_config.get('config').update(config)
+            if extra_fields:
+                ae.metadata = extra_fields
+            ae.save()
+
             # TODO: Problem if object_id is None, change None by 0
             acl = get_object_or_404(ACL, user=request.user.userdata,
                     perm='edit', object_type='AuthEvent', object_id=ae.pk)
-        ae.save()
 
         data = {'status': 'ok', 'id': ae.pk, 'perm': acl.get_hmac()}
         jsondata = json.dumps(data)
@@ -366,8 +368,8 @@ class AuthEventModule(View):
             for k in METHODS.keys():
                 desc = METHODS.get(k).DESCRIPTION
                 config = METHODS.get(k).CONFIG
-                pipe = METHODS.get(k).VALID_PIPELINES
-                meta = METHODS.get(k).VALID_FIELDS
+                pipe = VALID_PIPELINES
+                meta = VALID_FIELDS
                 data['methods'].append(
                         [k, {
                                 'description': desc,
@@ -379,8 +381,8 @@ class AuthEventModule(View):
         elif name in METHODS.keys(): # show module
             desc = METHODS.get(name).DESCRIPTION
             config = METHODS.get(name).CONFIG
-            pipe = METHODS.get(k).VALID_PIPELINES
-            meta = METHODS.get(k).VALID_FIELDS
+            pipe = VALID_PIPELINES
+            meta = VALID_FIELDS
             data = {
                     name: {
                         'description': desc,

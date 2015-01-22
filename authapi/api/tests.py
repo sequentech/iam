@@ -65,12 +65,7 @@ class JClient(Client):
 
 class ApiTestCase(TestCase):
     def setUp(self):
-        auth_method_config = test_data.auth_event4['config']
-        auth_method_config.update({'pipeline': {}})
-        ae = AuthEvent(
-                auth_method=test_data.auth_event4['auth_method'],
-                auth_method_config=auth_method_config,
-                metadata=test_data.auth_event4['extra_fields'])
+        ae = AuthEvent(auth_method=test_data.auth_event4['auth_method'])
         ae.save()
 
         u = User(username='john', email='john@agoravoting.com')
@@ -400,7 +395,7 @@ class TestAuthEvent(TestCase):
         response = create_authevent(test_data.ae_sms_default)
         self.assertEqual(response.status_code, 200)
 
-    def _test_create_authevent_email_incorrect(self):
+    def test_create_authevent_email_incorrect(self):
         response = create_authevent(test_data.ae_email_fields_incorrect)
         self.assertEqual(response.status_code, 400)
         response = create_authevent(test_data.ae_email_config_incorrect1)
@@ -408,19 +403,19 @@ class TestAuthEvent(TestCase):
         response = create_authevent(test_data.ae_email_config_incorrect2)
         self.assertEqual(response.status_code, 400)
 
-    def _test_create_authevent_sms_incorrect(self):
+    def test_create_authevent_sms_incorrect(self):
         response = create_authevent(test_data.ae_sms_config_incorrect)
         self.assertEqual(response.status_code, 400)
         response = create_authevent(test_data.ae_sms_fields_incorrect)
         self.assertEqual(response.status_code, 400)
 
-    def _test_create_authevent_email_change(self):
+    def test_create_authevent_email_change(self):
         response = create_authevent(test_data.ae_email_config)
         self.assertEqual(response.status_code, 200)
         response = create_authevent(test_data.ae_email_fields)
         self.assertEqual(response.status_code, 200)
 
-    def _test_create_authevent_sms_change(self):
+    def test_create_authevent_sms_change(self):
         response = create_authevent(test_data.ae_sms_config)
         self.assertEqual(response.status_code, 200)
         response = create_authevent(test_data.ae_sms_fields)

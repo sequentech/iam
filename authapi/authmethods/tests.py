@@ -15,12 +15,8 @@ from .models import Message, Code, Connection
 
 class AuthMethodTestCase(TestCase):
     def setUp(self):
-        auth_method_config = test_data.auth_event4['config']
         ae = AuthEvent(auth_method=test_data.auth_event4['auth_method'],
-                auth_method_config=auth_method_config,
-                metadata=test_data.auth_event4['extra_fields'],
-                status='start',
-                census=test_data.auth_event4['census'])
+                status='start', census=test_data.auth_event4['census'])
         ae.save()
         self.aeid = ae.pk
 
@@ -49,9 +45,7 @@ class AuthMethodEmailTestCase(TestCase):
         auth_method_config = test_data.authmethod_config_email_default
         ae = AuthEvent(auth_method=test_data.auth_event3['auth_method'],
                 auth_method_config=auth_method_config,
-                metadata=test_data.auth_event3['extra_fields'],
-                status='start',
-                census=test_data.auth_event3['census'])
+                status='start', census=test_data.auth_event3['census'])
         ae.save()
         self.aeid = ae.pk
 

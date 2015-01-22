@@ -17,10 +17,9 @@ def check_request(request, data):
     req = json.loads(request.body.decode('utf-8'))
 
     eo = AuthEvent.objects.get(pk=data['event'])
-    conf = eo.metadata
-    pipeline = conf.get('fieldsRegister')
-    for pipe in pipeline:
-        classname = pipe.get('name')
+    fields = eo.metadata
+    for field in fields:
+        classname = field.get('name')
         if classname not in ('dni', 'email'):
             continue
         attr = req.get(classname)
@@ -153,9 +152,6 @@ def give_perms(data, req, **kwargs):
 
 class Sms:
     DESCRIPTION = 'Provides authentication using an SMS code.'
-    VALID_PIPELINES = ('check_whitelisted', 'check_blacklisted',
-            'check_total_max', 'check_total_connection')
-    VALID_FIELDS = ('name', 'type', 'required', 'regex', 'min', 'max')
     CONFIG = {
         'SMS_PROVIDER': 'console',
         'SMS_DOMAIN_ID': '',
