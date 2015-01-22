@@ -21,7 +21,7 @@ AE_STATUSES = (
 )
 
 class AuthEvent(models.Model):
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, null=True)
     auth_method = models.CharField(max_length=255)
     census = models.CharField(max_length=5, choices=CENSUS, default="close")
     auth_method_config = JSONField()
@@ -31,7 +31,6 @@ class AuthEvent(models.Model):
     def serialize(self):
         d = {
             'id': self.id,
-            'name': self.name,
             'auth_method': self.auth_method,
             'census': self.census,
             'auth_method_config': self.auth_method_config,
@@ -42,7 +41,6 @@ class AuthEvent(models.Model):
     def serialize_restrict(self):
         d = {
             'id': self.id,
-            'name': self.name,
             'auth_method': self.auth_method,
             'census': self.census,
             'metadata': self.metadata,
@@ -50,7 +48,7 @@ class AuthEvent(models.Model):
         return d
 
     def __str__(self):
-        return "%s - %s" % (self.id, self.name)
+        return "%s - %s" % (self.id, self.census)
 
 
 STATUSES = (

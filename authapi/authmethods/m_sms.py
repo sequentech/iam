@@ -78,7 +78,7 @@ def register_request(data, request):
             '/authmethod/sms-code/validate/%s/' % (data['code']))
     eo = AuthEvent.objects.get(pk=data.get('event'))
     conf = eo.auth_method_config
-    msg = conf.get('sms-message') + valid_link
+    msg = conf.get('config').get('sms-message') + valid_link
 
     u.userdata.event = eo
     u.userdata.metadata = json.dumps({
@@ -154,7 +154,7 @@ def give_perms(data, req, **kwargs):
 class Sms:
     DESCRIPTION = 'Provides authentication using an SMS code.'
     VALID_PIPELINES = ('check_whitelisted', 'check_blacklisted',
-            'check_total_max', 'check_total_connection', 'check_sms_code')
+            'check_total_max', 'check_total_connection')
     VALID_FIELDS = ('name', 'type', 'required', 'regex', 'min', 'max')
     CONFIG = {
         'SMS_PROVIDER': 'console',
@@ -177,10 +177,10 @@ class Sms:
             ["check_total_max", {"field": "tlf", "period": 1440, "max": 5}],
             ["check_total_max", {"field": "tlf", "period": 60, "max": 3}],
         ],
-        "validate-pipeline": [
+        "authenticate-pipeline": [
             ['check_total_connection', {'times': 5 }],
-        ],
-        "authenticate-pipeline": []
+            ['check_sms_code', {'timestamp': 5 }]
+        ]
     }
 
     def census(self, ae, request):
@@ -215,7 +215,7 @@ class Sms:
             return data
 
         conf = ae.auth_method_config
-        pipeline = conf.get('register-pipeline')
+        pipeline = conf.get('pipeline').get('register-pipeline')
         for pipe in pipeline:
             classname = pipe[0]
             check = getattr(eval(classname), '__call__')(data, **pipe[1])
@@ -229,7 +229,7 @@ class Sms:
             data.update(json.loads(check.content.decode('utf-8')))
             data['status'] = check.status_code
             return data
-        check = send_sms(data, conf)
+        check = send_sms(data, conf.get('config'))
         if check != 0:
             data.update(json.loads(check.content.decode('utf-8')))
             data['status'] = check.status_code
@@ -244,7 +244,7 @@ class Sms:
         req = json.loads(request.body.decode('utf-8'))
 
         conf = ae.auth_method_config
-        pipeline = conf.get('validate-pipeline')
+        pipeline = conf.get('pipeline').get('authenticate-pipeline')
         for pipe in pipeline:
             check = getattr(eval(pipe[0]), '__call__')(data, req, **pipe[1])
 
@@ -279,4 +279,4 @@ class Sms:
         d['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
         return d
 
-register_method('sms-code', Sms)
+register_method('sms', Sms)

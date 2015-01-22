@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404
 
 from authmethods import auth_authenticate, METHODS, auth_register, auth_validate, auth_census
 from utils import genhmac, paginate
-from utils import check_authmethod, check_pipeline, check_metadata
+from utils import check_authmethod, check_pipeline, check_metadata, check_config
 from .decorators import login_required, get_login_user
 from .models import AuthEvent, ACL, CreditsAction
 from .models import User, UserData
@@ -248,16 +248,18 @@ class AuthEventView(View):
             auth_method = req['auth_method']
             msg = check_authmethod(auth_method)
             
-            auth_method_config = METHODS.get(auth_method).CONFIG
-            try:
-                pipeline = req['pipeline']
-            except:
-                pipeline = METHODS.get(auth_method).PIPELINES
-            auth_method_config.update(pipeline)
-            msg += check_pipeline(pipeline, METHODS.get(auth_method).VALID_PIPELINES)
+            auth_method_config = {
+                    "config": METHODS.get(auth_method).CONFIG,
+                    "pipeline": METHODS.get(auth_method).PIPELINES
+            }
+            config = req.get('config', None)
+            if config:
+                auth_method_config['config'].update(config)
+                msg += check_config(config, auth_method)
 
-            metadata = req['metadata']
-            msg += check_metadata(metadata, METHODS.get(auth_method).VALID_FIELDS)
+            extra_fields = req.get('extra_fields', None)
+            if extra_fields:
+                msg += check_metadata(extra_fields, METHODS.get(auth_method).VALID_FIELDS)
 
             census = req.get('census', 'close')
             if not census in ('open', 'close'):
@@ -269,10 +271,9 @@ class AuthEventView(View):
                 jsondata = json.dumps(data)
                 return HttpResponse(jsondata, status=400, content_type='application/json')
 
-            ae = AuthEvent(name=req['name'],
-                           auth_method=auth_method,
+            ae = AuthEvent(auth_method=auth_method,
                            auth_method_config=auth_method_config,
-                           metadata=metadata,
+                           metadata=extra_fields,
                            census=census)
             # Save before the acl creation to get the ae id
             ae.save()
@@ -286,19 +287,23 @@ class AuthEventView(View):
         else: # edit
             permission_required(request.user, 'AuthEvent', 'edit', pk)
             ae = AuthEvent.objects.get(pk=pk)
-            ae.name = req['name']
             auth_method = req['auth_method']
             ae.auth_method = auth_method
             msg = check_authmethod(auth_method)
 
-            auth_method_config = METHODS.get(auth_method).CONFIG
-            pipeline = req['pipeline']
-            auth_method_config.update(pipeline)
-            ae.auth_method_config = auth_method_config
-            msg += check_pipeline(pipeline, METHODS.get(auth_method).VALID_PIPELINES)
+            config = req.get('config', None)
+            if config:
+                # TODO: get error because the auth_method_config haven't config
+                ae.auth_method_config.get('config').update(config)
+                msg += check_config(config, auth_method)
 
-            ae.metadata = req['metadata']
-            msg += check_metadata(req['metadata'], METHODS.get(auth_method).VALID_FIELDS)
+            extra_fields = req.get('extra_fields', None)
+            if extra_fields:
+                ae.metadata = extra_fields
+                msg += check_metadata(extra_fields, METHODS.get(auth_method).VALID_FIELDS)
+
+            ae.metadata = req['extra_fields']
+            msg += check_metadata(req['extra_fields'], METHODS.get(auth_method).VALID_FIELDS)
 
             if msg:
                 print(msg)
@@ -368,7 +373,7 @@ class AuthEventModule(View):
                                 'description': desc,
                                 'auth_method_config': config,
                                 'pipelines': pipe,
-                                'metadata': meta,
+                                'extra_fields': meta,
                             }]
                 )
         elif name in METHODS.keys(): # show module
@@ -381,7 +386,7 @@ class AuthEventModule(View):
                         'description': desc,
                         'auth_method_config': config,
                         'pipelines': pipe,
-                        'metadata': meta,
+                        'extra_fields': meta,
                     }
             }
 

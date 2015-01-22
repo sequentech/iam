@@ -260,10 +260,30 @@ def check_authmethod(method):
     else:
         return "Invalid authmethods\n"
 
+def check_config(config, method):
+    msg = ''
+    if method == 'email':
+        for c in config:
+            if not c in ('subject', 'msg'):
+                msg += "Invalid config: %s not possible.\n" % c
+            if c == 'msg':
+                if not config[c].count("__LINK__") or not config[c].count("__CODE__"):
+                    msg += "Invalid config: %s should contains __LINK__ and __CODE__.\n" % c
+    elif method == 'sms':
+        for c in config:
+            if c == "sms-message":
+                if not config[c].count("__LINK__") or not config[c].count("__CODE__"):
+                    msg += "Invalid config: %s should contains __LINK__ and __CODE__.\n" % c
+            else:
+                msg += "Invalid config: %s not possible.\n" % c
+    else:
+        msg += "Invalid method in check_conf"
+    return msg
+
 def check_pipeline(pipe, valid_pipe):
     msg = ''
     for p in pipe:
-        if not p in ('register-pipeline', 'validate-pipeline', 'authenticate-pipeline'):
+        if not p in ('register-pipeline', 'authenticate-pipeline'):
             msg += "Invalid pipeline: %s not possible.\n" % p
         for func in pipe[p]:
             if func[0] in valid_pipe:
@@ -273,7 +293,6 @@ def check_pipeline(pipe, valid_pipe):
     return msg
 
 def check_metadata(meta, valid_meta):
-    {'name': 'dni', 'type': 'text', 'required': True, 'max': 9},
     msg = ''
     for m in meta:
         if not m in ('fieldsRegister', 'fieldsValidate', 'fieldsLogin'):

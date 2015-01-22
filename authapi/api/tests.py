@@ -66,12 +66,11 @@ class JClient(Client):
 class ApiTestCase(TestCase):
     def setUp(self):
         auth_method_config = test_data.auth_event4['config']
-        auth_method_config.update(test_data.auth_event4['pipeline'])
-        ae = AuthEvent(pk=1,
-                name='test 1',
+        auth_method_config.update({'pipeline': {}})
+        ae = AuthEvent(
                 auth_method=test_data.auth_event4['auth_method'],
                 auth_method_config=auth_method_config,
-                metadata=test_data.auth_event4['metadata'])
+                metadata=test_data.auth_event4['extra_fields'])
         ae.save()
 
         u = User(username='john', email='john@agoravoting.com')
@@ -235,14 +234,12 @@ class ApiTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(len(r['events']), 2)
-        self.assertEqual(r['events'][1]['name'], 'foo election')
 
     def test_edit_event_success(self):
         c = JClient()
         c.authenticate(self.aeid, test_data.pwd_auth)
 
-        data = test_data.auth_event2
-        response = c.post('/api/auth-event/%d/' % self.aeid, data)
+        response = c.post('/api/auth-event/%d/' % self.aeid, test_data.auth_event5)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
@@ -251,7 +248,6 @@ class ApiTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(len(r['events']), 1)
-        self.assertEqual(r['events'][0]['name'], 'bar election')
 
     def test_delete_event_success(self):
         self.test_create_event()
@@ -365,21 +361,27 @@ class TestAuthEvent(TestCase):
         u.userdata.save()
         self.user = u
 
+        u2 = User(username="noperm")
+        u2.set_password("qwerty")
+        u2.save()
+        u2.userdata.save()
+
         acl = ACL(user=u.userdata, object_type='AuthEvent', perm='create')
         acl.save()
 
-    def _test_create_auth_event_without_perm(self):
+    def test_create_auth_event_without_perm(self):
         data = test_data.ae_email_default
+        user = {'username': 'noperm', 'password': 'qwerty'}
 
         c = JClient()
         response = c.post('/api/auth-event/', data)
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 403)
 
-        c.authenticate(0, test_data.admin)
+        c.authenticate(0, user)
         response = c.post('/api/auth-event/', data)
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 403)
 
-    def _test_create_auth_event_with_perm(self):
+    def test_create_auth_event_with_perm(self):
         acl = ACL(user=self.user.userdata, object_type='AuthEvent', perm='create')
         acl.save()
 
@@ -390,12 +392,11 @@ class TestAuthEvent(TestCase):
         response = c.post('/api/auth-event/', test_data.ae_sms_default)
         self.assertEqual(response.status_code, 200)
 
-
-    def _test_create_authevent_email(self):
+    def test_create_authevent_email(self):
         response = create_authevent(test_data.ae_email_default)
         self.assertEqual(response.status_code, 200)
 
-    def _test_create_authevent_sms(self):
+    def test_create_authevent_sms(self):
         response = create_authevent(test_data.ae_sms_default)
         self.assertEqual(response.status_code, 200)
 

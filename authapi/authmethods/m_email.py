@@ -23,9 +23,14 @@ class Email:
         'give_perms': {'object_type': 'Vote', 'perms': ['create',] },
     }
     PIPELINES = {
-        "register-pipeline": [],
-        "validate-pipeline": [],
-        "authenticate-pipeline": []
+        "register-pipeline": [
+            ["check_whitelisted", {"field": "ip"}],
+            ["check_blacklisted", {"field": "ip"}],
+            ["check_total_max", {"field": "ip", "max": 8}],
+        ],
+        "authenticate-pipeline": [
+            ['check_total_connection', {'times': 5 }],
+        ]
     }
 
     def census(self, ae, request):
@@ -71,7 +76,7 @@ class Email:
         code = random_code(64, ascii_letters+digits)
         valid_link = request.build_absolute_uri(
                 '/api/authmethod/email/validate/%d/%s/' % (u.pk,  code))
-        msg = conf.get('msg') + valid_link
+        msg = conf.get('config').get('msg') + valid_link
 
         u.userdata.event = ae
         u.userdata.metadata = json.dumps({
@@ -99,17 +104,8 @@ class Email:
             u.userdata.save()
 
             # giving perms
-            authconfig = u.userdata.event.auth_method_config
-            give_perms = authconfig.get('give_perms')
-            obj = give_perms.get('object_type')
-            if give_perms.get('object_id') == 'all':
-                object_id = None
-            else:
-                object_id = u.userdata.event.id
-            for perm in give_perms.get('perms'):
-                acl = ACL(user=u.userdata, object_type=obj, perm=perm,
-                        object_id=object_id)
-                acl.save()
+            acl = ACL(user=u.userdata, object_type='Vote', perm='create')
+            acl.save()
             data = {'status': 'ok', 'username': u.username}
             status = 200
         else:

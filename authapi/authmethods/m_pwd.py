@@ -22,7 +22,6 @@ class PWD:
     CONFIG = {}
     PIPELINES = {
         "register-pipeline": [],
-        "validate-pipeline": [],
         "authenticate-pipeline": []
     }
 

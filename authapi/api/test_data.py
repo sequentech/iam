@@ -3,41 +3,9 @@ pwd_auth = {'username': 'john', 'password': 'smith'}
 pwd_auth_email = {'email': 'john@agoravoting.com', 'password': 'smith'}
 
 auth_event1 = {
-    "hmac": ["superuser:11114341", "deadbeefdeadbeef"],
-    "name": "foo election",
-    "description": "foo election description",
-    "auth_method": "sms-code",
-    "config": {
-        "SMS_PROVIDER": "console",
-        "SMS_DOMAIN_ID": "",
-        "SMS_LOGIN": "",
-        "SMS_PASSWORD": "",
-        "SMS_URL": "",
-        "SMS_SENDER_ID": "",
-        "SMS_VOICE_LANG_CODE": "",
-        "sms-message": "Confirm your sms code: ",
-    },
-    "pipeline": {
-        "register-pipeline": [
-            #["check_tlf_expire_max", {"field": "tlf", "expire-secs": 120}],
-            ["check_whitelisted", {"field": "tlf"}],
-            ["check_whitelisted", {"field": "ip"}],
-            ["check_blacklisted", {"field": "ip"}],
-            ["check_blacklisted", {"field": "tlf"}],
-            #["check_ip_total_unconfirmed_requests_max", {"max": 30}],
-            ["check_total_max", {"field": "ip", "max": 8}],
-            ["check_total_max", {"field": "tlf", "max": 7}],
-            ["check_total_max", {"field": "tlf", "period": 1440, "max": 5}],
-            ["check_total_max", {"field": "tlf", "period": 60, "max": 3}],
-            #["check_id_in_census", {"fields": "tlf"}],
-            #["generate_token", {"land_line_rx": "^\+34[89]"}],
-        ],
-        "validate-pipeline": [
-            ['check_total_connection', {'times': 5 }],
-            ['check_sms_code', {'timestamp': 5 }], # seconds
-        ]
-    },
-    "metadata": {
+    "auth_method": "sms",
+    "config": {"sms-message": "Enter in __LINK__ and put this code __CODE__"},
+    "extra_fields": {
         'fieldsRegister': [
             {'name': 'name', 'type': 'text', 'required': False},
             {'name': 'surname', 'type': 'text', 'required': False},
@@ -56,44 +24,10 @@ auth_event1 = {
 }
 
 auth_event2 = {
-    "hmac": ["superuser:11114341", "deadbeefdeadbeef"],
-    "name": "bar election",
-    "description": "foo election description",
-    "auth_method": "sms-code",
+    "auth_method": "sms",
     "census": "open",
-    "config": {
-        "SMS_PROVIDER": "console",
-        "SMS_DOMAIN_ID": "",
-        "SMS_LOGIN": "",
-        "SMS_PASSWORD": "",
-        "SMS_URL": "",
-        "SMS_SENDER_ID": "",
-        "SMS_VOICE_LANG_CODE": "",
-        "sms-message": "Confirm your sms code: ",
-    },
-    "pipeline": {
-        "register-pipeline": [
-            #["check_tlf_expire_max", {"field": "tlf", "expire-secs": 120}],
-            ["check_whitelisted", {"field": "tlf"}],
-            ["check_whitelisted", {"field": "ip"}],
-            ["check_blacklisted", {"field": "ip"}],
-            ["check_blacklisted", {"field": "tlf"}],
-            #["check_ip_total_unconfirmed_requests_max", {"max": 30}],
-            ["check_total_max", {"field": "ip", "max": 8}],
-            ["check_total_max", {"field": "tlf", "max": 7}],
-            ["check_total_max", {"field": "tlf", "period": 1440, "max": 5}],
-            ["check_total_max", {"field": "tlf", "period": 60, "max": 3}],
-            #["check_id_in_census", {"fields": "tlf"}],
-            #["generate_token", {"land_line_rx": "^\+34[89]"}],
-        ],
-        "validate-pipeline": [
-            ['check_total_connection', {'times': 5 }],
-            ['check_sms_code', {'timestamp': 5 }], # seconds
-        ],
-        "authenticate-pipeline": [
-        ]
-    },
-    "metadata": {
+    "config": {"sms-message": "Enter in __LINK__ and put this code __CODE__"},
+    "extra_fields": {
         'fieldsRegister': [
             {'name': 'name', 'type': 'text', 'required': False},
             {'name': 'surname', 'type': 'text', 'required': False},
@@ -116,23 +50,13 @@ auth_event2 = {
 }
 
 auth_event3 = {
-    "hmac": ["superuser:11114341", "deadbeefdeadbeef"],
-    "name": "main election",
-    "description": "main election description",
     "auth_method": "email",
     "census": "open",
     "config": {
-        'subject': 'Confirm your email',
-        'msg': 'Click in this link for validate your email: ',
-        'mail_from': 'authapi@agoravoting.com',
-        'give_perms': {'object_type': 'Vote', 'perms': ['create',] },
+        "subject": "Confirm your email",
+        "msg": "Click __LINK__ and put this code __CODE__"
     },
-    "pipeline": {
-        "register-pipeline": [],
-        "validate-pipeline": [],
-        "authenticate-pipeline": []
-    },
-    "metadata": {
+    "extra_fields": {
         'fieldsRegister': [
             {'name': 'email', 'type': 'text', 'required': True},
             {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
@@ -145,21 +69,24 @@ auth_event3 = {
 }
 
 auth_event4 = {
-    "hmac": ["superuser:11114341", "deadbeefdeadbeef"],
-    "name": "test1",
-    "description": "test1 description",
     "auth_method": "user-and-password",
     "census": "open",
     "config": {},
-    "pipeline": {
-        "register-pipeline": [],
-        "validate-pipeline": [],
-        "authenticate-pipeline": []
-    },
-    "metadata": {
+    "extra_fields": {
         'fieldsLogin': [
             {'name': 'username', 'type': 'text', 'required': False},
             {'name': 'password', 'type': 'password', 'required': True, 'min': 6},
+        ],
+    }
+}
+
+auth_event5 = {
+    "auth_method": "user-and-password",
+    "census": "open",
+    "config": {},
+    "extra_fields": {
+        'fieldsLogin': [
+            {'name': 'username', 'type': 'text', 'required': False},
         ],
     }
 }
@@ -230,13 +157,49 @@ auth_sms_fields = {
 
 # Authmethod config
 authmethod_config_email_default = {
-        "config": 1,
-        "pipeline": 2
+        "config": {
+            "subject": "Confirm your email",
+            "msg": "Click __LINK__ and put this code __CODE__"
+        },
+        "pipeline": {
+            "register-pipeline": [
+                ["check_whitelisted", {"field": "ip"}],
+                ["check_blacklisted", {"field": "ip"}],
+                ["check_total_max", {"field": "ip", "max": 8}],
+            ],
+            "authenticate-pipeline": [
+                ['check_total_connection', {'times': 5 }],
+            ]
+        }
 }
 
 authmethod_config_sms_default = {
-        "config": 1,
-        "pipeline": 2
+        "config": {
+            "SMS_PROVIDER": "console",
+            "SMS_DOMAIN_ID": "",
+            "SMS_LOGIN": "",
+            "SMS_PASSWORD": "",
+            "SMS_URL": "",
+            "SMS_SENDER_ID": "",
+            "SMS_VOICE_LANG_CODE": "",
+            "sms-message": "Enter in __LINK__ and put this code __CODE__"
+        },
+        "pipeline": {
+            "register-pipeline": [
+                ["check_whitelisted", {"field": "tlf"}],
+                ["check_whitelisted", {"field": "ip"}],
+                ["check_blacklisted", {"field": "ip"}],
+                ["check_blacklisted", {"field": "tlf"}],
+                ["check_total_max", {"field": "ip", "max": 8}],
+                ["check_total_max", {"field": "tlf", "max": 7}],
+                ["check_total_max", {"field": "tlf", "period": 1440, "max": 5}],
+                ["check_total_max", {"field": "tlf", "period": 60, "max": 3}],
+            ],
+            "authenticate-pipeline": [
+                ['check_total_connection', {'times': 5 }],
+                ['check_sms_code', {'timestamp': 5 }]
+            ]
+        }
 }
 
 # Authevent
@@ -251,7 +214,7 @@ ae_email_config = {
     "census": "open",
     "config": {
         "subject": "Vote",
-        "msg": "Click here: {link} ",
+        "msg": "Enter in __LINK__ and put this code __CODE__",
     }
 }
 
@@ -301,13 +264,6 @@ ae_email_fields_incorrect2 = {
     ]
 }
 
-ae_email_fields = {
-        "name": "aaaa",
-        "email": "aaaa@aaa.com",
-        "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-}
-
-
 ae_email_fields_incorrect  = {
     "auth_method": "email",
     "census": "open",
@@ -343,7 +299,7 @@ ae_sms_default = {
 ae_sms_config = {
     "auth_method": "sms",
     "census": "open",
-    "config": {"sms-message": "sms code: {code}"}
+    "config": {"sms-message": "Enter in __LINK__ and put this code __CODE__"}
 }
 
 ae_sms_fields = {
