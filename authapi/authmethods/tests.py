@@ -35,13 +35,13 @@ class AuthMethodTestCase(TestCase):
 
     def test_method_custom_view(self):
         c = JClient()
-        response = c.login(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid, test_data.pwd_auth)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
 
         data = { 'username': 'test', 'password': 'cxzvcx' }
-        response = c.login(self.aeid, data)
+        response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
 
 
@@ -110,24 +110,24 @@ class AuthMethodEmailTestCase(TestCase):
         response = c.validate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
 
-    def test_method_email_login_valid_code(self):
+    def test_method_email_authenticate_valid_code(self):
         c = JClient()
         data = {
                 'email': 'test1@agoravoting.com',
                 'password': '123456'
         }
-        response = c.login(self.aeid, data)
+        response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
 
-    def test_method_email_login_invalid_code(self):
+    def test_method_email_authenticate_invalid_code(self):
         c = JClient()
         data = {
                 'email': 'test2@agoravoting.com',
                 'password': '123456'
         }
-        response = c.login(self.aeid, data)
+        response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
 
     def test_method_email_create_census(self):
@@ -136,7 +136,7 @@ class AuthMethodEmailTestCase(TestCase):
             'password': '123456'
         }
         c = JClient()
-        c.login(self.aeid, auth)
+        c.authenticate(self.aeid, auth)
 
         data = []
         x = 0
@@ -303,28 +303,28 @@ class AuthMethodSmsTestCase(TestCase):
 
         acl = ACL(user=self.u, object_type='Vote', perm='create')
         acl.save()
-        self.c.login(self.aeid, auth)
+        self.c.authenticate(self.aeid, auth)
         response = self.c.post('/api/get-perms/', data1)
         self.assertEqual(response.status_code, 200)
         response = self.c.post('/api/get-perms/', data2)
         self.assertEqual(response.status_code, 400)
 
-    def test_method_sms_login_valid_code(self):
+    def test_method_sms_authenticate_valid_code(self):
         data = {
                 'email': 'test1@agoravoting.com',
                 'password': '123456'
         }
-        response = self.c.login(self.aeid, data)
+        response = self.c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
 
-    def test_method_sms_login_invalid_code(self):
+    def test_method_sms_authenticate_invalid_code(self):
         data = {
                 'email': 'test2@agoravoting.com',
                 'password': '123456'
         }
-        response = self.c.login(self.aeid, data)
+        response = self.c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
 
     @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
@@ -371,7 +371,7 @@ class AuthMethodSmsTestCase(TestCase):
             'email': 'test1@agoravoting.com',
             'password': '123456'
         }
-        self.c.login(self.aeid, auth)
+        self.c.authenticate(self.aeid, auth)
 
         data = []
         x = 0

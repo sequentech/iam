@@ -180,7 +180,7 @@ class Sms:
         "validate-pipeline": [
             ['check_total_connection', {'times': 5 }],
         ],
-        "login-pipeline": []
+        "authenticate-pipeline": []
     }
 
     def census(self, ae, request):
@@ -258,11 +258,11 @@ class Sms:
         data.pop('user')
         return data
 
-    def login_error(self):
+    def authenticate_error(self):
         d = {'status': 'nok'}
         return d
 
-    def login(self, event, data):
+    def authenticate(self, event, data):
         d = {'status': 'ok'}
         email = data['email']
         pwd = data['password']
@@ -270,11 +270,11 @@ class Sms:
         try:
             u = User.objects.filter(email=email)[0]
         except:
-            return self.login_error()
+            return self.authenticate_error()
 
         u_meta = json.loads(u.userdata.metadata)
         if not u.check_password(pwd) or not u_meta['sms_verified']:
-            return self.login_error()
+            return self.authenticate_error()
 
         d['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
         return d

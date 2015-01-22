@@ -25,7 +25,7 @@ class Email:
     PIPELINES = {
         "register-pipeline": [],
         "validate-pipeline": [],
-        "login-pipeline": []
+        "authenticate-pipeline": []
     }
 
     def census(self, ae, request):
@@ -117,11 +117,11 @@ class Email:
             status = 400
         return data
 
-    def login_error(self):
+    def authenticate_error(self):
         d = {'status': 'nok'}
         return d
 
-    def login(self, event, data):
+    def authenticate(self, event, data):
         d = {'status': 'ok'}
         email = data['email']
         pwd = data['password']
@@ -129,11 +129,11 @@ class Email:
         try:
             u = User.objects.get(email=email, userdata__event=event)
         except:
-            return self.login_error()
+            return self.authenticate_error()
 
         u_meta = json.loads(u.userdata.metadata)
         if not u.check_password(pwd) or not u_meta.get('email_verified'):
-            return self.login_error()
+            return self.authenticate_error()
 
         d['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
         return d

@@ -34,12 +34,6 @@ class JClient(Client):
         self.set_auth_token(r.get('auth-token'))
         return response
 
-    def login(self, authevent, data):
-        response = self.post('/api/auth-event/%d/login/' % authevent, data)
-        r = json.loads(response.content.decode('utf-8'))
-        self.set_auth_token(r.get('auth-token'))
-        return response
-
     def authenticate(self, authevent, data):
         response = self.post('/api/auth-event/%d/authenticate/' % authevent, data)
         r = json.loads(response.content.decode('utf-8'))
@@ -118,7 +112,7 @@ class ApiTestCase(TestCase):
         response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'stop'), {})
         self.assertEqual(response.status_code, 403)
 
-        c.login(self.aeid, test_data.pwd_auth)
+        c.authenticate(self.aeid, test_data.pwd_auth)
 
         response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'start'), {})
         self.assertEqual(response.status_code, 200)
@@ -146,10 +140,10 @@ class ApiTestCase(TestCase):
         self.assertEqual(r['get']['username'], 'john')
         self.assertEqual(r['get']['password'], 'smith')
 
-    def test_login(self):
+    def test_authenticate(self):
         c = JClient()
         data = {'username': 'john', 'password': 'smith'}
-        response = c.login(self.aeid, data)
+        response = c.authenticate(self.aeid, data)
 
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
@@ -161,7 +155,7 @@ class ApiTestCase(TestCase):
             r['auth-token'], seconds=3), False)
 
         data = {'username': 'john', 'password': 'fake'}
-        response = c.login(self.aeid, data)
+        response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
 
     def test_getperms_noauth(self):
@@ -176,7 +170,7 @@ class ApiTestCase(TestCase):
 
     def test_getperms_noperm(self):
         c = JClient()
-        c.login(self.aeid, test_data.pwd_auth)
+        c.authenticate(self.aeid, test_data.pwd_auth)
         data = {
             "object_type": "User",
             "permission": "delete"
@@ -187,7 +181,7 @@ class ApiTestCase(TestCase):
 
     def test_getperms_perm(self):
         c = JClient()
-        c.login(self.aeid, test_data.pwd_auth)
+        c.authenticate(self.aeid, test_data.pwd_auth)
         data = {
             "object_type": "User",
             "permission": "create"
@@ -202,7 +196,7 @@ class ApiTestCase(TestCase):
 
     def test_create_event(self):
         c = JClient()
-        c.login(self.aeid, test_data.pwd_auth)
+        c.authenticate(self.aeid, test_data.pwd_auth)
 
         data = test_data.auth_event1
         response = c.post('/api/auth-event/', data)
@@ -212,7 +206,7 @@ class ApiTestCase(TestCase):
 
     def test_create_event_open(self):
         c = JClient()
-        c.login(self.aeid, test_data.pwd_auth)
+        c.authenticate(self.aeid, test_data.pwd_auth)
 
         data = test_data.auth_event3
         response = c.post('/api/auth-event/', data)
@@ -225,7 +219,7 @@ class ApiTestCase(TestCase):
         response = c.register(aeid, data)
         self.assertEqual(response.status_code, 400)
         # try register in start auth-event
-        c.login(self.aeid, test_data.pwd_auth)
+        c.authenticate(self.aeid, test_data.pwd_auth)
         response = c.post('/api/auth-event/%d/%s/' % (aeid, 'start'), {})
         self.assertEqual(response.status_code, 200)
         data = {'email': 'test@test.com', 'password': '123456'}
@@ -235,7 +229,7 @@ class ApiTestCase(TestCase):
     def test_list_event(self):
         self.test_create_event()
         c = JClient()
-        c.login(self.aeid, test_data.pwd_auth)
+        c.authenticate(self.aeid, test_data.pwd_auth)
 
         response = c.get('/api/auth-event/', {})
         self.assertEqual(response.status_code, 200)
@@ -245,7 +239,7 @@ class ApiTestCase(TestCase):
 
     def test_edit_event_success(self):
         c = JClient()
-        c.login(self.aeid, test_data.pwd_auth)
+        c.authenticate(self.aeid, test_data.pwd_auth)
 
         data = test_data.auth_event2
         response = c.post('/api/auth-event/%d/' % self.aeid, data)
@@ -262,7 +256,7 @@ class ApiTestCase(TestCase):
     def test_delete_event_success(self):
         self.test_create_event()
         c = JClient()
-        c.login(self.aeid, test_data.pwd_auth)
+        c.authenticate(self.aeid, test_data.pwd_auth)
 
         response = c.delete('/api/auth-event/1/', {})
         self.assertEqual(response.status_code, 200)
@@ -271,7 +265,7 @@ class ApiTestCase(TestCase):
 
     def test_create_acl(self):
         c = JClient()
-        c.login(self.aeid, test_data.pwd_auth)
+        c.authenticate(self.aeid, test_data.pwd_auth)
         data = {
                 'userid': self.userid,
                 'perms': [{
@@ -285,14 +279,14 @@ class ApiTestCase(TestCase):
 
     def test_delete_acl(self):
         c = JClient()
-        c.login(self.aeid, test_data.pwd_auth)
+        c.authenticate(self.aeid, test_data.pwd_auth)
         response = c.delete('/api/acl/%s/%s/%s/' % (self.testuser.username, 'election', 'vote'), {})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(0, ACL.objects.filter(user=self.userid, perm='vote').count())
 
     def test_view_acl(self):
         c = JClient()
-        c.login(self.aeid, test_data.pwd_auth)
+        c.authenticate(self.aeid, test_data.pwd_auth)
         response = c.get('/api/acl/%s/%s/%s/' % (self.testuser.username, 'User', 'create'), {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
@@ -305,7 +299,7 @@ class ApiTestCase(TestCase):
 
     def test_acl_mine(self):
         c = JClient()
-        c.login(self.aeid, test_data.pwd_auth)
+        c.authenticate(self.aeid, test_data.pwd_auth)
         response = c.get('/api/acl/mine/', {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
@@ -332,7 +326,7 @@ class ApiTestCase(TestCase):
 
     def test_get_user_info(self):
         c = JClient()
-        c.login(self.aeid, test_data.pwd_auth)
+        c.authenticate(self.aeid, test_data.pwd_auth)
         response = c.get('/api/user/' + str(self.userid) + '/', {})
         self.assertEqual(response.status_code, 403)
         acl = ACL(user=self.testuser.userdata, object_type='UserData',
@@ -345,7 +339,7 @@ class ApiTestCase(TestCase):
 
     def test_action_add_credits(self):
         c = JClient()
-        c.login(self.aeid, test_data.pwd_auth)
+        c.authenticate(self.aeid, test_data.pwd_auth)
         data = {
             "pack_id": 0,
             "num_credits": 500,
@@ -359,7 +353,7 @@ class ApiTestCase(TestCase):
 
 def create_authevent(authevent):
     c = JClient()
-    c.login(0, test_data.admin)
+    c.authenticate(0, test_data.admin)
     return c.post('/api/auth-event/', authevent)
 
 
@@ -381,7 +375,7 @@ class TestAuthEvent(TestCase):
         response = c.post('/api/auth-event/', data)
         self.assertEqual(response.status_code, 400)
 
-        c.login(0, test_data.admin)
+        c.authenticate(0, test_data.admin)
         response = c.post('/api/auth-event/', data)
         self.assertEqual(response.status_code, 400)
 
@@ -390,7 +384,7 @@ class TestAuthEvent(TestCase):
         acl.save()
 
         c = JClient()
-        c.login(0, test_data.admin)
+        c.authenticate(0, test_data.admin)
         response = c.post('/api/auth-event/', test_data.ae_email_default)
         self.assertEqual(response.status_code, 200)
         response = c.post('/api/auth-event/', test_data.ae_sms_default)

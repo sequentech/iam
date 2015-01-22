@@ -17,10 +17,10 @@ def auth_validate(event, data):
     return METHODS[event.auth_method].validate(event, data)
 
 
-def auth_login(event, data):
+def auth_authenticate(event, data):
     if event == 0:
-        return METHODS['user-and-password'].login(event, data)
-    return METHODS[event.auth_method].login(event, data)
+        return METHODS['user-and-password'].authenticate(event, data)
+    return METHODS[event.auth_method].authenticate(event, data)
 
 
 def register_method(name, klass):

@@ -90,7 +90,7 @@ auth_event2 = {
             ['check_total_connection', {'times': 5 }],
             ['check_sms_code', {'timestamp': 5 }], # seconds
         ],
-        "login-pipeline": [
+        "authenticate-pipeline": [
         ]
     },
     "metadata": {
@@ -130,7 +130,7 @@ auth_event3 = {
     "pipeline": {
         "register-pipeline": [],
         "validate-pipeline": [],
-        "login-pipeline": []
+        "authenticate-pipeline": []
     },
     "metadata": {
         'fieldsRegister': [
@@ -154,7 +154,7 @@ auth_event4 = {
     "pipeline": {
         "register-pipeline": [],
         "validate-pipeline": [],
-        "login-pipeline": []
+        "authenticate-pipeline": []
     },
     "metadata": {
         'fieldsLogin': [

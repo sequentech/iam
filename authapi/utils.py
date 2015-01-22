@@ -217,7 +217,7 @@ def check_authmethod(method):
 def check_pipeline(pipe, valid_pipe):
     msg = ''
     for p in pipe:
-        if not p in ('register-pipeline', 'validate-pipeline', 'login-pipeline'):
+        if not p in ('register-pipeline', 'validate-pipeline', 'authenticate-pipeline'):
             msg += "Invalid pipeline: %s not possible.\n" % p
         for func in pipe[p]:
             if func[0] in valid_pipe:

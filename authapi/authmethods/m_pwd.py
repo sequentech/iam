@@ -23,14 +23,14 @@ class PWD:
     PIPELINES = {
         "register-pipeline": [],
         "validate-pipeline": [],
-        "login-pipeline": []
+        "authenticate-pipeline": []
     }
 
-    def login_error(self):
+    def authenticate_error(self):
         d = {'status': 'nok'}
         return d
 
-    def login(self, event, data):
+    def authenticate(self, event, data):
         d = {'status': 'ok'}
         msg = data.get('username', '')
         if not msg:
@@ -41,13 +41,13 @@ class PWD:
         try:
             u = User.objects.get(Q(username=msg)|Q(email=msg))
         except:
-            return self.login_error()
+            return self.authenticate_error()
 
         if event != 0 and u.userdata.event != event:
-            return self.login_error()
+            return self.authenticate_error()
 
         if not u.check_password(pwd):
-            return self.login_error()
+            return self.authenticate_error()
 
         d['username'] = u.username
         d['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
