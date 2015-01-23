@@ -225,28 +225,28 @@ def check_value(definition, field, step='register'):
     else:
         if isinstance(field, str):
             if definition.get('type') == 'int':
-                msg += "Field %s type incorrect" % definition.get('name')
+                msg += "Field %s type incorrect, value %s" % (definition.get('name'), field)
             if definition.get('min') and len(field) < definition.get('min'):
-                msg += "Field %s min incorrect" % definition.get('name')
+                msg += "Field %s min incorrect, value %s" % (definition.get('name'), field)
             if definition.get('max') and len(field) > definition.get('max'):
-                msg += "Field %s max incorrect" % definition.get('name')
+                msg += "Field %s max incorrect, value %s" % (definition.get('name'), field)
         elif isinstance(field, int):
             if definition.get('type') != 'int':
-                msg += "Field %s type incorrect" % definition.get('name')
+                msg += "Field %s type incorrect, value %s" % (definition.get('name'), field)
             if definition.get('min') and field < definition.get('min'):
-                msg += "Field %s min incorrect" % definition.get('name')
+                msg += "Field %s min incorrect, value %s" % (definition.get('name'), field)
             if definition.get('max') and field > definition.get('max'):
-                msg += "Field %s max incorrect" % definition.get('name')
+                msg += "Field %s max incorrect, value %s" % (definition.get('name'), field)
         if definition.get('name') == 'email':
             if not email_constraint(field):
-                msg += "Field email regex incorrect"
+                msg += "Field email regex incorrect, value %s" % field
         if definition.get('name') == 'dni':
             if not dni_constraint(field):
-                msg += "Field dni regex incorrect"
+                msg += "Field dni regex incorrect, value %s" % field
         elif definition.get('regex'):
             a = re.compile(definition.get('regex'))
             if not a.match(string):
-                msg += "Field %s regex incorrect" % definition.get('name')
+                msg += "Field %s regex incorrect, value %s" % (definition.get('name'), field)
     return msg
 
 
