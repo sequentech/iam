@@ -79,7 +79,7 @@ Basic Database tables:
     * auth_method: string (255), unix-name of the auth method plugin used
     * auth_method_config: json-string, json configuration string
     * extra_fields: json-string
-    * status: string (5), status of auth-event: start or stop(default)
+    * status: string (15), status of auth-event: notstarted(default), started or stopped
 * User
     * id: string (255), random uuid, identifies the user uniquely
     * event: auth-event associate
@@ -217,6 +217,14 @@ If everything is ok, it returns STATUS 200 with data:
 
     {"id": 1}
 
+
+## POST /auth-event/:id/:status
+
+Perms: object_type: 'AuthEvent', perm: 'edit', oject_id: auid
+
+Description: changed the status of auth-event. Possibles: notstarted(default), started or stopped
+
+Response: status 200
 
 ## GET /auth-event
 
