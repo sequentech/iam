@@ -316,7 +316,12 @@ class AuthEventView(View):
 
         if pk:
             e = AuthEvent.objects.get(pk=pk)
-            aes = e.serialize_restrict()
+            u = request.user
+            if (u.is_authenticated() and
+                u.userdata.has_perms("AuthEvent", "admin", e.id)):
+                aes = e.serialize()
+            else:
+                aes = e.serialize_restrict()
             data['events'] = aes
         else:
             events = AuthEvent.objects.all()

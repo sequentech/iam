@@ -28,13 +28,10 @@ class AuthEvent(models.Model):
     status = models.CharField(max_length=5, choices=AE_STATUSES, default="stop")
 
     def serialize(self):
-        d = {
-            'id': self.id,
-            'auth_method': self.auth_method,
-            'census': self.census,
+        d = self.serialize_restrict()
+        d.update({
             'auth_method_config': self.auth_method_config,
-            'extra_fields': self.extra_fields,
-        }
+        })
         return d
 
     def serialize_restrict(self):
@@ -43,6 +40,7 @@ class AuthEvent(models.Model):
             'auth_method': self.auth_method,
             'census': self.census,
             'extra_fields': self.extra_fields,
+            'users': self.userdata.count(),
         }
         return d
 

@@ -1,8 +1,9 @@
 from django import forms
 from django.contrib import admin
-from api.models import AuthEvent, UserData, ACL, CreditsAction
+from api.models import AuthEvent, UserData, ACL, CreditsAction, User
 from authmethods.models import Message, ColorList, Code, Connection
 from authmethods import METHODS
+from django.contrib.auth.admin import UserAdmin
 
 # Register your models here.
 
@@ -50,6 +51,15 @@ class ConnectionAdmin(admin.ModelAdmin):
 
 class CreditsActionAdmin(admin.ModelAdmin):
     pass
+
+class UserDataInline(admin.StackedInline):
+    model = UserData
+
+class CustomUserAdmin(UserAdmin):
+    inlines = [ UserDataInline ]
+
+admin.site.unregister(User)
+admin.site.register(User, CustomUserAdmin)
 
 admin.site.register(AuthEvent, AuthEventAdmin)
 admin.site.register(UserData, UserDataAdmin)
