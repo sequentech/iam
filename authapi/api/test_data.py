@@ -18,7 +18,6 @@ auth_event1 = {
             "name": "email",
             "type": "text",
             "required": True,
-            #"regex": "TODO",
             "min": 4,
             "max": 255,
             "required_on_authentication": True
@@ -27,7 +26,6 @@ auth_event1 = {
             "name": "dni",
             "type": "text",
             "required": True,
-            #"regex": "TODO",
             "max": 9,
             "max": 9,
             "required_on_authentication": True
@@ -52,7 +50,6 @@ auth_event2 = {
             "name": "email",
             "type": "text",
             "required": True,
-            #"regex": "TODO",
             "min": 4,
             "max": 255,
             "required_on_authentication": True
@@ -61,7 +58,6 @@ auth_event2 = {
             "name": "dni",
             "type": "text",
             "required": True,
-            #"regex": "TODO",
             "max": 9,
             "max": 9,
             "required_on_authentication": True

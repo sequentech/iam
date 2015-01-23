@@ -236,7 +236,13 @@ def check_value(definition, field, step='register'):
                 msg += "Field %s min incorrect" % definition.get('name')
             if definition.get('max') and field > definition.get('max'):
                 msg += "Field %s max incorrect" % definition.get('name')
-        if definition.get('regex'):
+        if definition.get('name') == 'email':
+            if not email_constraint(field):
+                msg += "Field email regex incorrect"
+        if definition.get('name') == 'dni':
+            if not dni_constraint(field):
+                msg += "Field dni regex incorrect"
+        elif definition.get('regex'):
             a = re.compile(definition.get('regex'))
             if not a.match(string):
                 msg += "Field %s regex incorrect" % definition.get('name')

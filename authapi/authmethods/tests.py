@@ -203,7 +203,7 @@ class AuthMethodSmsTestCase(TestCase):
         response = self.c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertNotEqual(r['msg'].find('Invalid dni'), -1)
+        self.assertNotEqual(r['msg'].find('dni regex incorrect'), -1)
 
     def test_method_sms_register_valid_email(self):
         data = {'tlf': '+34666666666', 'code': 'AAAAAAAA',
@@ -218,7 +218,7 @@ class AuthMethodSmsTestCase(TestCase):
         response = self.c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertNotEqual(r['msg'].find('Invalid email'), -1)
+        self.assertNotEqual(r['msg'].find('email regex incorrect'), -1)
 
     def _test_method_sms_valid_code(self):
         data = {'tlf': '+34666666666', 'code': 'AAAAAAAA', 'dni': '11111111H', 'email': 'test@test.com'}

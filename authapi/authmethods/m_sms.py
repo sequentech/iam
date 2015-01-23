@@ -13,29 +13,6 @@ from authmethods.models import Message, Code, Connection
 from api.models import AuthEvent, ACL
 
 
-def check_request(request, data):
-    req = json.loads(request.body.decode('utf-8'))
-
-    eo = AuthEvent.objects.get(pk=data['event'])
-    fields = eo.extra_fields
-    for field in fields:
-        classname = field.get('name')
-        if classname not in ('dni', 'email'):
-            continue
-        attr = req.get(classname)
-        if not getattr(eval(classname + '_constraint'), '__call__')(attr):
-            data['status'] = 'nok'
-            data['msg'] += 'Invalid %s.' % classname
-
-    if data['status'] == 'nok':
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, status=400, content_type='application/json')
-
-    data['tlf'] = req.get('tlf')
-    data['ip_addr'] = get_client_ip(request)
-    return 0
-
-
 def check_whitelisted(data, **kwargs):
     field = kwargs.get('field')
     if field == 'tlf':
@@ -168,16 +145,12 @@ class Sms:
         req = json.loads(request.body.decode('utf-8'))
         msg = check_fields_in_request(req, ae)
         if msg:
-            print(msg)
             data = {'status': 'nok', 'msg': msg}
             return data
 
         data = {'status': 'ok', 'msg': '', 'event': ae.id}
-        check = check_request(request, data)
-        if check != 0:
-            data.update(json.loads(check.content.decode('utf-8')))
-            data['status'] = check.status_code
-            return data
+        data['tlf'] = req.get('tlf')
+        data['ip_addr'] = get_client_ip(request)
 
         conf = ae.auth_method_config
         pipeline = conf.get('pipeline').get('register-pipeline')
