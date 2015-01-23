@@ -6,7 +6,7 @@ from django.http import HttpResponse, HttpResponseBadRequest
 from django.views.generic import View
 from django.shortcuts import get_object_or_404
 
-from authmethods import auth_authenticate, METHODS, auth_register, auth_validate, auth_census
+from authmethods import auth_authenticate, METHODS, auth_register, auth_census
 from utils import genhmac, paginate, VALID_FIELDS, VALID_PIPELINES
 from utils import check_authmethod, check_pipeline, check_extra_fields, check_config
 from .decorators import login_required, get_login_user
@@ -55,15 +55,14 @@ census = login_required(Census.as_view())
 
 
 class Authenticate(View):
-    ''' Login into the authapi '''
+    ''' Authenticate into the authapi '''
 
     def post(self, request, pk):
-        req = json.loads(request.body.decode('utf-8'))
         if int(pk) == 0:
             e = 0
         else:
             e = get_object_or_404(AuthEvent, pk=pk)
-        data = auth_authenticate(e, req)
+        data = auth_authenticate(e, request)
         status = 200 if data['status'] == 'ok' else 400
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, status=status, content_type='application/json')
@@ -106,18 +105,6 @@ class Register(View):
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, status=status, content_type='application/json')
 register = Register.as_view()
-
-
-class Validate(View):
-    ''' Validate into the authapi '''
-
-    def post(self, request, pk):
-        e = get_object_or_404(AuthEvent, pk=pk)
-        data = auth_validate(e, request)
-        status = 200 if data['status'] == 'ok' else 400
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, status=status, content_type='application/json')
-validate = Validate.as_view()
 
 
 class AuthEventStatus(View):

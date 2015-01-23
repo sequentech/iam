@@ -27,13 +27,10 @@ class Message(models.Model):
 class Connection(models.Model):
     ip = models.CharField(max_length=15)
     tlf = models.CharField(max_length=20)
-    dni = models.CharField(max_length=16)
     created = models.DateTimeField(auto_now_add=True)
 
 
 class Code(models.Model):
     user = models.ForeignKey(UserData, related_name="codes")
-    tlf = models.CharField(max_length=20)
-    dni = models.CharField(max_length=16)
     code = models.CharField(max_length=16)
     created = models.DateTimeField(auto_now_add=True)

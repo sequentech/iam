@@ -8,6 +8,7 @@ from djcelery import celery
 from django.core.mail import send_mail, EmailMessage
 from django.core.paginator import Paginator
 from django.conf import settings
+from string import ascii_lowercase, digits
 
 
 def paginate(request, queryset, serialize_method=None, elements_name='elements'):
@@ -115,6 +116,21 @@ def constant_time_compare(val1, val2):
     return result == 0
 
 
+def random_code(length=16, chars=ascii_lowercase+digits):
+    return ''.join([choice(chars) for i in range(length)])
+    return code;
+
+
+def generate_code(userdata):
+    if userdata.auth_method == 'email':
+        code = random_code(64, ascii_letters+digits)
+    elif user.auth_method == 'sms':
+        code = random_code(8, ascii_letters+digits)
+    c = Code(user=userdata, code=code)
+    c.save()
+    return code
+
+
 @celery.task
 def send_email(subject, msg, mail_from, mails_to):
     send_mail(subject, msg, mail_from, mails_to)
@@ -140,9 +156,7 @@ def send_code(user, templ):
     auth_method = user.userdata.event.auth_method
     event_id = user.userdata.event.id
 
-    # TODO generate code, save and commit to the database before doing anything
-    # else
-    code = "foo"
+    code = generate_code(user.userdata)
 
     if auth_method == "sms":
         receiver = user.userdata.metadata.get("tlf", None)
@@ -161,6 +175,8 @@ def send_code(user, templ):
         from authmethods.sms_provider import SMSProvider
         con = SMSProvider.get_instance(conf)
         con.send_sms(receiver=receiver, content=msg, is_audio=False)
+        m = Message(tlf=receiver)
+        m.save()
     else: # email
       email = EmailMessage(
           settings.EMAIL_AUTH_CODE_SUBJECT,

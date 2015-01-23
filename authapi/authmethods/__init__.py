@@ -13,10 +13,6 @@ def auth_register(event, data):
     return METHODS[event.auth_method].register(event, data)
 
 
-def auth_validate(event, data):
-    return METHODS[event.auth_method].validate(event, data)
-
-
 def auth_authenticate(event, data):
     if event == 0:
         return METHODS['user-and-password'].authenticate(event, data)

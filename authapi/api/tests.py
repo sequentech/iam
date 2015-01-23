@@ -28,12 +28,6 @@ class JClient(Client):
         self.set_auth_token(r.get('auth-token'))
         return response
 
-    def validate(self, authevent, data):
-        response = self.post('/api/auth-event/%d/validate/' % authevent, data)
-        r = json.loads(response.content.decode('utf-8'))
-        self.set_auth_token(r.get('auth-token'))
-        return response
-
     def authenticate(self, authevent, data):
         response = self.post('/api/auth-event/%d/authenticate/' % authevent, data)
         r = json.loads(response.content.decode('utf-8'))
@@ -199,6 +193,7 @@ class ApiTestCase(TestCase):
         self.assertEqual(r['id'], 2)
 
     def test_create_event_open(self):
+        aeid = 2
         c = JClient()
         c.authenticate(self.aeid, test_data.pwd_auth)
 
@@ -206,8 +201,7 @@ class ApiTestCase(TestCase):
         response = c.post('/api/auth-event/', data)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['id'], 2)
-        aeid = r['id']
+        self.assertEqual(r['id'], aeid)
         # try register in stop auth-event
         data = {'email': 'test@test.com', 'password': '123456'}
         response = c.register(aeid, data)
@@ -424,125 +418,149 @@ class TestAuthEvent(TestCase):
 
 class TestRegisterAndAuthenticateEmail(TestCase):
     def setUp(self):
-        ae_email = AuthEvent(auth_method="email",
+        ae = AuthEvent(auth_method="email",
                 auth_method_config=test_data.authmethod_config_email_default,
                 status='start',
                 census="open")
-        ae_email.save()
-        self.aeid_email = ae_email.pk
+        ae.save()
+        self.aeid = ae.pk
 
         u_email = User(username=test_data.admin['username'])
         u_email.set_password(test_data.admin['password'])
         u_email.save()
-        u_email.userdata.event = ae_email
+        u_email.userdata.event = ae
         u_email.userdata.save()
         self.u_email = u_email.userdata
 
         acl = ACL(user=u_email.userdata, object_type='AuthEvent', perm='edit',
-            object_id=self.aeid_email)
+            object_id=self.aeid)
         acl.save()
 
         u = User(username=test_data.auth_email_default['email'])
         u.is_active = False
         u.save()
-        u.userdata.event = ae_email
+        u.userdata.event = ae
         u.userdata.save()
         self.u = u.userdata
 
-        self.code = Code(u.userdata, test_data.auth_email_default['code'])
+        c = Code(user=u.userdata, code=test_data.auth_email_default['code'])
+        c.save()
+        self.code = c
 
-    def _test_add_census_authevent_email_default(self):
+    def test_add_census_authevent_email_default(self):
         c = JClient()
-        c.authenticate(self.aeid_email, test_data.admin)
-        response = c.census(self.aeid_email, test_data.census_email_default)
+        c.authenticate(0, test_data.admin)
+        response = c.census(self.aeid, test_data.census_email_default)
         self.assertEqual(response.status_code, 200)
 
-    def _test_add_census_authevent_email_fields(self):
+    def test_add_census_authevent_email_fields(self):
         c = JClient()
-        c.authenticate(self.aeid_email, test_data.admin)
-        response = c.census(self.aeid_email, test_data.census_email_fields)
+        c.authenticate(0, test_data.admin)
+        response = c.census(self.aeid, test_data.census_email_fields)
         self.assertEqual(response.status_code, 200)
 
-    def _test_add_register_authevent_email_default(self):
+    def test_add_census_authevent_email_default_incorrect(self):
         c = JClient()
-        response = c.register(self.aeid_email, test_data.register_email_default)
+        c.authenticate(0, test_data.admin)
+        response = c.census(self.aeid, test_data.census_sms_default)
+        self.assertEqual(response.status_code, 400)
+        response = c.census(self.aeid, test_data.census_sms_fields)
+        self.assertEqual(response.status_code, 400)
+
+    def test_add_census_authevent_email_fields_incorrect(self):
+        c = JClient()
+        c.authenticate(0, test_data.admin)
+        response = c.census(self.aeid, test_data.census_sms_default)
+        self.assertEqual(response.status_code, 400)
+        response = c.census(self.aeid, test_data.census_sms_fields)
+        self.assertEqual(response.status_code, 400)
+
+    def test_add_register_authevent_email_default(self):
+        c = JClient()
+        response = c.register(self.aeid, test_data.register_email_default)
         self.assertEqual(response.status_code, 200)
 
-    def _test_add_register_authevent_email_fields(self):
+    def test_add_register_authevent_email_fields(self):
         c = JClient()
-        response = c.register(self.aeid_email, test_data.register_email_fields)
+        response = c.register(self.aeid, test_data.register_email_fields)
         self.assertEqual(response.status_code, 200)
+
+    def test_add_register_authevent_email_fields_incorrect(self):
+        c = JClient()
+        response = c.register(self.aeid, test_data.register_sms_default)
+        self.assertEqual(response.status_code, 400)
 
     def _test_authenticate_authevent_email_default(self):
         c = JClient()
-        response = c.authenticate(self.aeid_email, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
         self.assertEqual(response.status_code, 200)
 
     def _test_authenticate_authevent_email_fields(self):
         c = JClient()
         self.u.metadata = {"name": test_data.auth_email_fields['name']}
-        response = c.authenticate(self.aeid_email, test_data.auth_email_fields)
+        self.u.save()
+        response = c.authenticate(self.aeid, test_data.auth_email_fields)
         self.assertEqual(response.status_code, 200)
 
 
 class TestRegisterAndAuthenticateSMS(TestCase):
     def setUp(self):
-        ae_sms = AuthEvent(auth_method="sms",
+        ae = AuthEvent(auth_method="sms",
                 auth_method_config=test_data.authmethod_config_sms_default,
                 status='start',
                 census="open")
-        ae_sms.save()
-        self.aeid_sms = ae_sms.pk
+        ae.save()
+        self.aeid = ae.pk
 
         u_sms = User(username=test_data.admin['username'])
         u_sms.set_password(test_data.admin['password'])
         u_sms.save()
-        u_sms.userdata.event = ae_sms
+        u_sms.userdata.event = ae
         u_sms.userdata.save()
         self.u_sms = u_sms.userdata
 
         acl = ACL(user=u_sms.userdata, object_type='AuthEvent', perm='edit',
-            object_id=self.aeid_sms)
+            object_id=self.aeid)
         acl.save()
 
         u = User(username=test_data.auth_sms_default['tlf'])
         u.is_active = False
         u.save()
-        u.userdata.event = ae_sms
+        u.userdata.event = ae
         u.userdata.save()
         self.u = u.userdata
 
         self.code = Code(u.userdata, test_data.auth_sms_default['code'])
 
-    def _test_add_census_authevent_sms_default(self):
+    def test_add_census_authevent_sms_default(self):
         c = JClient()
-        c.authenticate(self.aeid_sms, test_data.admin)
-        response = c.census(self.aeid_sms, test_data.census_sms_default)
+        c.authenticate(0, test_data.admin)
+        response = c.census(self.aeid, test_data.census_sms_default)
         self.assertEqual(response.status_code, 200)
 
-    def _test_add_census_authevent_sms_fields(self):
+    def test_add_census_authevent_sms_fields(self):
         c = JClient()
-        c.authenticate(self.aeid_sms, test_data.admin)
-        response = c.census(self.aeid_sms, test_data.census_sms_fields)
+        c.authenticate(0, test_data.admin)
+        response = c.census(self.aeid, test_data.census_sms_fields)
         self.assertEqual(response.status_code, 200)
 
-    def _test_add_register_authevent_sms_default(self):
+    def test_add_register_authevent_sms_default(self):
         c = JClient()
-        response = c.register(self.aeid_sms, test_data.register_sms_default)
+        response = c.register(self.aeid, test_data.register_sms_default)
         self.assertEqual(response.status_code, 200)
 
-    def _test_add_register_authevent_sms_fields(self):
+    def test_add_register_authevent_sms_fields(self):
         c = JClient()
-        response = c.register(self.aeid_email, test_data.register_sms_fields)
+        response = c.register(self.aeid, test_data.register_sms_fields)
         self.assertEqual(response.status_code, 200)
 
     def _test_authenticate_authevent_sms_default(self):
         c = JClient()
-        response = c.authenticate(self.aeid_sms, test_data.auth_sms_default)
+        response = c.authenticate(self.aeid, test_data.auth_sms_default)
         self.assertEqual(response.status_code, 200)
 
     def _test_authenticate_authevent_sms_fields(self):
         c = JClient()
         self.u.metadata = {"name": test_data.auth_sms_fields['name']}
-        response = c.authenticate(self.aeid_sms, test_data.auth_sms_fields)
+        response = c.authenticate(self.aeid, test_data.auth_sms_fields)
         self.assertEqual(response.status_code, 200)

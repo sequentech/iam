@@ -16,9 +16,6 @@ def testview(request, param):
 
 class PWD:
     DESCRIPTION = 'Register using user and password. '
-    VALID_PIPELINES = ('check_whitelisted', 'check_blacklisted',
-            'check_total_max')
-    VALID_FIELDS = ('name', 'type', 'required', 'regex', 'min', 'max')
     CONFIG = {}
     PIPELINES = {
         "register-pipeline": [],
@@ -29,20 +26,21 @@ class PWD:
         d = {'status': 'nok'}
         return d
 
-    def authenticate(self, event, data):
+    def authenticate(self, ae, request):
         d = {'status': 'ok'}
-        msg = data.get('username', '')
+        req = json.loads(request.body.decode('utf-8'))
+        msg = req.get('username', '')
         if not msg:
-            msg = data.get('email', '')
+            msg = req.get('email', '')
 
-        pwd = data['password']
+        pwd = req['password']
 
         try:
             u = User.objects.get(Q(username=msg)|Q(email=msg))
         except:
             return self.authenticate_error()
 
-        if event != 0 and u.userdata.event != event:
+        if ae != 0 and u.userdata.event != ae:
             return self.authenticate_error()
 
         if not u.check_password(pwd):

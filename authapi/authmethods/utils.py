@@ -5,7 +5,6 @@ from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.utils import timezone
 from random import choice
-from string import ascii_lowercase, digits
 from uuid import uuid4
 
 from .models import ColorList, Message
@@ -39,11 +38,6 @@ def random_username():
         return random_username()
     except User.DoesNotExist:
         return username;
-
-
-def random_code(length=16, chars=ascii_lowercase+digits):
-    return ''.join([choice(chars) for i in range(length)])
-    return code;
 
 
 def get_client_ip(request):
@@ -210,3 +204,77 @@ def check_ip_total_max(data, **kwargs):
         cl.save()
         return error("Blacklisted", error_codename="blacklisted")
     return RET_PIPE_CONTINUE
+
+
+# Checkers census, register and authentication
+def check_value(definition, field, step='register'):
+    msg = ''
+    if definition == 'email':
+        definition = { "name": "email", "type": "text", "required": True, "min": 4, "max": 255, "required_on_authentication": True }
+    elif definition == 'code':
+        definition = { "name": "code", "type": "text", "required": True, "min": 6, "max": 255, "required_on_authentication": True }
+    elif definition == 'tlf':
+        definition = { "name": "tlf", "type": "text", "required": True, "min": 4, "max": 20, "required_on_authentication": True }
+
+    if step == 'authentication' and not definition.get('required_on_authentication'):
+        return msg
+    if field is None:
+        if definition.get('required'):
+            msg += "Field %s is required" % definition.get('name')
+    else:
+        if isinstance(field, str):
+            if definition.get('type') == 'int':
+                msg += "Field %s type incorrect" % definition.get('name')
+            if definition.get('min') and len(field) < definition.get('min'):
+                msg += "Field %s min incorrect" % definition.get('name')
+            if definition.get('max') and len(field) > definition.get('max'):
+                msg += "Field %s max incorrect" % definition.get('name')
+        elif isinstance(field, int):
+            if definition.get('type') != 'int':
+                msg += "Field %s type incorrect" % definition.get('name')
+            if definition.get('min') and field < definition.get('min'):
+                msg += "Field %s min incorrect" % definition.get('name')
+            if definition.get('max') and field > definition.get('max'):
+                msg += "Field %s max incorrect" % definition.get('name')
+        if definition.get('regex'):
+            a = re.compile(definition.get('regex'))
+            if not a.match(string):
+                msg += "Field %s regex incorrect" % definition.get('name')
+    return msg
+
+
+def check_fields_in_request(req, ae, step='register'):
+    msg = ''
+    if ae.auth_method == 'email':
+        msg += check_value('email', req.get('email'))
+    elif ae.auth_method == 'sms':
+        msg += check_value('tlf', req.get('tlf'))
+    if step == 'authentication':
+        msg += check_value('code', req.get('code'))
+    if ae.extra_fields:
+        for extra in ae.extra_fields:
+            msg += check_value(extra, req.get(extra.get('name')))
+    return msg
+
+
+def check_census(req, ae):
+    msg = ''
+    for r in req:
+        msg += check_fields_in_request(r, ae)
+    return msg
+
+
+def create_user(req, ae):
+    user = random_username()
+    u = User(username=user)
+    u.is_active = False
+    u.save()
+
+    if req.get('email'):
+        u.email = req.get('email')
+        req.pop('email')
+
+    u.userdata.event = ae
+    u.userdata.metadata = json.dumps(req)
+    u.userdata.save()
+    return u

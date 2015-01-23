@@ -62,38 +62,6 @@ def check_total_max(data, **kwargs):
     return 0 if check == 0 else check
 
 
-def register_request(data, request):
-    req = json.loads(request.body.decode('utf-8'))
-
-    u = User(username=random_username())
-    u.set_password(req.get('password'))
-    u.email = req.get('email')
-    u.save()
-    acl = ACL(user=u.userdata, object_type='UserData', perm='view', object_id=u.pk)
-    acl.save()
-
-    data['code'] = random_code(8, ascii_letters+digits)
-    valid_link = request.build_absolute_uri(
-            '/authmethod/sms-code/validate/%s/' % (data['code']))
-    eo = AuthEvent.objects.get(pk=data.get('event'))
-    conf = eo.auth_method_config
-    msg = conf.get('config').get('sms-message') + valid_link
-
-    u.userdata.event = eo
-    u.userdata.metadata = json.dumps({
-            'first_name': req.get('first_name'),
-            'last_name': req.get('last_name'),
-            'tlf': req.get('tlf'),
-            'code': data['code'],
-            'sms_verified': False
-    })
-    u.userdata.save()
-    code = Code(user=u.userdata, tlf=req.get('tlf'), dni=req.get('dni'), code=data['code'])
-    code.save()
-
-    data['user'] = u.pk
-    return 0
-
 
 def send_sms(data, conf):
     m = Message(ip=data['ip_addr'], tlf=data['tlf'])
@@ -103,21 +71,26 @@ def send_sms(data, conf):
 
 
 def check_total_connection(data, req, **kwargs):
-    conn = Connection.objects.filter(tlf=req.get('tlf'), dni=req.get('dni')).count()
+    conn = Connection.objects.filter(tlf=req.get('tlf')).count()
     if conn >= kwargs.get('times'):
         return error('Exceeded the level os attempts',
                 error_codename='check_total_connection')
-    conn = Connection(ip=data['ip'], tlf=req.get('tlf'), dni=req.get('dni'))
+    #import ipdb;ipdb.set_trace()
+    conn = Connection(ip=data['ip'], tlf=req.get('tlf'))
     conn.save()
     return 0
 
 
 def check_sms_code(data, req, **kwargs):
-    eo = AuthEvent.objects.get(pk=data['event'])
-    conf = eo.auth_method_config
+    ae = AuthEvent.objects.get(pk=data['event'])
 
     # check code
-    code = Code.objects.filter(tlf=req.get('tlf'), dni=req.get('dni'))
+    if req.get('email'):
+        u = User.objects.get(email=req['email'], userdata__event=ae)
+    else:
+        # TODO: search tlf in metadata
+        u = User.objects.filter(userdata__event=ae)[0]
+    code = Code.objects.filter(user=u.userdata)
     if not code:
         return error('Not exist any code.', error_codename='check_sms_code')
     else:
@@ -133,10 +106,8 @@ def check_sms_code(data, req, **kwargs):
         return error('Timeout.', error_codename='check_sms_code')
 
     user = code.user
+    user.is_active = True
     data['user'] = user
-    u_meta = json.loads(user.metadata)
-    u_meta.update({ 'sms_verified': True })
-    user.metadata = json.dumps(u_meta)
     user.save()
     return 0
 
@@ -181,29 +152,27 @@ class Sms:
 
     def census(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
+        msg = check_census(req, ae)
+        if msg:
+            data = {'status': 'nok', 'msg': msg}
+            return data
         for r in req:
-            user = random_username()
-            mail_to = r.get('email')
-            tlf = r.get('tlf')
-
-            try:
-                u = User(username=user, email=mail_to)
-                u.save()
-            except:
-                data = {'status': 'nok', 'msg': 'user already exist'}
-                return data
-            u.userdata.event = ae
-            u.userdata.status = 'pen'
-            u.userdata.metadata = json.dumps({ "tlf": tlf })
-            u.userdata.save()
-            acl = ACL(user=request.user.userdata, object_type='UserData', perm='edit', object_id=u.pk)
+            u = create_user(r, ae)
+            # add perm
+            acl = ACL(user=u.userdata, object_type='UserData', perm='edit', object_id=u.pk)
             acl.save()
         data = {'status': 'ok'}
         return data
 
     def register(self, ae, request):
-        data = {'status': 'ok', 'msg': '', 'event': ae.id}
+        req = json.loads(request.body.decode('utf-8'))
+        msg = check_fields_in_request(req, ae)
+        if msg:
+            print(msg)
+            data = {'status': 'nok', 'msg': msg}
+            return data
 
+        data = {'status': 'ok', 'msg': '', 'event': ae.id}
         check = check_request(request, data)
         if check != 0:
             data.update(json.loads(check.content.decode('utf-8')))
@@ -220,59 +189,47 @@ class Sms:
                 data.update(json.loads(check.content.decode('utf-8')))
                 data['status'] = check.status_code
                 return data
-        check = register_request(data, request)
-        if check != 0:
-            data.update(json.loads(check.content.decode('utf-8')))
-            data['status'] = check.status_code
-            return data
+
+        u = create_user(req, ae)
+
         check = send_sms(data, conf.get('config'))
         if check != 0:
             data.update(json.loads(check.content.decode('utf-8')))
             data['status'] = check.status_code
             return data
 
-        data.pop('code')
-        return data
-
-
-    def validate(self, ae, request):
-        data = {'status': 'ok', 'event': ae.id, 'ip': get_client_ip(request)}
-        req = json.loads(request.body.decode('utf-8'))
-
-        conf = ae.auth_method_config
-        pipeline = conf.get('pipeline').get('authenticate-pipeline')
-        for pipe in pipeline:
-            check = getattr(eval(pipe[0]), '__call__')(data, req, **pipe[1])
-
-            if check != 0:
-                data.update(json.loads(check.content.decode('utf-8')))
-                data['status'] = check.status_code
-                return data
-
-        pwd = data['user'].user.password
-        data['auth-token'] = genhmac(settings.SHARED_SECRET, pwd)
-        data.pop('user')
         return data
 
     def authenticate_error(self):
         d = {'status': 'nok'}
         return d
 
-    def authenticate(self, event, data):
-        d = {'status': 'ok'}
-        email = data['email']
-        pwd = data['password']
+    def authenticate(self, ae, request):
+        req = json.loads(request.body.decode('utf-8'))
+        msg = check_fields_in_request(req, ae)
+        if msg:
+            data = {'status': 'nok', 'msg': msg}
+            return data
 
+        data = {'status': 'ok', 'event': ae.id, 'ip': get_client_ip(request)}
+        conf = ae.auth_method_config
+        pipeline = conf.get('pipeline').get('authenticate-pipeline')
+        for pipe in pipeline:
+            check = getattr(eval(pipe[0]), '__call__')(data, req, **pipe[1])
+            if check != 0:
+                data.update(json.loads(check.content.decode('utf-8')))
+                data['status'] = check.status_code
+                return data
+
+        data.pop('user')
+
+        email = req['email']
         try:
             u = User.objects.filter(email=email)[0]
         except:
             return self.authenticate_error()
-
-        u_meta = json.loads(u.userdata.metadata)
-        if not u.check_password(pwd) or not u_meta['sms_verified']:
-            return self.authenticate_error()
-
-        d['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
+        u.is_active = True
+        data['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
         return d
 
 register_method('sms', Sms)

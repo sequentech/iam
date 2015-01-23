@@ -7,8 +7,9 @@ from string import ascii_letters, digits
 from utils import genhmac, constant_time_compare, send_email
 
 from . import register_method
-from authmethods.utils import random_code, random_username
+from authmethods.utils import check_census, create_user, check_fields_in_request
 from api.models import AuthEvent, ACL
+from authmethods.models import Code
 
 
 class Email:
@@ -32,101 +33,68 @@ class Email:
 
     def census(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
+        msg = check_census(req, ae)
+        if msg:
+            data = {'status': 'nok', 'msg': msg}
+            return data
         for r in req:
-            user = random_username()
-            mail_to = r.get('email')
-
-            try:
-                u = User(username=user, email=mail_to)
-                u.save()
-                u.userdata.event = ae
-                u.userdata.status = 'pen'
-                u.userdata.save()
-                acl = ACL(user=request.user.userdata, object_type='UserData', perm='edit', object_id=u.pk)
-                acl.save()
-            except:
-                data = {'status': 'nok', 'msg': 'user already exist'}
-                return data
+            u = create_user(r, ae)
+            # add perm
+            acl = ACL(user=u.userdata, object_type='UserData', perm='edit', object_id=u.pk)
+            acl.save()
         data = {'status': 'ok'}
         return data
 
     def register(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
-        mail_to = req.get('email')
-        user = random_username()
-        pwd = req.get('password')
-
-        try:
-            u = User(username=user, email=mail_to)
-            u.set_password(pwd)
-            u.save()
-            acl = ACL(user=u.userdata, object_type='UserData', perm='edit', object_id=u.pk)
-            acl.save()
-        except:
-            data = {'status': 'nok', 'msg': 'user already exist'}
+        msg = check_fields_in_request(req, ae)
+        if msg:
+            print(msg)
+            data = {'status': 'nok', 'msg': msg}
             return data
 
-        conf = ae.auth_method_config
-        subject = conf.get('subject')
-        mail_from = conf.get('mail_from')
+        u = create_user(req, ae)
+        # add perm
+        acl = ACL(user=u.userdata, object_type='UserData', perm='edit', object_id=u.pk)
+        acl.save()
 
-        code = random_code(64, ascii_letters+digits)
-        valid_link = request.build_absolute_uri(
-                '/api/authmethod/email/validate/%d/%s/' % (u.pk,  code))
-        msg = conf.get('config').get('msg') + valid_link
-
-        u.userdata.event = ae
-        u.userdata.metadata = json.dumps({
-                'email': mail_to,
-                'code': code,
-                'email_verified': False
-        })
-        u.userdata.save()
-
-        send_email.apply_async(args=[subject, msg, mail_from, (mail_to,)])
+        #send_email.apply_async(args=[subject, msg, mail_from, (mail_to,)])
         data = {'status': 'ok'}
-        return data
-
-
-    def validate(self, ae, request):
-        req = json.loads(request.body.decode('utf-8'))
-        userid = req['userid']
-        code = req['code']
-
-        u = User.objects.get(pk=userid)
-        u_meta = json.loads(u.userdata.metadata)
-        if constant_time_compare(u_meta.get('code'), code):
-            u_meta.update({ 'email_verified': True })
-            u.userdata.metadata = json.dumps(u_meta)
-            u.userdata.save()
-
-            # giving perms
-            acl = ACL(user=u.userdata, object_type='Vote', perm='create')
-            acl.save()
-            data = {'status': 'ok', 'username': u.username}
-            status = 200
-        else:
-            data = {'status': 'nok'}
-            status = 400
         return data
 
     def authenticate_error(self):
         d = {'status': 'nok'}
         return d
 
-    def authenticate(self, event, data):
+    def authenticate(self, ae, request):
         d = {'status': 'ok'}
-        email = data['email']
-        pwd = data['password']
+        req = json.loads(request.body.decode('utf-8'))
+        msg = check_fields_in_request(req, ae)
+        if msg:
+            data = {'status': 'nok', 'msg': msg}
+            return data
+
+        email = req['email']
+        code = req['code']
 
         try:
-            u = User.objects.get(email=email, userdata__event=event)
+            u = User.objects.get(email=email, userdata__event=ae)
         except:
             return self.authenticate_error()
+        codedb = Code.objects.filter(user=u.userdata)[0].code
+        if constant_time_compare(codedb, code):
+            u.is_active = True
+            u.save()
 
-        u_meta = json.loads(u.userdata.metadata)
-        if not u.check_password(pwd) or not u_meta.get('email_verified'):
-            return self.authenticate_error()
+            # giving perms
+            acl = ACL(user=u.userdata, object_type='Vote', perm='create',
+                    object_id=ae.pk)
+            acl.save()
+            data = {'status': 'ok', 'username': u.username}
+            status = 200
+        else:
+            data = {'status': 'nok'}
+            status = 400
 
         d['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
         return d
