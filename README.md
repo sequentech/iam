@@ -115,13 +115,11 @@ Examples:
 
 * email (required for a minimum version)
 
-Provides authentication by sending a custom email for a set of users. It adds
-the entry point for email-sending "POST /email-link/send-mail"
+Provides authentication by sending a custom email for a set of users.
 
 * sms
 
-Provides authentication using an SMS code. It adds the entry point for SMS-code
-verification "POST /sms-code/verify".
+Provides authentication using an SMS code.
 
 .....
 
