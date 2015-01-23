@@ -233,6 +233,11 @@ class ApiTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
 
+        response = c.post('/api/auth-event/%d/' % self.aeid, test_data.ae_email_fields_incorrect1)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], 'Maximum number of fields reached')
+
         response = c.get('/api/auth-event/', {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))

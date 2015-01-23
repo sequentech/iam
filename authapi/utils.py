@@ -328,6 +328,8 @@ def check_pipeline(pipe):
 
 def check_extra_fields(fields):
     msg = ''
+    if len(fields) > 15:
+        return "Maximum number of fields reached"
     for field in fields:
         for key in field.keys():
             if key in VALID_FIELDS:
