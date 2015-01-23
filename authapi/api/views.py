@@ -17,6 +17,8 @@ from django.db.models import Q
 
 
 def permission_required(user, object_type, permission, object_id=None):
+    if user.is_superuser:
+        return
     if object_id and user.userdata.has_perms(object_type, permission, None):
         return
     if not user.userdata.has_perms(object_type, permission, object_id):
@@ -34,7 +36,11 @@ class Test(View):
         return HttpResponse(jsondata, content_type='application/json')
 
     def post(self, request):
-        req = json.loads(request.body.decode('utf-8'))
+        try:
+            req = json.loads(request.body.decode('utf-8'))
+        except:
+            bad_request = json.dumps({"error": "bad_request"})
+            return HttpResponseBadRequest(bad_request, content_type='application/json')
         data = {'status': 'ok', 'method': 'POST'}
         data['post'] = req
         jsondata = json.dumps(data)
@@ -47,7 +53,11 @@ class Census(View):
 
     def post(self, request, pk):
         e = get_object_or_404(AuthEvent, pk=pk)
-        data = auth_census(e, request)
+        try:
+            data = auth_census(e, request)
+        except:
+            bad_request = json.dumps({"error": "bad_request"})
+            return HttpResponseBadRequest(bad_request, content_type='application/json')
         status = 200 if data['status'] == 'ok' else 400
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, status=status, content_type='application/json')
@@ -62,7 +72,12 @@ class Authenticate(View):
             e = 0
         else:
             e = get_object_or_404(AuthEvent, pk=pk)
-        data = auth_authenticate(e, request)
+
+        try:
+            data = auth_authenticate(e, request)
+        except:
+            return HttpResponseBadRequest("", content_type='application/json')
+
         status = 200 if data['status'] == 'ok' else 400
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, status=status, content_type='application/json')
@@ -129,7 +144,12 @@ class GetPerms(View):
 
     def post(self, request):
         data = {'status': 'ok'}
-        req = json.loads(request.body.decode('utf-8'))
+
+        try:
+            req = json.loads(request.body.decode('utf-8'))
+        except:
+            bad_request = json.dumps({"error": "bad_request"})
+            return HttpResponseBadRequest(bad_request, content_type='application/json')
 
         if 'permission' not in req or 'object_type' not in req:
             jsondata = json.dumps(data)
@@ -139,7 +159,8 @@ class GetPerms(View):
         perm = req['permission']
         obj_id = req.get('object_id', None)
 
-        if not request.user.userdata.has_perms(object_type, perm, obj_id):
+        if not request.user.is_superuser and\
+                not request.user.userdata.has_perms(object_type, perm, obj_id):
             jsondata = json.dumps(data)
             return HttpResponse(jsondata, status=400, content_type='application/json')
 
@@ -180,7 +201,12 @@ class ACLView(View):
     def post(self, request):
         permission_required(request.user, 'ACL', 'create')
         data = {'status': 'ok'}
-        req = json.loads(request.body.decode('utf-8'))
+
+        try:
+            req = json.loads(request.body.decode('utf-8'))
+        except:
+            bad_request = json.dumps({"error": "bad_request"})
+            return HttpResponseBadRequest(bad_request, content_type='application/json')
         u = User.objects.get(pk=req['userid'])
         for perm in req['perms']:
             user = get_object_or_404(UserData, user__username=perm['user'])
@@ -228,7 +254,12 @@ class AuthEventView(View):
             create_authevent permission required or
             edit_authevent permission required
         '''
-        req = json.loads(request.body.decode('utf-8'))
+        try:
+            req = json.loads(request.body.decode('utf-8'))
+        except:
+            bad_request = json.dumps({"error": "bad_request"})
+            return HttpResponseBadRequest(bad_request, content_type='application/json')
+
         if pk is None: # create
             permission_required(request.user, 'AuthEvent', 'create')
 
@@ -402,7 +433,12 @@ user = login_required(UserView.as_view())
 class CreditsActionView(View):
     def post(self, request):
         ''' Create new action of add_credit in mode create '''
-        req = json.loads(request.body.decode('utf-8'))
+
+        try:
+            req = json.loads(request.body.decode('utf-8'))
+        except:
+            bad_request = json.dumps({"error": "bad_request"})
+            return HttpResponseBadRequest(bad_request, content_type='application/json')
         pack_id = req.get("pack_id")
         quantity = req.get("num_credits")
         payment = req.get("payment_method")
