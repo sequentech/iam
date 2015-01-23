@@ -1,12 +1,12 @@
 import json
 import re
+import os
+import binascii
 from datetime import timedelta
 from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.utils import timezone
 from random import choice
-from uuid import uuid4
-
 from .models import ColorList, Message
 
 
@@ -32,7 +32,8 @@ def error(message="", status=400, field=None, error_codename=None):
 
 
 def random_username():
-    username = uuid4()
+    # 30 hex digits random username
+    username = binascii.b2a_hex(os.urandom(14))
     try:
         User.objects.get(username=username)
         return random_username()
