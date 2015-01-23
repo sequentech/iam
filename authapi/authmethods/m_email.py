@@ -4,7 +4,7 @@ from django.conf.urls import patterns, url
 from django.contrib.auth.models import User
 from django.http import HttpResponse
 from string import ascii_letters, digits
-from utils import genhmac, constant_time_compare, send_email
+from utils import genhmac, constant_time_compare, send_code
 
 from . import register_method
 from authmethods.utils import check_census, create_user, check_fields_in_request
@@ -58,7 +58,10 @@ class Email:
         acl = ACL(user=u.userdata, object_type='UserData', perm='edit', object_id=u.pk)
         acl.save()
 
-        #send_email.apply_async(args=[subject, msg, mail_from, (mail_to,)])
+        msg = send_code(u)
+        if msg:
+            data = {'status': 'nok', 'msg': msg}
+            return data
         data = {'status': 'ok'}
         return data
 

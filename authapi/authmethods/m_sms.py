@@ -4,8 +4,7 @@ from django.conf.urls import patterns, url
 from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.utils import timezone
-from string import ascii_letters, digits
-from utils import genhmac, constant_time_compare, send_sms_code
+from utils import genhmac, constant_time_compare, send_code
 
 from . import register_method
 from authmethods.utils import *
@@ -39,20 +38,11 @@ def check_total_max(data, **kwargs):
     return 0 if check == 0 else check
 
 
-
-def send_sms(data, conf):
-    m = Message(ip=data['ip_addr'], tlf=data['tlf'])
-    m.save()
-    send_sms_code.apply_async(args=[data, conf])
-    return 0
-
-
 def check_total_connection(data, req, **kwargs):
     conn = Connection.objects.filter(tlf=req.get('tlf')).count()
     if conn >= kwargs.get('times'):
         return error('Exceeded the level os attempts',
                 error_codename='check_total_connection')
-    #import ipdb;ipdb.set_trace()
     conn = Connection(ip=data['ip'], tlf=req.get('tlf'))
     conn.save()
     return 0
@@ -165,10 +155,9 @@ class Sms:
 
         u = create_user(req, ae)
 
-        check = send_sms(data, conf.get('config'))
-        if check != 0:
-            data.update(json.loads(check.content.decode('utf-8')))
-            data['status'] = check.status_code
+        msg = send_code(u)
+        if msg:
+            data = {'status': 'nok', 'msg': msg}
             return data
 
         return data

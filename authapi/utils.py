@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import hmac
 import datetime
+import json
 import time
 import six
 from authmethods import METHODS
@@ -8,7 +9,8 @@ from djcelery import celery
 from django.core.mail import send_mail, EmailMessage
 from django.core.paginator import Paginator
 from django.conf import settings
-from string import ascii_lowercase, digits
+from string import ascii_lowercase, digits, ascii_letters
+from random import choice
 
 
 def paginate(request, queryset, serialize_method=None, elements_name='elements'):
@@ -122,9 +124,10 @@ def random_code(length=16, chars=ascii_lowercase+digits):
 
 
 def generate_code(userdata):
-    if userdata.auth_method == 'email':
+    from authmethods.models import Code
+    if userdata.event.auth_method == 'email':
         code = random_code(64, ascii_letters+digits)
-    elif user.auth_method == 'sms':
+    elif userdata.event.auth_method == 'sms':
         code = random_code(8, ascii_letters+digits)
     c = Code(user=userdata, code=code)
     c.save()
@@ -142,7 +145,7 @@ def send_sms_code(data, conf):
     con = SMSProvider.get_instance(conf)
     con.send_sms(receiver=data['tlf'], content=conf['sms-message'], is_audio=False)
 
-def send_code(user, templ):
+def send_code(user, templ=None):
     '''
     Sends the code for authentication in the related auth event, to the user
     in a message sent via sms or email, depending on the authentication method
@@ -153,21 +156,32 @@ def send_code(user, templ):
 
     NOTE: You are responsible of not calling this on a stopped auth event
     '''
+    from authmethods.models import Message
     auth_method = user.userdata.event.auth_method
+    conf = user.userdata.event.auth_method_config.get('config')
     event_id = user.userdata.event.id
 
     code = generate_code(user.userdata)
 
     if auth_method == "sms":
-        receiver = user.userdata.metadata.get("tlf", None)
-        url = settings.SMS_AUTH_CODE_URL % dict(event_id=event_id, code=code)
+        meta = json.loads(user.userdata.metadata)
+        receiver = meta.get("tlf", None)
+        url = settings.SMS_AUTH_CODE_URL % dict(authid=event_id, code=code)
     else: # email
-        receiver = user.userdata.metadata.get("email", None)
-        url = settings.EMAIL_AUTH_CODE_URL % dict(event_id=event_id, code=code)
+        receiver = user.email
+        url = settings.EMAIL_AUTH_CODE_URL % dict(authid=event_id, code=code)
 
     if receiver is None:
-        return
+        return "Receiver is none"
 
+    if auth_method == "sms":
+        if templ is None:
+            templ = conf.get('sms-message')
+        base_msg = settings.SMS_BASE_TEMPLATE
+    else: # email
+        if templ is None:
+            templ = conf.get('msg')
+        base_msg = settings.EMAIL_BASE_TEMPLATE
     raw_msg = templ % dict(event_id=event_id, code=code, url=url)
     msg = base_msg % raw_msg
 
@@ -178,15 +192,15 @@ def send_code(user, templ):
         m = Message(tlf=receiver)
         m.save()
     else: # email
-      email = EmailMessage(
-          settings.EMAIL_AUTH_CODE_SUBJECT,
-          msg,
-          settings.DEFAULT_FROM_EMAIL,
-          [receiver],
-          # TODO set reply-to auth.event admin email address
-          # headers = {'Reply-To': user.userdata.event.}
-      )
-      email.send()
+        email = EmailMessage(
+            conf.get('subject'),
+            msg,
+            settings.DEFAULT_FROM_EMAIL,
+            [receiver],
+            # TODO set reply-to auth.event admin email address
+            # headers = {'Reply-To': user.userdata.event.}
+        )
+        email.send()
 
 # CHECKERS AUTHEVENT
 VALID_FIELDS = ('name', 'type', 'required', 'regex', 'min', 'max',

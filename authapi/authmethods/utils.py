@@ -6,7 +6,6 @@ from datetime import timedelta
 from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.utils import timezone
-from random import choice
 from .models import ColorList, Message
 
 
@@ -174,6 +173,7 @@ def check_tlf_total_max(data, **kwargs):
     tlf = data['tlf']
     if period:
         time_threshold = timezone.now() - timedelta(seconds=period)
+        # Fix
         item = Message.objects.filter(tlf=tlf, created__lt=time_threshold)
     else:
         item = Message.objects.filter(tlf=tlf)

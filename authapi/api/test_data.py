@@ -196,7 +196,6 @@ authmethod_config_sms_default = {
                 ["check_blacklisted", {"field": "tlf"}],
                 ["check_total_max", {"field": "ip", "max": 8}],
                 ["check_total_max", {"field": "tlf", "max": 7}],
-                ["check_total_max", {"field": "tlf", "period": 1440, "max": 5}],
                 ["check_total_max", {"field": "tlf", "period": 60, "max": 3}],
             ],
             "authenticate-pipeline": [
