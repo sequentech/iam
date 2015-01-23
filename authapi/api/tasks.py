@@ -14,7 +14,7 @@ def census_send_auth_task(pk, templ):
     """
 
     e = get_object_or_404(AuthEvent, pk=pk)
-    if e.status != "start":
+    if e.status != "started":
         print("event is stopped, ignoring request..")
         return
 

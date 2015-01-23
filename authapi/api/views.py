@@ -109,9 +109,9 @@ class Register(View):
         e = get_object_or_404(AuthEvent, pk=pk)
         if (e.census == 'close'):
             permission_required(request.user, 'UserEvent', 'edit', pk)
-        if e.census == 'open' and e.status != 'start': # register is closing
+        if e.census == 'open' and e.status != 'started': # register is closing
             jsondata = json.dumps({
-                "msg": "Register disable: the auth-event isn't working"
+                "msg": "Register disable: the auth-event doesn't started"
             })
             return HttpResponse(jsondata, status=400, content_type='application/json')
 
@@ -458,7 +458,7 @@ class CensusSendAuth(View):
 
         # first, validate input
         e = get_object_or_404(AuthEvent, pk=pk)
-        if e.status != 'start':
+        if e.status != 'started':
           jsondata = json.dumps({'error': 'AuthEvent with id = %d has not started' % pk})
           return HttpResponseBadRequest(json, content_type='application/json')
 

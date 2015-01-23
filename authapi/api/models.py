@@ -16,8 +16,9 @@ CENSUS = (
 )
 
 AE_STATUSES = (
-    ('start', 'start'),
-    ('stop', 'stop'),
+    ('notstarted', 'not-started'),
+    ('started', 'started'),
+    ('stopped', 'stopped'),
 )
 
 class AuthEvent(models.Model):
@@ -25,7 +26,7 @@ class AuthEvent(models.Model):
     census = models.CharField(max_length=5, choices=CENSUS, default="close")
     auth_method_config = JSONField()
     extra_fields = JSONField()
-    status = models.CharField(max_length=5, choices=AE_STATUSES, default="stop")
+    status = models.CharField(max_length=15, choices=AE_STATUSES, default="notstarted")
 
     def serialize(self):
         d = self.serialize_restrict()

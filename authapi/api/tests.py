@@ -95,18 +95,18 @@ class ApiTestCase(TestCase):
 
     def test_change_status(self):
         c = JClient()
-        response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'start'), {})
+        response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'started'), {})
         self.assertEqual(response.status_code, 403)
-        response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'stop'), {})
+        response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'stopped'), {})
         self.assertEqual(response.status_code, 403)
 
         c.authenticate(self.aeid, test_data.pwd_auth)
 
-        response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'start'), {})
+        response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'started'), {})
         self.assertEqual(response.status_code, 200)
-        response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'stop'), {})
+        response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'stopped'), {})
         self.assertEqual(response.status_code, 200)
-        response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'stop'), {})
+        response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'stopped'), {})
         self.assertEqual(response.status_code, 400)
 
 
@@ -202,13 +202,13 @@ class ApiTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['id'], aeid)
-        # try register in stop auth-event
+        # try register in stopped auth-event
         data = {'email': 'test@test.com', 'password': '123456'}
         response = c.register(aeid, data)
         self.assertEqual(response.status_code, 400)
-        # try register in start auth-event
+        # try register in started auth-event
         c.authenticate(self.aeid, test_data.pwd_auth)
-        response = c.post('/api/auth-event/%d/%s/' % (aeid, 'start'), {})
+        response = c.post('/api/auth-event/%d/%s/' % (aeid, 'started'), {})
         self.assertEqual(response.status_code, 200)
         data = {'email': 'test@test.com', 'password': '123456'}
         response = c.register(aeid, data)
@@ -420,7 +420,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
     def setUp(self):
         ae = AuthEvent(auth_method="email",
                 auth_method_config=test_data.authmethod_config_email_default,
-                status='start',
+                status='started',
                 census="open")
         ae.save()
         self.aeid = ae.pk
@@ -507,7 +507,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
     def setUp(self):
         ae = AuthEvent(auth_method="sms",
                 auth_method_config=test_data.authmethod_config_sms_default,
-                status='start',
+                status='started',
                 census="open")
         ae.save()
         self.aeid = ae.pk
