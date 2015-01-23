@@ -49,7 +49,6 @@ class Email:
         req = json.loads(request.body.decode('utf-8'))
         msg = check_fields_in_request(req, ae)
         if msg:
-            print(msg)
             data = {'status': 'nok', 'msg': msg}
             return data
 

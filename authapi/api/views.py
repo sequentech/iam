@@ -283,7 +283,6 @@ class AuthEventView(View):
                 msg += "Invalid type of census\n"
 
             if msg:
-                print(msg)
                 data = {'msg': msg}
                 jsondata = json.dumps(data)
                 return HttpResponse(jsondata, status=400, content_type='application/json')
@@ -318,7 +317,6 @@ class AuthEventView(View):
                 msg += check_extra_fields(extra_fields)
 
             if msg:
-                print(msg)
                 data = {'msg': msg}
                 jsondata = json.dumps(data)
                 return HttpResponse(jsondata, status=400, content_type='application/json')
