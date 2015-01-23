@@ -56,7 +56,14 @@ class UserDataInline(admin.StackedInline):
     model = UserData
 
 class CustomUserAdmin(UserAdmin):
-    inlines = [ UserDataInline ]
+    def change_view(self, request, obj_id):
+        self.inlines=[UserDataInline,]
+        return super(CustomUserAdmin, self).change_view(request, obj_id)
+
+    def add_view(self, request):
+        self.inlines=[]
+        return super(CustomUserAdmin, self).add_view(request)
+
 
 admin.site.unregister(User)
 admin.site.register(User, CustomUserAdmin)
