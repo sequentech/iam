@@ -62,6 +62,10 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 )
 
+# change the test runner to the one provided by celery so that the tests that
+# make use of celery work when ./manage.py test is executed
+TEST_RUNNER = 'djcelery.contrib.test_runner.CeleryTestSuiteRunner'
+
 ROOT_URLCONF = 'authapi.urls'
 
 WSGI_APPLICATION = 'authapi.wsgi.application'
