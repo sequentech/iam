@@ -51,8 +51,8 @@ kind of object.
 3. Create postgres database:
     ```
     $ sudo su postgres
-    $ createuser -P campus
-    $ createdb -O campus campus
+    $ createuser -P authapi
+    $ createdb -O authapi authapi
     ```
 
 4. Run:
@@ -75,12 +75,15 @@ Technically, authapi should:
 Basic Database tables:
 * AuthEvent
     * id: autoinc int, identifies the event uniquely
-    * name: string (255), user-friendly name
+    * census: string (5), type of census: close(default) or open registration
     * auth_method: string (255), unix-name of the auth method plugin used
     * auth_method_config: json-string, json configuration string
-    * metadata: json-string
+    * extra_fields: json-string
+    * status: string (5), status of auth-event: start or stop(default)
 * User
     * id: string (255), random uuid, identifies the user uniquely
+    * event: auth-event associate
+    * credits: credits for create auth-event
     * metadata: json-string
     * status: string (255): used to flag the user
 * ACL
@@ -89,6 +92,15 @@ Basic Database tables:
     * perm: string (255) title of the permitted action. required
     * object_type: string (255) type of object to which the user is granted permission to. required
     * object_id: string (255) object related to which the user is granted permission to
+* CreditsAction
+    * user: userdata associate
+    * action: choice add or spend
+    * status: created, paid, etc
+    * quantity: int
+    * authevent: auth-event associate
+    * payment_metadata: json-string
+    * created: datetime
+    * updated: datetime
 
 The authapi is extensible using modules. The mudile can extend authapi in
 different entry points defined in authapi, providing:
@@ -101,12 +113,12 @@ For create a new module: [Development guide](Development.md)
 
 Examples:
 
-* email-link (required for a minimum version)
+* email (required for a minimum version)
 
 Provides authentication by sending a custom email for a set of users. It adds
 the entry point for email-sending "POST /email-link/send-mail"
 
-* sms-code
+* sms
 
 Provides authentication using an SMS code. It adds the entry point for SMS-code
 verification "POST /sms-code/verify".
@@ -114,23 +126,6 @@ verification "POST /sms-code/verify".
 .....
 
 # API:
-
-## POST /login
-
-The requester provides the data used by an authentication mechanism. Example:
-
-    {
-      "auth-method": "user-and-password",
-      "auth-data": {
-        "username": "foo",
-        "password": "bar"
-      }
-    }
-
-If successful, returns a keyed-HMAC session token.
-    {
-      "auth-token": "khmac:///sha-256;deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/userid:timestamp"
-    }
 
 ## POST /get-perms
 
@@ -188,52 +183,36 @@ set in the AuthToken header, with an user with permissions "superuser".
 Valid Input example:
 
     {
-        "hmac": ["superuser:11114341", "deadbeefdeadbeef"],
-        "name": "foo election",
-        "auth_method": "sms-code",
-        "auth_method_config": {
-            "sms-provider": "esendex",
-            "user": "foo",
-            "password": "wahtever",
-            "sms-message": "%(server_name)s: your token is: %(token)s",
-            "sms-token-expire-secs": 600,
-            "max-token-guesses": 3,
-            "authapi": {
-                "mode": "on-the-go",
-                "fields": [
-                    {
-                        "name": "Name",
-                        "type": "string",
-                        "length": [13, 255],
-                    },
-                    ...
-                ]
-            },
-            "register-pipeline": [
-                ["register_request"],
-                ["check_has_not_status", {"field": "tlf", "status": "voted"}],
-                ["check_has_not_voted", {"field": "dni", "status": "voted"}],
-                ["check_tlf_expire_max", {"field": "tlf", "expire-secs": 120}],
-                ["check_whitelisted", {"field": "tlf"}],
-                ["check_whitelisted", {"field", "ip"}],
-                ["check_blacklisted", {"field": "ip"}],
-                ["check_blacklisted", {"field": "tlf"}],
-                ["check_ip_total_unconfirmed_requests_max",
-                    {"max": 30}],
-                ["check_total_max", {"field": "ip", "max": 8}],
-                ["check_total_max", {"field": "tlf", "max": 7}],
-                ["check_total_max", {"field": "tlf", "period": 1440, "max": 5}],
-                ["check_total_max", {"field": "tlf", "period": 60, "max": 3}],
-                ["check_id_in_census", {"fields": "tlf"}],
-                ["generate_token", {"land_line_rx": "^\+34[89]"}],
-                ["send_sms_pipe"],
-            ],
-            "feedback-pipeline": [
-                ["check_sms_code", {"field-auth": "tlf", "field-code":
-                    "sms-code"}],
-                ["mark_as", {"field-auth": "tlf", "status": "voted"}],
-            ]
-        }
+        "auth_method": "sms",
+        "census": "open",
+        "config": {"sms-message": "Enter in __LINK__ and put this code __CODE__"},
+        "extra_fields": [
+                {
+                "name": "name",
+                "type": "text",
+                "required": False,
+                "max": 2,
+                "max": 64,
+                "required_on_authentication": True
+                },
+                {
+                "name": "email",
+                "type": "text",
+                "required": True,
+                "min": 4,
+                "max": 255,
+                "required_on_authentication": True
+                },
+                {
+                "name": "dni",
+                "type": "text",
+                "required": True,
+                #"regex": "TODO",
+                "max": 9,
+                "max": 9,
+                "required_on_authentication": True
+                }
+        ]
     }
 
 If everything is ok, it returns STATUS 200 with data:
@@ -265,33 +244,87 @@ over the given event.
 Receives similar data to POST /auth-event. Requires user
 with permission `admin-auth-event` over the given event.
 
-## POST /authmethod/:authmethod/register/:id
+## GET /auth-event/#auid/census
 
-Provides authentication. Depending on the auth-method used, the
-input details needed may vary. If authentication is successful, it returns
-STATUS 200 with data:
+Perms: object_type: 'AuthEvent', perm: 'edit', oject_id: auid
 
-    {
-      "auth-token": "khmac:///sha-256;deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/userid:timestamp"
-    }
+Description: Get census of auth-event id.
+
+## POST /auth-event/#auid/census
+
+Perms: object_type: 'AuthEvent', perm: 'edit', oject_id: auid
+
+Description: import census data by administrator.
+When new user register, check if there is enough credits.
+When create users, the administrator will get perms 'edit' about new users.
+
+Request: 
+    [
+        {
+            "tlf": "+34666666666", 
+            "dni": "11111111H", 
+            "email": "foo@test.com",  
+        },
+        { 
+            "tlf": "+3377777777", 
+            "dni": "22222222P", 
+            "email": "bar@test.com",  
+        },
+        ..
+    ]
+
+Response: status 200 or status 400 if error
+
+## POST auth-event/#auid/census/send_auth
+
+Perms: object_type: 'AuthEvent', perm: 'edit', oject_id: auid
+
+Description: sends sms/emails (depending on auth method) to the census of an open election for authentication
+
+Request:
+{
+    "user-ids": [],
+    "template": "template with __CODE__ and the link is__LINK__"
+}
+
+Response: status 200
+
+## POST /auth-event/#auid/register
+
+Perms: none
+
+Description: Provides authentication. Depending on the auth-method used, the
+input details needed may vary:
+
+Request:
+        {
+            "tlf": "+34666666666", 
+            "dni": "11111111H", 
+            "email": "foo@test.com",  
+        }
+
+Response: status 200 or status 400 if error
 
 Depending on the authentication method, the authentication process might
 involve more steps and thus it might be delayed. For example, when using
-sms-code auth method, a valid answer will be an empty STATUS 200.
+sms auth method, a valid answer will be an empty STATUS 200.
 
-## POST /authmethod/:authmethod/validate/:id
+## POST /auth-event/#auid/authenticate
 
-Allows an user to verify its SMS code. A valid input could be:
+Perms: none
 
+Description: Allows an user to verify if sms or email code and login.
+If #auid if 0, 'user-and-password method is used.
+
+Request:
     {
         "dni": "11111111H",
         "mail": "test@agoravoting.com",
         "tlf": "+34666666666",
-        "sms-code": "deadbeef"
+        "code": "deadbeef"
     }
 
-A valid answer would be a STATUS 200 with the following data:
-
+Response: If authenticate is successful, it returns STATUS 200 with data:
     {
       "auth-token": "khmac:///sha-256;deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/userid:timestamp"
     }
@@ -324,6 +357,42 @@ A valid answer would be a STATUS 200 with the following data:
     {
       "status": "ok",
       "id": 1
+    }
+
+## GET /user/#id
+
+Perms: object_type: 'UserData', perm: 'view', oject_id: id
+
+Description: Get information of user, inclusive UserData.
+
+## GET /available-prices
+
+Perms: none
+
+Description: Get information about prices
+
+## GET /available-payment-methods
+
+Perms: none
+
+Description: Get information about payment methods
+
+## POST /user/#id/add-credits
+
+Perms: object_type: 'UserData', perm: 'edit', oject_id: id
+
+Description: Allows a login user create new add_credits action.
+
+Request: 
+    {
+        "pack_id": 0,
+        "num_credits": 500,
+        "payment_method": "paypal"
+    }
+
+Response:
+    {
+        "paypal_url": "foo"
     }
 
 # Utils Commands
