@@ -32,5 +32,5 @@ class Connection(models.Model):
 
 class Code(models.Model):
     user = models.ForeignKey(UserData, related_name="codes")
-    code = models.CharField(max_length=16)
+    code = models.CharField(max_length=64)
     created = models.DateTimeField(auto_now_add=True)

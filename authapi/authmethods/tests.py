@@ -88,16 +88,6 @@ class AuthMethodEmailTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
 
-    def _test_method_email_valid_code(self):
-        code = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
-
-        c = JClient()
-        data = { 'userid': self.userid, 'code': code }
-        response = c.authenticate(self.aeid, data)
-        self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['status'], 'ok')
-
     def test_method_email_invalid_code(self):
         code = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 
@@ -149,10 +139,6 @@ class AuthMethodSmsTestCase(TestCase):
         code.save()
         m = Message(tlf=u.userdata.tlf)
         m.save()
-        pipe = auth_method_config.get('pipeline').get('authenticate-pipeline')
-        for p in pipe:
-            if p[0] == 'check_total_connection':
-                self.times = p[1].get('times')
 
         u2 = User(pk=2, username='test2', email='test2@agoravoting.com')
         u2.is_active = False
@@ -164,17 +150,6 @@ class AuthMethodSmsTestCase(TestCase):
         code = Code(user=u2.userdata, code='AAAAAAAA')
         code.save()
         self.c = JClient()
-        pipe = auth_method_config.get('pipeline').get('register-pipeline')
-        for p in pipe:
-            if p[0] == 'check_total_max':
-                if p[1].get('field') == 'tlf':
-                    if p[1].get('period'):
-                        self.period_tlf = p[1].get('period')
-                        self.total_max_tlf_period = p[1].get('max')
-                    else:
-                        self.total_max_tlf = p[1].get('max')
-                elif p[1].get('field') == 'ip':
-                    self.total_max_ip = p[1].get('max')
 
     @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
                        CELERY_ALWAYS_EAGER=True,
@@ -216,7 +191,7 @@ class AuthMethodSmsTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertNotEqual(r['msg'].find('email regex incorrect'), -1)
 
-    def _test_method_sms_valid_code(self):
+    def test_method_sms_valid_code(self):
         data = {'tlf': '+34666666666', 'code': 'AAAAAAAA', 'dni': '11111111H', 'email': 'test@test.com'}
         response = self.c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 200)
@@ -225,31 +200,31 @@ class AuthMethodSmsTestCase(TestCase):
         self.assertGreaterEqual(Connection.objects.filter(tlf='+34666666666').count(), 1)
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
 
-    def _test_method_sms_valid_code_timeout(self): # Fix
-        time.sleep(self.timestamp)
+    def test_method_sms_valid_code_timeout(self): # Fix
+        time.sleep(test_data.pipe_timestamp)
         data = {'tlf': '+34666666666', 'code': 'AAAAAAAA', 'dni': '11111111H', 'email': 'test@test.com'}
         response = self.c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Timeout.')
+        self.assertEqual(r['message'], 'Invalid code.')
 
-    def _test_method_sms_invalid_code(self):
+    def test_method_sms_invalid_code(self):
         data = {'tlf': '+34666666666', 'code': 'BBBBBBBB', 'dni': '11111111H', 'email': 'test@test.com'}
         response = self.c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['message'], 'Invalid code.')
 
-    def _test_method_sms_invalid_code_x_times(self):
-        for i in range(self.times + 1):
+    def test_method_sms_invalid_code_x_times(self):
+        for i in range(test_data.pipe_times + 1):
             data = {'tlf': '+34666666666', 'code': 'BBBBBBBB', 'dni': '11111111H', 'email': 'test@test.com'}
             response = self.c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['message'], 'Exceeded the level os attempts')
 
-    def _test_method_sms_get_perm(self): # Fix
-        auth = { 'tlf': '+34666666666', 'code': 'AAAAAA',
+    def test_method_sms_get_perm(self): # Fix
+        auth = { 'tlf': '+34666666666', 'code': 'AAAAAAAA',
                 'email': 'test@agoravoting.com', 'dni': '11111111H'}
         data1 = { "object_type": "Vote", "permission": "create", "object_id":
                 self.aeid}
@@ -271,11 +246,9 @@ class AuthMethodSmsTestCase(TestCase):
         response = self.c.post('/api/get-perms/', data2)
         self.assertEqual(response.status_code, 400)
 
-    def _test_method_sms_authenticate_valid_code(self):
-        data = {
-                'email': 'test1@agoravoting.com',
-                'code': 'AAAAAA'
-        }
+    def test_method_sms_authenticate_valid_code(self):
+        data = { 'tlf': '+34666666666', 'code': 'AAAAAAAA',
+                'email': 'test@agoravoting.com', 'dni': '11111111H'}
         response = self.c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
@@ -296,7 +269,7 @@ class AuthMethodSmsTestCase(TestCase):
         data = {'tlf': '+34666666666', 'code': 'AAAAAA',
                 'email': 'test@test.com', 'dni': '11111111H'}
         x = 0
-        while x < self.total_max_tlf + 1:
+        while x < test_data.pipe_total_max_tlf + 1:
             x += 1
             response = self.c.register(self.aeid, data)
         response = self.c.register(self.aeid, data)
@@ -307,17 +280,17 @@ class AuthMethodSmsTestCase(TestCase):
     @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
                        CELERY_ALWAYS_EAGER=True,
                        BROKER_BACKEND='memory')
-    def _test_method_sms_register_max_tlf_period(self):
+    def test_method_sms_register_max_tlf_period(self):
         data = {'tlf': '+34666666666', 'code': 'AAAAAA',
                 'email': 'test@test.com', 'dni': '11111111H'}
         x = 0
         time_now = time.time()
-        while x < self.total_max_tlf_period + 1:
+        while x < test_data.pipe_total_max_tlf_with_period + 1:
             x += 1
             response = self.c.register(self.aeid, data)
         response = self.c.register(self.aeid, data)
         total_time = time.time() - time_now
-        if total_time < self.period_tlf:
+        if total_time < test_data.pipe_total_max_period:
             self.assertEqual(response.status_code, 400)
             r = json.loads(response.content.decode('utf-8'))
             self.assertNotEqual(r['message'].find('Blacklisted'), -1)

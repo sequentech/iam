@@ -56,11 +56,11 @@ def check_sms_code(data, req, **kwargs):
     u = User.objects.get(userdata__tlf=req['tlf'], userdata__event=ae)
     data['user'] = u.pk
     time_thr = timezone.now() - timedelta(seconds=kwargs.get('timestamp'))
-    code = Code.objects.get(user=u.pk, code=req.get('code'),
-            created__gt=time_thr)
-    if not code:
-        return error('Invalid code', error_codename='check_sms_code')
-
+    try:
+        code = Code.objects.get(user=u.pk, code=req.get('code'),
+                created__gt=time_thr)
+    except:
+        return error('Invalid code.', error_codename='check_sms_code')
     return 0
 
 

@@ -160,6 +160,13 @@ auth_sms_fields = {
 }
 
 # Authmethod config
+pipe_total_max_ip =  8
+pipe_total_max_tlf = 3
+pipe_total_max_tlf_with_period = 60
+pipe_total_max_period = 60
+pipe_times = 5
+pipe_timestamp = 5
+
 authmethod_config_email_default = {
         "config": {
             "subject": "Confirm your email",
@@ -169,10 +176,10 @@ authmethod_config_email_default = {
             "register-pipeline": [
                 ["check_whitelisted", {"field": "ip"}],
                 ["check_blacklisted", {"field": "ip"}],
-                ["check_total_max", {"field": "ip", "max": 8}],
+                ["check_total_max", {"field": "ip", "max": pipe_total_max_ip}],
             ],
             "authenticate-pipeline": [
-                ['check_total_connection', {'times': 5 }],
+                ['check_total_connection', {'times': pipe_times }],
             ]
         }
 }
@@ -194,13 +201,13 @@ authmethod_config_sms_default = {
                 ["check_whitelisted", {"field": "ip"}],
                 ["check_blacklisted", {"field": "ip"}],
                 ["check_blacklisted", {"field": "tlf"}],
-                ["check_total_max", {"field": "ip", "max": 8}],
-                ["check_total_max", {"field": "tlf", "max": 7}],
-                ["check_total_max", {"field": "tlf", "period": 60, "max": 3}],
+                ["check_total_max", {"field": "ip", "max": pipe_total_max_ip}],
+                ["check_total_max", {"field": "tlf", "max": pipe_total_max_tlf}],
+                ["check_total_max", {"field": "tlf", "period": pipe_total_max_period, "max": pipe_total_max_tlf_with_period}],
             ],
             "authenticate-pipeline": [
-                ['check_total_connection', {'times': 5 }],
-                ['check_sms_code', {'timestamp': 5 }]
+                ['check_total_connection', {'times': pipe_times }],
+                ['check_sms_code', {'timestamp': pipe_timestamp }]
             ]
         }
 }
