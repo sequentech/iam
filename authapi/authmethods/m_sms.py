@@ -3,6 +3,7 @@ from django.conf import settings
 from django.conf.urls import patterns, url
 from django.contrib.auth.models import User
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from utils import genhmac, constant_time_compare, send_code
 
@@ -53,25 +54,13 @@ def check_sms_code(data, req, **kwargs):
 
     # check code
     u = User.objects.get(userdata__tlf=req['tlf'], userdata__event=ae)
-    code = Code.objects.filter(user=u.userdata)
-    if not code:
-        return error('Not exist any code.', error_codename='check_sms_code')
-    else:
-        code = code.last()
-
-    # check code constant_time
-    if not constant_time_compare(code.code, req.get('code')):
-        return error('Invalid code.', error_codename='check_sms_code')
-
-    # check timestamp
+    data['user'] = u.pk
     time_thr = timezone.now() - timedelta(seconds=kwargs.get('timestamp'))
-    if not Message.objects.filter(tlf=req.get('tlf'), created__gt=time_thr):
-        return error('Timeout.', error_codename='check_sms_code')
+    code = Code.objects.get(user=u.pk, code=req.get('code'),
+            created__gt=time_thr)
+    if not code:
+        return error('Invalid code', error_codename='check_sms_code')
 
-    user = code.user
-    user.is_active = True
-    data['user'] = user
-    user.save()
     return 0
 
 
@@ -179,15 +168,12 @@ class Sms:
                 data['status'] = check.status_code
                 return data
 
+        u = get_object_or_404(User, pk=data['user'])
+        u.is_active = True
+        u.save()
         data.pop('user')
 
-        email = req['email']
-        try:
-            u = User.objects.filter(email=email)[0]
-        except:
-            return self.authenticate_error()
-        u.is_active = True
         data['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
-        return d
+        return data
 
 register_method('sms', Sms)

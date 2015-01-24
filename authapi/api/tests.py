@@ -569,7 +569,9 @@ class TestRegisterAndAuthenticateSMS(TestCase):
             object_id=self.aeid)
         acl.save()
 
-        self.code = Code(u.userdata, test_data.auth_sms_default['code'])
+        c = Code(user=u.userdata, code=test_data.auth_sms_default['code'])
+        c.save()
+        self.code = c
 
     def test_add_census_authevent_sms_default(self):
         c = JClient()
@@ -593,13 +595,17 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.register(self.aeid, test_data.register_sms_fields)
         self.assertEqual(response.status_code, 200)
 
-    def _test_authenticate_authevent_sms_default(self):
+    def test_authenticate_authevent_sms_default(self):
         c = JClient()
         response = c.authenticate(self.aeid, test_data.auth_sms_default)
         self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
 
-    def _test_authenticate_authevent_sms_fields(self):
+    def test_authenticate_authevent_sms_fields(self):
         c = JClient()
         self.u.metadata = {"name": test_data.auth_sms_fields['name']}
         response = c.authenticate(self.aeid, test_data.auth_sms_fields)
         self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
