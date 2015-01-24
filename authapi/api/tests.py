@@ -2,15 +2,14 @@ import time
 import json
 from django.test import TestCase
 from django.test import Client
-from utils import verifyhmac
+from django.test.utils import override_settings
 from django.conf import settings
-
-
 from django.contrib.auth.models import User
-from .models import ACL, AuthEvent
-from authmethods.models import Code
 
 from . import test_data
+from .models import ACL, AuthEvent
+from authmethods.models import Code
+from utils import verifyhmac
 
 class JClient(Client):
     def __init__(self, *args, **kwargs):
@@ -431,23 +430,26 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         ae.save()
         self.aeid = ae.pk
 
-        u_email = User(username=test_data.admin['username'])
-        u_email.set_password(test_data.admin['password'])
-        u_email.save()
-        u_email.userdata.event = ae
-        u_email.userdata.save()
-        self.u_email = u_email.userdata
+        u_admin = User(username=test_data.admin['username'])
+        u_admin.set_password(test_data.admin['password'])
+        u_admin.save()
+        u_admin.userdata.event = ae
+        u_admin.userdata.save()
 
-        acl = ACL(user=u_email.userdata, object_type='AuthEvent', perm='edit',
+        acl = ACL(user=u_admin.userdata, object_type='AuthEvent', perm='edit',
             object_id=self.aeid)
         acl.save()
 
-        u = User(username=test_data.auth_email_default['email'])
+        u = User(email=test_data.auth_email_default['email'])
         u.is_active = False
         u.save()
         u.userdata.event = ae
         u.userdata.save()
         self.u = u.userdata
+
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit',
+            object_id=self.aeid)
+        acl.save()
 
         c = Code(user=u.userdata, code=test_data.auth_email_default['code'])
         c.save()
@@ -496,12 +498,12 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.register(self.aeid, test_data.register_sms_default)
         self.assertEqual(response.status_code, 400)
 
-    def _test_authenticate_authevent_email_default(self):
+    def test_authenticate_authevent_email_default(self):
         c = JClient()
         response = c.authenticate(self.aeid, test_data.auth_email_default)
         self.assertEqual(response.status_code, 200)
 
-    def _test_authenticate_authevent_email_fields(self):
+    def test_authenticate_authevent_email_fields(self):
         c = JClient()
         self.u.metadata = {"name": test_data.auth_email_fields['name']}
         self.u.save()
