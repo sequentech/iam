@@ -8,7 +8,7 @@ from .models import AuthEvent, ACL
 from utils import send_code
 
 @celery.task
-def census_send_auth_task(pk, templ):
+def census_send_auth_task(pk, templ=None):
     """
     Send an auth token to census
     """

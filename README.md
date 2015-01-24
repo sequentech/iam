@@ -303,10 +303,11 @@ Response: status 200 or status 400 if error
 Perms: object_type: 'AuthEvent', perm: 'edit', oject_id: auid
 
 Description: sends sms/emails (depending on auth method) to the census of an open election for authentication
+If template None, will use the dafult template.
 
 Request:
 {
-    "user-ids": [],
+    "user-ids": [], # Still not implemented
     "template": "template with __CODE__ and the link is__LINK__"
 }
 

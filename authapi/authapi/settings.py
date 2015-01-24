@@ -135,7 +135,7 @@ AVAILABLE_PAYMENT_METHODS = ["paypal"]
 SMS_PROVIDER = "console"
 MAX_AUTH_MSG_SIZE = {
   "sms": 120,
-  "emails": 10000
+  "email": 10000
 }
 
 SMS_BASE_TEMPLATE = "%s . Using Agora Voting"
