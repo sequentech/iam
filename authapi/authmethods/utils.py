@@ -280,6 +280,9 @@ def create_user(req, ae):
     if req.get('email'):
         u.email = req.get('email')
         req.pop('email')
+    if req.get('tlf'):
+        u.userdata.tlf = req.get('tlf')
+        req.pop('tlf')
 
     u.userdata.event = ae
     u.userdata.metadata = json.dumps(req)

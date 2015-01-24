@@ -140,10 +140,10 @@ def send_email(subject, msg, mail_from, mails_to):
 
 
 @celery.task
-def send_sms_code(data, conf):
+def send_sms_code(receiver, msg, conf):
     from authmethods.sms_provider import SMSProvider
     con = SMSProvider.get_instance(conf)
-    con.send_sms(receiver=data['tlf'], content=conf['sms-message'], is_audio=False)
+    con.send_sms(receiver=receiver, content=msg, is_audio=False)
 
 def send_code(user, templ=None):
     '''
@@ -164,8 +164,7 @@ def send_code(user, templ=None):
     code = generate_code(user.userdata)
 
     if auth_method == "sms":
-        meta = json.loads(user.userdata.metadata)
-        receiver = meta.get("tlf", None)
+        receiver = user.userdata.tlf
         url = settings.SMS_AUTH_CODE_URL % dict(authid=event_id, code=code)
     else: # email
         receiver = user.email
@@ -186,9 +185,7 @@ def send_code(user, templ=None):
     msg = base_msg % raw_msg
 
     if auth_method == "sms":
-        from authmethods.sms_provider import SMSProvider
-        con = SMSProvider.get_instance(conf)
-        con.send_sms(receiver=receiver, content=msg, is_audio=False)
+        send_sms_code(receiver, msg, conf)
         m = Message(tlf=receiver)
         m.save()
     else: # email

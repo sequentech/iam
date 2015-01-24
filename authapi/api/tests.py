@@ -547,23 +547,27 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         ae.save()
         self.aeid = ae.pk
 
-        u_sms = User(username=test_data.admin['username'])
-        u_sms.set_password(test_data.admin['password'])
-        u_sms.save()
-        u_sms.userdata.event = ae
-        u_sms.userdata.save()
-        self.u_sms = u_sms.userdata
+        u_admin = User(username=test_data.admin['username'])
+        u_admin.set_password(test_data.admin['password'])
+        u_admin.save()
+        u_admin.userdata.event = ae
+        u_admin.userdata.save()
 
-        acl = ACL(user=u_sms.userdata, object_type='AuthEvent', perm='edit',
+        acl = ACL(user=u_admin.userdata, object_type='AuthEvent', perm='edit',
             object_id=self.aeid)
         acl.save()
 
-        u = User(username=test_data.auth_sms_default['tlf'])
+        u = User()
         u.is_active = False
         u.save()
         u.userdata.event = ae
+        u.userdata.tlf = test_data.auth_sms_default['tlf']
         u.userdata.save()
         self.u = u.userdata
+
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit',
+            object_id=self.aeid)
+        acl.save()
 
         self.code = Code(u.userdata, test_data.auth_sms_default['code'])
 

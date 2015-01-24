@@ -141,15 +141,13 @@ class AuthMethodSmsTestCase(TestCase):
         u = User(pk=1, username='test1', email='test1@agoravoting.com')
         u.save()
         u.userdata.event = ae
-        u.userdata.metadata = json.dumps({
-                'tlf': '+34666666666',
-                'dni': '11111111H',
-        })
+        u.userdata.tlf = '+34666666666'
+        u.userdata.metadata = json.dumps({ 'dni': '11111111H' })
         u.userdata.save()
         self.u = u.userdata
         code = Code(user=u.userdata, code='AAAAAAAA')
         code.save()
-        m = Message(tlf='+34666666666')
+        m = Message(tlf=u.userdata.tlf)
         m.save()
         pipe = auth_method_config.get('pipeline').get('authenticate-pipeline')
         for p in pipe:
@@ -159,11 +157,9 @@ class AuthMethodSmsTestCase(TestCase):
         u2 = User(pk=2, username='test2', email='test2@agoravoting.com')
         u2.is_active = False
         u2.save()
+        u2.userdata.tlf = '+34766666666'
         u2.userdata.event = ae
-        u2.userdata.metadata = json.dumps({
-                'tlf': '+34766666666',
-                'dni': '11111111H',
-        })
+        u2.userdata.metadata = json.dumps({ 'dni': '11111111H' })
         u2.userdata.save()
         code = Code(user=u2.userdata, code='AAAAAAAA')
         code.save()

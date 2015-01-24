@@ -52,11 +52,7 @@ def check_sms_code(data, req, **kwargs):
     ae = AuthEvent.objects.get(pk=data['event'])
 
     # check code
-    if req.get('email'):
-        u = User.objects.get(email=req['email'], userdata__event=ae)
-    else:
-        # TODO: search tlf in metadata
-        u = User.objects.filter(userdata__event=ae)[0]
+    u = User.objects.get(userdata__tlf=req['tlf'], userdata__event=ae)
     code = Code.objects.filter(user=u.userdata)
     if not code:
         return error('Not exist any code.', error_codename='check_sms_code')

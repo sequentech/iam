@@ -58,6 +58,7 @@ STATUSES = (
 class UserData(models.Model):
     user = models.OneToOneField(User, related_name="userdata")
     event = models.ForeignKey(AuthEvent, related_name="userdata", null=True)
+    tlf = models.CharField(max_length=20, null=True)
     credits = models.FloatField(default=0)
     metadata = JSONField(default="{}")
     status = models.CharField(max_length=255, choices=STATUSES, default="act")
@@ -76,9 +77,12 @@ class UserData(models.Model):
     def serialize(self):
         d = {
             'username': self.user.username,
-            'email': self.user.email,
             'credits': self.credits,
         }
+        if self.user.email:
+            d['email'] = self.user.email
+        if self.tlf:
+            d['tlf'] = self.tlf
         return d
 
     def __str__(self):
