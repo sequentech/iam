@@ -91,7 +91,8 @@ Basic Database tables:
     * user_id: string (255) foreign key, to  User.id, required
     * perm: string (255) title of the permitted action. required
     * object_type: string (255) type of object to which the user is granted permission to. required
-    * object_id: string (255) object related to which the user is granted permission to
+    * object_id: string (255) object related to which the user is granted permission to id
+      (default=0) mean permission in all id
 * CreditsAction
     * user: userdata associate
     * action: choice add or spend
@@ -129,7 +130,16 @@ Provides authentication using an SMS code.
 
 Requires a session auth-token set in the AuthToken header. Requests a given
 permission to a given object type and object id  (object id not required).
-Example:
+
+IMPORTANT NOTE: if not especific id, default_id is 0. if id is 0, the user have permission about all id
+
+Request:
+    {
+      "user": "someone"
+      "object_type": "User",
+      "permission": "create",
+      "object_id": id
+    }
 
     {
       "permission": "create",
@@ -137,34 +147,41 @@ Example:
       "object_id": "deadbeef"
     }
 
-If successful, returns a keyed-HMAC permission token:
+Response: If successful, returns a keyed-HMAC permission token:
 
     {
       "permission-token": "khmac:///sha-256;deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/userid:User:deadbeef:create:timestamp"
     }
 
-## GET /acl/:userid/:object_type/:perm/
+## GET /acl/:username/:object_type/:perm/:object_id
+
+Description: object_id is optinal paramameter, if not especific, default will be 0
 
 If successful, return: { "perm": True } if not { "perm": False }
 
 ## POST /acl
 
 Required user with write permission for give permissions. Create an ACL entry.
-Example:
 
-{
-  "user": "someone"
-  "object_type": "User",
-  "permission": "create",
-}
+IMPORTANT NOTE: if not especific id, default_id is 0. if id is 0, the user have permission about all id
 
-If everything is ok, it returns STATUS 200
+Request:
+    {
+      "user": "someone"
+      "object_type": "User",
+      "permission": "create",
+      "object_id": id
+    }
+
+Response: If everything is ok, it returns STATUS 200
 
 ## DELETE /acl
 
 Required user with write permission for delete permissions. Delete an ACL entry.
-Example:
 
+IMPORTANT NOTE: if not especific id, default_id is 0. if id is 0, the user have permission about all id
+
+Request:
 {
   "user": "someone"
   "object_type": "User",

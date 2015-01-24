@@ -16,10 +16,10 @@ from .tasks import census_send_auth_task
 from django.db.models import Q
 
 
-def permission_required(user, object_type, permission, object_id=None):
+def permission_required(user, object_type, permission, object_id=0):
     if user.is_superuser:
         return
-    if object_id and user.userdata.has_perms(object_type, permission, None):
+    if object_id and user.userdata.has_perms(object_type, permission, 0):
         return
     if not user.userdata.has_perms(object_type, permission, object_id):
         raise PermissionDenied('Permission required: ' + permission)
@@ -157,17 +157,14 @@ class GetPerms(View):
 
         object_type = req['object_type']
         perm = req['permission']
-        obj_id = req.get('object_id', None)
+        obj_id = req.get('object_id', 0)
 
         if not request.user.is_superuser and\
                 not request.user.userdata.has_perms(object_type, perm, obj_id):
             jsondata = json.dumps(data)
             return HttpResponse(jsondata, status=400, content_type='application/json')
 
-        if obj_id is None:
-            msg = ':'.join((request.user.username, object_type, perm))
-        else:
-            msg = ':'.join((request.user.username, object_type, str(obj_id), perm))
+        msg = ':'.join((request.user.username, object_type, str(obj_id), perm))
 
         data['permission-token'] = genhmac(settings.SHARED_SECRET, msg)
         jsondata = json.dumps(data)
@@ -178,7 +175,7 @@ getperms = login_required(GetPerms.as_view())
 class ACLView(View):
     ''' Returns the permission token if the user has this perm '''
 
-    def delete(self, request, username, object_type, perm, object_id=None):
+    def delete(self, request, username, object_type, perm, object_id=0):
         permission_required(request.user, 'ACL', 'delete')
         u = get_object_or_404(User, username=username)
         for acl in u.userdata.get_perms(object_type, perm, object_id):
@@ -187,7 +184,7 @@ class ACLView(View):
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
 
-    def get(self, request, username, object_type, perm, object_id=None):
+    def get(self, request, username, object_type, perm, object_id=0):
         permission_required(request.user, 'ACL', 'view')
         data = {'status': 'ok'}
         u = get_object_or_404(User, username=username)
@@ -210,7 +207,8 @@ class ACLView(View):
         u = User.objects.get(pk=req['userid'])
         for perm in req['perms']:
             user = get_object_or_404(UserData, user__username=perm['user'])
-            acl = ACL(user=user, perm=perm['perm'], object_type=perm['object_type'])
+            acl = ACL(user=user, perm=perm['perm'], object_type=perm['object_type'],
+                    object_id=perm.get('object_id', 0))
             acl.save()
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')

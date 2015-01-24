@@ -255,15 +255,18 @@ class AuthMethodSmsTestCase(TestCase):
     def _test_method_sms_get_perm(self): # Fix
         auth = { 'tlf': '+34666666666', 'code': 'AAAAAA',
                 'email': 'test@agoravoting.com', 'dni': '11111111H'}
-        data1 = { "object_type": "Vote", "permission": "create", }
-        data2 = { "object_type": "Vote", "permission": "remove", }
+        data1 = { "object_type": "Vote", "permission": "create", "object_id":
+                self.aeid}
+        data2 = { "object_type": "Vote", "permission": "remove", "object_id":
+                self.aeid}
 
         response = self.c.post('/api/get-perms', data1)
         self.assertEqual(response.status_code, 301)
         response = self.c.post('/api/get-perms', data2)
         self.assertEqual(response.status_code, 301)
 
-        acl = ACL(user=self.u, object_type='Vote', perm='create')
+        acl = ACL(user=self.u, object_type='Vote', perm='create',
+                object_id=self.aeid)
         acl.save()
         response = self.c.authenticate(self.aeid, auth)
         self.assertEqual(response.status_code, 200)

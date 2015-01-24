@@ -71,26 +71,25 @@ class ApiTestCase(TestCase):
         self.testuser = u
         self.aeid = ae.pk
 
-        acl = ACL(user=u.userdata, object_type='User', perm='create')
+        acl = ACL(user=u.userdata, object_type='User', perm='create', object_id=0)
         acl.save()
 
-        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='create')
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='create', object_id=0)
         acl.save()
 
-        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='view')
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='view', object_id=0)
         acl.save()
 
-        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit',
-                object_id=self.aeid)
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit', object_id=self.aeid)
         acl.save()
 
-        acl = ACL(user=u.userdata, object_type='ACL', perm='delete')
+        acl = ACL(user=u.userdata, object_type='ACL', perm='delete', object_id=0)
         acl.save()
 
-        acl = ACL(user=u.userdata, object_type='ACL', perm='view')
+        acl = ACL(user=u.userdata, object_type='ACL', perm='view', object_id=0)
         acl.save()
 
-        acl = ACL(user=u.userdata, object_type='ACL', perm='create')
+        acl = ACL(user=u.userdata, object_type='ACL', perm='create', object_id=0)
         acl.save()
 
     def test_change_status(self):
@@ -360,7 +359,8 @@ class TestAuthEvent(TestCase):
         u2.save()
         u2.userdata.save()
 
-        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='create')
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='create',
+                object_id=0)
         acl.save()
 
     def test_create_auth_event_without_perm(self):
@@ -376,7 +376,8 @@ class TestAuthEvent(TestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_create_auth_event_with_perm(self):
-        acl = ACL(user=self.user.userdata, object_type='AuthEvent', perm='create')
+        acl = ACL(user=self.user.userdata, object_type='AuthEvent',
+                perm='create', object_id=0)
         acl.save()
 
         c = JClient()

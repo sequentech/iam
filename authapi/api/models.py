@@ -62,7 +62,7 @@ class UserData(models.Model):
     metadata = JSONField(default="{}")
     status = models.CharField(max_length=255, choices=STATUSES, default="act")
 
-    def get_perms(self, obj, permission, object_id=None):
+    def get_perms(self, obj, permission, object_id=0):
         q = Q(object_type=obj, perm=permission)
         q2 = Q(object_id=object_id)
         if not object_id:
@@ -70,7 +70,7 @@ class UserData(models.Model):
 
         return self.acls.filter(q & q2)
 
-    def has_perms(self, obj, permission, object_id=None):
+    def has_perms(self, obj, permission, object_id=0):
         return bool(self.get_perms(obj, permission, object_id).count())
 
     def serialize(self):
@@ -94,7 +94,7 @@ class ACL(models.Model):
     user = models.ForeignKey(UserData, related_name="acls")
     perm = models.CharField(max_length=255)
     object_type = models.CharField(max_length=255, null=True)
-    object_id = models.CharField(max_length=255, null=True, blank=True)
+    object_id = models.CharField(max_length=255, default=0)
 
     def serialize(self):
         d = {
