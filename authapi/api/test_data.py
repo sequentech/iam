@@ -47,7 +47,7 @@ auth_event2 = {
             "required": False,
             "max": 2,
             "max": 64,
-            "required_on_authentication": True
+            "required_on_authentication": False
             },
             {
             "name": "email",

@@ -7,7 +7,8 @@ from string import ascii_letters, digits
 from utils import genhmac, constant_time_compare, send_code
 
 from . import register_method
-from authmethods.utils import check_census, create_user, check_fields_in_request, is_user_repeat
+from authmethods.utils import check_census, create_user, is_user_repeat
+from authmethods.utils import check_metadata, check_fields_in_request
 from api.models import AuthEvent, ACL
 from authmethods.models import Code
 
@@ -95,6 +96,11 @@ class Email:
             return self.authenticate_error()
         codedb = Code.objects.filter(user=u.userdata)[0].code
         if constant_time_compare(codedb, code):
+            msg = check_metadata(req, u)
+            if msg:
+                data = {'status': 'nok', 'msg': msg}
+                return data
+
             u.is_active = True
             u.save()
 

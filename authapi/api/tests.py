@@ -523,7 +523,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
 
     def test_authenticate_authevent_email_fields(self):
         c = JClient()
-        self.u.metadata = {"name": test_data.auth_email_fields['name']}
+        self.u.metadata = json.dumps({"name": test_data.auth_email_fields['name']})
         self.u.save()
         response = c.authenticate(self.aeid, test_data.auth_email_fields)
         self.assertEqual(response.status_code, 200)
@@ -573,6 +573,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
                 status='started',
                 census="open")
         ae.save()
+        self.ae = ae
         self.aeid = ae.pk
 
         u_admin = User(username=test_data.admin['username'])
@@ -650,7 +651,10 @@ class TestRegisterAndAuthenticateSMS(TestCase):
 
     def test_authenticate_authevent_sms_fields(self):
         c = JClient()
-        self.u.metadata = {"name": test_data.auth_sms_fields['name']}
+        self.ae.extra_fields = test_data.ae_sms_fields['extra_fields']
+        self.ae.save()
+        self.u.metadata = json.dumps({"name": test_data.auth_sms_fields['name']})
+        self.u.save()
         response = c.authenticate(self.aeid, test_data.auth_sms_fields)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))

@@ -179,6 +179,11 @@ class Sms:
                 return data
 
         u = get_object_or_404(User, pk=data['user'])
+        msg = check_metadata(req, u)
+        if msg:
+            data = {'status': 'nok', 'msg': msg}
+            return data
+
         u.is_active = True
         u.save()
         data.pop('user')

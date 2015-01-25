@@ -128,7 +128,7 @@ class AuthMethodSmsTestCase(TestCase):
         ae.save()
         self.aeid = ae.pk
 
-        u = User(pk=1, username='test1', email='test1@agoravoting.com')
+        u = User(pk=1, username='test1', email='test@test.com')
         u.save()
         u.userdata.event = ae
         u.userdata.tlf = '+34666666666'
@@ -225,7 +225,7 @@ class AuthMethodSmsTestCase(TestCase):
 
     def test_method_sms_get_perm(self): # Fix
         auth = { 'tlf': '+34666666666', 'code': 'AAAAAAAA',
-                'email': 'test@agoravoting.com', 'dni': '11111111H'}
+                'email': 'test@test.com', 'dni': '11111111H'}
         data1 = { "object_type": "Vote", "permission": "create", "object_id":
                 self.aeid}
         data2 = { "object_type": "Vote", "permission": "remove", "object_id":
@@ -248,7 +248,7 @@ class AuthMethodSmsTestCase(TestCase):
 
     def test_method_sms_authenticate_valid_code(self):
         data = { 'tlf': '+34666666666', 'code': 'AAAAAAAA',
-                'email': 'test@agoravoting.com', 'dni': '11111111H'}
+                'email': 'test@test.com', 'dni': '11111111H'}
         response = self.c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))

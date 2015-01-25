@@ -300,3 +300,19 @@ def create_user(req, ae):
     u.userdata.metadata = json.dumps(req)
     u.userdata.save()
     return u
+
+def check_metadata(req, user):
+    meta = json.loads(user.userdata.metadata)
+    for field in user.userdata.event.extra_fields:
+        if field.get('required_on_authentication'):
+            name = field.get('name')
+            if (name == 'email'):
+                if user.email != req.get(name):
+                    return "Incorrent authentication."
+            elif (name == 'tlf'):
+                if user.userdata.tlf != req.get(name):
+                    return "Incorrent authentication."
+            else:
+                if meta.get(name) != req.get(name):
+                    return "Incorrent authentication."
+    return ""
