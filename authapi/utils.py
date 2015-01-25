@@ -200,7 +200,7 @@ def send_code(user, templ=None):
         email.send()
 
 # CHECKERS AUTHEVENT
-VALID_FIELDS = ('name', 'type', 'required', 'regex', 'min', 'max',
+VALID_FIELDS = ('name', 'help', 'type', 'required', 'regex', 'min', 'max',
     'required_on_authentication')
 VALID_PIPELINES = ('check_whitelisted', 'check_blacklisted',
         'check_total_max', 'check_total_connection')
@@ -263,7 +263,7 @@ def check_sms_code(fields):
 
 def check_fields(key, value):
     msg = ''
-    if key == 'name':
+    if key == 'name' or key == 'help':
         if len(value) > 255:
             msg += "Invalid extra_fields: bad %s.\n" % key
     elif key == 'type':

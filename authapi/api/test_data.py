@@ -8,6 +8,7 @@ auth_event1 = {
     "extra_fields": [
             {
             "name": "name",
+            "help": "put the name that appear in your dni",
             "type": "text",
             "required": True,
             "max": 2,
@@ -24,6 +25,7 @@ auth_event1 = {
             },
             {
             "name": "dni",
+            "help": "put the dni without dash",
             "type": "text",
             "required": True,
             "max": 9,
@@ -40,6 +42,7 @@ auth_event2 = {
     "extra_fields": [
             {
             "name": "name",
+            "help": "put the name that appear in your dni",
             "type": "text",
             "required": False,
             "max": 2,
@@ -56,6 +59,7 @@ auth_event2 = {
             },
             {
             "name": "dni",
+            "help": "put the dni without dash",
             "type": "text",
             "required": True,
             "max": 9,
@@ -244,6 +248,7 @@ ae_email_fields = {
     "extra_fields": [
             {
             "name": "name",
+            "help": "put the name that appear in your dni",
             "type": "text",
             "required": True,
             "max": 2,
@@ -328,6 +333,7 @@ ae_sms_fields = {
     "extra_fields": [
             {
             "name": "name",
+            "help": "put the name that appear in your dni",
             "type": "text",
             "required": True,
             "max": 2,
