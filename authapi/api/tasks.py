@@ -1,5 +1,6 @@
 from django.conf import settings
 from djcelery import celery
+from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
 
@@ -8,7 +9,7 @@ from .models import AuthEvent, ACL
 from utils import send_code
 
 @celery.task
-def census_send_auth_task(pk, templ=None):
+def census_send_auth_task(pk, templ=None, userids=None):
     """
     Send an auth token to census
     """
@@ -18,7 +19,12 @@ def census_send_auth_task(pk, templ=None):
         print("event is stopped, ignoring request..")
         return
 
-    census = ACL.objects.filter(perm="vote", object_type="AuthEvent", object_id=str(pk))
+    census = []
+    if userids is None:
+        census = ACL.objects.filter(perm="vote", object_type="AuthEvent", object_id=str(pk))
+    else:
+        for ids in userids:
+            census.append(get_object_or_404(User, pk=ids))
 
     for user in census:
         send_code(user, templ)

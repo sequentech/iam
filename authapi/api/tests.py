@@ -435,6 +435,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         u_admin.save()
         u_admin.userdata.event = ae
         u_admin.userdata.save()
+        self.uid_admin = u_admin.id
 
         acl = ACL(user=u_admin.userdata, object_type='AuthEvent', perm='edit',
             object_id=self.aeid)
@@ -446,6 +447,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         u.userdata.event = ae
         u.userdata.save()
         self.u = u.userdata
+        self.uid = u.id
 
         acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit',
             object_id=self.aeid)
@@ -553,6 +555,16 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, incorrect_tpl4)
         self.assertEqual(response.status_code, 400)
 
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_send_auth_email_specific(self):
+        tpl_specific = {"user-ids": [self.uid, self.uid_admin]}
+        c = JClient()
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, tpl_specific)
+        self.assertEqual(response.status_code, 200)
+
 
 class TestRegisterAndAuthenticateSMS(TestCase):
     def setUp(self):
@@ -568,6 +580,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         u_admin.save()
         u_admin.userdata.event = ae
         u_admin.userdata.save()
+        self.uid_admin = u_admin.id
 
         acl = ACL(user=u_admin.userdata, object_type='AuthEvent', perm='edit',
             object_id=self.aeid)
@@ -580,6 +593,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         u.userdata.tlf = test_data.auth_sms_default['tlf']
         u.userdata.save()
         self.u = u.userdata
+        self.uid = u.id
 
         acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit',
             object_id=self.aeid)
@@ -669,4 +683,12 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, incorrect_tpl4)
         self.assertEqual(response.status_code, 400)
 
-
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_send_auth_sms_specific(self):
+        tpl_specific = {"user-ids": [self.uid, self.uid_admin]}
+        c = JClient()
+        response = c.authenticate(self.aeid, test_data.auth_sms_default)
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, tpl_specific)
+        self.assertEqual(response.status_code, 200)

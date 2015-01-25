@@ -464,16 +464,17 @@ class CensusSendAuth(View):
         except:
             return HttpResponseBadRequest(invalid_json, content_type='application/json')
 
+        userids = req.get("user-ids", None)
         templ = req.get("template", None)
         if templ is None:
-            census_send_auth_task.apply_async(args=[pk])
+            census_send_auth_task.apply_async(args=[pk, templ, userids])
             return HttpResponse("", content_type='application/json')
 
         if type(templ) != str or len(templ) > settings.MAX_AUTH_MSG_SIZE[e.auth_method] or\
             not "__CODE__" in templ or not "__LINK__" in templ:
             return HttpResponseBadRequest(invalid_json, content_type='application/json')
 
-        census_send_auth_task.apply_async(args=[pk, templ])
+        census_send_auth_task.apply_async(args=[pk, templ, userids])
         return HttpResponse("", content_type='application/json')
 census_send_auth = login_required(CensusSendAuth.as_view())
 
