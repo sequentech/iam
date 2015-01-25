@@ -271,15 +271,27 @@ def check_census(req, ae):
     return msg
 
 
+def is_user_repeat(req, ae):
+    msg = ''
+    if ae.auth_method == 'email':
+        if len(User.objects.filter(email=req.get('email'), userdata__event=ae)):
+            msg += "Email %s repeat." % req.get('email')
+    elif ae.auth_method == 'sms':
+        if len(User.objects.filter(userdata__tlf=req.get('tlf'), userdata__event=ae)):
+            msg += "Tlf %s repeat." % req.get('tlf')
+    return msg
+
+
 def create_user(req, ae):
     user = random_username()
     u = User(username=user)
     u.is_active = False
-    u.save()
 
     if req.get('email'):
         u.email = req.get('email')
         req.pop('email')
+    u.save()
+
     if req.get('tlf'):
         u.userdata.tlf = req.get('tlf')
         req.pop('tlf')

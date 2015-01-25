@@ -483,6 +483,14 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.census(self.aeid, test_data.census_sms_fields)
         self.assertEqual(response.status_code, 400)
 
+    def test_add_census_authevent_email_repeat(self):
+        c = JClient()
+        c.authenticate(0, test_data.admin)
+        response = c.census(self.aeid, test_data.census_email_repeat)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], "Email %s repeat." % test_data.census_email_repeat[0]['email'])
+
     def test_add_register_authevent_email_default(self):
         c = JClient()
         response = c.register(self.aeid, test_data.register_email_default)
@@ -497,6 +505,14 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         c = JClient()
         response = c.register(self.aeid, test_data.register_sms_default)
         self.assertEqual(response.status_code, 400)
+
+    def test_add_register_authevent_email_repeat(self):
+        c = JClient()
+        c.authenticate(0, test_data.admin)
+        response = c.register(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], "Email %s repeat." % test_data.auth_email_default['email'])
 
     def test_authenticate_authevent_email_default(self):
         c = JClient()
@@ -585,6 +601,14 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.census(self.aeid, test_data.census_sms_fields)
         self.assertEqual(response.status_code, 200)
 
+    def test_add_census_authevent_sms_repeat(self):
+        c = JClient()
+        c.authenticate(0, test_data.admin)
+        response = c.census(self.aeid, test_data.census_sms_repeat)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], "Tlf %s repeat." % test_data.census_sms_repeat[0]['tlf'])
+
     def test_add_register_authevent_sms_default(self):
         c = JClient()
         response = c.register(self.aeid, test_data.register_sms_default)
@@ -594,6 +618,14 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         c = JClient()
         response = c.register(self.aeid, test_data.register_sms_fields)
         self.assertEqual(response.status_code, 200)
+
+    def test_add_register_authevent_sms_repeat(self):
+        c = JClient()
+        c.authenticate(0, test_data.admin)
+        response = c.register(self.aeid, test_data.auth_sms_default)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], "Tlf %s repeat." % test_data.auth_sms_default['tlf'])
 
     def test_authenticate_authevent_sms_default(self):
         c = JClient()

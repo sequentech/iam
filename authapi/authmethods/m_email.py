@@ -7,7 +7,7 @@ from string import ascii_letters, digits
 from utils import genhmac, constant_time_compare, send_code
 
 from . import register_method
-from authmethods.utils import check_census, create_user, check_fields_in_request
+from authmethods.utils import check_census, create_user, check_fields_in_request, is_user_repeat
 from api.models import AuthEvent, ACL
 from authmethods.models import Code
 
@@ -38,11 +38,17 @@ class Email:
             data = {'status': 'nok', 'msg': msg}
             return data
         for r in req:
+            msg += is_user_repeat(r, ae)
+            if msg:
+                continue
             u = create_user(r, ae)
             # add perm
             acl = ACL(user=u.userdata, object_type='UserData', perm='edit', object_id=u.pk)
             acl.save()
-        data = {'status': 'ok'}
+        if msg:
+            data = {'status': 'nok', 'msg': msg}
+        else:
+            data = {'status': 'ok'}
         return data
 
     def register(self, ae, request):
@@ -52,6 +58,10 @@ class Email:
             data = {'status': 'nok', 'msg': msg}
             return data
 
+        msg = is_user_repeat(req, ae)
+        if msg:
+            data = {'status': 'nok', 'msg': msg}
+            return data
         u = create_user(req, ae)
         # add perm
         acl = ACL(user=u.userdata, object_type='UserData', perm='edit', object_id=u.pk)

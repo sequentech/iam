@@ -100,17 +100,22 @@ admin = {'username': 'john', 'password': 'smith'}
 
 # Census
 census_email_default = [
-        {"email": "aaaa@aaa.com"},
         {"email": "baaa@aaa.com"},
         {"email": "caaa@aaa.com"},
-        {"email": "daaa@aaa.com"}
+        {"email": "daaa@aaa.com"},
+        {"email": "eaaa@aaa.com"}
 ]
 
 census_email_fields = [
-        {"name": "aaaa", "email": "aaaa@aaa.com"},
-        {"name": "baaa", "email": "baaa@aaa.com"},
-        {"name": "caaa", "email": "caaa@aaa.com"},
-        {"name": "daaa", "email": "daaa@aaa.com"}
+        {"name": "aaaa", "email": "baaa@aaa.com"},
+        {"name": "baaa", "email": "caaa@aaa.com"},
+        {"name": "caaa", "email": "daaa@aaa.com"},
+        {"name": "daaa", "email": "eaaa@aaa.com"}
+]
+
+census_email_repeat = [
+        {"email": "repeat@aaa.com"},
+        {"email": "repeat@aaa.com"}
 ]
 
 census_sms_default = [
@@ -121,20 +126,25 @@ census_sms_default = [
 ]
 
 census_sms_fields = [
-        {"name": "aaaa", "tlf": "666666666"},
+        {"name": "aaaa", "tlf": "666666665"},
         {"name": "baaa", "tlf": "666666667"},
         {"name": "caaa", "tlf": "666666668"},
         {"name": "daaa", "tlf": "666666669"}
 ]
 
+census_sms_repeat = [
+        {"tlf": "777777777"},
+        {"tlf": "777777777"}
+]
+
 # Register
-register_email_default = {"email": "aaaa@aaa.com", "captcha": "asdasd"}
+register_email_default = {"email": "bbbb@aaa.com", "captcha": "asdasd"}
 
-register_email_fields = {"name": "aaaa", "email": "aaaa@aaa.com", "captcha": "asdasd"}
+register_email_fields = {"name": "aaaa", "email": "bbbb@aaa.com", "captcha": "asdasd"}
 
-register_sms_default = {"tlf": "666666666", "captcha": "asdasd"}
+register_sms_default = {"tlf": "666666667", "captcha": "asdasd"}
 
-register_sms_fields = {"name": "aaaa", "tlf": "666666666", "captcha": "asdasd"}
+register_sms_fields = {"name": "aaaa", "tlf": "666666667", "captcha": "asdasd"}
 
 # Authenticate
 auth_email_default = {
