@@ -114,10 +114,10 @@ census_email_fields = [
 ]
 
 census_sms_default = [
-        {"tlf": "666666666"},
         {"tlf": "666666667"},
         {"tlf": "666666668"},
-        {"tlf": "666666669"}
+        {"tlf": "666666669"},
+        {"tlf": "666666670"}
 ]
 
 census_sms_fields = [

@@ -609,3 +609,32 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_send_auth_sms(self):
+        self.test_add_census_authevent_sms_default() # Add census
+
+        correct_tpl = {"template": "template with __CODE__ and the link is__LINK__"}
+        incorrect_tpl1 = {"template": "i'm incorrect __LINK__"}
+        incorrect_tpl2 = {"template": "i'm incorrect __CODE__"}
+        incorrect_tpl3 = {"template": "i'm incorrect"}
+        incorrect_tpl4 = {"template": "i'm absolubly longggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg"}
+
+        c = JClient()
+        response = c.authenticate(self.aeid, test_data.auth_sms_default)
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, correct_tpl)
+        self.assertEqual(response.status_code, 200)
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, incorrect_tpl1)
+        self.assertEqual(response.status_code, 400)
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, incorrect_tpl2)
+        self.assertEqual(response.status_code, 400)
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, incorrect_tpl3)
+        self.assertEqual(response.status_code, 400)
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, incorrect_tpl4)
+        self.assertEqual(response.status_code, 400)
+
+
