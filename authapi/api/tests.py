@@ -420,6 +420,21 @@ class TestAuthEvent(TestCase):
         response = create_authevent(test_data.ae_sms_fields)
         self.assertEqual(response.status_code, 200)
 
+    def test_get_auth_events(self):
+        c = JClient()
+        c.authenticate(0, test_data.admin)
+        response = c.post('/api/auth-event/', test_data.ae_email_default)
+        self.assertEqual(response.status_code, 200)
+        response = c.get('/api/user/auth-event/', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['ids-auth-event']), 1)
+        response = c.post('/api/auth-event/', test_data.ae_sms_default)
+        self.assertEqual(response.status_code, 200)
+        response = c.get('/api/user/auth-event/', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['ids-auth-event']), 2)
 
 class TestRegisterAndAuthenticateEmail(TestCase):
     def setUp(self):

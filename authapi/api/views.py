@@ -436,6 +436,20 @@ class UserView(View):
 user = login_required(UserView.as_view())
 
 
+
+class UserAuthEvent(View):
+    def get(self, request):
+        ''' Get ids auth-event of request user. '''
+        acls = ACL.objects.filter(user=request.user.pk, object_type='AuthEvent',
+                perm='edit')
+        ae_ids = []
+        for acl in acls:
+            ae_ids.append(acl.object_id)
+        jsondata = json.dumps({'ids-auth-event': ae_ids})
+        return HttpResponse(jsondata, content_type='application/json')
+user_auth_event = login_required(UserAuthEvent.as_view())
+
+
 class CreditsActionView(View):
     def post(self, request):
         ''' Create new action of add_credit in mode create '''

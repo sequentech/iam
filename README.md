@@ -385,9 +385,15 @@ A valid answer would be a STATUS 200 with the following data:
 
 ## GET /user/#id
 
-Perms: object_type: 'UserData', perm: 'view', oject_id: id
+Perms: You need be authenticated
 
 Description: Get information of user, inclusive UserData.
+
+## GET /user/auth-event
+
+Perms: object_type: 'UserData', perm: 'view', oject_id: id
+
+Description: Get ids auth-event of request user
 
 ## GET /available-prices
 

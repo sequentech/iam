@@ -25,4 +25,5 @@ urlpatterns = patterns('',
 
     url(r'^user/(?P<pk>\d+)/$', 'api.views.user', name='user'),
     url(r'^user/add-credits/$', 'api.views.creditsaction', name='creditsaction'),
+    url(r'^user/auth-event/$', 'api.views.user_auth_event', name='user_auth_event'),
 )
