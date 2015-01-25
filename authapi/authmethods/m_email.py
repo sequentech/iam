@@ -9,7 +9,7 @@ from utils import genhmac, constant_time_compare, send_code
 from . import register_method
 from authmethods.utils import check_census, create_user, is_user_repeat
 from authmethods.utils import check_metadata, check_fields_in_request
-from api.models import AuthEvent, ACL
+from api.models import AuthEvent
 from authmethods.models import Code
 
 
@@ -43,9 +43,6 @@ class Email:
             if msg:
                 continue
             u = create_user(r, ae)
-            # add perm
-            acl = ACL(user=u.userdata, object_type='UserData', perm='edit', object_id=u.pk)
-            acl.save()
         if msg:
             data = {'status': 'nok', 'msg': msg}
         else:
@@ -64,9 +61,6 @@ class Email:
             data = {'status': 'nok', 'msg': msg}
             return data
         u = create_user(req, ae)
-        # add perm
-        acl = ACL(user=u.userdata, object_type='UserData', perm='edit', object_id=u.pk)
-        acl.save()
 
         msg = send_code(u)
         if msg:
@@ -104,10 +98,6 @@ class Email:
             u.is_active = True
             u.save()
 
-            # giving perms
-            acl = ACL(user=u.userdata, object_type='Vote', perm='create',
-                    object_id=ae.pk)
-            acl.save()
             data = {'status': 'ok', 'username': u.username}
             status = 200
         else:

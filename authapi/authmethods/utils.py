@@ -7,6 +7,7 @@ from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.utils import timezone
 from .models import ColorList, Message
+from api.models import ACL
 
 
 EMAIL_RX = re.compile(
@@ -299,6 +300,10 @@ def create_user(req, ae):
     u.userdata.event = ae
     u.userdata.metadata = json.dumps(req)
     u.userdata.save()
+    acl = ACL(user=u.userdata, object_type='UserData', perm='edit', object_id=u.pk)
+    acl.save()
+    acl = ACL(user=u.userdata, object_type='Vote', perm='create', object_id=ae.pk)
+    acl.save()
     return u
 
 def check_metadata(req, user):

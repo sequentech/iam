@@ -113,9 +113,6 @@ class Sms:
             if msg:
                 continue
             u = create_user(r, ae)
-            # add perm
-            acl = ACL(user=u.userdata, object_type='UserData', perm='edit', object_id=u.pk)
-            acl.save()
         if msg:
             data = {'status': 'nok', 'msg': msg}
         else:

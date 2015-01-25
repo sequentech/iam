@@ -61,6 +61,16 @@ class Census(View):
         status = 200 if data['status'] == 'ok' else 400
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, status=status, content_type='application/json')
+
+    def get(self, request, pk):
+        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        e = get_object_or_404(AuthEvent, pk=pk)
+        acls = ACL.objects.filter(object_type='Vote', perm='create', object_id=pk)
+        userids = []
+        for acl in acls:
+            userids.append(acl.user.pk)
+        jsondata = json.dumps({'userids': userids})
+        return HttpResponse(jsondata, content_type='application/json')
 census = login_required(Census.as_view())
 
 

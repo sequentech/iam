@@ -462,6 +462,10 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         c.authenticate(0, test_data.admin)
         response = c.census(self.aeid, test_data.census_email_default)
         self.assertEqual(response.status_code, 200)
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['userids']), 4)
 
     def test_add_census_authevent_email_fields(self):
         c = JClient()
