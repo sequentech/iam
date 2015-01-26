@@ -1,0 +1,56 @@
+[
+{
+    "pk": 1,
+    "fields": {
+        "password": "pbkdf2_sha256$12000$XtMmZ4b1WP4y$BlZiRXITaPLHOJlE6Y8zZ5rAnlk3VhczkHcZK5VJWx8=",
+        "username": "admin",
+        "is_staff": true,
+        "is_superuser": true,
+        "is_active": true
+    },
+    "model": "auth.user"
+},
+{
+    "fields": {
+      "census": "open",
+      "extra_fields": "{\"n\":5}",
+      "auth_method": "email",
+      "auth_method_config": "{\"config\":{\"msg\":\"Click __LINK__ and put this code __CODE__\",\"subject\":\"Confirm your email\"},\"pipeline\":{\"register-pipeline\":[[\"check_whitelisted\",{\"field\":\"ip\"}],[\"check_blacklisted\",{\"field\":\"ip\"}],[\"check_total_max\",{\"max\":8,\"field\":\"ip\"}]],\"authenticate-pipeline\":[[\"check_total_connection\",{\"times\":5}],[\"give_perms\",{\"object_type\":\"AuthEvent\",\"perms\":[\"create\"]}]]}}",
+      "status": "started"
+    },
+    "pk": 1,
+    "model": "api.authevent"
+},
+{
+    "fields": {
+        "status": "act",
+        "credits": 0.0,
+        "metadata": "\"{}\"",
+        "tlf": null,
+        "event": 1,
+        "user": 1
+    },
+    "model": "api.userdata",
+    "pk": 1
+},
+{
+    "fields": {
+        "user": 1,
+        "object_type": "AuthEvent",
+        "object_id": 0,
+        "perm": "create"
+    },
+    "model": "api.acl",
+    "pk": 0
+},
+{
+    "fields": {
+        "user": 1,
+        "object_type": "AuthEvent",
+        "object_id": 1,
+        "perm": "edit"
+    },
+    "model": "api.acl",
+    "pk": 0
+}
+]

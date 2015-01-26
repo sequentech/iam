@@ -55,12 +55,17 @@ kind of object.
     $ createdb -O authapi authapi
     ```
 
-4. Run:
+4. Load initial data. This command create username admin with password admin, CHANGE IT:
+    ```
+    $ ./manage.py loaddata initial
+    ```
+
+5. Run:
     ```
     $ ./manage.py runserver
     ```
 
-5. In production, for use celery, you need configure in setting the rabbitmq-server and execute:
+6. In production, for use celery, you need configure in setting the rabbitmq-server and execute:
     ```
     $ ./manage.py syncdb
     $ ./manage.py celeryd

@@ -14,6 +14,7 @@ from .models import Message, Code, Connection
 
 
 class AuthMethodTestCase(TestCase):
+    fixtures = ['initial.json']
     def setUp(self):
         ae = AuthEvent(auth_method=test_data.auth_event4['auth_method'],
                 status='started', census=test_data.auth_event4['census'])
@@ -41,6 +42,7 @@ class AuthMethodTestCase(TestCase):
 
 
 class AuthMethodEmailTestCase(TestCase):
+    fixtures = ['initial.json']
     def setUp(self):
         auth_method_config = test_data.authmethod_config_email_default
         ae = AuthEvent(auth_method=test_data.auth_event3['auth_method'],
@@ -118,6 +120,7 @@ class AuthMethodEmailTestCase(TestCase):
 
 
 class AuthMethodSmsTestCase(TestCase):
+    fixtures = ['initial.json']
     def setUp(self):
         auth_method_config = test_data.authmethod_config_sms_default
         ae = AuthEvent(auth_method=test_data.auth_event2['auth_method'],

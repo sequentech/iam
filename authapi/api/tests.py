@@ -57,6 +57,7 @@ class JClient(Client):
 
 
 class ApiTestCase(TestCase):
+    fixtures = ['initial.json']
     def setUp(self):
         ae = AuthEvent(auth_method=test_data.auth_event4['auth_method'])
         ae.save()
@@ -188,10 +189,9 @@ class ApiTestCase(TestCase):
         response = c.post('/api/auth-event/', data)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['id'], 2)
+        self.assertEqual(r['id'], 3)
 
     def test_create_event_open(self):
-        aeid = 2
         c = JClient()
         c.authenticate(self.aeid, test_data.pwd_auth)
 
@@ -199,17 +199,17 @@ class ApiTestCase(TestCase):
         response = c.post('/api/auth-event/', data)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['id'], aeid)
+        self.assertEqual(r['id'], self.aeid + 1)
         # try register in stopped auth-event
         data = {'email': 'test@test.com', 'password': '123456'}
-        response = c.register(aeid, data)
+        response = c.register(self.aeid + 1, data)
         self.assertEqual(response.status_code, 400)
         # try register in started auth-event
         c.authenticate(self.aeid, test_data.pwd_auth)
-        response = c.post('/api/auth-event/%d/%s/' % (aeid, 'started'), {})
+        response = c.post('/api/auth-event/%d/%s/' % (self.aeid + 1, 'started'), {})
         self.assertEqual(response.status_code, 200)
         data = {'email': 'test@test.com', 'password': '123456'}
-        response = c.register(aeid, data)
+        response = c.register(self.aeid + 1, data)
         self.assertEqual(response.status_code, 200)
 
     def test_list_event(self):
@@ -220,7 +220,7 @@ class ApiTestCase(TestCase):
         response = c.get('/api/auth-event/', {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(len(r['events']), 2)
+        self.assertEqual(len(r['events']), 3)
 
     def test_edit_event_success(self):
         c = JClient()
@@ -239,14 +239,14 @@ class ApiTestCase(TestCase):
         response = c.get('/api/auth-event/', {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(len(r['events']), 1)
+        self.assertEqual(len(r['events']), 2)
 
     def test_delete_event_success(self):
         self.test_create_event()
         c = JClient()
         c.authenticate(self.aeid, test_data.pwd_auth)
 
-        response = c.delete('/api/auth-event/1/', {})
+        response = c.delete('/api/auth-event/%d/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
@@ -346,6 +346,7 @@ def create_authevent(authevent):
 
 
 class TestAuthEvent(TestCase):
+    fixtures = ['initial.json']
     def setUp(self):
         u = User(username=test_data.admin['username'])
         u.set_password(test_data.admin['password'])
@@ -437,6 +438,7 @@ class TestAuthEvent(TestCase):
         self.assertEqual(len(r['ids-auth-event']), 2)
 
 class TestRegisterAndAuthenticateEmail(TestCase):
+    fixtures = ['initial.json']
     def setUp(self):
         ae = AuthEvent(auth_method="email",
                 auth_method_config=test_data.authmethod_config_email_default,
@@ -586,6 +588,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
 
 
 class TestRegisterAndAuthenticateSMS(TestCase):
+    fixtures = ['initial.json']
     def setUp(self):
         ae = AuthEvent(auth_method="sms",
                 auth_method_config=test_data.authmethod_config_sms_default,
