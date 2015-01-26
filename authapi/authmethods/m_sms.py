@@ -97,7 +97,7 @@ class Sms:
             ["check_total_max", {"field": "tlf", "period": 60, "max": 3}],
         ],
         "authenticate-pipeline": [
-            ['check_total_connection', {'times': 5 }],
+            #['check_total_connection', {'times': 5 }],
             ['check_sms_code', {'timestamp': 5 }]
         ]
     }

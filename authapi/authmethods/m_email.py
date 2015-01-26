@@ -28,7 +28,7 @@ class Email:
             ["check_total_max", {"field": "ip", "max": 8}],
         ],
         "authenticate-pipeline": [
-            ['check_total_connection', {'times': 5 }],
+            #['check_total_connection', {'times': 5 }],
         ]
     }
 

@@ -15,7 +15,7 @@
       "census": "open",
       "extra_fields": "{}",
       "auth_method": "email",
-      "auth_method_config": "{\"config\":{\"msg\":\"Click __LINK__ and put this code __CODE__\",\"subject\":\"Confirm your email\"},\"pipeline\":{\"register-pipeline\":[[\"check_whitelisted\",{\"field\":\"ip\"}],[\"check_blacklisted\",{\"field\":\"ip\"}],[\"check_total_max\",{\"max\":8,\"field\":\"ip\"}]],\"authenticate-pipeline\":[[\"check_total_connection\",{\"times\":5}],[\"give_perms\",{\"object_type\":\"AuthEvent\",\"perms\":[\"create\"]}]]}}",
+      "auth_method_config": "{\"config\":{\"msg\":\"Click __LINK__ and put this code __CODE__\",\"subject\":\"Confirm your email\"},\"pipeline\":{\"register-pipeline\":[[\"check_whitelisted\",{\"field\":\"ip\"}],[\"check_blacklisted\",{\"field\":\"ip\"}],[\"check_total_max\",{\"max\":8,\"field\":\"ip\"}],[\"give_perms\",{\"object_type\":\"AuthEvent\",\"perms\":[\"create\"]}]],\"authenticate-pipeline\":[]}}",
       "status": "started"
     },
     "pk": 1,

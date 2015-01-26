@@ -193,7 +193,7 @@ authmethod_config_email_default = {
                 ["check_total_max", {"field": "ip", "max": pipe_total_max_ip}],
             ],
             "authenticate-pipeline": [
-                ['check_total_connection', {'times': pipe_times }],
+                #['check_total_connection', {'times': pipe_times }],
             ]
         }
 }
@@ -220,7 +220,7 @@ authmethod_config_sms_default = {
                 ["check_total_max", {"field": "tlf", "period": pipe_total_max_period, "max": pipe_total_max_tlf_with_period}],
             ],
             "authenticate-pipeline": [
-                ['check_total_connection', {'times': pipe_times }],
+                #['check_total_connection', {'times': pipe_times }],
                 ['check_sms_code', {'timestamp': pipe_timestamp }]
             ]
         }
