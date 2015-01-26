@@ -102,26 +102,40 @@ class Sms:
         ]
     }
 
+    tlf_definition = { "name": "tlf", "type": "text", "required": True, "min": 4, "max": 20, "required_on_authentication": True }
+    code_definition = { "name": "code", "type": "text", "required": True, "min": 6, "max": 255, "required_on_authentication": True }
+
     def census(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
-        msg = check_census(req, ae)
+
+        msg = ''
+        current_tlfs = []
+        for r in req:
+            tlf = r.get('tlf')
+            msg += check_value(self.tlf_definition, tlf)
+            msg += check_fields_in_request(r, ae)
+            if User.objects.filter(userdata__tlf=tlf, userdata__event=ae):
+                msg += "Tlf %s repeat." % tlf
+            if tlf in current_tlfs:
+                msg += "Tlf %s repeat." % tlf
+            current_tlfs.append(tlf)
         if msg:
             data = {'status': 'nok', 'msg': msg}
             return data
+
         for r in req:
-            msg += is_user_repeat(r, ae)
-            if msg:
-                continue
             u = create_user(r, ae)
-        if msg:
-            data = {'status': 'nok', 'msg': msg}
-        else:
-            data = {'status': 'ok'}
-        return data
+        return {'status': 'ok'}
 
     def register(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
-        msg = check_fields_in_request(req, ae)
+
+        msg = ''
+        tlf = req.get('tlf')
+        msg += check_value(self.tlf_definition, tlf)
+        msg += check_fields_in_request(req, ae)
+        if User.objects.filter(userdata__tlf=tlf, userdata__event=ae):
+            msg += "Tlf %s repeat." % tlf
         if msg:
             data = {'status': 'nok', 'msg': msg}
             return data
@@ -141,17 +155,8 @@ class Sms:
                 data['status'] = check.status_code
                 return data
 
-        msg = is_user_repeat(req, ae)
-        if msg:
-            data = {'status': 'nok', 'msg': msg}
-            return data
         u = create_user(req, ae)
-
-        msg = send_code(u)
-        if msg:
-            data = {'status': 'nok', 'msg': msg}
-            return data
-
+        send_code(u)
         return data
 
     def authenticate_error(self):
@@ -160,7 +165,12 @@ class Sms:
 
     def authenticate(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
-        msg = check_fields_in_request(req, ae)
+
+        msg = ''
+        tlf = req.get('tlf')
+        msg += check_value(self.tlf_definition, tlf)
+        msg += check_value(self.code_definition, req.get('code'))
+        msg += check_fields_in_request(req, ae)
         if msg:
             data = {'status': 'nok', 'msg': msg}
             return data

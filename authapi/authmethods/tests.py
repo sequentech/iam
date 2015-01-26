@@ -102,7 +102,7 @@ class AuthMethodEmailTestCase(TestCase):
         c = JClient()
         data = {
                 'email': 'test1@agoravoting.com',
-                'code': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+                'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
         }
         response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 200)

@@ -211,13 +211,6 @@ def check_ip_total_max(data, **kwargs):
 # Checkers census, register and authentication
 def check_value(definition, field, step='register'):
     msg = ''
-    if definition == 'email':
-        definition = { "name": "email", "type": "text", "required": True, "min": 4, "max": 255, "required_on_authentication": True }
-    elif definition == 'code':
-        definition = { "name": "code", "type": "text", "required": True, "min": 6, "max": 255, "required_on_authentication": True }
-    elif definition == 'tlf':
-        definition = { "name": "tlf", "type": "text", "required": True, "min": 4, "max": 20, "required_on_authentication": True }
-
     if step == 'authentication' and not definition.get('required_on_authentication'):
         return msg
     if field is None:
@@ -253,37 +246,13 @@ def check_value(definition, field, step='register'):
 
 def check_fields_in_request(req, ae, step='register'):
     msg = ''
-    if ae.auth_method == 'email':
-        msg += check_value('email', req.get('email'))
-    elif ae.auth_method == 'sms':
-        msg += check_value('tlf', req.get('tlf'))
-    if step == 'authentication':
-        msg += check_value('code', req.get('code'))
     if ae.extra_fields:
         for extra in ae.extra_fields:
             msg += check_value(extra, req.get(extra.get('name')))
     return msg
 
 
-def check_census(req, ae):
-    msg = ''
-    for r in req:
-        msg += check_fields_in_request(r, ae)
-    return msg
-
-
-def is_user_repeat(req, ae):
-    msg = ''
-    if ae.auth_method == 'email':
-        if len(User.objects.filter(email=req.get('email'), userdata__event=ae)):
-            msg += "Email %s repeat." % req.get('email')
-    elif ae.auth_method == 'sms':
-        if len(User.objects.filter(userdata__tlf=req.get('tlf'), userdata__event=ae)):
-            msg += "Tlf %s repeat." % req.get('tlf')
-    return msg
-
-
-def create_user(req, ae):
+def create_user(req, ae): # give perms here
     user = random_username()
     u = User(username=user)
     u.is_active = False

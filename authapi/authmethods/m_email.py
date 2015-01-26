@@ -7,8 +7,7 @@ from string import ascii_letters, digits
 from utils import genhmac, constant_time_compare, send_code
 
 from . import register_method
-from authmethods.utils import check_census, create_user, is_user_repeat
-from authmethods.utils import check_metadata, check_fields_in_request
+from authmethods.utils import *
 from api.models import AuthEvent
 from authmethods.models import Code
 
@@ -32,51 +31,56 @@ class Email:
         ]
     }
 
+    email_definition = { "name": "email", "type": "text", "required": True, "min": 4, "max": 255, "required_on_authentication": True }
+    code_definition = { "name": "code", "type": "text", "required": True, "min": 6, "max": 255, "required_on_authentication": True }
+
     def census(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
-        msg = check_census(req, ae)
+        msg = ''
+        current_emails = []
+        for r in req:
+            email = r.get('email')
+            msg += check_value(self.email_definition, email)
+            msg += check_fields_in_request(r, ae)
+            if User.objects.filter(email=email, userdata__event=ae):
+                msg += "Email %s repeat." % email
+            if email in current_emails:
+                msg += "Email %s repeat." % email
+            current_emails.append(email)
         if msg:
             data = {'status': 'nok', 'msg': msg}
             return data
+
         for r in req:
-            msg += is_user_repeat(r, ae)
-            if msg:
-                continue
             u = create_user(r, ae)
-        if msg:
-            data = {'status': 'nok', 'msg': msg}
-        else:
-            data = {'status': 'ok'}
-        return data
+        return {'status': 'ok'}
 
     def register(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
-        msg = check_fields_in_request(req, ae)
-        if msg:
-            data = {'status': 'nok', 'msg': msg}
-            return data
-
-        msg = is_user_repeat(req, ae)
+        msg = ''
+        email = req.get('email')
+        msg += check_value(self.email_definition, email)
+        msg += check_fields_in_request(req, ae)
+        if User.objects.filter(email=email, userdata__event=ae):
+            msg += "Email %s repeat." % email
         if msg:
             data = {'status': 'nok', 'msg': msg}
             return data
         u = create_user(req, ae)
-
-        msg = send_code(u)
-        if msg:
-            data = {'status': 'nok', 'msg': msg}
-            return data
-        data = {'status': 'ok'}
-        return data
+        send_code(u)
+        return {'status': 'ok'}
 
     def authenticate_error(self):
         d = {'status': 'nok'}
         return d
 
     def authenticate(self, ae, request):
-        d = {'status': 'ok'}
         req = json.loads(request.body.decode('utf-8'))
-        msg = check_fields_in_request(req, ae)
+        msg = ''
+        email = req.get('email')
+        msg += check_value(self.email_definition, email)
+        msg += check_value(self.code_definition, req.get('code'))
+        msg += check_fields_in_request(req, ae)
         if msg:
             data = {'status': 'nok', 'msg': msg}
             return data
@@ -104,7 +108,7 @@ class Email:
             data = {'status': 'nok'}
             status = 400
 
-        d['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
-        return d
+        data['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
+        return data
 
 register_method('email', Email)
