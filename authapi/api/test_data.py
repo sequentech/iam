@@ -45,8 +45,17 @@ auth_event2 = {
             "help": "put the name that appear in your dni",
             "type": "text",
             "required": False,
-            "max": 2,
+            "min": 2,
             "max": 64,
+            "required_on_authentication": False
+            },
+            {
+            "name": "age",
+            "help": "put the age",
+            "type": "int",
+            "required": False,
+            "min": 18,
+            "max": 150,
             "required_on_authentication": False
             },
             {
@@ -149,6 +158,11 @@ register_email_fields = {"name": "aaaa", "email": "bbbb@aaa.com", "captcha": "as
 register_sms_default = {"tlf": "666666667", "captcha": "asdasd"}
 
 register_sms_fields = {"name": "aaaa", "tlf": "666666667", "captcha": "asdasd"}
+
+sms_fields_incorrect_type1 = {"age": "a lot"}
+sms_fields_incorrect_type2 = {"tlf": 666666667}
+sms_fields_incorrect_len1 = {"age": 16}
+sms_fields_incorrect_len2 = {"name": 100*"n"}
 
 # Authenticate
 auth_email_default = {

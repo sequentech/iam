@@ -315,6 +315,11 @@ class ApiTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(len(r['perms']), 7)
 
+        response = c.get('/api/acl/mine/?page=1&n=31', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['perms']), 7)
+
         response = c.get('/api/acl/mine/?page=x&n=x', {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
@@ -730,8 +735,27 @@ class TestRegisterAndAuthenticateSMS(TestCase):
 
     def test_add_register_authevent_sms_fields(self):
         c = JClient()
+        self.ae.extra_fields = test_data.ae_sms_fields['extra_fields']
+        self.ae.save()
+        self.u.metadata = json.dumps({"name": test_data.auth_sms_fields['name']})
+        self.u.save()
         response = c.register(self.aeid, test_data.register_sms_fields)
         self.assertEqual(response.status_code, 200)
+
+    def test_add_authevent_sms_fields_incorrect(self):
+        c = JClient()
+        self.ae.extra_fields = test_data.auth_event2['extra_fields']
+        self.ae.save()
+        self.u.metadata = json.dumps({"name": test_data.auth_sms_fields['name']})
+        self.u.save()
+        response = c.register(self.aeid, test_data.sms_fields_incorrect_type1)
+        self.assertEqual(response.status_code, 400)
+        response = c.register(self.aeid, test_data.sms_fields_incorrect_type2)
+        self.assertEqual(response.status_code, 400)
+        response = c.register(self.aeid, test_data.sms_fields_incorrect_len1)
+        self.assertEqual(response.status_code, 400)
+        response = c.register(self.aeid, test_data.sms_fields_incorrect_len2)
+        self.assertEqual(response.status_code, 400)
 
     def test_add_register_authevent_sms_repeat(self):
         c = JClient()

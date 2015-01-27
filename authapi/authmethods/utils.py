@@ -278,7 +278,7 @@ def check_pipeline(request, ae, step='register'):
 # Checkers census, register and authentication
 def check_value(definition, field, step='register'):
     msg = ''
-    if step == 'authentication' and not definition.get('required_on_authentication'):
+    if step == 'authenticate' and not definition.get('required_on_authentication'):
         return msg
     if field is None:
         if definition.get('required'):
@@ -315,7 +315,7 @@ def check_fields_in_request(req, ae, step='register'):
     msg = ''
     if ae.extra_fields:
         for extra in ae.extra_fields:
-            msg += check_value(extra, req.get(extra.get('name')))
+            msg += check_value(extra, req.get(extra.get('name')), step)
     return msg
 
 

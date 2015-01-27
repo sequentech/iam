@@ -95,9 +95,9 @@ class Sms:
 
         msg = ''
         tlf = req.get('tlf')
-        msg += check_value(self.tlf_definition, tlf)
-        msg += check_value(self.code_definition, req.get('code'))
-        msg += check_fields_in_request(req, ae)
+        msg += check_value(self.tlf_definition, tlf, 'authenticate')
+        msg += check_value(self.code_definition, req.get('code'), 'authenticate')
+        msg += check_fields_in_request(req, ae, 'authenticate')
         if msg:
             data = {'status': 'nok', 'msg': msg}
             return data

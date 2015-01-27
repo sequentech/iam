@@ -83,9 +83,9 @@ class Email:
         req = json.loads(request.body.decode('utf-8'))
         msg = ''
         email = req.get('email')
-        msg += check_value(self.email_definition, email)
-        msg += check_value(self.code_definition, req.get('code'))
-        msg += check_fields_in_request(req, ae)
+        msg += check_value(self.email_definition, email, 'authenticate')
+        msg += check_value(self.code_definition, req.get('code'), 'authenticate')
+        msg += check_fields_in_request(req, ae, 'authenticate')
         if msg:
             data = {'status': 'nok', 'msg': msg}
             return data
