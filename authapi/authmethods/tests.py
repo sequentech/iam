@@ -62,6 +62,9 @@ class AuthMethodEmailTestCase(TestCase):
         u.userdata.save()
         self.userid = u.pk
 
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit', object_id=ae.pk)
+        acl.save()
+
         u2 = User(pk=2, username='test2')
         u2.is_active = False
         u2.save()

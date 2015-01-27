@@ -135,8 +135,8 @@ def generate_code(userdata):
 
 
 @celery.task
-def send_email(subject, msg, mail_from, mails_to):
-    send_mail(subject, msg, mail_from, mails_to)
+def send_email(email):
+    email.send()
 
 
 @celery.task
@@ -189,15 +189,17 @@ def send_code(user, templ=None):
         m = Message(tlf=receiver)
         m.save()
     else: # email
+        from api.models import ACL
+        acl = ACL.objects.filter(object_type='AuthEvent', perm='edit',
+                object_id=event_id).first()
         email = EmailMessage(
             conf.get('subject'),
             msg,
             settings.DEFAULT_FROM_EMAIL,
             [receiver],
-            # TODO set reply-to auth.event admin email address
-            # headers = {'Reply-To': user.userdata.event.}
+            headers = {'Reply-To': acl.user.user.email}
         )
-        email.send()
+        send_email(email)
 
 # CHECKERS AUTHEVENT
 VALID_FIELDS = ('name', 'help', 'type', 'required', 'regex', 'min', 'max',
