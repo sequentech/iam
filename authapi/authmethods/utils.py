@@ -341,7 +341,11 @@ def create_user(req, ae):
 
 def check_metadata(req, user):
     meta = json.loads(user.userdata.metadata)
-    for field in user.userdata.event.extra_fields:
+    extra = user.userdata.event.extra_fields
+    if not extra:
+        return ""
+
+    for field in extra:
         if field.get('required_on_authentication'):
             name = field.get('name')
             if (name == 'email'):
