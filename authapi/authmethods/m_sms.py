@@ -19,7 +19,7 @@ class Sms:
         'SMS_URL': '',
         'SMS_SENDER_ID': '',
         'SMS_VOICE_LANG_CODE': '',
-        'sms-message': 'Confirm your sms code: ',
+        'sms-message': 'Click %(url)s and put this code %(code)s',
     }
     PIPELINES = {
         "register-pipeline": [

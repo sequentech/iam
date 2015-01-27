@@ -4,7 +4,7 @@ pwd_auth_email = {'email': 'john@agoravoting.com', 'password': 'smith'}
 
 auth_event1 = {
     "auth_method": "sms",
-    "config": {"sms-message": "Enter in __LINK__ and put this code __CODE__"},
+    "config": {"sms-message": "Enter in %(url)s and put this code %(code)s"},
     "extra_fields": [
             {
             "name": "name",
@@ -38,7 +38,7 @@ auth_event1 = {
 auth_event2 = {
     "auth_method": "sms",
     "census": "open",
-    "config": {"sms-message": "Enter in __LINK__ and put this code __CODE__"},
+    "config": {"sms-message": "Enter in %(url)s and put this code %(code)s"},
     "extra_fields": [
             {
             "name": "name",
@@ -74,7 +74,7 @@ auth_event3 = {
     "census": "open",
     "config": {
         "subject": "Confirm your email",
-        "msg": "Click __LINK__ and put this code __CODE__"
+        "msg": "Click %(url)s and put this code %(code)s"
     }
 }
 
@@ -184,7 +184,7 @@ pipe_timestamp = 5
 authmethod_config_email_default = {
         "config": {
             "subject": "Confirm your email",
-            "msg": "Click __LINK__ and put this code __CODE__"
+            "msg": "Click %(url)s and put this code %(code)s"
         },
         "pipeline": {
             "register-pipeline": [
@@ -207,7 +207,7 @@ authmethod_config_sms_default = {
             "SMS_URL": "",
             "SMS_SENDER_ID": "",
             "SMS_VOICE_LANG_CODE": "",
-            "sms-message": "Enter in __LINK__ and put this code __CODE__"
+            "sms-message": "Enter in %(url)s and put this code %(code)s"
         },
         "pipeline": {
             "register-pipeline": [
@@ -236,7 +236,7 @@ ae_email_config = ae_email_default.copy()
 ae_email_config.update( {
     "config": {
         "subject": "Vote",
-        "msg": "Enter in __LINK__ and put this code __CODE__",
+        "msg": "Enter in %(url)s and put this code %(code)s",
     }
 })
 
@@ -292,7 +292,7 @@ ae_sms_default = {
 ae_sms_config = {
     "auth_method": "sms",
     "census": "open",
-    "config": {"sms-message": "Enter in __LINK__ and put this code __CODE__"}
+    "config": {"sms-message": "Enter in %(url)s and put this code %(code)s"}
 }
 
 ae_sms_fields = {

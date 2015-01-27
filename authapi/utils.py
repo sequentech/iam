@@ -195,7 +195,7 @@ def send_code(user, templ=None):
         email = EmailMessage(
             conf.get('subject'),
             msg,
-            acl.user.user.username + '<' + settings.DEFAULT_FROM_EMAIL + '>',
+            settings.DEFAULT_FROM_EMAIL,
             [receiver],
             headers = {'Reply-To': acl.user.user.email}
         )
