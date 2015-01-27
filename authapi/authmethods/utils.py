@@ -6,7 +6,7 @@ from datetime import timedelta
 from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.utils import timezone
-from .models import ColorList, Message
+from .models import ColorList, Message, Code
 from api.models import ACL
 
 
@@ -82,9 +82,12 @@ def dni_constraint(val):
 
     return letter == expected
 
-
+# Pipeline
 def check_tlf_whitelisted(data):
     ''' If tlf is whitelisted, accept '''
+    if data.get('whitelisted', False) == True:
+        return RET_PIPE_CONTINUE
+
     tlf = data['tlf']
     try:
         item = ColorList.objects.get(key=ColorList.KEY_TLF, value=tlf)
@@ -208,6 +211,70 @@ def check_ip_total_max(data, **kwargs):
     return RET_PIPE_CONTINUE
 
 
+def check_sms_code(req, ae, **kwargs):
+    time_thr = timezone.now() - timedelta(seconds=kwargs.get('timestamp'))
+    try:
+        u = User.objects.get(userdata__tlf=req.get('tlf'), userdata__event=ae)
+        code = Code.objects.get(user=u.pk, code=req.get('code'),
+                created__gt=time_thr)
+    except:
+        return error('Invalid code.', error_codename='check_sms_code')
+    return RET_PIPE_CONTINUE
+
+
+def check_whitelisted(data, **kwargs):
+    field = kwargs.get('field')
+    if field == 'tlf':
+        check = check_tlf_whitelisted(data)
+    elif field == 'ip':
+        check = check_ip_whitelisted(data)
+    return check
+
+
+def check_blacklisted(data, **kwargs):
+    field = kwargs.get('field')
+    if field == 'tlf':
+        check = check_tlf_blacklisted(data)
+    elif field == 'ip':
+        check = check_ip_blacklisted(data)
+    return check
+
+
+def check_total_max(data, **kwargs):
+    check = check_tlf_total_max(data, **kwargs)
+    if check != 0:
+        return check
+    check = check_ip_total_max(data, **kwargs)
+    return check
+
+
+def check_total_connection(data, **kwargs):
+    conn = Connection.objects.filter(tlf=req.get('tlf')).count()
+    if conn >= kwargs.get('times'):
+        return error('Exceeded the level os attempts',
+                error_codename='check_total_connection')
+    conn = Connection(ip=data['ip'], tlf=data['tlf'])
+    conn.save()
+    return RET_PIPE_CONTINUE
+
+
+def check_pipeline(request, ae, step='register'):
+    req = json.loads(request.body.decode('utf-8'))
+    data = {'ip_addr': get_client_ip(request), 'tlf': req.get('tlf')}
+
+    pipeline = ae.auth_method_config.get('pipeline').get('%s-pipeline' % step)
+    for pipe in pipeline:
+        if pipe[0] == 'check_sms_code':
+            check = getattr(eval(pipe[0]), '__call__')(req, ae, **pipe[1])
+        else:
+            check = getattr(eval(pipe[0]), '__call__')(data, **pipe[1])
+        if check:
+            data.update(json.loads(check.content.decode('utf-8')))
+            data['status'] = check.status_code
+            return data
+    return
+
+
 # Checkers census, register and authentication
 def check_value(definition, field, step='register'):
     msg = ''
@@ -252,7 +319,7 @@ def check_fields_in_request(req, ae, step='register'):
     return msg
 
 
-def create_user(req, ae): # give perms here
+def create_user(req, ae):
     user = random_username()
     u = User(username=user)
     u.is_active = False
@@ -274,6 +341,7 @@ def create_user(req, ae): # give perms here
     acl = ACL(user=u.userdata, object_type='Vote', perm='create', object_id=ae.pk)
     acl.save()
     return u
+
 
 def check_metadata(req, user):
     meta = json.loads(user.userdata.metadata)

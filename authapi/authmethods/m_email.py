@@ -2,8 +2,6 @@ import json
 from django.conf import settings
 from django.conf.urls import patterns, url
 from django.contrib.auth.models import User
-from django.http import HttpResponse
-from string import ascii_letters, digits
 from utils import genhmac, constant_time_compare, send_code
 
 from . import register_method
@@ -66,6 +64,11 @@ class Email:
         if msg:
             data = {'status': 'nok', 'msg': msg}
             return data
+
+        msg = check_pipeline(request, ae)
+        if msg:
+            return msg
+
         u = create_user(req, ae)
         send_code(u)
         return {'status': 'ok'}
@@ -85,29 +88,26 @@ class Email:
             data = {'status': 'nok', 'msg': msg}
             return data
 
-        email = req['email']
-        code = req['code']
+        msg = check_pipeline(request, ae, 'authenticate')
+        if msg:
+            return msg
 
         try:
             u = User.objects.get(email=email, userdata__event=ae)
+            code = Code.objects.get(user=u.userdata, code=req.get('code'))
         except:
+            return {'status': 'nok', 'msg': 'Invalid code.'}
+        if not constant_time_compare(code.code, req.get('code')):
             return self.authenticate_error()
-        codedb = Code.objects.filter(user=u.userdata)[0].code
-        if constant_time_compare(codedb, code):
-            msg = check_metadata(req, u)
-            if msg:
-                data = {'status': 'nok', 'msg': msg}
-                return data
 
-            u.is_active = True
-            u.save()
+        msg = check_metadata(req, u)
+        if msg:
+            data = {'status': 'nok', 'msg': msg}
+            return data
+        u.is_active = True
+        u.save()
 
-            data = {'status': 'ok', 'username': u.username}
-            status = 200
-        else:
-            data = {'status': 'nok'}
-            status = 400
-
+        data = {'status': 'ok'}
         data['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
         return data
 
