@@ -22,6 +22,7 @@ def census_send_auth_task(pk, templ=None, userids=None):
     census = []
     if userids is None:
         census = ACL.objects.filter(perm="vote", object_type="AuthEvent", object_id=str(pk))
+        census = [i.user.user for i in census]
     else:
         for ids in userids:
             census.append(get_object_or_404(User, pk=ids))
