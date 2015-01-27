@@ -55,8 +55,9 @@ kind of object.
     $ createdb -O authapi authapi
     ```
 
-4. Load initial data. This command create username admin with password admin, CHANGE IT:
+4. Create scheme and load initial data. This command create username admin with password admin, CHANGE IT:
     ```
+    $ ./manage.py migrate
     $ ./manage.py loaddata initial
     ```
 
