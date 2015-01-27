@@ -232,89 +232,57 @@ ae_email_default = {
     "census": "open",
 }
 
-
-ae_email_config = {
-    "auth_method": "email",
-    "census": "open",
+ae_email_config = ae_email_default.copy()
+ae_email_config.update( {
     "config": {
         "subject": "Vote",
         "msg": "Enter in __LINK__ and put this code __CODE__",
     }
-}
+})
 
-ae_email_fields = {
-    "auth_method": "email",
-    "census": "open",
+ae_email_config_incorrect1 = ae_email_config.copy()
+ae_email_config_incorrect1.update({"config": {"aaaaaa": "bbbb"}})
+
+ae_email_config_incorrect2 = ae_email_config.copy()
+ae_email_config_incorrect2.update({"config": "aaaaaa"})
+
+
+ae_email_fields = ae_email_default.copy()
+ae_email_fields.update( {
     "extra_fields": [
             {
             "name": "name",
             "help": "put the name that appear in your dni",
             "type": "text",
             "required": True,
-            "max": 2,
+            "min": 2,
             "max": 64,
             "required_on_authentication": True
             }
     ]
-}
+})
 
-ae_email_fields_incorrect1 = {
-    "auth_method": "email",
-    "census": "open",
-    "extra_fields": [
-            {"boo": True},
-            {"boo": True},
-            {"boo": True},
-            {"boo": True},
-            {"boo": True},
-            {"boo": True},
-            {"boo": True},
-            {"boo": True},
-            {"boo": True},
-            {"boo": True},
-            {"boo": True},
-            {"boo": True},
-            {"boo": True},
-            {"boo": True},
-            {"boo": True},
-            {"boo": True}
-    ]
-}
+ae_email_fields_incorrect_max_fields = ae_email_fields.copy()
+ae_email_fields_incorrect_max_fields.update({"extra_fields": [{"boo": True},
+    {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True},
+    {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True},
+    {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True}]})
 
-ae_email_fields_incorrect2 = {
-    "auth_method": "email",
-    "census": "open",
-    "extra_fields": [
-            {"boo": True}
-    ]
-}
+ae_email_fields_incorrect_len = ae_email_fields.copy()
+ae_email_fields_incorrect_len.update( {'extra_fields': [{ 'name': 'iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii'}]})
 
-ae_email_fields_incorrect  = {
-    "auth_method": "email",
-    "census": "open",
-    "extra_fields": [
-            {
-            "name": "name",
-            "type": "text",
-            "required": "True",
-            "max": "yes",
-            "max": 64,
-            "required_on_authentication": True
-            }
-    ]
-}
+ae_email_fields_incorrect_type = ae_email_fields.copy()
+ae_email_fields_incorrect_type.update( {'extra_fields': [{ 'type': 'null' }]})
 
-ae_email_config_incorrect1 = {
-    "auth_method": "email",
-    "census": "open",
-    "config": {"aaaaaa": "bbbb"}
-}
+ae_email_fields_incorrect_value_int = ae_email_fields.copy()
+ae_email_fields_incorrect_value_int.update( {'extra_fields': [{ 'min': '1' }]})
 
-ae_email_config_incorrect2 = {
-    "auth_method": "email",
-    "census": "open",
-    "config": "aaaaaa"
-}
+ae_email_fields_incorrect_value_bool = ae_email_fields.copy()
+ae_email_fields_incorrect_value_bool.update( {'extra_fields': [{ 'required': 'True' }]})
+
+ae_email_fields_incorrect = ae_email_fields.copy()
+ae_email_fields_incorrect.update({"extra_fields": [{"boo": True}]})
+
 
 ae_sms_default = {
     "auth_method": "sms",

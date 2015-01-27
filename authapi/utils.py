@@ -269,19 +269,13 @@ def check_fields(key, value):
     elif key == 'type':
         if not value in ('text', 'password', 'int'):
             msg += "Invalid extra_fields: bad %s.\n" % key
-    elif key == 'required':
+    elif key == 'required' or key == 'required_on_authentication':
         if not isinstance(value, bool):
             msg += "Invalid extra_fields: bad %s.\n" % key
     elif key == 'regex':
         pass
-    elif key == 'min':
+    elif key == 'min' or key == 'max':
         if not isinstance(value, int):
-            msg += "Invalid extra_fields: bad %s.\n" % key
-    elif key == 'max':
-        if not isinstance(value, int):
-            msg += "Invalid extra_fields: bad %s.\n" % key
-    elif key == 'required_on_authentication':
-        if not isinstance(value, bool):
             msg += "Invalid extra_fields: bad %s.\n" % key
     return msg
 
