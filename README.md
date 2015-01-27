@@ -432,7 +432,4 @@ Response:
 
 # Utils Commands
 
-* Generate config auth-event and create auth-event:
-    ```
-    ./manage.py add_event --help
-    ```
+* Look at agora-admin.py script in [agora-tools](https://github.com/agoravoting/agora-tools/)
