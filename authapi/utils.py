@@ -165,10 +165,10 @@ def send_code(user, templ=None):
 
     if auth_method == "sms":
         receiver = user.userdata.tlf
-        url = settings.SMS_AUTH_CODE_URL % dict(authid=event_id, code=code)
+        url = settings.SMS_AUTH_CODE_URL % dict(authid=event_id, code=code, email=user.email)
     else: # email
         receiver = user.email
-        url = settings.EMAIL_AUTH_CODE_URL % dict(authid=event_id, code=code)
+        url = settings.EMAIL_AUTH_CODE_URL % dict(authid=event_id, code=code, email=user.email)
 
     if receiver is None:
         return "Receiver is none"
