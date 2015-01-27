@@ -366,5 +366,5 @@ def give_perms(u, ae):
             acl.save()
     acl = ACL(user=u.userdata, object_type='UserData', perm='edit', object_id=u.pk)
     acl.save()
-    acl = ACL(user=u.userdata, object_type='Vote', perm='create', object_id=ae.pk)
+    acl = ACL(user=u.userdata, object_type='AuthEvent', perm='vote', object_id=ae.pk)
     acl.save()

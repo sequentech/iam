@@ -65,7 +65,7 @@ class Census(View):
     def get(self, request, pk):
         permission_required(request.user, 'AuthEvent', 'edit', pk)
         e = get_object_or_404(AuthEvent, pk=pk)
-        acls = ACL.objects.filter(object_type='Vote', perm='create', object_id=pk)
+        acls = ACL.objects.filter(object_type='AuthEvent', perm='vote', object_id=pk)
         userids = []
         for acl in acls:
             userids.append(acl.user.pk)
