@@ -14,7 +14,7 @@ class Email:
     DESCRIPTION = 'Register by email. You need to confirm your email.'
     CONFIG = {
         'subject': 'Confirm your email',
-        'msg': 'Click in this link for validate your email: ',
+        'msg': 'Click in this __LINK__ for validate your email: ',
         'mail_from': 'authapi@agoravoting.com',
         'give_perms': {'object_type': 'Vote', 'perms': ['create',] },
     }
