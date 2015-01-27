@@ -139,6 +139,7 @@ permission to a given object type and object id  (object id not required).
 IMPORTANT NOTE: if not especific id, default_id is 0. if id is 0, the user have permission about all id
 
 Request:
+    
     {
       "user": "someone"
       "object_type": "User",
@@ -171,6 +172,7 @@ Required user with write permission for give permissions. Create an ACL entry.
 IMPORTANT NOTE: if not especific id, default_id is 0. if id is 0, the user have permission about all id
 
 Request:
+    
     {
       "user": "someone"
       "object_type": "User",
@@ -187,11 +189,12 @@ Required user with write permission for delete permissions. Delete an ACL entry.
 IMPORTANT NOTE: if not especific id, default_id is 0. if id is 0, the user have permission about all id
 
 Request:
-{
-  "user": "someone"
-  "object_type": "User",
-  "permission": "create",
-}
+
+    {
+      "user": "someone"
+      "object_type": "User",
+      "permission": "create",
+    }
 
 If everything is ok, it returns STATUS 200
 
@@ -287,6 +290,7 @@ When new user register, check if there is enough credits.
 When create users, the administrator will get perms 'edit' about new users.
 
 Request: 
+    
     [
         {
             "tlf": "+34666666666", 
@@ -308,13 +312,14 @@ Response: status 200 or status 400 if error
 Perms: object_type: 'AuthEvent', perm: 'edit', oject_id: auid
 
 Description: sends sms/emails (depending on auth method) to the census of an open election for authentication
-If template None, will use the dafult template.
+If template None, will use the dafult template. If user-ids None, will send code all census.
 
 Request:
-{
-    "user-ids": [], # Still not implemented
-    "template": "template with __CODE__ and the link is__LINK__"
-}
+    
+    {
+        "user-ids": [],
+        "template": "template with __CODE__ and the link is__LINK__"
+    }
 
 Response: status 200
 
@@ -326,11 +331,12 @@ Description: Provides authentication. Depending on the auth-method used, the
 input details needed may vary:
 
 Request:
-        {
-            "tlf": "+34666666666", 
-            "dni": "11111111H", 
-            "email": "foo@test.com",  
-        }
+
+    {
+        "tlf": "+34666666666", 
+        "dni": "11111111H", 
+        "email": "foo@test.com",  
+    }
 
 Response: status 200 or status 400 if error
 
@@ -346,6 +352,7 @@ Description: Allows an user to verify if sms or email code and login.
 If #auid if 0, 'user-and-password method is used.
 
 Request:
+    
     {
         "dni": "11111111H",
         "mail": "test@agoravoting.com",
@@ -354,6 +361,7 @@ Request:
     }
 
 Response: If authenticate is successful, it returns STATUS 200 with data:
+    
     {
       "auth-token": "khmac:///sha-256;deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/userid:timestamp"
     }
@@ -419,6 +427,7 @@ Perms: object_type: 'UserData', perm: 'edit', oject_id: id
 Description: Allows a login user create new add_credits action.
 
 Request: 
+    
     {
         "pack_id": 0,
         "num_credits": 500,
@@ -426,6 +435,7 @@ Request:
     }
 
 Response:
+    
     {
         "paypal_url": "foo"
     }
