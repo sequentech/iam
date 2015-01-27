@@ -181,6 +181,15 @@ class ApiTestCase(TestCase):
         self.assertEqual(verifyhmac(settings.SHARED_SECRET,
             r['permission-token']), True)
 
+    def test_getperms_perm_invalid(self):
+        c = JClient()
+        c.authenticate(self.aeid, test_data.pwd_auth)
+        data = { "permission": "create" }
+        response = c.post('/api/get-perms/', data)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['status'], 'ok')
+
     def test_create_event(self):
         c = JClient()
         c.authenticate(self.aeid, test_data.pwd_auth)
@@ -289,6 +298,11 @@ class ApiTestCase(TestCase):
         self.assertEqual(len(r['perms']), 7)
 
         response = c.get('/api/acl/mine/?object_type=ACL', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['perms']), 3)
+
+        response = c.get('/api/acl/mine/?object_type=AuthEvent&?perm=edit&?object_id=%d' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(len(r['perms']), 3)
