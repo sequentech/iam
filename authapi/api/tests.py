@@ -508,6 +508,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
                 status='started',
                 census="open")
         ae.save()
+        self.ae = ae
         self.aeid = ae.pk
 
         u_admin = User(username=test_data.admin['username'])
@@ -586,6 +587,15 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         c = JClient()
         response = c.register(self.aeid, test_data.register_email_fields)
         self.assertEqual(response.status_code, 200)
+
+    def test_add_register_authevent_email_census_close_not_possible(self):
+        self.ae.census = 'close'
+        self.ae.save()
+        c = JClient()
+        response = c.register(self.aeid, test_data.register_email_fields)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], 'Register disable: the auth-event is close')
 
     def test_add_register_authevent_email_fields_incorrect(self):
         c = JClient()

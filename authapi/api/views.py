@@ -118,7 +118,10 @@ class Register(View):
     def post(self, request, pk):
         e = get_object_or_404(AuthEvent, pk=pk)
         if (e.census == 'close'):
-            permission_required(request.user, 'UserEvent', 'edit', pk)
+            jsondata = json.dumps({
+                "msg": "Register disable: the auth-event is close"
+            })
+            return HttpResponse(jsondata, status=400, content_type='application/json')
         if e.census == 'open' and e.status != 'started': # register is closing
             jsondata = json.dumps({
                 "msg": "Register disable: the auth-event doesn't started"
