@@ -109,10 +109,7 @@ class ACL(models.Model):
         return d
 
     def get_hmac(self):
-        if self.object_id:
-            msg = ':'.join((self.user.user.username, self.object_type, str(self.object_id), self.perm))
-        else:
-            msg = ':'.join((self.user.user.username, self.object_type, self.perm))
+        msg = ':'.join((self.user.user.username, self.object_type, str(self.object_id), self.perm))
         khmac = genhmac(settings.SHARED_SECRET, msg)
         return khmac
 
