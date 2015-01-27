@@ -293,15 +293,9 @@ def check_config(config, method):
         for c in config:
             if not c in ('subject', 'msg'):
                 msg += "Invalid config: %s not possible.\n" % c
-            if c == 'msg':
-                if not config[c].count("__LINK__") or not config[c].count("__CODE__"):
-                    msg += "Invalid config: %s should contains __LINK__ and __CODE__.\n" % c
     elif method == 'sms':
         for c in config:
-            if c == "sms-message":
-                if not config[c].count("__LINK__") or not config[c].count("__CODE__"):
-                    msg += "Invalid config: %s should contains __LINK__ and __CODE__.\n" % c
-            else:
+            if c != "sms-message":
                 msg += "Invalid config: %s not possible.\n" % c
     else:
         msg += "Invalid method in check_conf"
