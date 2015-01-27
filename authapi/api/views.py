@@ -18,10 +18,8 @@ from django.db.models import Q
 
 def permission_required(user, object_type, permission, object_id=0):
     if user.is_superuser:
-        print("SUPERRRRR")
         return
     if object_id and user.userdata.has_perms(object_type, permission, 0):
-        print("00000000000")
         return
     if not user.userdata.has_perms(object_type, permission, object_id):
         raise PermissionDenied('Permission required: ' + permission)
