@@ -298,6 +298,34 @@ class ApiTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(len(r['perms']), 3)
 
+    def test_pagination(self):
+        c = JClient()
+        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.get('/api/acl/mine/?page=1&n=10', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['perms']), 7)
+
+        response = c.get('/api/acl/mine/?page=x&n=x', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['perms']), 7)
+
+        response = c.get('/api/acl/mine/?page=1&n=5', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['perms']), 5)
+
+        response = c.get('/api/acl/mine/?page=2&n=5', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['perms']), 2)
+
+        response = c.get('/api/acl/mine/?object_type=ACL&?page=1&n=2', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['perms']), 2)
+
     def test_available_packs(self):
         c = JClient()
         response = c.get('/api/available-packs/', {})
