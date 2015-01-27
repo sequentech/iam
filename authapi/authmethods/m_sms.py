@@ -61,6 +61,7 @@ class Sms:
 
         for r in req:
             u = create_user(r, ae)
+            give_perms(u, ae)
         return {'status': 'ok'}
 
     def register(self, ae, request):
@@ -81,6 +82,7 @@ class Sms:
             return msg
 
         u = create_user(req, ae)
+        give_perms(u, ae)
         send_code(u)
         return {'status': 'ok'}
 

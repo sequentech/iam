@@ -362,6 +362,23 @@ class TestAuthEvent(TestCase):
         acl = ACL(user=u.userdata, object_type='AuthEvent', perm='create',
                 object_id=0)
         acl.save()
+        self.aeid_special = 1
+
+    def test_register_authevent_special(self):
+        data = {"email": "asd@asd.com", "captcha": "asdasd"}
+        c = JClient()
+        # Register
+        response = c.register(self.aeid_special, data)
+        self.assertEqual(response.status_code, 200)
+        user = User.objects.get(email=data['email'])
+        code = Code.objects.get(user=user.userdata)
+        data['code'] = code.code
+        # Authenticate
+        response = c.authenticate(self.aeid_special, data)
+        self.assertEqual(response.status_code, 200)
+        # Create auth-event
+        response = c.post('/api/auth-event/', test_data.ae_email_default)
+        self.assertEqual(response.status_code, 200)
 
     def test_create_auth_event_without_perm(self):
         data = test_data.ae_email_default

@@ -336,10 +336,6 @@ def create_user(req, ae):
     u.userdata.event = ae
     u.userdata.metadata = json.dumps(req)
     u.userdata.save()
-    acl = ACL(user=u.userdata, object_type='UserData', perm='edit', object_id=u.pk)
-    acl.save()
-    acl = ACL(user=u.userdata, object_type='Vote', perm='create', object_id=ae.pk)
-    acl.save()
     return u
 
 
@@ -358,3 +354,17 @@ def check_metadata(req, user):
                 if meta.get(name) != req.get(name):
                     return "Incorrent authentication."
     return ""
+
+
+def give_perms(u, ae):
+    give_perms = ae.auth_method_config.get('config').get('give_perms')
+    if give_perms:
+        obj = give_perms.get('object_type')
+        obj_id = give_perms.get('object_id', 0)
+        for perm in give_perms.get('perms'):
+            acl = ACL(user=u.userdata, object_type=obj, perm=perm, object_id=obj_id)
+            acl.save()
+    acl = ACL(user=u.userdata, object_type='UserData', perm='edit', object_id=u.pk)
+    acl.save()
+    acl = ACL(user=u.userdata, object_type='Vote', perm='create', object_id=ae.pk)
+    acl.save()
