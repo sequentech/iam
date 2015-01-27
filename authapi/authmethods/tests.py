@@ -40,6 +40,15 @@ class AuthMethodTestCase(TestCase):
         response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
 
+    def test_ping(self):
+        c = JClient()
+        response = c.authenticate(self.aeid, test_data.pwd_auth)
+        self.assertEqual(response.status_code, 200)
+        response = c.get('/api/auth-event/%s/ping/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
+
 
 class AuthMethodEmailTestCase(TestCase):
     fixtures = ['initial.json']
