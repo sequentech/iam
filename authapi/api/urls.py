@@ -1,4 +1,5 @@
 from django.conf.urls import patterns, url, include
+from django.conf import settings
 
 urlpatterns = patterns('',
     url(r'^acl/$', 'api.views.acl', name='acl'),
@@ -19,7 +20,6 @@ urlpatterns = patterns('',
 
     url(r'^available-packs/$', 'api.views.available_packs', name='available_packs'),
     url(r'^available-payment-methods/$', 'api.views.available_payment_methods', name='available_payment_methods'),
-    url(r'^captcha/', include('captcha.urls')),
     url(r'^get-perms/', 'api.views.getperms', name='getperms'),
     url(r'^test/', 'api.views.test', name='test'),
 
@@ -27,3 +27,9 @@ urlpatterns = patterns('',
     url(r'^user/add-credits/$', 'api.views.creditsaction', name='creditsaction'),
     url(r'^user/auth-event/$', 'api.views.user_auth_event', name='user_auth_event'),
 )
+
+
+if settings.ENABLE_CAPTCHA:
+    urlpatterns += patterns('',
+        url(r'^captcha/', include('captcha.urls')),
+    )
