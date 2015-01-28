@@ -57,7 +57,8 @@ class UserDataInline(admin.StackedInline):
 
 class CustomUserAdmin(UserAdmin):
     def change_view(self, request, obj_id):
-        self.inlines=[UserDataInline,]
+        # Has required fields and don't let us to modify users in the admin
+        #self.inlines=[UserDataInline,]
         return super(CustomUserAdmin, self).change_view(request, obj_id)
 
     def add_view(self, request):
