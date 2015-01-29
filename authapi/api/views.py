@@ -289,7 +289,7 @@ class AuthEventView(View):
 
             extra_fields = req.get('extra_fields', None)
             if extra_fields:
-                msg += check_extra_fields(extra_fields)
+                msg += check_extra_fields(extra_fields, METHODS.get(auth_method).USED_TYPE_FIELDS)
 
             census = req.get('census', 'close')
             if not census in ('open', 'close'):

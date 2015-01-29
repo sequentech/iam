@@ -208,6 +208,8 @@ VALID_FIELDS = ('name', 'help', 'type', 'required', 'regex', 'min', 'max',
 REQUIRED_FIELDS = ('name', 'type', 'required_on_authentication')
 VALID_PIPELINES = ('check_whitelisted', 'check_blacklisted',
         'check_total_max', 'check_total_connection')
+VALID_TYPE_FIELDS = ('text', 'password', 'int', 'bool', 'regex', 'email', 'tlf',
+        'captcha')
 
 def check_authmethod(method):
     """ Check if method exists in method list. """
@@ -308,7 +310,7 @@ def check_fields(key, value):
         if len(value) > 255 or len(value) < 1:
             msg += "Invalid extra_fields: bad %s.\n" % key
     elif key == 'type':
-        if not value in ('text', 'password', 'int', 'bool', 'regex'):
+        if not value in VALID_TYPE_FIELDS:
             msg += "Invalid extra_fields: bad %s.\n" % key
     elif key == 'required' or key == 'required_on_authentication':
         if not isinstance(value, bool):
@@ -323,16 +325,19 @@ def check_fields(key, value):
                 msg += "Invalid extra_fields: bad %s.\n" % key
     return msg
 
-def check_extra_fields(fields):
+def check_extra_fields(fields, used_type_fields=[]):
     """ Check extra_fields when create auth-event. """
     msg = ''
     if len(fields) > 15:
         return "Maximum number of fields reached"
     used_fields = []
+    used_type_fields = used_type_fields
     for field in fields:
         if field.get('name') in used_fields:
             msg += "Two fields with same name: %s.\n" % field.get('name')
         used_fields.append(field.get('name'))
+        if field.get('type') in used_type_fields:
+            msg += "Type %s not allowed.\n" % field.get('type')
         for required in REQUIRED_FIELDS:
             if not required in field.keys():
                 msg += "Required field %s.\n" % required

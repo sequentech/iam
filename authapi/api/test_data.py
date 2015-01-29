@@ -276,6 +276,9 @@ ae_email_fields.update( {
     ]
 })
 
+ae_email_fields_captcha = ae_email_fields.copy()
+ae_email_fields_captcha.update( {'extra_fields': [{'name': 'captcha', 'type': 'captcha', 'required_on_authentication': False}]})
+
 ae_email_fields_incorrect_max_fields = ae_email_fields.copy()
 ae_email_fields_incorrect_max_fields.update({"extra_fields": [{"boo": True},
     {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True},
@@ -309,6 +312,10 @@ ae_email_fields_incorrect_repeat.update( {'extra_fields': [
     {'name': 'surname', 'type': 'text', 'required_on_authentication': False},
     {'name': 'surname', 'type': 'text', 'required_on_authentication': False}]})
 
+ae_email_fields_incorrect_email = ae_email_fields.copy()
+ae_email_fields_incorrect_email.update( {'extra_fields': [
+    {'name': 'email', 'type': 'email', 'required_on_authentication': False}]})
+
 ae_sms_default = {
     "auth_method": "sms",
     "census": "open",
@@ -335,6 +342,10 @@ ae_sms_fields = {
             }
     ]
 }
+
+ae_sms_fields_incorrect_tlf = ae_sms_default.copy()
+ae_sms_fields_incorrect_tlf.update( {'extra_fields': [
+    {'name': 'tlf', 'type': 'tlf', 'required_on_authentication': False}]})
 
 ae_sms_config_incorrect = {
     "auth_method": "sms",

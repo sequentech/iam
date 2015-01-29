@@ -37,6 +37,7 @@ class Sms:
             ['check_sms_code', {'timestamp': 5 }]
         ]
     }
+    USED_TYPE_FIELDS = ['tlf']
 
     tlf_definition = { "name": "tlf", "type": "text", "required": True, "min": 4, "max": 20, "required_on_authentication": True }
     code_definition = { "name": "code", "type": "text", "required": True, "min": 6, "max": 255, "required_on_authentication": True }
