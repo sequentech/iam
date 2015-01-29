@@ -283,19 +283,19 @@ ae_email_fields_incorrect_max_fields.update({"extra_fields": [{"boo": True},
     {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True}]})
 
 ae_email_fields_incorrect_len = ae_email_fields.copy()
-ae_email_fields_incorrect_len.update( {'extra_fields': [{ 'name': 'iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii'}]})
+ae_email_fields_incorrect_len.update( {'extra_fields': [{'name': 256*'i', 'type': 'text', 'required_on_authentication': False}]})
 
 ae_email_fields_incorrect_type = ae_email_fields.copy()
-ae_email_fields_incorrect_type.update( {'extra_fields': [{ 'type': 'null' }]})
+ae_email_fields_incorrect_type.update( {'extra_fields': [{'name': 'name', 'type': 'null', 'required_on_authentication': False}]})
 
 ae_email_fields_incorrect_value_int = ae_email_fields.copy()
-ae_email_fields_incorrect_value_int.update( {'extra_fields': [{ 'min': '1' }]})
+ae_email_fields_incorrect_value_int.update( {'extra_fields': [{'name': 'name', 'type': 'text', 'required_on_authentication': False, 'min': '1'}]})
 
 ae_email_fields_incorrect_value_bool = ae_email_fields.copy()
-ae_email_fields_incorrect_value_bool.update( {'extra_fields': [{ 'required': 'True' }]})
+ae_email_fields_incorrect_value_bool.update( {'extra_fields': [{'name': 'name', 'type': 'text', 'required_on_authentication': 'False'}]})
 
 ae_email_fields_incorrect = ae_email_fields.copy()
-ae_email_fields_incorrect.update({"extra_fields": [{"boo": True}]})
+ae_email_fields_incorrect.update({"extra_fields": [{'name': 'name', 'type': 'text', 'required_on_authentication': False, "boo": True}]})
 
 
 ae_sms_default = {

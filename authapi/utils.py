@@ -204,6 +204,7 @@ def send_code(user, templ=None):
 # CHECKERS AUTHEVENT
 VALID_FIELDS = ('name', 'help', 'type', 'required', 'regex', 'min', 'max',
     'required_on_authentication')
+REQUIRED_FIELDS = ('name', 'type', 'required_on_authentication')
 VALID_PIPELINES = ('check_whitelisted', 'check_blacklisted',
         'check_total_max', 'check_total_connection')
 
@@ -269,7 +270,7 @@ def check_fields(key, value):
         if len(value) > 255:
             msg += "Invalid extra_fields: bad %s.\n" % key
     elif key == 'type':
-        if not value in ('text', 'password', 'int'):
+        if not value in ('text', 'password', 'int', 'bool', 'regex'):
             msg += "Invalid extra_fields: bad %s.\n" % key
     elif key == 'required' or key == 'required_on_authentication':
         if not isinstance(value, bool):
@@ -318,6 +319,9 @@ def check_extra_fields(fields):
     if len(fields) > 15:
         return "Maximum number of fields reached"
     for field in fields:
+        for required in REQUIRED_FIELDS:
+            if not required in field.keys():
+                msg += "Required field %s.\n" % required
         for key in field.keys():
             if key in VALID_FIELDS:
                 msg += check_fields(key, field.get(key))

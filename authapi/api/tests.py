@@ -474,7 +474,7 @@ class TestAuthEvent(TestCase):
         response = create_authevent(test_data.ae_email_fields_incorrect_value_bool)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Invalid extra_fields: bad required.\n')
+        self.assertEqual(r['msg'], 'Invalid extra_fields: bad required_on_authentication.\n')
         response = create_authevent(test_data.ae_email_fields_incorrect_max_fields)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
