@@ -136,7 +136,7 @@ def generate_code(userdata):
 
 @celery.task
 def send_email(email):
-    email.send()
+    email.send(fail_silently=True)
 
 
 @celery.task
