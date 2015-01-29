@@ -282,8 +282,15 @@ ae_email_fields_incorrect_max_fields.update({"extra_fields": [{"boo": True},
     {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True},
     {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True}]})
 
-ae_email_fields_incorrect_len = ae_email_fields.copy()
-ae_email_fields_incorrect_len.update( {'extra_fields': [{'name': 256*'i', 'type': 'text', 'required_on_authentication': False}]})
+ae_email_fields_incorrect_empty = ae_email_fields.copy()
+ae_email_fields_incorrect_empty.update( {'extra_fields': [{'name': '', 'type': 'text', 'required_on_authentication': False}]})
+
+ae_email_fields_incorrect_len1 = ae_email_fields.copy()
+ae_email_fields_incorrect_len1.update( {'extra_fields': [{'name': 256*'i', 'type': 'text', 'required_on_authentication': False}]})
+
+from sys import maxsize
+ae_email_fields_incorrect_len2 = ae_email_fields.copy()
+ae_email_fields_incorrect_len2.update( {'extra_fields': [{'name': 'iii', 'type': 'text', 'required_on_authentication': False, 'max': maxsize + 1}]})
 
 ae_email_fields_incorrect_type = ae_email_fields.copy()
 ae_email_fields_incorrect_type.update( {'extra_fields': [{'name': 'name', 'type': 'null', 'required_on_authentication': False}]})

@@ -265,9 +265,11 @@ def check_sms_code(fields):
     return msg
 
 def check_fields(key, value):
+    """ Check fields in extra_fields when create auth-event. """
+    from sys import maxsize
     msg = ''
     if key == 'name' or key == 'help':
-        if len(value) > 255:
+        if len(value) > 255 or len(value) < 1:
             msg += "Invalid extra_fields: bad %s.\n" % key
     elif key == 'type':
         if not value in ('text', 'password', 'int', 'bool', 'regex'):
@@ -280,6 +282,9 @@ def check_fields(key, value):
     elif key == 'min' or key == 'max':
         if not isinstance(value, int):
             msg += "Invalid extra_fields: bad %s.\n" % key
+        else:
+            if value >= maxsize or value <= -maxsize :
+                msg += "Invalid extra_fields: bad %s.\n" % key
     return msg
 
 def check_authmethod(method):
@@ -289,6 +294,7 @@ def check_authmethod(method):
         return "Invalid authmethods\n"
 
 def check_pipeline(pipe):
+    """ Check pipeline when create auth-event. """
     msg = ''
     for p in pipe:
         if not p in ('register-pipeline', 'authenticate-pipeline'):
