@@ -41,6 +41,15 @@ class Sms:
     tlf_definition = { "name": "tlf", "type": "text", "required": True, "min": 4, "max": 20, "required_on_authentication": True }
     code_definition = { "name": "code", "type": "text", "required": True, "min": 6, "max": 255, "required_on_authentication": True }
 
+    def check_config(self, config):
+        """ Check config when create auth-event. """
+        msg = ''
+        for c in config:
+            if c != "sms-message":
+                msg += "Invalid config: %s not possible.\n" % c
+        return msg
+
+
     def census(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
 

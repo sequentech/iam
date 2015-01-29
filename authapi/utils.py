@@ -288,20 +288,6 @@ def check_authmethod(method):
     else:
         return "Invalid authmethods\n"
 
-def check_config(config, method):
-    msg = ''
-    if method == 'email':
-        for c in config:
-            if not c in ('subject', 'msg'):
-                msg += "Invalid config: %s not possible.\n" % c
-    elif method == 'sms':
-        for c in config:
-            if c != "sms-message":
-                msg += "Invalid config: %s not possible.\n" % c
-    else:
-        msg += "Invalid method in check_conf"
-    return msg
-
 def check_pipeline(pipe):
     msg = ''
     for p in pipe:
@@ -315,6 +301,7 @@ def check_pipeline(pipe):
     return msg
 
 def check_extra_fields(fields):
+    """ Check extra_fields when create auth-event. """
     msg = ''
     if len(fields) > 15:
         return "Maximum number of fields reached"

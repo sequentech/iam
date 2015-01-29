@@ -4,6 +4,10 @@ from importlib import import_module
 
 METHODS = {}
 
+def check_config(config, auth_method):
+    """ Check config when create auth-event. """
+    return METHODS[auth_method].check_config(config)
+
 
 def auth_census(event, data):
     return METHODS[event.auth_method].census(event, data)

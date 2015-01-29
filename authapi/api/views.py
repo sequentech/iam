@@ -6,9 +6,9 @@ from django.http import HttpResponse, HttpResponseBadRequest
 from django.views.generic import View
 from django.shortcuts import get_object_or_404
 
-from authmethods import auth_authenticate, METHODS, auth_register, auth_census
+from authmethods import auth_authenticate, METHODS, auth_register, auth_census, check_config
 from utils import genhmac, paginate, VALID_FIELDS, VALID_PIPELINES
-from utils import check_authmethod, check_pipeline, check_extra_fields, check_config
+from utils import check_authmethod, check_pipeline, check_extra_fields
 from .decorators import login_required, get_login_user
 from .models import AuthEvent, ACL, CreditsAction
 from .models import User, UserData
