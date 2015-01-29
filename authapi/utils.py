@@ -124,6 +124,7 @@ def random_code(length=16, chars=ascii_lowercase+digits):
 
 
 def generate_code(userdata):
+    """ Generate necessary codes for different authmethods. """
     from authmethods.models import Code
     if userdata.event.auth_method == 'email':
         code = random_code(64, ascii_letters+digits)
@@ -208,7 +209,29 @@ REQUIRED_FIELDS = ('name', 'type', 'required_on_authentication')
 VALID_PIPELINES = ('check_whitelisted', 'check_blacklisted',
         'check_total_max', 'check_total_connection')
 
+def check_sms_code(fields):
+    """ Check sms code in sms authmethod. """
+    msg = ''
+    for field in fields:
+        if field in ('timestamp'):
+            if field == 'timestamp':
+                if not isinstance(fields[field], int):
+                    msg += "Invalid pipeline field: bad %s.\n" % field
+        else:
+            msg += "Invalid pipeline field: %s not possible.\n" % field
+    return msg
+
+def check_authmethod(method):
+    """ Check if method exists in method list. """
+    if method in METHODS.keys():
+        return ''
+    else:
+        return "Invalid authmethods\n"
+
 def check_colorlist(fields):
+    """
+    Check if pipeline colorlist is correct for add to auth_method_config.
+    """
     msg = ''
     for field in fields:
         if field in ('field'):
@@ -226,6 +249,10 @@ def check_blacklisted(fields):
     return check_colorlist(fields)
 
 def check_total_max(fields):
+    """
+    Check if pipeline total max petitions is correct for add to
+    auth_method_config.
+    """
     msg = ''
     for field in fields:
         if field in ('field', 'max', 'period'):
@@ -243,6 +270,10 @@ def check_total_max(fields):
     return msg
 
 def check_total_connection(fields):
+    """
+    Check if pipeline total connections is correct for add to
+    auth_method_config.
+    """
     msg = ''
     for field in fields:
         if field in ('times'):
@@ -253,15 +284,20 @@ def check_total_connection(fields):
             msg += "Invalid pipeline field: %s not possible.\n" % field
     return msg
 
-def check_sms_code(fields):
+def check_pipeline(pipe):
+    """
+    Check pipeline when create auth-event. This function call to other function
+    for checker if all pipeline is correct for add to auth_method_config.
+    """
     msg = ''
-    for field in fields:
-        if field in ('timestamp'):
-            if field == 'timestamp':
-                if not isinstance(fields[field], int):
-                    msg += "Invalid pipeline field: bad %s.\n" % field
-        else:
-            msg += "Invalid pipeline field: %s not possible.\n" % field
+    for p in pipe:
+        if not p in ('register-pipeline', 'authenticate-pipeline'):
+            msg += "Invalid pipeline: %s not possible.\n" % p
+        for func in pipe[p]:
+            if func[0] in VALID_PIPELINES:
+                msg += getattr(eval(func[0]), '__call__')(func[1])
+            else:
+                msg += "Invalid pipeline functions: %s not possible.\n" % func
     return msg
 
 def check_fields(key, value):
@@ -285,25 +321,6 @@ def check_fields(key, value):
         else:
             if value >= maxsize or value <= -maxsize :
                 msg += "Invalid extra_fields: bad %s.\n" % key
-    return msg
-
-def check_authmethod(method):
-    if method in METHODS.keys():
-        return ''
-    else:
-        return "Invalid authmethods\n"
-
-def check_pipeline(pipe):
-    """ Check pipeline when create auth-event. """
-    msg = ''
-    for p in pipe:
-        if not p in ('register-pipeline', 'authenticate-pipeline'):
-            msg += "Invalid pipeline: %s not possible.\n" % p
-        for func in pipe[p]:
-            if func[0] in VALID_PIPELINES:
-                msg += getattr(eval(func[0]), '__call__')(func[1])
-            else:
-                msg += "Invalid pipeline functions: %s not possible.\n" % func
     return msg
 
 def check_extra_fields(fields):
