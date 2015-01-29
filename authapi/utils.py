@@ -209,18 +209,6 @@ REQUIRED_FIELDS = ('name', 'type', 'required_on_authentication')
 VALID_PIPELINES = ('check_whitelisted', 'check_blacklisted',
         'check_total_max', 'check_total_connection')
 
-def check_sms_code(fields):
-    """ Check sms code in sms authmethod. """
-    msg = ''
-    for field in fields:
-        if field in ('timestamp'):
-            if field == 'timestamp':
-                if not isinstance(fields[field], int):
-                    msg += "Invalid pipeline field: bad %s.\n" % field
-        else:
-            msg += "Invalid pipeline field: %s not possible.\n" % field
-    return msg
-
 def check_authmethod(method):
     """ Check if method exists in method list. """
     if method in METHODS.keys():
@@ -278,6 +266,18 @@ def check_total_connection(fields):
     for field in fields:
         if field in ('times'):
             if field == 'times':
+                if not isinstance(fields[field], int):
+                    msg += "Invalid pipeline field: bad %s.\n" % field
+        else:
+            msg += "Invalid pipeline field: %s not possible.\n" % field
+    return msg
+
+def check_sms_code(fields):
+    """ Check if sms code pipeline is correct for add to auth_method_config. """
+    msg = ''
+    for field in fields:
+        if field in ('timestamp'):
+            if field == 'timestamp':
                 if not isinstance(fields[field], int):
                     msg += "Invalid pipeline field: bad %s.\n" % field
         else:
