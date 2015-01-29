@@ -22,7 +22,8 @@ class AuthEventAdminForm(forms.ModelForm):
 
 class AuthEventAdmin(admin.ModelAdmin):
     form = AuthEventAdminForm
-    list_display = ('id', 'auth_method')
+    list_display = ('id', 'auth_method', 'status')
+    list_filter = ('auth_method', 'status')
 
 
 class UserDataAdmin(admin.ModelAdmin):
