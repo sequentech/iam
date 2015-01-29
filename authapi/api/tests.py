@@ -487,6 +487,10 @@ class TestAuthEvent(TestCase):
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['msg'], 'Maximum number of fields reached')
+        response = create_authevent(test_data.ae_email_fields_incorrect_repeat)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], 'Two fields with same name: surname.\n')
 
         response = create_authevent(test_data.ae_email_config_incorrect1)
         self.assertEqual(response.status_code, 400)

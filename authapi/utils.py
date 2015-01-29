@@ -328,7 +328,11 @@ def check_extra_fields(fields):
     msg = ''
     if len(fields) > 15:
         return "Maximum number of fields reached"
+    used_fields = []
     for field in fields:
+        if field.get('name') in used_fields:
+            msg += "Two fields with same name: %s.\n" % field.get('name')
+        used_fields.append(field.get('name'))
         for required in REQUIRED_FIELDS:
             if not required in field.keys():
                 msg += "Required field %s.\n" % required

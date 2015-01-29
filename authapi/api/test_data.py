@@ -304,6 +304,10 @@ ae_email_fields_incorrect_value_bool.update( {'extra_fields': [{'name': 'name', 
 ae_email_fields_incorrect = ae_email_fields.copy()
 ae_email_fields_incorrect.update({"extra_fields": [{'name': 'name', 'type': 'text', 'required_on_authentication': False, "boo": True}]})
 
+ae_email_fields_incorrect_repeat = ae_email_fields.copy()
+ae_email_fields_incorrect_repeat.update( {'extra_fields': [
+    {'name': 'surname', 'type': 'text', 'required_on_authentication': False},
+    {'name': 'surname', 'type': 'text', 'required_on_authentication': False}]})
 
 ae_sms_default = {
     "auth_method": "sms",
