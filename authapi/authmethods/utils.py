@@ -361,7 +361,7 @@ def check_metadata(req, user):
 
 
 def give_perms(u, ae):
-    give_perms = ae.auth_method_config.get('config').get('give_perms')
+    give_perms = ae.auth_method_config.get('auth_method_config').get('give_perms')
     if give_perms:
         obj = give_perms.get('object_type')
         obj_id = give_perms.get('object_id', 0)

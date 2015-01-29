@@ -280,7 +280,7 @@ class AuthEventView(View):
             msg = check_authmethod(auth_method)
             
             auth_method_config = {
-                    "config": METHODS.get(auth_method).CONFIG,
+                    "auth_method_config": METHODS.get(auth_method).CONFIG,
                     "pipeline": METHODS.get(auth_method).PIPELINES
             }
             config = req.get('auth_method_config', None)
@@ -301,7 +301,7 @@ class AuthEventView(View):
                 return HttpResponse(jsondata, status=400, content_type='application/json')
 
             if config:
-                auth_method_config.get('config').update(config)
+                auth_method_config.get('auth_method_config').update(config)
 
             ae = AuthEvent(auth_method=auth_method,
                            auth_method_config=auth_method_config,
@@ -321,7 +321,7 @@ class AuthEventView(View):
             auth_method = req['auth_method']
             msg = check_authmethod(auth_method)
 
-            config = req.get('config', None)
+            config = req.get('auth_method_config', None)
             if config:
                 msg += check_config(config, auth_method)
 
@@ -337,7 +337,7 @@ class AuthEventView(View):
             ae = AuthEvent.objects.get(pk=pk)
             ae.auth_method = auth_method
             if config:
-                ae.auth_method_config.get('config').update(config)
+                ae.auth_method_config.get('auth_method_config').update(config)
             if extra_fields:
                 ae.extra_fields = extra_fields
             ae.save()

@@ -4,7 +4,7 @@ pwd_auth_email = {'email': 'john@agoravoting.com', 'password': 'smith'}
 
 auth_event1 = {
     "auth_method": "sms",
-    "config": {"sms-message": "Enter in %(url)s and put this code %(code)s"},
+    "auth_method_config": {"sms-message": "Enter in %(url)s and put this code %(code)s"},
     "extra_fields": [
             {
             "name": "name",
@@ -38,7 +38,7 @@ auth_event1 = {
 auth_event2 = {
     "auth_method": "sms",
     "census": "open",
-    "config": {"sms-message": "Enter in %(url)s and put this code %(code)s"},
+    "auth_method_config": {"sms-message": "Enter in %(url)s and put this code %(code)s"},
     "extra_fields": [
             {
             "name": "name",
@@ -81,7 +81,7 @@ auth_event2 = {
 auth_event3 = {
     "auth_method": "email",
     "census": "open",
-    "config": {
+    "auth_method_config": {
         "subject": "Confirm your email",
         "msg": "Click %(url)s and put this code %(code)s"
     }
@@ -95,7 +95,7 @@ auth_event4 = {
 auth_event5 = {
     "auth_method": "user-and-password",
     "census": "open",
-    "config": {},
+    "auth_method_config": {},
     "extra_fields": [
             {
             "name": "name",
@@ -196,7 +196,7 @@ pipe_times = 5
 pipe_timestamp = 5
 
 authmethod_config_email_default = {
-        "config": {
+        "auth_method_config": {
             "subject": "Confirm your email",
             "msg": "Click %(url)s and put this code %(code)s"
         },
@@ -213,7 +213,7 @@ authmethod_config_email_default = {
 }
 
 authmethod_config_sms_default = {
-        "config": {
+        "auth_method_config": {
             "SMS_PROVIDER": "console",
             "SMS_DOMAIN_ID": "",
             "SMS_LOGIN": "",
@@ -248,17 +248,17 @@ ae_email_default = {
 
 ae_email_config = ae_email_default.copy()
 ae_email_config.update( {
-    "config": {
+    "auth_method_config": {
         "subject": "Vote",
         "msg": "Enter in %(url)s and put this code %(code)s",
     }
 })
 
 ae_email_config_incorrect1 = ae_email_config.copy()
-ae_email_config_incorrect1.update({"config": {"aaaaaa": "bbbb"}})
+ae_email_config_incorrect1.update({"auth_method_config": {"aaaaaa": "bbbb"}})
 
 ae_email_config_incorrect2 = ae_email_config.copy()
-ae_email_config_incorrect2.update({"config": "aaaaaa"})
+ae_email_config_incorrect2.update({"auth_method_config": "aaaaaa"})
 
 
 ae_email_fields = ae_email_default.copy()
@@ -306,7 +306,7 @@ ae_sms_default = {
 ae_sms_config = {
     "auth_method": "sms",
     "census": "open",
-    "config": {"sms-message": "Enter in %(url)s and put this code %(code)s"}
+    "auth_method_config": {"sms-message": "Enter in %(url)s and put this code %(code)s"}
 }
 
 ae_sms_fields = {
@@ -328,7 +328,7 @@ ae_sms_fields = {
 ae_sms_config_incorrect = {
     "auth_method": "sms",
     "census": "open",
-    "config": {"incorrect": "sms code: {code}"}
+    "auth_method_config": {"incorrect": "sms code: {code}"}
 }
 
 ae_sms_fields_incorrect = {

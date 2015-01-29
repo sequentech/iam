@@ -158,7 +158,7 @@ def send_code(user, templ=None):
     '''
     from authmethods.models import Message
     auth_method = user.userdata.event.auth_method
-    conf = user.userdata.event.auth_method_config.get('config')
+    conf = user.userdata.event.auth_method_config.get('auth_method_config')
     event_id = user.userdata.event.id
 
     code = generate_code(user.userdata)
