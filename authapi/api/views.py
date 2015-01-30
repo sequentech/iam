@@ -485,7 +485,7 @@ class CensusSendAuth(View):
         e = get_object_or_404(AuthEvent, pk=pk)
         if e.status != 'started':
           jsondata = json.dumps({'error': 'AuthEvent with id = %s has not started' % pk})
-          return HttpResponseBadRequest(json, content_type='application/json')
+          return HttpResponseBadRequest(jsondata, content_type='application/json')
 
         invalid_json = json.dumps({'error': "Invalid json"})
         try:
