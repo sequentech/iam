@@ -14,6 +14,7 @@ from .models import AuthEvent, ACL, CreditsAction
 from .models import User, UserData
 from .tasks import census_send_auth_task
 from django.db.models import Q
+from captcha.views import generate_captcha
 
 
 def permission_required(user, object_type, permission, object_id=0):
@@ -315,6 +316,11 @@ class AuthEventView(View):
             acl = ACL(user=request.user.userdata, perm='create',
                     object_type='UserData', object_id=ae.id)
             acl.save()
+
+            # if necessary, generate captchas
+            from authmethods.utils import have_captcha
+            if have_captcha(ae):
+                generate_captcha(settings.PREGENERATION_CAPTCHA)
 
         else: # edit
             permission_required(request.user, 'AuthEvent', 'edit', pk)

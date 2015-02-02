@@ -1,6 +1,7 @@
 import json
 from django.contrib.auth.models import User
 from django.test import TestCase
+from django.test.utils import override_settings
 
 from api import test_data
 from api.models import ACL, AuthEvent
@@ -32,6 +33,9 @@ class TestProcessCaptcha(TestCase):
             object_id=self.aeid)
         acl.save()
 
+        acl = ACL(user=u_admin.userdata, object_type='AuthEvent', perm='create',
+                object_id=0)
+        acl.save()
 
     def test_create_new_captcha(self):
         c = JClient()
@@ -39,6 +43,20 @@ class TestProcessCaptcha(TestCase):
         response = c.get('/api/captcha/new/', {})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(1, Captcha.objects.count())
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_pregenerate_captchas(self):
+        from django.conf import settings #import PREGENERATION_CAPTCHA
+        self.assertEqual(0, Captcha.objects.count())
+
+        c = JClient()
+        c.authenticate(0, test_data.admin)
+        response = c.post('/api/auth-event/', test_data.ae_email_fields_captcha)
+        self.assertEqual(response.status_code, 200)
+
+        self.assertEqual(settings.PREGENERATION_CAPTCHA, Captcha.objects.count())
 
     def test_create_authevent_email_with_captcha(self):
         c = JClient()

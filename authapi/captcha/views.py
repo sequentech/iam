@@ -5,6 +5,7 @@ import string
 from django.views.generic import View
 from django.http import HttpResponse
 from django.conf import settings
+from djcelery import celery
 
 try:
     from PIL import Image, ImageDraw, ImageFont, ImageFilter
@@ -17,28 +18,41 @@ except ImportError:
 from .models import Captcha
 
 
+def newcaptcha():
+    letters = string.ascii_uppercase + string.digits
+
+    code = ''.join(random.choice(letters) for _ in range(10))
+    challenge = ''.join(random.choice(letters) for _ in range(4))
+
+    make_image(challenge, code)
+
+    fname = code + '.png'
+    path = '/static/captcha/%s' % fname
+
+    c = Captcha(code=code, challenge=challenge, path=path)
+    c.save()
+
+    data = {
+        'captcha_code': c.code,
+        'image_url': c.path
+    }
+    return data
+
+
+@celery.task
+def generate_captcha(amount=1):
+    from captcha.views import newcaptcha
+    repeat = 0
+    while repeat < amount:
+        newcaptcha()
+        repeat += 1
+
+
 class NewCaptcha(View):
     def get(self, request):
         # TODO, think about limits to prevent lots of calls because this
         # creates an image file and we can get out of disk space
-
-        letters = string.ascii_uppercase + string.digits
-
-        code = ''.join(random.choice(letters) for _ in range(10))
-        challenge = ''.join(random.choice(letters) for _ in range(4))
-
-        make_image(challenge, code)
-
-        fname = code + '.png'
-        path = '/static/captcha/%s' % fname
-
-        c = Captcha(code=code, challenge=challenge, path=path)
-        c.save()
-
-        data = {
-            'captcha_code': c.code,
-            'image_url': c.path
-        }
+        data = newcaptcha()
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
 new_captcha = NewCaptcha.as_view()
