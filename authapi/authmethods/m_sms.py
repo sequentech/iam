@@ -7,6 +7,7 @@ from utils import genhmac, send_code
 
 from . import register_method
 from authmethods.utils import *
+from captcha.decorators import captcha_required
 
 
 class Sms:
@@ -75,6 +76,8 @@ class Sms:
         return {'status': 'ok'}
 
     def register(self, ae, request):
+        if have_captcha(ae):
+            captcha_required(request)
         req = json.loads(request.body.decode('utf-8'))
 
         msg = ''
@@ -101,6 +104,8 @@ class Sms:
         return d
 
     def authenticate(self, ae, request):
+        if have_captcha(ae, 'authenticate'):
+            captcha_required(request)
         req = json.loads(request.body.decode('utf-8'))
 
         msg = ''

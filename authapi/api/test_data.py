@@ -277,7 +277,8 @@ ae_email_fields.update( {
 })
 
 ae_email_fields_captcha = ae_email_fields.copy()
-ae_email_fields_captcha.update( {'extra_fields': [{'name': 'captcha', 'type': 'captcha', 'required_on_authentication': False}]})
+ae_email_fields_captcha.update( {'extra_fields': [{'name': 'captcha', 'type': 'captcha',
+        'required': True, 'required_on_authentication': False}]})
 
 ae_email_fields_incorrect_max_fields = ae_email_fields.copy()
 ae_email_fields_incorrect_max_fields.update({"extra_fields": [{"boo": True},

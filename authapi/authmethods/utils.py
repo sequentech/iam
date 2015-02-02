@@ -281,7 +281,7 @@ def check_value(definition, field, step='register'):
     if step == 'authenticate' and not definition.get('required_on_authentication'):
         return msg
     if field is None:
-        if definition.get('required'):
+        if definition.get('required') and definition.get('type') != 'captcha':
             msg += "Field %s is required" % definition.get('name')
     else:
         if isinstance(field, str):
@@ -317,6 +317,16 @@ def check_fields_in_request(req, ae, step='register'):
         for extra in ae.extra_fields:
             msg += check_value(extra, req.get(extra.get('name')), step)
     return msg
+
+
+def have_captcha(ae, step='register'):
+    if ae.extra_fields:
+        for extra in ae.extra_fields:
+            if extra.get('type') == 'captcha':
+                if step == 'authenticate' and extra.get('required_on_authentication') == False:
+                    return False
+                return True
+    return False
 
 
 def create_user(req, ae):
