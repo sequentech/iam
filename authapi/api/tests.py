@@ -380,6 +380,14 @@ class ApiTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r, {'paypal_url': 'foo'})
 
+    def test_get_authmethod(self):
+        c = JClient()
+        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.get('/api/auth-event/module/', {})
+        self.assertEqual(response.status_code, 200)
+
+        response = c.get('/api/auth-event/module/email/', {})
+        self.assertEqual(response.status_code, 200)
 
 def create_authevent(authevent):
     c = JClient()
