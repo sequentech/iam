@@ -4,7 +4,6 @@ import datetime
 import json
 import time
 import six
-from authmethods import METHODS
 from djcelery import celery
 from django.core.mail import send_mail, EmailMessage
 from django.core.paginator import Paginator
@@ -213,6 +212,7 @@ VALID_TYPE_FIELDS = ('text', 'password', 'int', 'bool', 'regex', 'email', 'tlf',
 
 def check_authmethod(method):
     """ Check if method exists in method list. """
+    from authmethods import METHODS
     if method in METHODS.keys():
         return ''
     else:

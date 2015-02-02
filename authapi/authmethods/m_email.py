@@ -8,7 +8,6 @@ from . import register_method
 from authmethods.utils import *
 from api.models import AuthEvent
 from authmethods.models import Code
-from captcha.decorators import captcha_required
 
 
 class Email:
@@ -65,8 +64,6 @@ class Email:
         return {'status': 'ok'}
 
     def register(self, ae, request):
-        if have_captcha(ae):
-            captcha_required(request)
         req = json.loads(request.body.decode('utf-8'))
         msg = ''
         email = req.get('email')
@@ -92,8 +89,6 @@ class Email:
         return d
 
     def authenticate(self, ae, request):
-        if have_captcha(ae, 'authenticate'):
-            captcha_required(request)
         req = json.loads(request.body.decode('utf-8'))
         msg = ''
         email = req.get('email')

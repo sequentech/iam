@@ -43,13 +43,6 @@ class TestProcessCaptcha(TestCase):
     def test_create_authevent_email_with_captcha(self):
         c = JClient()
 
-        #captcha
-        response = c.get('/api/captcha/new/', {})
-        self.assertEqual(response.status_code, 200)
-        captcha = Captcha.objects.all()[0]
-        data = test_data.register_email_fields
-        data.update({'captcha_code': captcha.code, 'captcha_answer': captcha.challenge})
-
         # add census without problem with captcha
         c.authenticate(0, test_data.admin)
         response = c.census(self.aeid, test_data.census_email_default)
@@ -59,9 +52,35 @@ class TestProcessCaptcha(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(len(r['userids']), 4)
 
+        # add register: without captcha
+        response = c.register(self.aeid, test_data.register_email_fields)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], 'Invalid captcha')
+
+        # create captcha
+        response = c.get('/api/captcha/new/', {})
+        self.assertEqual(response.status_code, 200)
+        captcha = Captcha.objects.all()[0]
+        data = test_data.register_email_fields
+
+        # add register: bad code
+        data.update({'captcha_code': '', 'captcha_answer': captcha.challenge})
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], 'Invalid captcha')
+
         # add register
+        data.update({'captcha_code': captcha.code, 'captcha_answer': captcha.challenge})
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 200)
+
+        # add register: repeat captcha invalid
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], 'Invalid captcha')
 
     def test_create_authevent_sms_with_captcha(self):
         self.ae.auth_method = 'sms'
@@ -69,13 +88,6 @@ class TestProcessCaptcha(TestCase):
         self.ae.save()
         c = JClient()
 
-        #captcha
-        response = c.get('/api/captcha/new/', {})
-        self.assertEqual(response.status_code, 200)
-        captcha = Captcha.objects.all()[0]
-        data = test_data.register_sms_default
-        data.update({'captcha_code': captcha.code, 'tlf': '999999999',
-                'captcha_answer': captcha.challenge})
 
         # add census without problem with captcha
         c.authenticate(0, test_data.admin)
@@ -86,6 +98,33 @@ class TestProcessCaptcha(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(len(r['userids']), 4)
 
+        # add register: without captcha
+        response = c.register(self.aeid, test_data.register_email_fields)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], 'Invalid captcha')
+
+        # create captcha
+        response = c.get('/api/captcha/new/', {})
+        self.assertEqual(response.status_code, 200)
+        captcha = Captcha.objects.all()[0]
+        data = test_data.register_sms_default
+        data.update({'tlf': '999999999'})
+
+        # add register: bad code
+        data.update({'captcha_code': '', 'captcha_answer': captcha.challenge})
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], 'Invalid captcha')
+
         # add register
+        data.update({'captcha_code': captcha.code, 'captcha_answer': captcha.challenge})
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 200)
+
+        # add register: repeat captcha invalid
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], 'Invalid captcha')
