@@ -82,6 +82,19 @@ class TestProcessCaptcha(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['msg'], 'Invalid captcha')
 
+        # create captcha
+        response = c.get('/api/captcha/new/', {})
+        self.assertEqual(response.status_code, 200)
+        captcha = Captcha.objects.all()[0]
+        data = test_data.register_email_fields
+
+        # add register: bad challenge
+        data.update({'captcha_code': captcha.code, 'captcha_answer': ''})
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], 'Invalid captcha')
+
     def test_create_authevent_sms_with_captcha(self):
         self.ae.auth_method = 'sms'
         self.ae.auth_method_config = test_data.authmethod_config_sms_default
@@ -124,6 +137,20 @@ class TestProcessCaptcha(TestCase):
         self.assertEqual(response.status_code, 200)
 
         # add register: repeat captcha invalid
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], 'Invalid captcha')
+
+        # create captcha
+        response = c.get('/api/captcha/new/', {})
+        self.assertEqual(response.status_code, 200)
+        captcha = Captcha.objects.all()[0]
+        data = test_data.register_sms_fields
+        data.update({'tlf': '888888888'})
+
+        # add register: bad challenge
+        data.update({'captcha_code': captcha.code, 'captcha_answer': ''})
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
