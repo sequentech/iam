@@ -230,14 +230,6 @@ class AuthMethodSmsTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['message'], 'Invalid code.')
 
-    def _test_method_sms_invalid_code_x_times(self):
-        for i in range(test_data.pipe_times + 1):
-            data = {'tlf': '+34666666666', 'code': 'BBBBBBBB', 'dni': '11111111H', 'email': 'test@test.com'}
-            response = self.c.authenticate(self.aeid, data)
-        self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Exceeded the level os attempts')
-
     def test_method_sms_get_perm(self): # Fix
         auth = { 'tlf': '+34666666666', 'code': 'AAAAAAAA',
                 'email': 'test@test.com', 'dni': '11111111H'}
@@ -276,39 +268,3 @@ class AuthMethodSmsTestCase(TestCase):
         }
         response = self.c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
-
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
-    def _test_method_sms_register_max_tlf(self):
-        data = {'tlf': '+34666666666', 'code': 'AAAAAA',
-                'email': 'test@test.com', 'dni': '11111111H'}
-        x = 0
-        while x < test_data.pipe_total_max_tlf + 1:
-            x += 1
-            response = self.c.register(self.aeid, data)
-        response = self.c.register(self.aeid, data)
-        self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
-        self.assertNotEqual(r['message'].find('Blacklisted'), -1)
-
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
-    def _test_method_sms_register_max_tlf_period(self):
-        data = {'tlf': '+3476666666', 'code': 'AAAAAA',
-                'email': 'test@test.com', 'dni': '11111111H'}
-        x = 0
-        time_now = time.time()
-        while x < test_data.pipe_total_max_tlf_with_period + 1:
-            x += 1
-            data['tlf'] = data['tlf'] + str(x)
-            response = self.c.register(self.aeid, data)
-        response = self.c.register(self.aeid, data)
-        total_time = time.time() - time_now
-        if total_time < test_data.pipe_total_max_period:
-            self.assertEqual(response.status_code, 400)
-            r = json.loads(response.content.decode('utf-8'))
-            self.assertNotEqual(r['message'].find('Blacklisted'), -1)
-        else:
-            self.assertEqual(response.status_code, 200)
