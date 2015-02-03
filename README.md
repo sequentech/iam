@@ -209,7 +209,7 @@ Valid Input example:
     {
         "auth_method": "sms",
         "census": "open",
-        "config": {"sms-message": "Enter in __LINK__ and put this code __CODE__"},
+        "config": {"msg": "Enter in %(url)s and put this code %(code)s"},
         "extra_fields": [
                 {
                 "name": "name",

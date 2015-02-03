@@ -19,7 +19,7 @@ class Sms:
         'SMS_URL': '',
         'SMS_SENDER_ID': '',
         'SMS_VOICE_LANG_CODE': '',
-        'sms-message': 'Click %(url)s and put this code %(code)s',
+        'msg': 'Click %(url)s and put this code %(code)s',
     }
     PIPELINES = {
         "register-pipeline": [
@@ -46,7 +46,7 @@ class Sms:
         """ Check config when create auth-event. """
         msg = ''
         for c in config:
-            if c != "sms-message":
+            if c != "msg":
                 msg += "Invalid config: %s not possible.\n" % c
         return msg
 

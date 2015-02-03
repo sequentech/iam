@@ -4,7 +4,7 @@ pwd_auth_email = {'email': 'john@agoravoting.com', 'password': 'smith'}
 
 auth_event1 = {
     "auth_method": "sms",
-    "auth_method_config": {"sms-message": "Enter in %(url)s and put this code %(code)s"},
+    "auth_method_config": {"msg": "Enter in %(url)s and put this code %(code)s"},
     "extra_fields": [
             {
             "name": "name",
@@ -38,7 +38,7 @@ auth_event1 = {
 auth_event2 = {
     "auth_method": "sms",
     "census": "open",
-    "auth_method_config": {"sms-message": "Enter in %(url)s and put this code %(code)s"},
+    "auth_method_config": {"msg": "Enter in %(url)s and put this code %(code)s"},
     "extra_fields": [
             {
             "name": "name",
@@ -221,7 +221,7 @@ authmethod_config_sms_default = {
             "SMS_URL": "",
             "SMS_SENDER_ID": "",
             "SMS_VOICE_LANG_CODE": "",
-            "sms-message": "Enter in %(url)s and put this code %(code)s"
+            "msg": "Enter in %(url)s and put this code %(code)s"
         },
         "pipeline": {
             "register-pipeline": [
@@ -325,7 +325,7 @@ ae_sms_default = {
 ae_sms_config = {
     "auth_method": "sms",
     "census": "open",
-    "auth_method_config": {"sms-message": "Enter in %(url)s and put this code %(code)s"}
+    "auth_method_config": {"msg": "Enter in %(url)s and put this code %(code)s"}
 }
 
 ae_sms_fields = {

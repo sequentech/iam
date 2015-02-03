@@ -674,8 +674,8 @@ class TestRegisterAndAuthenticateEmail(TestCase):
                        BROKER_BACKEND='memory')
     def test_send_auth_email(self):
         self.test_add_census_authevent_email_default() # Add census
-        correct_tpl = {"template": "template with %(code)s and the link is %(url)s"}
-        incorrect_tpl = {"template": 10001*"a"}
+        correct_tpl = {"msg": "message with %(code)s and the link is %(url)s"}
+        incorrect_tpl = {"msg": 10001*"a"}
 
         c = JClient()
         response = c.authenticate(self.aeid, test_data.auth_email_default)
@@ -817,8 +817,8 @@ class TestRegisterAndAuthenticateSMS(TestCase):
     def test_send_auth_sms(self):
         self.test_add_census_authevent_sms_default() # Add census
 
-        correct_tpl = {"template": "template with %(code)s and the link is %(url)s"}
-        incorrect_tpl = {"template": 121*"a"}
+        correct_tpl = {"msg": "message with %(code)s and the link is %(url)s"}
+        incorrect_tpl = {"msg": 121*"a"}
 
         c = JClient()
         response = c.authenticate(self.aeid, test_data.auth_sms_default)

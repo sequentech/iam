@@ -145,13 +145,13 @@ def send_sms_code(receiver, msg, conf):
     con = SMSProvider.get_instance(conf)
     con.send_sms(receiver=receiver, content=msg, is_audio=False)
 
-def send_code(user, templ=None):
+def send_code(user, msg=None):
     '''
     Sends the code for authentication in the related auth event, to the user
     in a message sent via sms or email, depending on the authentication method
     of the auth event.
 
-    The template will be automatically completed with the base template in
+    The message will be automatically completed with the base message in
     settings.
 
     NOTE: You are responsible of not calling this on a stopped auth event
@@ -174,14 +174,14 @@ def send_code(user, templ=None):
         return "Receiver is none"
 
     if auth_method == "sms":
-        if templ is None:
-            templ = conf.get('sms-message')
+        if msg is None:
+            msg = conf.get('msg')
         base_msg = settings.SMS_BASE_TEMPLATE
     else: # email
-        if templ is None:
-            templ = conf.get('msg')
+        if msg is None:
+            msg = conf.get('msg')
         base_msg = settings.EMAIL_BASE_TEMPLATE
-    raw_msg = templ % dict(event_id=event_id, code=code, url=url)
+    raw_msg = msg % dict(event_id=event_id, code=code, url=url)
     msg = base_msg % raw_msg
 
     if auth_method == "sms":
