@@ -13,7 +13,7 @@
 {
     "fields": {
       "census": "open",
-      "extra_fields": "{}",
+      "extra_fields": [],
       "auth_method": "email",
       "auth_method_config": "{\"auth_method_config\":{\"msg\":\"Click %(url)s and put this code %(code)s\",\"subject\":\"Confirm your email\",\"give_perms\":{\"object_type\":\"AuthEvent\",\"perms\":[\"create\"]}},\"pipeline\":{\"register-pipeline\":[[\"check_whitelisted\",{\"field\":\"ip\"}],[\"check_blacklisted\",{\"field\":\"ip\"}],[\"check_total_max\",{\"max\":8,\"field\":\"ip\"}]],\"authenticate-pipeline\":[]}}",
       "status": "started"

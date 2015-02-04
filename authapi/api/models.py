@@ -25,7 +25,7 @@ class AuthEvent(models.Model):
     auth_method = models.CharField(max_length=255)
     census = models.CharField(max_length=5, choices=CENSUS, default="close")
     auth_method_config = JSONField()
-    extra_fields = JSONField()
+    extra_fields = JSONField(null=True)
     status = models.CharField(max_length=15, choices=AE_STATUSES, default="notstarted")
 
     def serialize(self):
