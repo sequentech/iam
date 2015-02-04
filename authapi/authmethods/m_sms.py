@@ -34,7 +34,7 @@ class Sms:
         ],
         "authenticate-pipeline": [
             #['check_total_connection', {'times': 5 }],
-            ['check_sms_code', {'timestamp': 5 }]
+            #['check_sms_code', {'timestamp': 5 }]
         ]
     }
     USED_TYPE_FIELDS = ['tlf']
