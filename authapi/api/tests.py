@@ -674,7 +674,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
                        BROKER_BACKEND='memory')
     def test_send_auth_email(self):
         self.test_add_census_authevent_email_default() # Add census
-        correct_tpl = {"msg": "message with %(code)s and the link is %(url)s"}
+        correct_tpl = {"subject": "Vote", "msg": "message with %(code)s and the link is %(url)s"}
         incorrect_tpl = {"msg": 10001*"a"}
 
         c = JClient()

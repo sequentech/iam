@@ -148,7 +148,7 @@ def send_sms_code(receiver, msg, conf):
     con = SMSProvider.get_instance(conf)
     con.send_sms(receiver=receiver, content=msg, is_audio=False)
 
-def send_code(user, msg=None):
+def send_code(user, config=None):
     '''
     Sends the code for authentication in the related auth event, to the user
     in a message sent via sms or email, depending on the authentication method
@@ -176,13 +176,16 @@ def send_code(user, msg=None):
     if receiver is None:
         return "Receiver is none"
 
+    if config is None:
+        msg = conf.get('msg')
+        subject = conf.get('subject')
+    else:
+        msg = config.get('msg')
+        subject = config.get('subject')
+
     if auth_method == "sms":
-        if msg is None:
-            msg = conf.get('msg')
         base_msg = settings.SMS_BASE_TEMPLATE
     else: # email
-        if msg is None:
-            msg = conf.get('msg')
         base_msg = settings.EMAIL_BASE_TEMPLATE
     raw_msg = msg % dict(event_id=event_id, code=code, url=url)
     msg = base_msg % raw_msg
@@ -196,7 +199,7 @@ def send_code(user, msg=None):
         acl = ACL.objects.filter(object_type='AuthEvent', perm='edit',
                 object_id=event_id).first()
         email = EmailMessage(
-            conf.get('subject'),
+            subject,
             msg,
             settings.DEFAULT_FROM_EMAIL,
             [receiver],
