@@ -20,6 +20,9 @@ def paginate(request, queryset, serialize_method=None, elements_name='elements')
 
     index = request.GET.get('page', 1)
     elements = request.GET.get('n', 10)
+    order = request.GET.get('order', None)
+    if order:
+        queryset = queryset.order_by(order)
 
     try:
         pageindex = int(index)
