@@ -56,7 +56,7 @@ class TestProcessCaptcha(TestCase):
         response = c.post('/api/auth-event/', test_data.ae_email_fields_captcha)
         self.assertEqual(response.status_code, 200)
 
-        self.assertEqual(settings.PREGENERATION_CAPTCHA, Captcha.objects.count())
+        self.assertEqual(settings.PREGENERATION_CAPTCHA, Captcha.objects.filter(used=False).count())
 
     def test_create_authevent_email_with_captcha(self):
         c = JClient()
@@ -173,3 +173,20 @@ class TestProcessCaptcha(TestCase):
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['msg'], 'Invalid captcha')
+
+    def test_get_new_captcha_generate_other_captcha(self):
+        self.assertEqual(Captcha.objects.count(), 0)
+        self.assertEqual(Captcha.objects.filter(used=True).count(), 0)
+
+        c = JClient()
+        response = c.get('/api/captcha/new/', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertTrue(r['image_url'] and r['captcha_code'])
+        response = c.get('/api/captcha/new/', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertTrue(r['image_url'] and r['captcha_code'])
+
+        self.assertEqual(Captcha.objects.count(), 2)
+        self.assertEqual(Captcha.objects.filter(used=True).count(), 2)

@@ -20,23 +20,13 @@ from .models import Captcha
 
 def newcaptcha():
     letters = string.ascii_uppercase + string.digits
-
     code = ''.join(random.choice(letters) for _ in range(10))
     challenge = ''.join(random.choice(letters) for _ in range(4))
-
     make_image(challenge, code)
-
     fname = code + '.png'
     path = '/static/captcha/%s' % fname
-
     c = Captcha(code=code, challenge=challenge, path=path)
     c.save()
-
-    data = {
-        'captcha_code': c.code,
-        'image_url': c.path
-    }
-    return data
 
 
 @celery.task
@@ -52,7 +42,16 @@ class NewCaptcha(View):
     def get(self, request):
         # TODO, think about limits to prevent lots of calls because this
         # creates an image file and we can get out of disk space
-        data = newcaptcha()
+        newcaptcha()
+
+        # TODO Collision poblem ?
+        captcha = Captcha.objects.filter(used=False)[0]
+        captcha.used = True
+        captcha.save()
+        data = {
+            'captcha_code': captcha.code,
+            'image_url': captcha.path
+        }
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
 new_captcha = NewCaptcha.as_view()

@@ -7,6 +7,7 @@ class Captcha(models.Model):
     code = models.CharField(max_length=10)
     path = models.CharField(max_length=100)
     challenge = models.CharField(max_length=4)
+    used = models.BooleanField(default=False)
     created = models.DateTimeField(auto_now=True)
 
     def __str__(self):
