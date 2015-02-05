@@ -5,6 +5,7 @@ import string
 from django.views.generic import View
 from django.http import HttpResponse
 from django.conf import settings
+from django.db import transaction
 from djcelery import celery
 
 try:
@@ -44,10 +45,10 @@ class NewCaptcha(View):
         # creates an image file and we can get out of disk space
         newcaptcha()
 
-        # TODO Collision poblem ?
-        captcha = Captcha.objects.filter(used=False)[0]
-        captcha.used = True
-        captcha.save()
+        with transaction.atomic():
+            captcha = Captcha.objects.select_for_update().filter(used=False).first()
+            captcha.used = True
+            captcha.save()
         data = {
             'captcha_code': captcha.code,
             'image_url': captcha.path
