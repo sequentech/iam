@@ -785,13 +785,21 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.register(self.aeid, test_data.sms_fields_incorrect_len2)
         self.assertEqual(response.status_code, 400)
 
-    def test_add_register_authevent_sms_repeat(self):
+    def test_add_register_authevent_sms_resend(self):
         c = JClient()
         c.authenticate(0, test_data.admin)
+        self.assertEqual(Code.objects.count(), 1)
+        for i in range(settings.SEND_CODES_SMS_MAX):
+            response = c.register(self.aeid, test_data.auth_sms_default)
+            self.assertEqual(response.status_code, 200)
+            r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(Code.objects.count(), settings.SEND_CODES_SMS_MAX + 1)
+
         response = c.register(self.aeid, test_data.auth_sms_default)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], "Tlf %s repeat." % test_data.auth_sms_default['tlf'])
+        self.assertEqual(r['msg'], "Maximun number of sms sent to %s." % test_data.auth_sms_default['tlf'])
+        self.assertEqual(Code.objects.count(), settings.SEND_CODES_SMS_MAX + 1)
 
     def test_authenticate_authevent_sms_default(self):
         c = JClient()

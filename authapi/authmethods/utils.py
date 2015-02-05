@@ -349,6 +349,21 @@ def create_user(req, ae):
     return u
 
 
+def edit_user(user, req):
+    if req.get('email'):
+        user.email = req.get('email')
+        req.pop('email')
+        user.save()
+
+    if req.get('tlf'):
+        user.userdata.tlf = req.get('tlf')
+        req.pop('tlf')
+
+    user.userdata.metadata = json.dumps(req)
+    user.userdata.save()
+    return user
+
+
 def check_metadata(req, user):
     meta = json.loads(user.userdata.metadata)
     extra = user.userdata.event.extra_fields

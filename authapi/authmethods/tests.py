@@ -200,7 +200,7 @@ class AuthMethodSmsTestCase(TestCase):
         self.assertEqual(r['msg'].find('Invalid email'), -1)
 
     def test_method_sms_register_invalid_email(self):
-        data = {'tlf': '+34666666666', 'code': 'AAAAAAAA', 'email': 'test@@', 'dni': '11111111H'}
+        data = {'tlf': '+34666666667', 'code': 'AAAAAAAA', 'email': 'test@@', 'dni': '11111111H'}
         response = self.c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))

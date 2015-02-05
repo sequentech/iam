@@ -189,7 +189,7 @@ auth_sms_fields = {
 
 # Authmethod config
 pipe_total_max_ip =  8
-pipe_total_max_tlf = 3
+pipe_total_max_tlf = 4
 pipe_total_max_tlf_with_period = 60
 pipe_total_max_period = 60
 pipe_times = 5

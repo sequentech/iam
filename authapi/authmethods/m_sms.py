@@ -30,7 +30,6 @@ class Sms:
             ["check_total_max", {"field": "ip", "max": 8}],
             ["check_total_max", {"field": "tlf", "max": 7}],
             ["check_total_max", {"field": "tlf", "period": 1440, "max": 5}],
-            ["check_total_max", {"field": "tlf", "period": 60, "max": 3}],
         ],
         "authenticate-pipeline": [
             #['check_total_connection', {'times': 5 }],
@@ -77,22 +76,31 @@ class Sms:
     def register(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
 
-        msg = ''
-        tlf = req.get('tlf')
-        msg += check_value(self.tlf_definition, tlf)
-        msg += check_fields_in_request(req, ae)
-        if User.objects.filter(userdata__tlf=tlf, userdata__event=ae):
-            msg += "Tlf %s repeat." % tlf
-        if msg:
-            data = {'status': 'nok', 'msg': msg}
-            return data
-
         msg = check_pipeline(request, ae)
         if msg:
             return msg
 
-        u = create_user(req, ae)
-        give_perms(u, ae)
+        msg = ''
+        tlf = req.get('tlf')
+        msg += check_value(self.tlf_definition, tlf)
+        msg += check_fields_in_request(req, ae)
+        if User.objects.filter(userdata__tlf=tlf, userdata__event=ae): # repeat
+            u = User.objects.get(userdata__tlf=tlf, userdata__event=ae)
+            if u.is_active:
+                msg += "%s already registered." % tlf
+            codes = Code.objects.filter(user=u.userdata).count()
+            if codes > settings.SEND_CODES_SMS_MAX:
+                msg += "Maximun number of sms sent to %s." % tlf
+            else:
+                u = edit_user(u, req)
+        else:
+            u = create_user(req, ae)
+            give_perms(u, ae)
+
+        if msg:
+            data = {'status': 'nok', 'msg': msg}
+            return data
+
         send_code(u)
         return {'status': 'ok'}
 
@@ -111,6 +119,13 @@ class Sms:
         if msg:
             data = {'status': 'nok', 'msg': msg}
             return data
+
+        try:
+            u = User.objects.get(userdata__tlf=tlf, userdata__event=ae)
+            code = Code.objects.filter(user=u.userdata,
+                    code=req.get('code')).order_by('created').first()
+        except:
+            return {'status': 'nok', 'msg': 'Invalid code.'}
 
         msg = check_pipeline(request, ae, 'authenticate')
         if msg:
