@@ -30,7 +30,7 @@ class Email:
     }
     USED_TYPE_FIELDS = ['email']
 
-    email_definition = { "name": "email", "type": "text", "required": True, "min": 4, "max": 255, "required_on_authentication": True }
+    email_definition = { "name": "email", "type": "email", "required": True, "min": 4, "max": 255, "required_on_authentication": True }
     code_definition = { "name": "code", "type": "text", "required": True, "min": 6, "max": 255, "required_on_authentication": True }
 
     def check_config(self, config):

@@ -17,7 +17,7 @@ auth_event1 = {
             },
             {
             "name": "email",
-            "type": "text",
+            "type": "email",
             "required": True,
             "min": 4,
             "max": 255,
@@ -60,7 +60,7 @@ auth_event2 = {
             },
             {
             "name": "email",
-            "type": "text",
+            "type": "email",
             "required": True,
             "min": 4,
             "max": 255,
