@@ -1,4 +1,6 @@
 import json
+import os
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.test.utils import override_settings
@@ -37,6 +39,14 @@ class TestProcessCaptcha(TestCase):
                 object_id=0)
         acl.save()
 
+    def tearDown(self):
+        # Removed generated captchas
+        captcha_dir = settings.STATIC_ROOT + '/captcha/'
+        captchas = [f for f in os.listdir(captcha_dir) if f.endswith('.png') ]
+        for c in captchas:
+            os.remove(captcha_dir + c)
+
+
     def test_create_new_captcha(self):
         c = JClient()
         self.assertEqual(0, Captcha.objects.count())
@@ -48,7 +58,6 @@ class TestProcessCaptcha(TestCase):
                        CELERY_ALWAYS_EAGER=True,
                        BROKER_BACKEND='memory')
     def test_pregenerate_captchas(self):
-        from django.conf import settings #import PREGENERATION_CAPTCHA
         self.assertEqual(0, Captcha.objects.count())
 
         c = JClient()
