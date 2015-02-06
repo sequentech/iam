@@ -125,13 +125,10 @@ def random_code(length=16, chars=ascii_lowercase+digits):
     return code;
 
 
-def generate_code(userdata):
+def generate_code(userdata, size=settings.SIZE_CODE):
     """ Generate necessary codes for different authmethods. """
     from authmethods.models import Code
-    if userdata.event.auth_method == 'email':
-        code = random_code(64, ascii_letters+digits)
-    elif userdata.event.auth_method == 'sms':
-        code = random_code(8, ascii_letters+digits)
+    code = random_code(size, ascii_letters+digits)
     c = Code(user=userdata, code=code)
     c.save()
     return code

@@ -147,6 +147,7 @@ SMS_AUTH_CODE_URL = "https://agoravoting.example.com/#/registration/%(authid)s/l
 EMAIL_AUTH_CODE_URL = "https://agoravoting.example.com/#/registration/%(authid)s/login/%(email)s/%(code)s"
 
 SEND_CODES_SMS_MAX = 3
+SIZE_CODE = 8
 
 # Auth api settings
 from auth_settings import *
