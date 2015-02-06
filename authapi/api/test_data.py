@@ -4,6 +4,7 @@ pwd_auth_email = {'email': 'john@agoravoting.com', 'password': 'smith'}
 
 auth_event1 = {
     "auth_method": "sms",
+    "census": "close",
     "auth_method_config": {"msg": "Enter in %(url)s and put this code %(code)s"},
     "extra_fields": [
             {
@@ -245,6 +246,18 @@ ae_email_default = {
     "auth_method": "email",
     "census": "open",
 }
+
+ae_incorrect_authmethod = ae_email_default.copy()
+ae_incorrect_authmethod.update({"auth_method": "a"})
+
+ae_incorrect_census = ae_email_default.copy()
+ae_incorrect_census.update({"census": "a"})
+
+ae_without_authmethod = ae_email_default.copy()
+ae_without_authmethod.pop("auth_method")
+
+ae_without_census = ae_email_default.copy()
+ae_without_census.pop("census")
 
 ae_email_config = ae_email_default.copy()
 ae_email_config.update( {

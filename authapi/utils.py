@@ -222,7 +222,7 @@ def check_authmethod(method):
     if method in METHODS.keys():
         return ''
     else:
-        return "Invalid authmethods\n"
+        return "Invalid authmethod\n"
 
 def check_colorlist(fields):
     """

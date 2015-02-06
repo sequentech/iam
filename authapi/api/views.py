@@ -277,9 +277,13 @@ class AuthEventView(View):
         if pk is None: # create
             permission_required(request.user, 'AuthEvent', 'create')
 
-            auth_method = req['auth_method']
+            auth_method = req.get('auth_method', '')
             msg = check_authmethod(auth_method)
-            
+            if msg:
+                data = {'msg': msg}
+                jsondata = json.dumps(data)
+                return HttpResponse(jsondata, status=400, content_type='application/json')
+
             auth_method_config = {
                     "auth_method_config": METHODS.get(auth_method).CONFIG,
                     "pipeline": METHODS.get(auth_method).PIPELINES
@@ -292,7 +296,7 @@ class AuthEventView(View):
             if extra_fields:
                 msg += check_extra_fields(extra_fields, METHODS.get(auth_method).USED_TYPE_FIELDS)
 
-            census = req.get('census', 'close')
+            census = req.get('census', '')
             if not census in ('open', 'close'):
                 msg += "Invalid type of census\n"
 
@@ -324,8 +328,12 @@ class AuthEventView(View):
 
         else: # edit
             permission_required(request.user, 'AuthEvent', 'edit', pk)
-            auth_method = req['auth_method']
+            auth_method = req.get('auth_method', '')
             msg = check_authmethod(auth_method)
+            if msg:
+                data = {'msg': msg}
+                jsondata = json.dumps(data)
+                return HttpResponse(jsondata, status=400, content_type='application/json')
 
             config = req.get('auth_method_config', None)
             if config:

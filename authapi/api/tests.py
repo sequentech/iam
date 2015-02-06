@@ -462,6 +462,27 @@ class TestAuthEvent(TestCase):
         response = create_authevent(test_data.ae_sms_default)
         self.assertEqual(response.status_code, 200)
 
+    def test_create_incorrect_authevent(self):
+        response = create_authevent(test_data.ae_incorrect_authmethod)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], 'Invalid authmethod\n')
+
+        response = create_authevent(test_data.ae_incorrect_census)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], 'Invalid type of census\n')
+
+        response = create_authevent(test_data.ae_without_authmethod)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], 'Invalid authmethod\n')
+
+        response = create_authevent(test_data.ae_without_census)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], 'Invalid type of census\n')
+
     def test_create_authevent_email_incorrect(self):
         response = create_authevent(test_data.ae_email_fields_incorrect)
         self.assertEqual(response.status_code, 400)
