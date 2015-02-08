@@ -10,7 +10,8 @@ from django.contrib.auth.admin import UserAdmin
 class AuthEventAdminForm(forms.ModelForm):
     class Meta:
         model = AuthEvent
-        fields = ('auth_method', 'auth_method_config', 'extra_fields')
+        fields = ('auth_method', 'census', 'auth_method_config', 'extra_fields',
+                'status')
         choices = []
         for k in METHODS.keys():
             choices.append((k, k + ': ' + METHODS.get(k).DESCRIPTION))
