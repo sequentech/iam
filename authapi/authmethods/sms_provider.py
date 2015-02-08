@@ -19,6 +19,8 @@
 import requests
 import logging
 import xmltodict
+from django.conf import settings
+
 
 class SMSProvider(object):
     '''
@@ -44,17 +46,17 @@ class SMSProvider(object):
         return 0
 
     @staticmethod
-    def get_instance(config):
+    def get_instance():
         '''
         Instance the SMS provider specified in the app config
         '''
-        provider = config.get('SMS_PROVIDER', '')
+        provider = settings.SMS_PROVIDER
         if provider == "altiria":
-            return AltiriaSMSProvider(config)
+            return AltiriaSMSProvider()
         if provider == "esendex":
-            return EsendexSMSProvider(config)
+            return EsendexSMSProvider()
         if provider == "console":
-            return ConsoleSMSProvider(config)
+            return ConsoleSMSProvider()
         else:
             raise Exception("invalid SMS_PROVIDER='%s' in app config" % provider)
 
@@ -62,7 +64,7 @@ class SMSProvider(object):
 class ConsoleSMSProvider(SMSProvider):
     provider_name = "console"
 
-    def __init__(self, config):
+    def __init__(self):
         pass
 
     def send_sms(self, receiver, content, is_audio):
@@ -91,12 +93,12 @@ class AltiriaSMSProvider(SMSProvider):
         'Accept': 'text/plain'
     }
 
-    def __init__(self, config):
-        self.domain_id = config.get('SMS_DOMAIN_ID', '')
-        self.login = config.get('SMS_LOGIN', '')
-        self.password = config.get('SMS_PASSWORD', '')
-        self.url = config.get('SMS_URL', '')
-        self.sender_id = config.get('SMS_SENDER_ID', '')
+    def __init__(self):
+        self.domain_id = settings.SMS_DOMAIN_ID
+        self.login = settings.SMS_LOGIN
+        self.password = settings.SMS_PASSWORD
+        self.url = settings.SMS_URL
+        self.sender_id = settings.SMS_SENDER_ID
 
     def send_sms(self, receiver, content, is_audio):
 
@@ -202,13 +204,13 @@ class EsendexSMSProvider(SMSProvider):
         </message>
         </messages>"""
 
-    def __init__(self, config):
-        self.domain_id = config.get('SMS_DOMAIN_ID', '')
-        self.login = config.get('SMS_LOGIN', '')
-        self.password = config.get('SMS_PASSWORD', '')
-        self.url = config.get('SMS_URL', '')
-        self.sender_id = config.get('SMS_SENDER_ID', '')
-        self.lang_code = config.get('SMS_VOICE_LANG_CODE', '')
+    def __init__(self):
+        self.domain_id = settings.SMS_DOMAIN_ID
+        self.login = settings.SMS_LOGIN
+        self.password = settings.SMS_PASSWORD
+        self.url = settings.SMS_URL
+        self.sender_id = settings.SMS_SENDER_ID
+        self.lang_code = settings.SMS_VOICE_LANG_CODE
 
         self.auth = (self.login, self.password)
 

@@ -12,13 +12,6 @@ from authmethods.utils import *
 class Sms:
     DESCRIPTION = 'Provides authentication using an SMS code.'
     CONFIG = {
-        'SMS_PROVIDER': 'console',
-        'SMS_DOMAIN_ID': '',
-        'SMS_LOGIN': '',
-        'SMS_PASSWORD': '',
-        'SMS_URL': '',
-        'SMS_SENDER_ID': '',
-        'SMS_VOICE_LANG_CODE': '',
         'msg': 'Click %(url)s and put this code %(code)s',
     }
     PIPELINES = {

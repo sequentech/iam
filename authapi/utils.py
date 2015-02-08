@@ -142,7 +142,7 @@ def send_email(email):
 @celery.task
 def send_sms_code(receiver, msg, conf):
     from authmethods.sms_provider import SMSProvider
-    con = SMSProvider.get_instance(conf)
+    con = SMSProvider.get_instance()
     con.send_sms(receiver=receiver, content=msg, is_audio=False)
 
 def send_code(user, config=None):

@@ -215,13 +215,6 @@ authmethod_config_email_default = {
 
 authmethod_config_sms_default = {
         "auth_method_config": {
-            "SMS_PROVIDER": "console",
-            "SMS_DOMAIN_ID": "",
-            "SMS_LOGIN": "",
-            "SMS_PASSWORD": "",
-            "SMS_URL": "",
-            "SMS_SENDER_ID": "",
-            "SMS_VOICE_LANG_CODE": "",
             "msg": "Enter in %(url)s and put this code %(code)s"
         },
         "pipeline": {
