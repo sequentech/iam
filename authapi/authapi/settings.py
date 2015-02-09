@@ -150,7 +150,7 @@ SMS_BASE_TEMPLATE = "%s . Using Agora Voting"
 
 EMAIL_BASE_TEMPLATE = "%s\n\n -- Agora Voting https://agoravoting.com"
 
-SMS_AUTH_CODE_URL = "https://agoravoting.example.com/#/registration/%(authid)s/login/%(email)s"
+SMS_AUTH_CODE_URL = "https://agoravoting.example.com/#/registration/%(authid)s/login/"
 EMAIL_AUTH_CODE_URL = "https://agoravoting.example.com/#/registration/%(authid)s/login/%(email)s/%(code)s"
 
 SEND_CODES_SMS_MAX = 3
