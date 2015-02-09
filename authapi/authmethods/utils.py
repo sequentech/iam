@@ -285,12 +285,15 @@ def check_value(definition, field, step='register'):
             msg += "Field %s is required" % definition.get('name')
     else:
         if isinstance(field, str):
-            if definition.get('type') == 'int':
+            if definition.get('type') == 'int' or definition.get('type') == 'bool':
                 msg += "Field %s type incorrect, value %s" % (definition.get('name'), field)
             if definition.get('min') and len(field) < definition.get('min'):
                 msg += "Field %s min incorrect, value %s" % (definition.get('name'), field)
             if definition.get('max') and len(field) > definition.get('max'):
                 msg += "Field %s max incorrect, value %s" % (definition.get('name'), field)
+        elif isinstance(field, bool):
+            if definition.get('type') != 'bool':
+                msg += "Field %s type incorrect, value %s" % (definition.get('name'), field)
         elif isinstance(field, int):
             if definition.get('type') != 'int':
                 msg += "Field %s type incorrect, value %s" % (definition.get('name'), field)
