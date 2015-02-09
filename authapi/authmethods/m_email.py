@@ -65,22 +65,32 @@ class Email:
 
     def register(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
-        msg = ''
-        email = req.get('email')
-        msg += check_value(self.email_definition, email)
-        msg += check_fields_in_request(req, ae)
-        if User.objects.filter(email=email, userdata__event=ae):
-            msg += "Email %s repeat." % email
-        if msg:
-            data = {'status': 'nok', 'msg': msg}
-            return data
 
         msg = check_pipeline(request, ae)
         if msg:
             return msg
 
-        u = create_user(req, ae)
-        give_perms(u, ae)
+        msg = ''
+        email = req.get('email')
+        msg += check_value(self.email_definition, email)
+        msg += check_fields_in_request(req, ae)
+        if User.objects.filter(email=email, userdata__event=ae): # repeat
+            u = User.objects.get(email=email, userdata__event=ae)
+            if u.is_active:
+                msg += "%s already registered." % email
+            codes = Code.objects.filter(user=u.userdata).count()
+            if codes > settings.SEND_CODES_EMAIL_MAX:
+                msg += "Maximun number of email sent to %s." % email
+            else:
+                u = edit_user(u, req)
+        else:
+            u = create_user(req, ae)
+            give_perms(u, ae)
+
+        if msg:
+            data = {'status': 'nok', 'msg': msg}
+            return data
+
         send_code(u)
         return {'status': 'ok'}
 
@@ -105,11 +115,10 @@ class Email:
 
         try:
             u = User.objects.get(email=email, userdata__event=ae)
-            code = Code.objects.get(user=u.userdata, code=req.get('code'))
+            code = Code.objects.filter(user=u.userdata,
+                    code=req.get('code')).order_by('created').first()
         except:
             return {'status': 'nok', 'msg': 'Invalid code.'}
-        if not constant_time_compare(code.code, req.get('code')):
-            return self.authenticate_error()
 
         msg = check_metadata(req, u)
         if msg:

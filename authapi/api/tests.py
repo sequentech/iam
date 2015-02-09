@@ -673,10 +673,17 @@ class TestRegisterAndAuthenticateEmail(TestCase):
     def test_add_register_authevent_email_repeat(self):
         c = JClient()
         c.authenticate(0, test_data.admin)
+        self.assertEqual(Code.objects.count(), 1)
+        for i in range(settings.SEND_CODES_EMAIL_MAX):
+            response = c.register(self.aeid, test_data.auth_email_default)
+            self.assertEqual(response.status_code, 200)
+        self.assertEqual(Code.objects.count(), settings.SEND_CODES_EMAIL_MAX + 1)
+
         response = c.register(self.aeid, test_data.auth_email_default)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], "Email %s repeat." % test_data.auth_email_default['email'])
+        self.assertEqual(r['msg'], "Maximun number of email sent to %s." % test_data.auth_email_default['email'])
+        self.assertEqual(Code.objects.count(), settings.SEND_CODES_EMAIL_MAX + 1)
 
     def test_authenticate_authevent_email_default(self):
         c = JClient()
