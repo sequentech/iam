@@ -272,7 +272,7 @@ def check_pipeline(request, ae, step='register'):
             data.update(json.loads(check.content.decode('utf-8')))
             data['status'] = check.status_code
             return data
-    return
+    return RET_PIPE_CONTINUE
 
 
 # Checkers census, register and authentication
