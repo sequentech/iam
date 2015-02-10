@@ -58,9 +58,9 @@ STATUSES = (
 class UserData(models.Model):
     user = models.OneToOneField(User, related_name="userdata")
     event = models.ForeignKey(AuthEvent, related_name="userdata", null=True)
-    tlf = models.CharField(max_length=20, null=True)
+    tlf = models.CharField(max_length=20, blank=True, null=True)
     credits = models.FloatField(default=0)
-    metadata = JSONField(default="{}")
+    metadata = JSONField(default="{}", blank=True, null=True)
     status = models.CharField(max_length=255, choices=STATUSES, default="act")
 
     def get_perms(self, obj, permission, object_id=0):
@@ -97,7 +97,7 @@ def create_user_data(sender, instance, created, *args, **kwargs):
 class ACL(models.Model):
     user = models.ForeignKey(UserData, related_name="acls")
     perm = models.CharField(max_length=255)
-    object_type = models.CharField(max_length=255, null=True)
+    object_type = models.CharField(max_length=255, blank=True, null=True)
     object_id = models.CharField(max_length=255, default=0)
 
     def serialize(self):
