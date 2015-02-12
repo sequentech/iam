@@ -368,7 +368,7 @@ class AuthEventView(View):
             ae = AuthEvent.objects.get(pk=pk)
             ae.auth_method = auth_method
             if config:
-                ae.auth_method_config.get('auth_method_config').update(config)
+                ae.auth_method_config.get('config').update(config)
             if extra_fields:
                 ae.extra_fields = extra_fields
             ae.save()
