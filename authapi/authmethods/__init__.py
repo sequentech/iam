@@ -11,8 +11,8 @@ def check_config(config, auth_method):
     return METHODS[auth_method].check_config(config)
 
 
-def auth_census(event, data):
-    return METHODS[event.auth_method].census(event, data)
+def auth_census(event, data, used=False):
+    return METHODS[event.auth_method].census(event, data, used)
 
 
 def auth_register(event, data):

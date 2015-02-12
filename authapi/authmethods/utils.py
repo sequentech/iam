@@ -332,10 +332,10 @@ def have_captcha(ae, step='register'):
     return False
 
 
-def create_user(req, ae):
+def create_user(req, ae, active=False):
     user = random_username()
     u = User(username=user)
-    u.is_active = False
+    u.is_active = active
 
     if req.get('email'):
         u.email = req.get('email')

@@ -21,6 +21,11 @@ class JClient(Client):
         r = json.loads(response.content.decode('utf-8'))
         return response
 
+    def used_census(self, authevent, data):
+        response = self.post('/api/auth-event/%d/used-census/' % authevent, data)
+        r = json.loads(response.content.decode('utf-8'))
+        return response
+
     def register(self, authevent, data):
         response = self.post('/api/auth-event/%d/register/' % authevent, data)
         r = json.loads(response.content.decode('utf-8'))
@@ -646,6 +651,20 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['msg'], "Email %s repeat." % test_data.census_email_repeat[0]['email'])
 
+    def test_add_used_census(self):
+        c = JClient()
+        c.authenticate(0, test_data.admin)
+        response = c.used_census(self.aeid, test_data.census_email_default)
+        self.assertEqual(response.status_code, 200)
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['userids']), 4)
+        response = c.register(self.aeid, test_data.census_email_default[1])
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], "%s already registered." % test_data.census_email_default[1]['email'])
+
     def test_add_register_authevent_email_default(self):
         c = JClient()
         response = c.register(self.aeid, test_data.register_email_default)
@@ -783,6 +802,20 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['msg'], "Tlf %s repeat." % test_data.census_sms_repeat[0]['tlf'])
+
+    def test_add_used_census(self):
+        c = JClient()
+        c.authenticate(0, test_data.admin)
+        response = c.used_census(self.aeid, test_data.census_sms_default)
+        self.assertEqual(response.status_code, 200)
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['userids']), 4)
+        response = c.register(self.aeid, test_data.census_sms_default[1])
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], "%s already registered." % test_data.census_sms_default[1]['tlf'])
 
     def test_add_register_authevent_sms_default(self):
         c = JClient()

@@ -43,7 +43,7 @@ class Sms:
         return msg
 
 
-    def census(self, ae, request):
+    def census(self, ae, request, used=False):
         req = json.loads(request.body.decode('utf-8'))
 
         msg = ''
@@ -62,7 +62,7 @@ class Sms:
             return data
 
         for r in req:
-            u = create_user(r, ae)
+            u = create_user(r, ae, used)
             give_perms(u, ae)
         return {'status': 'ok'}
 
