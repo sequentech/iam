@@ -146,7 +146,7 @@ MAX_AUTH_MSG_SIZE = {
   "email": 10000
 }
 
-SMS_BASE_TEMPLATE = "%s . Using Agora Voting"
+SMS_BASE_TEMPLATE = "%s -- Agora Voting"
 
 EMAIL_BASE_TEMPLATE = "%s\n\n -- Agora Voting https://agoravoting.com"
 
