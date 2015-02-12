@@ -52,8 +52,7 @@ class Sms:
             tlf = r.get('tlf')
             msg += check_value(self.tlf_definition, tlf)
             msg += check_fields_in_request(r, ae)
-            if User.objects.filter(userdata__tlf=tlf, userdata__event=ae):
-                msg += "Tlf %s repeat." % tlf
+            msg += exist_user(r, ae)
             if tlf in current_tlfs:
                 msg += "Tlf %s repeat." % tlf
             current_tlfs.append(tlf)
@@ -77,15 +76,14 @@ class Sms:
         tlf = req.get('tlf')
         msg += check_value(self.tlf_definition, tlf)
         msg += check_fields_in_request(req, ae)
-        if User.objects.filter(userdata__tlf=tlf, userdata__event=ae): # repeat
-            u = User.objects.get(userdata__tlf=tlf, userdata__event=ae)
+        msg_exist = exist_user(req, ae, get_repeated=True)
+        if msg_exist:
+            u = msg_exist.get('user')
             if u.is_active:
-                msg += "%s already registered." % tlf
+                msg += msg_exist.get('msg') + "Already registered."
             codes = Code.objects.filter(user=u.userdata).count()
             if codes > settings.SEND_CODES_SMS_MAX:
-                msg += "Maximun number of sms sent to %s." % tlf
-            else:
-                u = edit_user(u, req)
+                msg += msg_exist.get('msg')  + "Maximun number of codes sent."
         else:
             u = create_user(req, ae)
             give_perms(u, ae)

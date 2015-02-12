@@ -206,7 +206,7 @@ def send_code(user, config=None):
 
 # CHECKERS AUTHEVENT
 VALID_FIELDS = ('name', 'help', 'type', 'required', 'regex', 'min', 'max',
-    'required_on_authentication')
+    'required_on_authentication', 'unique')
 REQUIRED_FIELDS = ('name', 'type', 'required_on_authentication')
 VALID_PIPELINES = ('check_whitelisted', 'check_blacklisted',
         'check_total_max', 'check_total_connection')
@@ -315,7 +315,7 @@ def check_fields(key, value):
     elif key == 'type':
         if not value in VALID_TYPE_FIELDS:
             msg += "Invalid extra_fields: bad %s.\n" % key
-    elif key == 'required' or key == 'required_on_authentication':
+    elif key in ('required', 'required_on_authentication', 'unique'):
         if not isinstance(value, bool):
             msg += "Invalid extra_fields: bad %s.\n" % key
     elif key == 'regex':

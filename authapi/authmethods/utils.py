@@ -332,6 +332,47 @@ def have_captcha(ae, step='register'):
     return False
 
 
+def metadata_repeat(req, user, uniques):
+    for unique in uniques:
+        metadata = json.loads(user.userdata.metadata)
+        if metadata.get(unique.get('name')) == req.get(unique.get('name')):
+            return "%s %s repeat." %(unique['name'], req[unique['name']])
+    return ''
+
+def exist_user(req, ae, get_repeated=False):
+    msg = ''
+    if req.get('email'):
+        try:
+            user = User.objects.get(email=req.get('email'), userdata__event=ae)
+            msg += "Email %s repeat." % req.get('email')
+        except:
+            pass
+    if req.get('tlf'):
+        try:
+            user = User.objects.get(userdata__tlf=req.get('tlf'), userdata__event=ae)
+            msg += "Tel %s repeat." % req.get('tlf')
+        except:
+            pass
+
+    if not msg:
+        if not ae.extra_fields:
+            return ''
+        uniques = []
+        for extra in ae.extra_fields:
+            if 'unique' in extra.keys() and extra.get('unique'):
+                uniques.append(extra)
+        for user in User.objects.filter(userdata__event=ae):
+            msg += metadata_repeat(req, user, uniques)
+            if msg:
+                break
+    if not msg:
+        return ''
+    if get_repeated:
+        return {'msg': msg, 'user': user}
+    else:
+        return msg
+
+
 def create_user(req, ae, active=False):
     user = random_username()
     u = User(username=user)

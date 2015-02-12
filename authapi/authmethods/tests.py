@@ -171,7 +171,7 @@ class AuthMethodSmsTestCase(TestCase):
                        BROKER_BACKEND='memory')
     def test_method_sms_register(self):
         data = {'tlf': '+34666666667', 'code': 'AAAAAAAA',
-                    'email': 'test@test.com', 'dni': '11111111H'}
+                    'email': 'test1@test.com', 'dni': '11111111H'}
         response = self.c.register(self.aeid, data)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))

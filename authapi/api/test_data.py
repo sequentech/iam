@@ -151,6 +151,17 @@ census_sms_repeat = [
         {"tlf": "777777777"}
 ]
 
+census_email_unique_dni = [
+        {"dni": "11111111H", "email": "aaa@aaa.com"},
+        {"dni": "22222222J", "email": "bbb@bbb.com"}
+]
+
+census_sms_unique_dni = [
+        {"dni": "11111111H", "tlf": "111111111"},
+        {"dni": "22222222J", "tlf": "222222222"}
+]
+
+
 # Register
 register_email_default = {"email": "bbbb@aaa.com", "captcha": "asdasd"}
 
@@ -367,3 +378,13 @@ ae_sms_fields_incorrect = {
             {"boo": True}
     ]
 }
+
+extra_field_unique = [
+        {
+            "name": "dni",
+            "type": "text",
+            "required": True,
+            "unique": True,
+            "required_on_authentication": True
+        }
+]

@@ -649,7 +649,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.census(self.aeid, test_data.census_email_repeat)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], "Email %s repeat." % test_data.census_email_repeat[0]['email'])
+        self.assertEqual(r['msg'], "Email %s repeat in this census." % test_data.census_email_repeat[0]['email'])
 
     def test_add_used_census(self):
         c = JClient()
@@ -663,7 +663,8 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.register(self.aeid, test_data.census_email_default[1])
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], "%s already registered." % test_data.census_email_default[1]['email'])
+        self.assertTrue(r['msg'].count("Already registered"))
+        self.assertTrue(r['msg'].count("Email %s repeat" % test_data.census_email_default[1]['email']))
 
     def test_add_register_authevent_email_default(self):
         c = JClient()
@@ -701,7 +702,8 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.register(self.aeid, test_data.auth_email_default)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], "Maximun number of email sent to %s." % test_data.auth_email_default['email'])
+        self.assertTrue(r['msg'].count("Maximun number of codes sent"))
+        self.assertTrue(r['msg'].count("Email %s repeat" % test_data.auth_email_default['email']))
         self.assertEqual(Code.objects.count(), settings.SEND_CODES_EMAIL_MAX + 1)
 
     def test_authenticate_authevent_email_default(self):
@@ -742,6 +744,33 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.authenticate(self.aeid, test_data.auth_email_default)
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, tpl_specific)
         self.assertEqual(response.status_code, 200)
+
+    def test_unique_field(self):
+        self.ae.extra_fields = test_data.extra_field_unique
+        self.ae.save()
+
+        c = JClient()
+        c.authenticate(0, test_data.admin)
+        response = c.census(self.aeid, test_data.census_email_unique_dni)
+        self.assertEqual(response.status_code, 200)
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['userids']), 2)
+
+        self.assertEqual(Code.objects.count(), 1)
+        user = {'dni': test_data.census_email_unique_dni[1]['dni'], 'email': 'zzz@zzz.com'}
+        for i in range(settings.SEND_CODES_EMAIL_MAX + 1):
+            response = c.register(self.aeid, user)
+            self.assertEqual(response.status_code, 200)
+            user['email'] = 'zzz%d@zzz.com' % i
+        self.assertEqual(Code.objects.count(), settings.SEND_CODES_EMAIL_MAX + 2)
+
+        response = c.register(self.aeid, user)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertTrue(r['msg'].count("Maximun number of codes sent"))
+        self.assertTrue(r['msg'].count("dni %s repeat." % user['dni']))
 
 
 class TestRegisterAndAuthenticateSMS(TestCase):
@@ -815,7 +844,8 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.register(self.aeid, test_data.census_sms_default[1])
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], "%s already registered." % test_data.census_sms_default[1]['tlf'])
+        self.assertTrue(r['msg'].count("Already registered"))
+        self.assertTrue(r['msg'].count("Tel %s repeat" % test_data.census_sms_default[1]['tlf']))
 
     def test_add_register_authevent_sms_default(self):
         c = JClient()
@@ -859,7 +889,8 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.register(self.aeid, test_data.auth_sms_default)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], "Maximun number of sms sent to %s." % test_data.auth_sms_default['tlf'])
+        self.assertTrue(r['msg'].count("Maximun number of codes sent"))
+        self.assertTrue(r['msg'].count("Tel %s repeat" % test_data.auth_sms_default['tlf']))
         self.assertEqual(Code.objects.count(), settings.SEND_CODES_SMS_MAX + 1)
 
     def test_authenticate_authevent_sms_default(self):
@@ -907,3 +938,32 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.authenticate(self.aeid, test_data.auth_sms_default)
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, tpl_specific)
         self.assertEqual(response.status_code, 200)
+
+
+    def test_unique_field(self):
+        self.ae.extra_fields = test_data.extra_field_unique
+        self.ae.save()
+
+        c = JClient()
+        c.authenticate(0, test_data.admin)
+        response = c.census(self.aeid, test_data.census_sms_unique_dni)
+        self.assertEqual(response.status_code, 200)
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['userids']), 2)
+
+        self.assertEqual(Code.objects.count(), 1)
+        user = {'dni': test_data.census_sms_unique_dni[1]['dni'], 'tlf': '123123123'}
+        for i in range(settings.SEND_CODES_EMAIL_MAX + 1):
+            response = c.register(self.aeid, user)
+            self.assertEqual(response.status_code, 200)
+            user['tlf'] = '12345789%d' % i
+        self.assertEqual(Code.objects.count(), settings.SEND_CODES_EMAIL_MAX + 2)
+
+        response = c.register(self.aeid, user)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertTrue(r['msg'].count("Maximun number of codes sent"))
+        self.assertTrue(r['msg'].count("dni %s repeat." % user['dni']))
+

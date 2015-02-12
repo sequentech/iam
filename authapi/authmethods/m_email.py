@@ -49,10 +49,9 @@ class Email:
             email = r.get('email')
             msg += check_value(self.email_definition, email)
             msg += check_fields_in_request(r, ae)
-            if User.objects.filter(email=email, userdata__event=ae):
-                msg += "Email %s repeat." % email
+            msg += exist_user(r, ae)
             if email in current_emails:
-                msg += "Email %s repeat." % email
+                msg += "Email %s repeat in this census." % email
             current_emails.append(email)
         if msg:
             data = {'status': 'nok', 'msg': msg}
@@ -74,13 +73,14 @@ class Email:
         email = req.get('email')
         msg += check_value(self.email_definition, email)
         msg += check_fields_in_request(req, ae)
-        if User.objects.filter(email=email, userdata__event=ae): # repeat
-            u = User.objects.get(email=email, userdata__event=ae)
+        msg_exist = exist_user(req, ae, get_repeated=True)
+        if msg_exist:
+            u = msg_exist.get('user')
             if u.is_active:
-                msg += "%s already registered." % email
+                msg += msg_exist.get('msg') + "Already registered."
             codes = Code.objects.filter(user=u.userdata).count()
             if codes > settings.SEND_CODES_EMAIL_MAX:
-                msg += "Maximun number of email sent to %s." % email
+                msg += msg_exist.get('msg')  + "Maximun number of codes sent."
             else:
                 u = edit_user(u, req)
         else:
