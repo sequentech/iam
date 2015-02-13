@@ -69,10 +69,12 @@ class Census(View):
         acls = ACL.objects.filter(object_type='AuthEvent', perm='vote', object_id=pk)
         userids = []
         users = {}
+        data = {}
         for acl in acls:
             userids.append(acl.user.pk)
             users[acl.user.user.username] = acl.user.user.email
-        jsondata = json.dumps({'userids': userids, 'users': users})
+            data[acl.user.user.username] = acl.user.serialize_data()
+        jsondata = json.dumps({'userids': userids, 'users': users, 'data': data})
         return HttpResponse(jsondata, content_type='application/json')
 census = login_required(Census.as_view())
 

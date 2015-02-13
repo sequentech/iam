@@ -1,3 +1,4 @@
+import json
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -83,6 +84,14 @@ class UserData(models.Model):
             d['email'] = self.user.email
         if self.tlf:
             d['tlf'] = self.tlf
+        return d
+
+    def serialize_data(self):
+        d = self.serialize()
+        del d['username']
+        del d['credits']
+        if self.metadata:
+            d.update(json.loads(self.metadata))
         return d
 
     def __str__(self):
