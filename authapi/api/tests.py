@@ -653,7 +653,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
     def test_add_used_census(self):
         c = JClient()
         c.authenticate(0, test_data.admin)
-        response = c.census(self.aeid, test_data.census_email_default_used) # TODO
+        response = c.census(self.aeid, test_data.census_email_default_used)
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
@@ -772,6 +772,33 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.assertTrue(r['msg'].count("dni %s repeat." % user['dni']))
 
 
+    def test_add_census_no_validation(self):
+        self.ae.extra_fields = test_data.extra_field_unique
+        self.ae.save()
+
+        c = JClient()
+        c.authenticate(0, test_data.admin)
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['userids']), 0)
+
+        test_data.census_email_repeat['field-validation'] = 'disabled'
+        response = c.census(self.aeid, test_data.census_email_repeat)
+        self.assertEqual(response.status_code, 200)
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['userids']), 1)
+
+        response = c.census(self.aeid, test_data.census_email_no_validate)
+        self.assertEqual(response.status_code, 200)
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['userids']), 1 + 5)
+
+
 class TestRegisterAndAuthenticateSMS(TestCase):
     fixtures = ['initial.json']
     def setUp(self):
@@ -834,7 +861,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
     def test_add_used_census(self):
         c = JClient()
         c.authenticate(0, test_data.admin)
-        response = c.census(self.aeid, test_data.census_sms_default_used) # TODO
+        response = c.census(self.aeid, test_data.census_sms_default_used)
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
@@ -966,3 +993,29 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertTrue(r['msg'].count("Maximun number of codes sent"))
         self.assertTrue(r['msg'].count("dni %s repeat." % user['dni']))
 
+
+    def test_add_census_no_validation(self):
+        self.ae.extra_fields = test_data.extra_field_unique
+        self.ae.save()
+
+        c = JClient()
+        c.authenticate(0, test_data.admin)
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['userids']), 0)
+
+        test_data.census_sms_repeat['field-validation'] = 'disabled'
+        response = c.census(self.aeid, test_data.census_sms_repeat)
+        self.assertEqual(response.status_code, 200)
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['userids']), 1)
+
+        response = c.census(self.aeid, test_data.census_sms_no_validate)
+        self.assertEqual(response.status_code, 200)
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['userids']), 1 + 4)

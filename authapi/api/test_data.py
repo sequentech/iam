@@ -151,6 +151,21 @@ census_email_repeat = {
     ]
 }
 
+census_email_no_validate = {
+    "field-validation": "disabled",
+    "census": [
+        {"dni": "11111112H", "email": ""}, # without email and bad dni
+        {"dni": "22222222J", "email": ""}, # without email and good dni
+        {"dni": "", "email": "qwerty@test.com"}, # without dni
+        {"dni": "", "email": "qwerty@test.com"}, # email repeat
+        {"dni": True, "email": "qwerty2@test.com"}, # dni bad type
+        {"dni": "123123123J", "email": "qwerty"}, # email bad
+        {"dni": "11111111H", "email": "@@"},
+        {"dni": "11111111H", "email": "@@"} # dni repeat 
+    ]
+}
+
+
 census_sms_default = {
     "field-validation": "enabled",
     "census": [
@@ -202,6 +217,19 @@ census_sms_unique_dni = {
     "census": [
         {"dni": "11111111H", "tlf": "111111111"},
         {"dni": "22222222J", "tlf": "222222222"}
+    ]
+}
+
+census_sms_no_validate = {
+    "field-validation": "disabled",
+    "census": [
+        {"dni": "11111112H", "tlf": ""}, # without tlf and bad dni
+        {"dni": "22222222J", "tlf": ""}, # without tlf and good dni
+        {"dni": "", "tlf": "111111111"}, # without dni
+        {"dni": "", "tlf": "111111111"}, # tlf repeat
+        {"dni": 123, "tlf": "222222222"}, # dni bad type
+        {"dni": "11111111H", "tlf": "333333333"},
+        {"dni": "11111111H", "tlf": "444444444"} # dni repeat 
     ]
 }
 

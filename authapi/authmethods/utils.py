@@ -351,8 +351,9 @@ def metadata_repeat(req, user, uniques):
     for unique in uniques:
         metadata = json.loads(user.userdata.metadata)
         if metadata.get(unique.get('name')) == req.get(unique.get('name')):
-            return "%s %s repeat." %(unique['name'], req[unique['name']])
+            return "%s %s repeat." % (unique.get('name'), req.get(unique.get('name')))
     return ''
+
 
 def exist_user(req, ae, get_repeated=False):
     msg = ''

@@ -59,16 +59,25 @@ class Email:
                 if email in current_emails:
                     msg += "Email %s repeat in this census." % email
                 current_emails.append(email)
-            if msg:
-                data = {'status': 'nok', 'msg': msg}
-                return data
+            else:
+                if msg:
+                    msg = ''
+                    continue
+                exist = exist_user(r, ae)
+                if exist and not exist.count('None'):
+                    continue
+                used = r.get('status', 'registered') == 'used'
+                u = create_user(r, ae, used)
+                give_perms(u, ae)
+        if msg and validation:
+            data = {'status': 'nok', 'msg': msg}
+            return data
 
-        for r in req.get('census'):
-            used = r.get('status', 'registered') == 'used'
-            u = create_user(r, ae, used)
-            msg = give_perms(u, ae)
-            if msg:
-                data = {'status': 'nok', 'msg': msg}
+        if validation:
+            for r in req.get('census'):
+                used = r.get('status', 'registered') == 'used'
+                u = create_user(r, ae, used)
+                give_perms(u, ae)
         return {'status': 'ok'}
 
     def register(self, ae, request):

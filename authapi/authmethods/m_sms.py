@@ -61,16 +61,25 @@ class Sms:
                 if tlf in current_tlfs:
                     msg += "Tlf %s repeat." % tlf
                 current_tlfs.append(tlf)
-        if msg:
+            else:
+                if msg:
+                    msg = ''
+                    continue
+                exist = exist_user(r, ae)
+                if exist and not exist.count('None'):
+                    continue
+                used = r.get('status', 'registered') == 'used'
+                u = create_user(r, ae, used)
+                give_perms(u, ae)
+        if msg and validation:
             data = {'status': 'nok', 'msg': msg}
             return data
 
-        for r in req.get('census'):
-            used = r.get('status', 'registered') == 'used'
-            u = create_user(r, ae, used)
-            msg = give_perms(u, ae)
-            if msg:
-                data = {'status': 'nok', 'msg': msg}
+        if validation:
+            for r in req.get('census'):
+                used = r.get('status', 'registered') == 'used'
+                u = create_user(r, ae, used)
+                give_perms(u, ae)
         return data
 
     def register(self, ae, request):
