@@ -430,6 +430,8 @@ def check_metadata(req, user):
 
 
 def give_perms(u, ae):
+    if u.active: # Active users don't give perms. Avoid will send code
+        return
     give_perms = ae.auth_method_config.get('config').get('give_perms')
     if give_perms:
         obj = give_perms.get('object_type')
