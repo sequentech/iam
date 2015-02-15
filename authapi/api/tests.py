@@ -665,6 +665,13 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.assertTrue(r['msg'].count("Already registered"))
         self.assertTrue(r['msg'].count("Email %s repeat" % test_data.census_email_default_used['census'][1]['email']))
 
+        c = JClient()
+        c.authenticate(0, test_data.admin)
+        self.assertEqual(Code.objects.count(), 1)
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Code.objects.count(), 1)
+
     def test_add_register_authevent_email_default(self):
         c = JClient()
         response = c.register(self.aeid, test_data.register_email_default)
@@ -880,6 +887,13 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(r['msg'].count("Already registered"))
         self.assertTrue(r['msg'].count("Tel %s repeat" % test_data.census_sms_default_used['census'][1]['tlf']))
+
+        c = JClient()
+        c.authenticate(0, test_data.admin)
+        self.assertEqual(Code.objects.count(), 1)
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Code.objects.count(), 1)
 
     def test_add_register_authevent_sms_default(self):
         c = JClient()
