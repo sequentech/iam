@@ -45,6 +45,7 @@ class Sms:
 
     def census(self, ae, request, used=False):
         req = json.loads(request.body.decode('utf-8'))
+        data = {'status': 'ok'}
 
         msg = ''
         current_tlfs = []
@@ -62,8 +63,10 @@ class Sms:
 
         for r in req:
             u = create_user(r, ae, used)
-            give_perms(u, ae)
-        return {'status': 'ok'}
+            msg = give_perms(u, ae)
+            if msg:
+                data = {'status': 'nok', 'msg': msg}
+        return data
 
     def register(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
@@ -76,6 +79,9 @@ class Sms:
         tlf = req.get('tlf')
         msg += check_value(self.tlf_definition, tlf)
         msg += check_fields_in_request(req, ae)
+        if msg:
+            data = {'status': 'nok', 'msg': msg}
+            return data
         msg_exist = exist_user(req, ae, get_repeated=True)
         if msg_exist:
             u = msg_exist.get('user')
@@ -86,7 +92,7 @@ class Sms:
                 msg += msg_exist.get('msg')  + "Maximun number of codes sent."
         else:
             u = create_user(req, ae)
-            give_perms(u, ae)
+            msg += give_perms(u, ae)
 
         if msg:
             data = {'status': 'nok', 'msg': msg}

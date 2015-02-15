@@ -431,8 +431,11 @@ def check_metadata(req, user):
 
 def give_perms(u, ae):
     if u.is_active: # Active users don't give perms. Avoid will send code
-        return
-    give_perms = ae.auth_method_config.get('config').get('give_perms')
+        return ''
+    config = ae.auth_method_config.get('config')
+    if not config:
+        return 'Bad config'
+    give_perms = config.get('give_perms')
     if give_perms:
         obj = give_perms.get('object_type')
         obj_id = give_perms.get('object_id', 0)
@@ -443,3 +446,4 @@ def give_perms(u, ae):
     acl.save()
     acl = ACL(user=u.userdata, object_type='AuthEvent', perm='vote', object_id=ae.pk)
     acl.save()
+    return ''

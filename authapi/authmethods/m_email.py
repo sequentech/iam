@@ -59,7 +59,9 @@ class Email:
 
         for r in req:
             u = create_user(r, ae, used)
-            give_perms(u, ae)
+            msg = give_perms(u, ae)
+            if msg:
+                data = {'status': 'nok', 'msg': msg}
         return {'status': 'ok'}
 
     def register(self, ae, request):
@@ -73,6 +75,9 @@ class Email:
         email = req.get('email')
         msg += check_value(self.email_definition, email)
         msg += check_fields_in_request(req, ae)
+        if msg:
+            data = {'status': 'nok', 'msg': msg}
+            return data
         msg_exist = exist_user(req, ae, get_repeated=True)
         if msg_exist:
             u = msg_exist.get('user')
@@ -85,7 +90,7 @@ class Email:
                 u = edit_user(u, req)
         else:
             u = create_user(req, ae)
-            give_perms(u, ae)
+            msg += give_perms(u, ae)
 
         if msg:
             data = {'status': 'nok', 'msg': msg}
