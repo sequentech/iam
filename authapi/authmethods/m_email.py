@@ -43,15 +43,18 @@ class Email:
 
     def census(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
-        field_validate = req.get('field-validation', 'enabled')
+        validation = req.get('field-validation', 'enabled') == 'enabled'
 
-        if field_validate == 'enabled':
-            msg = ''
-            current_emails = []
-            for r in req.get('census'):
-                email = r.get('email')
-                msg += check_value(self.email_definition, email)
-                msg += check_fields_in_request(r, ae)
+        msg = ''
+        current_emails = []
+        for r in req.get('census'):
+            email = r.get('email')
+            msg += check_field_type(self.email_definition, email)
+            if validation:
+                msg += check_field_type(self.email_definition, email)
+                msg += check_field_value(self.email_definition, email)
+            msg += check_fields_in_request(r, ae, validation=validation)
+            if validation:
                 msg += exist_user(r, ae)
                 if email in current_emails:
                     msg += "Email %s repeat in this census." % email
@@ -77,7 +80,8 @@ class Email:
 
         msg = ''
         email = req.get('email')
-        msg += check_value(self.email_definition, email)
+        msg += check_field_type(self.email_definition, email)
+        msg += check_field_value(self.email_definition, email)
         msg += check_fields_in_request(req, ae)
         if msg:
             data = {'status': 'nok', 'msg': msg}
@@ -111,8 +115,10 @@ class Email:
         req = json.loads(request.body.decode('utf-8'))
         msg = ''
         email = req.get('email')
-        msg += check_value(self.email_definition, email, 'authenticate')
-        msg += check_value(self.code_definition, req.get('code'), 'authenticate')
+        msg += check_field_type(self.email_definition, email, 'authenticate')
+        msg += check_field_value(self.email_definition, email, 'authenticate')
+        msg += check_field_type(self.code_definition, req.get('code'), 'authenticate')
+        msg += check_field_value(self.code_definition, req.get('code'), 'authenticate')
         msg += check_fields_in_request(req, ae, 'authenticate')
         if msg:
             data = {'status': 'nok', 'msg': msg}

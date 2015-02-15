@@ -45,23 +45,25 @@ class Sms:
 
     def census(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
-        field_validate = req.get('field-validation', 'enabled')
+        validation = req.get('field-validation', 'enabled') == 'enabled'
         data = {'status': 'ok'}
 
-        if field_validate == 'enabled':
-            msg = ''
-            current_tlfs = []
-            for r in req.get('census'):
-                tlf = r.get('tlf')
-                msg += check_value(self.tlf_definition, tlf)
-                msg += check_fields_in_request(r, ae)
+        msg = ''
+        current_tlfs = []
+        for r in req.get('census'):
+            tlf = r.get('tlf')
+            msg += check_field_type(self.tlf_definition, tlf)
+            if validation:
+                msg += check_field_value(self.tlf_definition, tlf)
+            msg += check_fields_in_request(r, ae, validation=validation)
+            if validation:
                 msg += exist_user(r, ae)
                 if tlf in current_tlfs:
                     msg += "Tlf %s repeat." % tlf
                 current_tlfs.append(tlf)
-            if msg:
-                data = {'status': 'nok', 'msg': msg}
-                return data
+        if msg:
+            data = {'status': 'nok', 'msg': msg}
+            return data
 
         for r in req.get('census'):
             used = r.get('status', 'registered') == 'used'
@@ -80,7 +82,8 @@ class Sms:
 
         msg = ''
         tlf = req.get('tlf')
-        msg += check_value(self.tlf_definition, tlf)
+        msg += check_field_type(self.tlf_definition, tlf)
+        msg += check_field_value(self.tlf_definition, tlf)
         msg += check_fields_in_request(req, ae)
         if msg:
             data = {'status': 'nok', 'msg': msg}
@@ -113,8 +116,10 @@ class Sms:
 
         msg = ''
         tlf = req.get('tlf')
-        msg += check_value(self.tlf_definition, tlf, 'authenticate')
-        msg += check_value(self.code_definition, req.get('code'), 'authenticate')
+        msg += check_field_type(self.tlf_definition, tlf, 'authenticate')
+        msg += check_field_value(self.tlf_definition, tlf, 'authenticate')
+        msg += check_field_type(self.code_definition, req.get('code'), 'authenticate')
+        msg += check_field_value(self.code_definition, req.get('code'), 'authenticate')
         msg += check_fields_in_request(req, ae, 'authenticate')
         if msg:
             data = {'status': 'nok', 'msg': msg}

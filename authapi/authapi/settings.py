@@ -156,6 +156,8 @@ EMAIL_AUTH_CODE_URL = "https://agoravoting.example.com/#/election/%(authid)s/pub
 SEND_CODES_SMS_MAX = 3
 SEND_CODES_EMAIL_MAX = 3
 SIZE_CODE = 8
+MAX_GLOBAL_STR = 512
+MAX_EXTRA_FIELDS = 15
 
 # Auth api settings
 from auth_settings import *

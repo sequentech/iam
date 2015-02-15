@@ -3,6 +3,7 @@ import re
 import os
 import binascii
 from datetime import timedelta
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.utils import timezone
@@ -276,7 +277,24 @@ def check_pipeline(request, ae, step='register'):
 
 
 # Checkers census, register and authentication
-def check_value(definition, field, step='register'):
+def check_field_type(definition, field, step='register'):
+    msg = ''
+    if field is not None:
+        if isinstance(field, str):
+            if definition.get('type') == 'int' or definition.get('type') == 'bool':
+                msg += "Field %s type incorrect, value %s" % (definition.get('name'), field)
+            if len(field) > settings.MAX_GLOBAL_STR:
+                msg += "Field %s incorrect len" % definition.get('name')
+        elif isinstance(field, bool):
+            if definition.get('type') != 'bool':
+                msg += "Field %s type incorrect, value %s" % (definition.get('name'), field)
+        elif isinstance(field, int):
+            if definition.get('type') != 'int':
+                msg += "Field %s type incorrect, value %s" % (definition.get('name'), field)
+    return msg
+
+
+def check_field_value(definition, field, step='register'):
     msg = ''
     if step == 'authenticate' and not definition.get('required_on_authentication'):
         return msg
@@ -285,18 +303,11 @@ def check_value(definition, field, step='register'):
             msg += "Field %s is required" % definition.get('name')
     else:
         if isinstance(field, str):
-            if definition.get('type') == 'int' or definition.get('type') == 'bool':
-                msg += "Field %s type incorrect, value %s" % (definition.get('name'), field)
             if definition.get('min') and len(field) < definition.get('min'):
                 msg += "Field %s min incorrect, value %s" % (definition.get('name'), field)
             if definition.get('max') and len(field) > definition.get('max'):
                 msg += "Field %s max incorrect, value %s" % (definition.get('name'), field)
-        elif isinstance(field, bool):
-            if definition.get('type') != 'bool':
-                msg += "Field %s type incorrect, value %s" % (definition.get('name'), field)
         elif isinstance(field, int):
-            if definition.get('type') != 'int':
-                msg += "Field %s type incorrect, value %s" % (definition.get('name'), field)
             if definition.get('min') and field < definition.get('min'):
                 msg += "Field %s min incorrect, value %s" % (definition.get('name'), field)
             if definition.get('max') and field > definition.get('max'):
@@ -314,11 +325,15 @@ def check_value(definition, field, step='register'):
     return msg
 
 
-def check_fields_in_request(req, ae, step='register'):
+def check_fields_in_request(req, ae, step='register', validation=True):
     msg = ''
     if ae.extra_fields:
+        if len(req) > settings.MAX_EXTRA_FIELDS * 2:
+            return "Number of fields is bigger than allowed fields."
         for extra in ae.extra_fields:
-            msg += check_value(extra, req.get(extra.get('name')), step)
+            msg += check_field_type(extra, req.get(extra.get('name')), step)
+            if validation:
+                msg += check_field_value(extra, req.get(extra.get('name')), step)
     return msg
 
 
