@@ -308,6 +308,31 @@ Request:
 
 Response: status 200 or status 400 if error
 
+## POST /auth-event/#auid/used-census
+
+Perms: object_type: 'AuthEvent', perm: 'edit', oject_id: auid
+
+Description: import used-census data by administrator.
+This users won't able to register.
+
+Request: 
+    
+    [
+        {
+            "tlf": "+34666666666", 
+            "dni": "11111111H", 
+            "email": "foo@test.com",  
+        },
+        { 
+            "tlf": "+3377777777", 
+            "dni": "22222222P", 
+            "email": "bar@test.com",  
+        },
+        ..
+    ]
+
+Response: status 200 or status 400 if error
+
 ## POST auth-event/#auid/census/send_auth
 
 Perms: object_type: 'AuthEvent', perm: 'edit', oject_id: auid
