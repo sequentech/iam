@@ -43,25 +43,28 @@ class Sms:
         return msg
 
 
-    def census(self, ae, request, used=False):
+    def census(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
+        field_validate = req.get('field-validation', 'enabled')
         data = {'status': 'ok'}
 
-        msg = ''
-        current_tlfs = []
-        for r in req:
-            tlf = r.get('tlf')
-            msg += check_value(self.tlf_definition, tlf)
-            msg += check_fields_in_request(r, ae)
-            msg += exist_user(r, ae)
-            if tlf in current_tlfs:
-                msg += "Tlf %s repeat." % tlf
-            current_tlfs.append(tlf)
-        if msg:
-            data = {'status': 'nok', 'msg': msg}
-            return data
+        if field_validate == 'enabled':
+            msg = ''
+            current_tlfs = []
+            for r in req.get('census'):
+                tlf = r.get('tlf')
+                msg += check_value(self.tlf_definition, tlf)
+                msg += check_fields_in_request(r, ae)
+                msg += exist_user(r, ae)
+                if tlf in current_tlfs:
+                    msg += "Tlf %s repeat." % tlf
+                current_tlfs.append(tlf)
+            if msg:
+                data = {'status': 'nok', 'msg': msg}
+                return data
 
-        for r in req:
+        for r in req.get('census'):
+            used = r.get('status', 'registered') == 'used'
             u = create_user(r, ae, used)
             msg = give_perms(u, ae)
             if msg:

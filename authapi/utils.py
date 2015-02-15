@@ -333,7 +333,7 @@ def check_extra_fields(fields, used_type_fields=[]):
     msg = ''
     if len(fields) > 15:
         return "Maximum number of fields reached"
-    used_fields = []
+    used_fields = ['status']
     used_type_fields = used_type_fields
     for field in fields:
         if field.get('name') in used_fields:

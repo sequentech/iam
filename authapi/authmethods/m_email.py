@@ -41,23 +41,27 @@ class Email:
                 msg += "Invalid config: %s not possible.\n" % c
         return msg
 
-    def census(self, ae, request, used=False):
+    def census(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
-        msg = ''
-        current_emails = []
-        for r in req:
-            email = r.get('email')
-            msg += check_value(self.email_definition, email)
-            msg += check_fields_in_request(r, ae)
-            msg += exist_user(r, ae)
-            if email in current_emails:
-                msg += "Email %s repeat in this census." % email
-            current_emails.append(email)
-        if msg:
-            data = {'status': 'nok', 'msg': msg}
-            return data
+        field_validate = req.get('field-validation', 'enabled')
 
-        for r in req:
+        if field_validate == 'enabled':
+            msg = ''
+            current_emails = []
+            for r in req.get('census'):
+                email = r.get('email')
+                msg += check_value(self.email_definition, email)
+                msg += check_fields_in_request(r, ae)
+                msg += exist_user(r, ae)
+                if email in current_emails:
+                    msg += "Email %s repeat in this census." % email
+                current_emails.append(email)
+            if msg:
+                data = {'status': 'nok', 'msg': msg}
+                return data
+
+        for r in req.get('census'):
+            used = r.get('status', 'registered') == 'used'
             u = create_user(r, ae, used)
             msg = give_perms(u, ae)
             if msg:

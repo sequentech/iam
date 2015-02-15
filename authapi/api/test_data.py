@@ -113,53 +113,97 @@ auth_event5 = {
 admin = {'username': 'john', 'password': 'smith'}
 
 # Census
-census_email_default = [
+census_email_default = {
+    "field-validation": "enabled",
+    "census": [
         {"email": "baaa@aaa.com"},
         {"email": "caaa@aaa.com"},
         {"email": "daaa@aaa.com"},
         {"email": "eaaa@aaa.com"}
-]
+    ]
+}
 
-census_email_fields = [
+census_email_default_used = {
+    "field-validation": "enabled",
+    "census": [
+        {"email": "baaa@aaa.com", "status": "used"},
+        {"email": "caaa@aaa.com", "status": "used"},
+        {"email": "daaa@aaa.com", "status": "used"},
+        {"email": "eaaa@aaa.com", "status": "used"}
+    ]
+}
+
+census_email_fields = {
+    "field-validation": "enabled",
+    "census": [
         {"name": "aaaa", "email": "baaa@aaa.com"},
         {"name": "baaa", "email": "caaa@aaa.com"},
         {"name": "caaa", "email": "daaa@aaa.com"},
         {"name": "daaa", "email": "eaaa@aaa.com"}
-]
+    ]
+}
 
-census_email_repeat = [
+census_email_repeat = {
+    "field-validation": "enabled",
+    "census": [
         {"email": "repeat@aaa.com"},
         {"email": "repeat@aaa.com"}
-]
+    ]
+}
 
-census_sms_default = [
+census_sms_default = {
+    "field-validation": "enabled",
+    "census": [
         {"tlf": "666666667"},
         {"tlf": "666666668"},
         {"tlf": "666666669"},
         {"tlf": "666666670"}
-]
+    ]
+}
 
-census_sms_fields = [
+census_sms_default_used = {
+    "field-validation": "enabled",
+    "census": [
+        {"tlf": "666666667", "status": "used"},
+        {"tlf": "666666668", "status": "used"},
+        {"tlf": "666666669", "status": "used"},
+        {"tlf": "666666670", "status": "used"}
+    ]
+}
+
+census_sms_fields = {
+    "field-validation": "enabled",
+    "census": [
         {"name": "aaaa", "tlf": "666666665"},
         {"name": "baaa", "tlf": "666666667"},
         {"name": "caaa", "tlf": "666666668"},
         {"name": "daaa", "tlf": "666666669"}
-]
+    ]
+}
 
-census_sms_repeat = [
+census_sms_repeat = {
+    "field-validation": "enabled",
+    "census": [
         {"tlf": "777777777"},
         {"tlf": "777777777"}
-]
+    ]
+}
 
-census_email_unique_dni = [
+census_email_unique_dni = {
+    "field-validation": "enabled",
+    "census": [
         {"dni": "11111111H", "email": "aaa@aaa.com"},
         {"dni": "22222222J", "email": "bbb@bbb.com"}
-]
+    ]
+}
 
-census_sms_unique_dni = [
+census_sms_unique_dni = {
+    "field-validation": "enabled",
+    "census": [
         {"dni": "11111111H", "tlf": "111111111"},
         {"dni": "22222222J", "tlf": "222222222"}
-]
+    ]
+}
 
 
 # Register
@@ -333,6 +377,10 @@ ae_email_fields_incorrect_repeat.update( {'extra_fields': [
 ae_email_fields_incorrect_email = ae_email_fields.copy()
 ae_email_fields_incorrect_email.update( {'extra_fields': [
     {'name': 'email', 'type': 'email', 'required_on_authentication': False}]})
+
+ae_email_fields_incorrect_status = ae_email_fields.copy()
+ae_email_fields_incorrect_status.update( {'extra_fields': [
+    {'name': 'status', 'type': 'text', 'required_on_authentication': False}]})
 
 ae_sms_default = {
     "auth_method": "sms",

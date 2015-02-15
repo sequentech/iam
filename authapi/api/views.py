@@ -79,23 +79,6 @@ class Census(View):
 census = login_required(Census.as_view())
 
 
-class UsedCensus(View):
-    ''' Add used census in the auth-event. Users in this census won't able to
-    vote. '''
-
-    def post(self, request, pk):
-        e = get_object_or_404(AuthEvent, pk=pk)
-        try:
-            data = auth_census(e, request, used=True)
-        except:
-            bad_request = json.dumps({"error": "bad_request"})
-            return HttpResponseBadRequest(bad_request, content_type='application/json')
-        status = 200 if data['status'] == 'ok' else 400
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, status=status, content_type='application/json')
-used_census = login_required(UsedCensus.as_view())
-
-
 class Authenticate(View):
     ''' Authenticate into the authapi '''
 
