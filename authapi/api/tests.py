@@ -772,6 +772,9 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.assertTrue(r['msg'].count("dni %s repeat." % user['dni']))
 
 
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
     def test_add_census_no_validation(self):
         self.ae.extra_fields = test_data.extra_field_unique
         self.ae.save()
@@ -797,6 +800,11 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(len(r['userids']), 1 + 5)
+
+        self.assertEqual(Code.objects.count(), 1)
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Code.objects.count(), 1 + 6 - 2)
 
 
 class TestRegisterAndAuthenticateSMS(TestCase):
@@ -994,6 +1002,9 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertTrue(r['msg'].count("dni %s repeat." % user['dni']))
 
 
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
     def test_add_census_no_validation(self):
         self.ae.extra_fields = test_data.extra_field_unique
         self.ae.save()
@@ -1019,3 +1030,8 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(len(r['userids']), 1 + 4)
+
+        self.assertEqual(Code.objects.count(), 1)
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Code.objects.count(), 1 + 5 - 2)

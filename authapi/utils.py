@@ -161,6 +161,12 @@ def send_code(user, config=None):
     conf = user.userdata.event.auth_method_config.get('config')
     event_id = user.userdata.event.id
 
+    # if blank tlf or email
+    if auth_method == "sms" and not user.userdata.tlf:
+        return
+    elif auth_method == "email" and not user.email:
+        return
+
     code = generate_code(user.userdata)
 
     if auth_method == "sms":
