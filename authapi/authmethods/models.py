@@ -16,21 +16,22 @@ class ColorList(models.Model):
     value = models.CharField(max_length=255)
     action = models.CharField(max_length=255, choices=ACTION, default="black")
     created = models.DateTimeField(auto_now_add=True)
-
+    auth_event_id = models.IntegerField()
 
 class Message(models.Model):
     ip = models.CharField(max_length=15)
     tlf = models.CharField(max_length=20)
     created = models.DateTimeField(auto_now_add=True)
-
+    auth_event_id = models.IntegerField()
 
 class Connection(models.Model):
     ip = models.CharField(max_length=15)
     tlf = models.CharField(max_length=20)
     created = models.DateTimeField(auto_now_add=True)
-
+    auth_event_id = models.IntegerField()
 
 class Code(models.Model):
     user = models.ForeignKey(UserData, related_name="codes")
     code = models.CharField(max_length=64)
     created = models.DateTimeField(auto_now_add=True)
+    auth_event_id = models.IntegerField()

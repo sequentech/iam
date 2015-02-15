@@ -91,7 +91,7 @@ def check_tlf_whitelisted(data):
 
     tlf = data['tlf']
     try:
-        item = ColorList.objects.get(key=ColorList.KEY_TLF, value=tlf)
+        item = ColorList.objects.get(key=ColorList.KEY_TLF, value=tlf, auth_event_id=data['auth_event'].id)
         if item.action == ColorList.ACTION_WHITELIST:
             data['whitelisted'] = True
         else:
@@ -110,7 +110,8 @@ def check_ip_whitelisted(data):
 
     ip_addr = data['ip_addr']
     try:
-        item = ColorList.objects.filter(key=ColorList.KEY_IP, value=ip_addr)
+        item = ColorList.objects.filter(key=ColorList.KEY_IP, value=ip_addr,
+                                        auth_event_id=data['auth_event'].id)
         for item in items:
             if item.action == ColorList.ACTION_WHITELIST:
                 data['whitelisted'] = True
@@ -135,7 +136,7 @@ def check_tlf_blacklisted(data):
     tlf = data['tlf']
     try:
         item = ColorList.objects.filter(key=ColorList.KEY_TLF, value=tlf,
-                action=ColorList.ACTION_BLACKLIST)[0]
+                action=ColorList.ACTION_BLACKLIST, auth_event_id=data['auth_event'].id)[0]
         return error("Blacklisted", error_codename="blacklisted")
     except:
         pass
@@ -157,7 +158,8 @@ def check_ip_blacklisted(data):
     ip_addr = data['ip_addr']
     try:
         item = ColorList.objects.filter(key=ColorList.KEY_IP, value=ip_addr,
-                action=ColorList.ACTION_BLACKLIST)[0]
+                action=ColorList.ACTION_BLACKLIST,
+                auth_event_id=data['auth_event'].id)[0]
         return error("Blacklisted", error_codename="blacklisted")
     except:
         pass
@@ -179,15 +181,18 @@ def check_tlf_total_max(data, **kwargs):
     if period:
         time_threshold = timezone.now() - timedelta(seconds=period)
         # Fix
-        item = Message.objects.filter(tlf=tlf, created__lt=time_threshold)
+        item = Message.objects.filter(tlf=tlf, created__lt=time_threshold,
+                                      auth_event_id=data['auth_event'].id)
     else:
-        item = Message.objects.filter(tlf=tlf)
+        item = Message.objects.filter(tlf=tlf, auth_event_id=data['auth_event'].id)
     if len(item) >= total_max:
         c1 = ColorList(action=ColorList.ACTION_BLACKLIST,
-                       key=ColorList.KEY_IP, value=ip_addr)
+                       key=ColorList.KEY_IP, value=ip_addr,
+                       auth_event_id=data['auth_event'].id)
         c1.save()
         c2 = ColorList(action=ColorList.ACTION_BLACKLIST,
-                       key=ColorList.KEY_TLF, value=tlf)
+                       key=ColorList.KEY_TLF, value=tlf,
+                       auth_event_id=data['auth_event'].id)
         c2.save()
         return error("Blacklisted", error_codename="blacklisted")
     return RET_PIPE_CONTINUE
@@ -203,21 +208,22 @@ def check_ip_total_max(data, **kwargs):
         return RET_PIPE_CONTINUE
 
     ip_addr = data['ip_addr']
-    item = Message.objects.filter(ip=ip_addr)
+    item = Message.objects.filter(ip=ip_addr, auth_event_id=data['auth_event'].id)
     if len(item) >= total_max:
         cl = ColorList(action=ColorList.ACTION_BLACKLIST,
-                       key=ColorList.KEY_IP, value=ip_addr)
+                       key=ColorList.KEY_IP, value=ip_addr,
+                       auth_event_id=data['auth_event'].id)
         cl.save()
         return error("Blacklisted", error_codename="blacklisted")
     return RET_PIPE_CONTINUE
 
 
-def check_sms_code(req, ae, **kwargs):
+def check_sms_code(data, **kwargs):
     time_thr = timezone.now() - timedelta(seconds=kwargs.get('timestamp'))
     try:
-        u = User.objects.get(userdata__tlf=req.get('tlf'), userdata__event=ae)
-        code = Code.objects.get(user=u.pk, code=req.get('code'),
-                created__gt=time_thr)
+        u = User.objects.get(userdata__tlf=data['tlf'], userdata__event=data['auth_event'])
+        code = Code.objects.get(user=u.pk, code=data['code'],
+                created__gt=time_thr, auth_event_id=data['auth_event'].id)
     except:
         return error('Invalid code.', error_codename='check_sms_code')
     return RET_PIPE_CONTINUE
@@ -250,7 +256,8 @@ def check_total_max(data, **kwargs):
 
 
 def check_total_connection(data, **kwargs):
-    conn = Connection.objects.filter(tlf=req.get('tlf')).count()
+    conn = Connection.objects.filter(tlf=req.get('tlf'),
+                                     auth_event_id=data['auth_event'].id).count()
     if conn >= kwargs.get('times'):
         return error('Exceeded the level os attempts',
                 error_codename='check_total_connection')
@@ -261,14 +268,16 @@ def check_total_connection(data, **kwargs):
 
 def check_pipeline(request, ae, step='register'):
     req = json.loads(request.body.decode('utf-8'))
-    data = {'ip_addr': get_client_ip(request), 'tlf': req.get('tlf')}
+    data = {
+        'ip_addr': get_client_ip(request),
+        'tlf': req.get('tlf', None),
+        'code': req.get('code', None),
+        'auth_event': ae
+    }
 
     pipeline = ae.auth_method_config.get('pipeline').get('%s-pipeline' % step)
     for pipe in pipeline:
-        if pipe[0] == 'check_sms_code':
-            check = getattr(eval(pipe[0]), '__call__')(req, ae, **pipe[1])
-        else:
-            check = getattr(eval(pipe[0]), '__call__')(data, **pipe[1])
+        check = getattr(eval(pipe[0]), '__call__')(data, **pipe[1])
         if check:
             data.update(json.loads(check.content.decode('utf-8')))
             data['status'] = check.status_code

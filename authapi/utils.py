@@ -194,7 +194,7 @@ def send_code(user, config=None):
     msg = base_msg % raw_msg
 
     if auth_method == "sms":
-        send_sms_code(receiver, msg, conf)
+        send_sms_code.apply_async([receiver, msg, conf])
         m = Message(tlf=receiver)
         m.save()
     else: # email
@@ -208,7 +208,7 @@ def send_code(user, config=None):
             [receiver],
             headers = {'Reply-To': acl.user.user.email}
         )
-        send_email(email)
+        send_email.apply_async([email])
 
 # CHECKERS AUTHEVENT
 VALID_FIELDS = ('name', 'help', 'type', 'required', 'regex', 'min', 'max',
