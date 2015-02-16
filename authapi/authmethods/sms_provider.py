@@ -28,6 +28,8 @@ class SMSProvider(object):
     '''
     provider_name = ""
 
+    default_prefix = "+34"
+
     def __init__(self):
         pass
 
@@ -44,6 +46,22 @@ class SMSProvider(object):
         for returning the "credit" concept.
         '''
         return 0
+
+    def get_canonical_format(self, tlf):
+        """
+        converts a tlf number to a cannonical format. This means in practice
+        that "624571624", "+34624571624" and "0034624571624" will all be
+        converted into "+34624571624". This is useful because otherwise, anyone
+        could vote three times with the same tlf number. The default country
+        prefix is configurable and this function can be overridden by each
+        provider.
+        """
+        if tlf.startswith("00"):
+          return "+" + tlf[2:]
+        elif tlf.startswith("+"):
+          return tlf
+        else: # add default prefix
+          return self.default_prefix + tlf
 
     @staticmethod
     def get_instance():

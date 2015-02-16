@@ -42,7 +42,6 @@ class Sms:
                 msg += "Invalid config: %s not possible.\n" % c
         return msg
 
-
     def census(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
         validation = req.get('field-validation', 'enabled') == 'enabled'
@@ -51,7 +50,9 @@ class Sms:
         msg = ''
         current_tlfs = []
         for r in req.get('census'):
-            tlf = r.get('tlf')
+            if req.get('tlf'):
+                req['tlf'] = get_cannonical_tlf(req.get('tlf'))
+            tlf = req.get('tlf')
             msg += check_field_type(self.tlf_definition, tlf)
             if validation:
                 msg += check_field_value(self.tlf_definition, tlf)
@@ -90,6 +91,8 @@ class Sms:
             return msg
 
         msg = ''
+        if req.get('tlf'):
+            req['tlf'] = get_cannonical_tlf(req.get('tlf'))
         tlf = req.get('tlf')
         msg += check_field_type(self.tlf_definition, tlf)
         msg += check_field_value(self.tlf_definition, tlf)

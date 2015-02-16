@@ -397,6 +397,10 @@ def exist_user(req, ae, get_repeated=False):
     else:
         return msg
 
+def get_cannonical_tlf(tlf):
+    from authmethods.sms_provider import SMSProvider
+    con = SMSProvider.get_instance()
+    return con.get_canonical_format(tlf)
 
 def create_user(req, ae, active=False):
     user = random_username()
