@@ -606,7 +606,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
             object_id=self.aeid)
         acl.save()
 
-        c = Code(user=u.userdata, code=test_data.auth_email_default['code'])
+        c = Code(user=u.userdata, code=test_data.auth_email_default['code'], auth_event_id=ae.pk)
         c.save()
         self.code = c
 
@@ -849,7 +849,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
             object_id=self.aeid)
         acl.save()
 
-        c = Code(user=u.userdata, code=test_data.auth_sms_default['code'])
+        c = Code(user=u.userdata, code=test_data.auth_sms_default['code'], auth_event_id=ae.pk)
         c.save()
         self.code = c
 

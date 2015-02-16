@@ -85,9 +85,9 @@ class AuthMethodEmailTestCase(TestCase):
         })
         u2.userdata.save()
 
-        code = Code(user=u.userdata, code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')
+        code = Code(user=u.userdata, code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', auth_event_id=ae.pk)
         code.save()
-        code = Code(user=u2.userdata, code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')
+        code = Code(user=u2.userdata, code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', auth_event_id=ae.pk)
         code.save()
 
 
@@ -150,9 +150,9 @@ class AuthMethodSmsTestCase(TestCase):
         u.userdata.metadata = json.dumps({ 'dni': '11111111H' })
         u.userdata.save()
         self.u = u.userdata
-        code = Code(user=u.userdata, code='AAAAAAAA')
+        code = Code(user=u.userdata, code='AAAAAAAA', auth_event_id=ae.pk)
         code.save()
-        m = Message(tlf=u.userdata.tlf)
+        m = Message(tlf=u.userdata.tlf, auth_event_id=ae.pk)
         m.save()
 
         u2 = User(pk=2, username='test2', email='test2@agoravoting.com')
@@ -162,7 +162,7 @@ class AuthMethodSmsTestCase(TestCase):
         u2.userdata.event = ae
         u2.userdata.metadata = json.dumps({ 'dni': '11111111H' })
         u2.userdata.save()
-        code = Code(user=u2.userdata, code='AAAAAAAA')
+        code = Code(user=u2.userdata, code='AAAAAAAA', auth_event_id=ae.pk)
         code.save()
         self.c = JClient()
 

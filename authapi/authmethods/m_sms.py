@@ -50,9 +50,9 @@ class Sms:
         msg = ''
         current_tlfs = []
         for r in req.get('census'):
-            if req.get('tlf'):
-                req['tlf'] = get_cannonical_tlf(req.get('tlf'))
-            tlf = req.get('tlf')
+            if r.get('tlf'):
+                r['tlf'] = get_cannonical_tlf(r.get('tlf'))
+            tlf = r.get('tlf')
             msg += check_field_type(self.tlf_definition, tlf)
             if validation:
                 msg += check_field_value(self.tlf_definition, tlf)
