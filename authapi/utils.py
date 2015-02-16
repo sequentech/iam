@@ -129,7 +129,7 @@ def generate_code(userdata, size=settings.SIZE_CODE):
     """ Generate necessary codes for different authmethods. """
     from authmethods.models import Code
     code = random_code(size, ascii_letters+digits)
-    c = Code(user=userdata, code=code)
+    c = Code(user=userdata, code=code, auth_event_id=userdata.event.id)
     c.save()
     return code
 
@@ -195,7 +195,7 @@ def send_code(user, config=None):
 
     if auth_method == "sms":
         send_sms_code.apply_async([receiver, msg, conf])
-        m = Message(tlf=receiver)
+        m = Message(tlf=receiver, auth_event_id=event_id)
         m.save()
     else: # email
         from api.models import ACL
