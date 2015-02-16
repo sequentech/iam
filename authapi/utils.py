@@ -122,13 +122,11 @@ def constant_time_compare(val1, val2):
 
 def random_code(length=16, chars=ascii_lowercase+digits):
     return ''.join([choice(chars) for i in range(length)])
-    return code;
-
 
 def generate_code(userdata, size=settings.SIZE_CODE):
     """ Generate necessary codes for different authmethods. """
     from authmethods.models import Code
-    code = random_code(size, ascii_letters+digits)
+    code = random_code(size, "ABCDEFGHIJKLMNPQRSTUVWXYZ23456789")
     c = Code(user=userdata, code=code, auth_event_id=userdata.event.id)
     c.save()
     return code
