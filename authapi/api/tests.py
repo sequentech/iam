@@ -942,6 +942,37 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertTrue(r['msg'].count("Tel %s repeat" % get_cannonical_tlf(test_data.auth_sms_default['tlf'])))
         self.assertEqual(Code.objects.count(), settings.SEND_CODES_SMS_MAX + 1)
 
+    def test_add_register_authevent_sms_resend_same_cannonical_number(self):
+        temp = settings.SEND_CODES_SMS_MAX
+        settings.SEND_CODES_SMS_MAX = 1
+        c = JClient()
+        c.authenticate(0, test_data.admin)
+        self.assertEqual(Code.objects.count(), 1)
+
+        data = {
+            "tlf": "666666666",
+            "code": "123456"
+        }
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        data['tlf'] = "00666666666"
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        self.assertEqual(Code.objects.count(), 3)
+
+        data['tlf'] = "+34666666666"
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        response = c.register(self.aeid, test_data.auth_sms_default)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertTrue(r['msg'].count("Maximun number of codes sent"))
+        self.assertTrue(r['msg'].count("Tel %s repeat" % get_cannonical_tlf(test_data.auth_sms_default['tlf'])))
+        self.assertEqual(Code.objects.count(), 3)
+        settings.SEND_CODES_SMS_MAX = temp
+
     def test_authenticate_authevent_sms_default(self):
         c = JClient()
         response = c.authenticate(self.aeid, test_data.auth_sms_default)
