@@ -85,7 +85,6 @@ class Sms:
 
     def register(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
-
         msg = check_pipeline(request, ae)
         if msg:
             return msg
@@ -127,6 +126,8 @@ class Sms:
         req = json.loads(request.body.decode('utf-8'))
 
         msg = ''
+        if req.get('tlf'):
+            req['tlf'] = get_cannonical_tlf(req.get('tlf'))
         tlf = req.get('tlf')
         msg += check_field_type(self.tlf_definition, tlf, 'authenticate')
         msg += check_field_value(self.tlf_definition, tlf, 'authenticate')

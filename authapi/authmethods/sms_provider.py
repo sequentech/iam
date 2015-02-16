@@ -56,6 +56,8 @@ class SMSProvider(object):
         prefix is configurable and this function can be overridden by each
         provider.
         """
+        if not isinstance(tlf, str):
+            return tlf
         if tlf.startswith("00"):
           return "+" + tlf[2:]
         elif tlf.startswith("+"):

@@ -841,7 +841,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         u.is_active = False
         u.save()
         u.userdata.event = ae
-        u.userdata.tlf = test_data.auth_sms_default['tlf']
+        u.userdata.tlf = get_cannonical_tlf(test_data.auth_sms_default['tlf'])
         u.userdata.save()
         self.u = u.userdata
         self.uid = u.id
@@ -887,7 +887,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(r['msg'].count("Already registered"))
-        self.assertTrue(r['msg'].count("Tel %s repeat" % test_data.census_sms_default_used['census'][1]['tlf']))
+        self.assertTrue(r['msg'].count("Tel %s repeat" % get_cannonical_tlf(test_data.census_sms_default_used['census'][1]['tlf'])))
 
         c = JClient()
         c.authenticate(0, test_data.admin)
@@ -939,7 +939,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(r['msg'].count("Maximun number of codes sent"))
-        self.assertTrue(r['msg'].count("Tel %s repeat" % test_data.auth_sms_default['tlf']))
+        self.assertTrue(r['msg'].count("Tel %s repeat" % get_cannonical_tlf(test_data.auth_sms_default['tlf'])))
         self.assertEqual(Code.objects.count(), settings.SEND_CODES_SMS_MAX + 1)
 
     def test_authenticate_authevent_sms_default(self):
