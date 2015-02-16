@@ -12,7 +12,7 @@ from authmethods.utils import *
 class Sms:
     DESCRIPTION = 'Provides authentication using an SMS code.'
     CONFIG = {
-        'msg': 'Click %(url)s and put this code %(code)s',
+        'msg': 'Tu codigo es %(code)s para votar en %(url)s'
     }
     PIPELINES = {
         "register-pipeline": [
