@@ -10,6 +10,7 @@ from . import test_data
 from .models import ACL, AuthEvent
 from authmethods.models import Code
 from utils import verifyhmac
+from authmethods.utils import get_cannonical_tlf
 
 class JClient(Client):
     def __init__(self, *args, **kwargs):
@@ -871,7 +872,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.census(self.aeid, test_data.census_sms_repeat)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], "Tlf %s repeat." % test_data.census_sms_repeat['census'][0]['tlf'])
+        self.assertEqual(r['msg'], "Tlf %s repeat." % get_cannonical_tlf(test_data.census_sms_repeat['census'][0]['tlf']))
 
     def test_add_used_census(self):
         c = JClient()

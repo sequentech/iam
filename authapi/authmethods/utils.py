@@ -268,6 +268,8 @@ def check_total_connection(data, **kwargs):
 
 def check_pipeline(request, ae, step='register'):
     req = json.loads(request.body.decode('utf-8'))
+    if req.get('tlf'):
+        req['tlf'] = get_cannonical_tlf(req['tlf'])
     data = {
         'ip_addr': get_client_ip(request),
         'tlf': req.get('tlf', None),
@@ -281,6 +283,10 @@ def check_pipeline(request, ae, step='register'):
         if check:
             data.update(json.loads(check.content.decode('utf-8')))
             data['status'] = check.status_code
+            if data.get('auth_event'):
+                data.pop('auth_event')
+            if data.get('code'):
+                data.pop('code')
             return data
     return RET_PIPE_CONTINUE
 
@@ -374,7 +380,8 @@ def exist_user(req, ae, get_repeated=False):
             pass
     if req.get('tlf'):
         try:
-            user = User.objects.get(userdata__tlf=req.get('tlf'), userdata__event=ae)
+            tlf = get_cannonical_tlf(req['tlf'])
+            user = User.objects.get(userdata__tlf=tlf, userdata__event=ae)
             msg += "Tel %s repeat." % req.get('tlf')
         except:
             pass
@@ -413,7 +420,8 @@ def create_user(req, ae, active=False):
     u.save()
 
     if req.get('tlf'):
-        u.userdata.tlf = req.get('tlf')
+        tlf = get_cannonical_tlf(req['tlf'])
+        u.userdata.tlf = tlf
         req.pop('tlf')
 
     u.userdata.event = ae
@@ -429,7 +437,8 @@ def edit_user(user, req):
         user.save()
 
     if req.get('tlf'):
-        user.userdata.tlf = req.get('tlf')
+        tlf = get_cannonical_tlf(req['tlf'])
+        user.userdata.tlf = tlf
         req.pop('tlf')
 
     user.userdata.metadata = json.dumps(req)
