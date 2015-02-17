@@ -350,6 +350,7 @@ def check_captcha(code, answer):
     captcha = {'captcha_code': code, 'captcha_answer': answer}
     if not valid_captcha(captcha):
         return 'Invalid captcha'
+    return ''
 
 
 def check_fields_in_request(req, ae, step='register', validation=True):
@@ -361,7 +362,7 @@ def check_fields_in_request(req, ae, step='register', validation=True):
             msg += check_field_type(extra, req.get(extra.get('name')), step)
             if validation:
                 msg += check_field_value(extra, req.get(extra.get('name')), step)
-                if extra.get('type') == 'captcha' and step != 'census':
+                if not msg and extra.get('type') == 'captcha' and step != 'census':
                     msg += check_captcha(req.get('captcha_code'), req.get(extra.get('name')))
     return msg
 
