@@ -363,7 +363,9 @@ def check_fields_in_request(req, ae, step='register', validation=True):
             if validation:
                 msg += check_field_value(extra, req.get(extra.get('name')), step)
                 if not msg and extra.get('type') == 'captcha' and step != 'census':
-                    msg += check_captcha(req.get('captcha_code'), req.get(extra.get('name')))
+                    if (step == 'register' and extra.get('required')) or\
+                            (step == 'authenticate' and extra.get('required_on_authentication')):
+                        msg += check_captcha(req.get('captcha_code'), req.get(extra.get('name')))
     return msg
 
 
