@@ -53,7 +53,7 @@ class Email:
             if validation:
                 msg += check_field_type(self.email_definition, email)
                 msg += check_field_value(self.email_definition, email)
-            msg += check_fields_in_request(r, ae, validation=validation)
+            msg += check_fields_in_request(r, ae, 'census', validation=validation)
             if validation:
                 msg += exist_user(r, ae)
                 if email in current_emails:

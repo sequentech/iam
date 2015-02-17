@@ -56,7 +56,7 @@ class Sms:
             msg += check_field_type(self.tlf_definition, tlf)
             if validation:
                 msg += check_field_value(self.tlf_definition, tlf)
-            msg += check_fields_in_request(r, ae, validation=validation)
+            msg += check_fields_in_request(r, ae, 'census', validation=validation)
             if validation:
                 msg += exist_user(r, ae)
                 if tlf in current_tlfs:

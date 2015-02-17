@@ -9,6 +9,8 @@ from django.http import HttpResponse
 from django.utils import timezone
 from .models import ColorList, Message, Code
 from api.models import ACL
+from captcha.models import Captcha
+from captcha.decorators import valid_captcha
 
 
 EMAIL_RX = re.compile(
@@ -313,8 +315,10 @@ def check_field_value(definition, field, step='register'):
     msg = ''
     if step == 'authenticate' and not definition.get('required_on_authentication'):
         return msg
+    if step == 'census' and definition.get('type') == 'captcha':
+        return msg
     if field is None:
-        if definition.get('required') and definition.get('type') != 'captcha':
+        if definition.get('required'):
             msg += "Field %s is required" % definition.get('name')
     else:
         if isinstance(field, str):
@@ -340,6 +344,14 @@ def check_field_value(definition, field, step='register'):
     return msg
 
 
+def check_captcha(code, answer):
+    if not code or not answer or not isinstance(code, str):
+        return 'Invalid captcha'
+    captcha = {'captcha_code': code, 'captcha_answer': answer}
+    if not valid_captcha(captcha):
+        return 'Invalid captcha'
+
+
 def check_fields_in_request(req, ae, step='register', validation=True):
     msg = ''
     if ae.extra_fields:
@@ -349,6 +361,8 @@ def check_fields_in_request(req, ae, step='register', validation=True):
             msg += check_field_type(extra, req.get(extra.get('name')), step)
             if validation:
                 msg += check_field_value(extra, req.get(extra.get('name')), step)
+                if extra.get('type') == 'captcha' and step != 'census':
+                    msg += check_captcha(req.get('captcha_code'), req.get(extra.get('name')))
     return msg
 
 

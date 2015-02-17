@@ -6,14 +6,16 @@ import functools
 from .models import Captcha
 
 
-def valid_capcha(request):
-    if request.method == 'GET':
-        code = request.GET.get('captcha_code', '')
-        answer = request.GET.get('captcha_answer', '')
-    else:
-        req = json.loads(request.body.decode('utf-8'))
-        code = req.get('captcha_code', '')
-        answer = req.get('captcha_answer', '')
+def valid_captcha(request):
+    try:
+        code = request['captcha_code']
+        answer = request['captcha_answer']
+    except:
+        if request.method == 'GET':
+            code = request.GET.get('captcha_code', '')
+            answer = request.GET.get('captcha_answer', '')
+        else:
+            return False
 
     try:
         captcha = Captcha.objects.get(code=code)
