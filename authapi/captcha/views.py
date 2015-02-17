@@ -41,9 +41,8 @@ def generate_captcha(amount=1):
 
 class NewCaptcha(View):
     def get(self, request):
-        # TODO, think about limits to prevent lots of calls because this
-        # creates an image file and we can get out of disk space
-        newcaptcha()
+        # TODO: write down ip and put in blacklist if order a lot captchas
+        generate_captcha()
 
         with transaction.atomic():
             captcha = Captcha.objects.select_for_update().filter(used=False).first()
