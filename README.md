@@ -44,6 +44,7 @@ kind of object.
 
 2. Install package and its dependencies
     ```
+    $ sudo apt-get install libfreetype6-dev # necessary for captcha generator, pillow require it
     $ mkvirtualenv myenv
     $ pip install -r requirements.txt
     ```
