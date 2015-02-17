@@ -126,7 +126,7 @@ def random_code(length=16, chars=ascii_lowercase+digits):
 def generate_code(userdata, size=settings.SIZE_CODE):
     """ Generate necessary codes for different authmethods. """
     from authmethods.models import Code
-    code = random_code(size, "ABCDEFGHIJKLMNPQRSTUVWXYZ23456789")
+    code = random_code(size, "ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
     c = Code(user=userdata, code=code, auth_event_id=userdata.event.id)
     c.save()
     return code
