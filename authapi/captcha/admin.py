@@ -1,3 +1,8 @@
 from django.contrib import admin
+from .models import Captcha
 
-# Register your models here.
+
+class CaptchaAdmin(admin.ModelAdmin):
+    pass
+
+admin.site.register(Captcha, CaptchaAdmin)
