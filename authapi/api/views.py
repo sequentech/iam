@@ -10,7 +10,7 @@ from authmethods import auth_authenticate, METHODS, auth_register, auth_census, 
 from utils import genhmac, paginate, VALID_FIELDS, VALID_PIPELINES
 from utils import check_authmethod, check_pipeline, check_extra_fields
 from .decorators import login_required, get_login_user
-from .models import AuthEvent, ACL, CreditsAction
+from .models import AuthEvent, ACL
 from .models import User, UserData
 from .tasks import census_send_auth_task
 from django.db.models import Q
@@ -471,27 +471,6 @@ class UserAuthEvent(View):
 user_auth_event = login_required(UserAuthEvent.as_view())
 
 
-class CreditsActionView(View):
-    def post(self, request):
-        ''' Create new action of add_credit in mode create '''
-
-        try:
-            req = json.loads(request.body.decode('utf-8'))
-        except:
-            bad_request = json.dumps({"error": "bad_request"})
-            return HttpResponseBadRequest(bad_request, content_type='application/json')
-        pack_id = req.get("pack_id")
-        quantity = req.get("num_credits")
-        payment = req.get("payment_method")
-        # TODO create paypal_url
-        paypal_url = 'foo'
-        action = CreditsAction(user=request.user.userdata, quantity=quantity,
-                payment_metadata={'payment_method': payment})
-        action.save()
-        jsondata = json.dumps({'paypal_url': paypal_url})
-        return HttpResponse(jsondata, content_type='application/json')
-creditsaction = login_required(CreditsActionView.as_view())
-
 class CensusSendAuth(View):
     def post(self, request, pk):
         ''' Send authentication emails to the whole census '''
@@ -527,12 +506,3 @@ class CensusSendAuth(View):
         census_send_auth_task.apply_async(args=[pk, config, userids])
         return HttpResponse("", content_type='application/json')
 census_send_auth = login_required(CensusSendAuth.as_view())
-
-def available_packs(request):
-    jsondata = json.dumps(settings.AVAILABLE_PACKS)
-    return HttpResponse(jsondata, content_type='application/json')
-
-
-def available_payment_methods(request):
-    jsondata = json.dumps(settings.AVAILABLE_PAYMENT_METHODS)
-    return HttpResponse(jsondata, content_type='application/json')

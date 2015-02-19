@@ -90,7 +90,6 @@ Basic Database tables:
 * User
     * id: string (255), random uuid, identifies the user uniquely
     * event: auth-event associate
-    * credits: credits for create auth-event
     * metadata: json-string
     * status: string (255): used to flag the user
 * ACL
@@ -100,15 +99,6 @@ Basic Database tables:
     * object_type: string (255) type of object to which the user is granted permission to. required
     * object_id: string (255) object related to which the user is granted permission to id
       (default=0) mean permission in all id
-* CreditsAction
-    * user: userdata associate
-    * action: choice add or spend
-    * status: created, paid, etc
-    * quantity: int
-    * authevent: auth-event associate
-    * payment_metadata: json-string
-    * created: datetime
-    * updated: datetime
 
 The authapi is extensible using modules. The mudile can extend authapi in
 different entry points defined in authapi, providing:
@@ -289,10 +279,9 @@ Perms: object_type: 'AuthEvent', perm: 'edit', oject_id: auid
 
 Description: import census data by administrator.
 If user status == registered:
-    When new user register, check if there is enough credits.
     When create users, the administrator will get perms 'edit' about new users.
 If user status == used:
-    Not matter the credits and not apply perms.
+    Not apply perms.
 
 Request: 
     
@@ -377,36 +366,6 @@ Response: If authenticate is successful, it returns STATUS 200 with data:
       "auth-token": "khmac:///sha-256;deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/userid:timestamp"
     }
 
-## GET /pack/
-
-Allows a login user view his packs:
-
-If successful, return list of packs.
-
-## POST /pack/
-
-Allows a login user create or edit a own package. A valid input could be:
-
-Create:
-
-    {
-        "name": "b",
-    }
-
-Edit:
-
-    {
-        "pack": 1,
-        "status": "pai",
-    }
-
-A valid answer would be a STATUS 200 with the following data:
-
-    {
-      "status": "ok",
-      "id": 1
-    }
-
 ## GET /user/#id
 
 Perms: You need be authenticated
@@ -418,38 +377,6 @@ Description: Get information of user, inclusive UserData.
 Perms: object_type: 'UserData', perm: 'view', oject_id: id
 
 Description: Get ids auth-event of request user
-
-## GET /available-prices
-
-Perms: none
-
-Description: Get information about prices
-
-## GET /available-payment-methods
-
-Perms: none
-
-Description: Get information about payment methods
-
-## POST /user/#id/add-credits
-
-Perms: object_type: 'UserData', perm: 'edit', oject_id: id
-
-Description: Allows a login user create new add_credits action.
-
-Request: 
-    
-    {
-        "pack_id": 0,
-        "num_credits": 500,
-        "payment_method": "paypal"
-    }
-
-Response:
-    
-    {
-        "paypal_url": "foo"
-    }
 
 # Utils Commands
 

@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib import admin
-from api.models import AuthEvent, UserData, ACL, CreditsAction, User
+from api.models import AuthEvent, UserData, ACL, User
 from authmethods.models import Message, ColorList, Code, Connection
 from authmethods import METHODS
 from django.contrib.auth.admin import UserAdmin
@@ -51,9 +51,6 @@ class CodeAdmin(admin.ModelAdmin):
 class ConnectionAdmin(admin.ModelAdmin):
     pass
 
-class CreditsActionAdmin(admin.ModelAdmin):
-    pass
-
 class UserDataInline(admin.StackedInline):
     model = UserData
 
@@ -78,4 +75,3 @@ admin.site.register(ColorList, ColorListAdmin)
 admin.site.register(Message, MessageAdmin)
 admin.site.register(Code, CodeAdmin)
 admin.site.register(Connection, ConnectionAdmin)
-admin.site.register(CreditsAction, CreditsActionAdmin)

@@ -24,7 +24,6 @@
 {
     "fields": {
         "status": "act",
-        "credits": 0.0,
         "metadata": "\"{}\"",
         "tlf": null,
         "event": 1,

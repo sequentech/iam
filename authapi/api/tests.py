@@ -341,20 +341,6 @@ class ApiTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(len(r['perms']), 2)
 
-    def test_available_packs(self):
-        c = JClient()
-        response = c.get('/api/available-packs/', {})
-        self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r, settings.AVAILABLE_PACKS)
-
-    def test_available_payment_methods(self):
-        c = JClient()
-        response = c.get('/api/available-payment-methods/', {})
-        self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r, settings.AVAILABLE_PAYMENT_METHODS)
-
     def test_get_user_info(self):
         c = JClient()
         c.authenticate(self.aeid, test_data.pwd_auth)
@@ -367,19 +353,6 @@ class ApiTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['email'], test_data.pwd_auth_email['email'])
-
-    def test_action_add_credits(self):
-        c = JClient()
-        c.authenticate(self.aeid, test_data.pwd_auth)
-        data = {
-            "pack_id": 0,
-            "num_credits": 500,
-            "payment_method": "paypal"
-        }
-        response = c.post('/api/user/add-credits/', data)
-        self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r, {'paypal_url': 'foo'})
 
     def test_get_authmethod(self):
         c = JClient()

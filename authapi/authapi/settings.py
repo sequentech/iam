@@ -110,29 +110,6 @@ CORS_ORIGIN_WHITELIST = (
 ENABLE_CAPTCHA = True
 PREGENERATION_CAPTCHA = 100
 
-AVAILABLE_PACKS = [
-    {
-        "id": 0,
-        "name": "basic",
-        "num_credits": 500,
-        "price": {
-            "quote": "250",
-            "unit": "EURO"
-        }
-    },
-    {
-        "id": 1,
-        "name": "premium",
-        "num_credits": 5000,
-        "price": {
-            "quote": "2500",
-            "unit": "EURO"
-        }
-    }
-]
-
-AVAILABLE_PAYMENT_METHODS = ["paypal"]
-
 SMS_PROVIDER = "console"
 SMS_DOMAIN_ID = ""
 SMS_LOGIN = ""
