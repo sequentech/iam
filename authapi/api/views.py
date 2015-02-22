@@ -454,7 +454,7 @@ class UserView(View):
         permission_required(request.user, 'UserData', 'view', pk)
         user = get_object_or_404(UserData, pk=pk)
         data = user.serialize()
-        extend_info = plugins.call("extend_user_info", pk)
+        extend_info = plugins.call("extend_user_info", user)
         if extend_info:
             for info in extend_info:
                 data.update(info.serialize())
