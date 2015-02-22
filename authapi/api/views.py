@@ -1,30 +1,34 @@
 import json
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.views.generic import View
 from django.shortcuts import get_object_or_404
 
 import plugins
-from authmethods import auth_authenticate, METHODS, auth_register, auth_census, check_config
-from utils import genhmac, paginate, VALID_FIELDS, VALID_PIPELINES
-from utils import check_authmethod, check_pipeline, check_extra_fields
+from authmethods import (
+    auth_authenticate,
+    auth_census,
+    auth_register,
+    check_config,
+    METHODS,
+)
+from utils import (
+    check_authmethod,
+    check_extra_fields,
+    check_pipeline,
+    genhmac,
+    paginate,
+    permission_required,
+    VALID_FIELDS,
+    VALID_PIPELINES,
+)
 from .decorators import login_required, get_login_user
 from .models import AuthEvent, ACL
 from .models import User, UserData
 from .tasks import census_send_auth_task
 from django.db.models import Q
 from captcha.views import generate_captcha
-
-
-def permission_required(user, object_type, permission, object_id=0):
-    if user.is_superuser:
-        return
-    if object_id and user.userdata.has_perms(object_type, permission, 0):
-        return
-    if not user.userdata.has_perms(object_type, permission, object_id):
-        raise PermissionDenied('Permission required: ' + permission)
 
 
 class Test(View):

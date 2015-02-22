@@ -5,11 +5,21 @@ import json
 import time
 import six
 from djcelery import celery
+from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail, EmailMessage
 from django.core.paginator import Paginator
 from django.conf import settings
 from string import ascii_lowercase, digits, ascii_letters
 from random import choice
+
+
+def permission_required(user, object_type, permission, object_id=0):
+    if user.is_superuser:
+        return
+    if object_id and user.userdata.has_perms(object_type, permission, 0):
+        return
+    if not user.userdata.has_perms(object_type, permission, object_id):
+        raise PermissionDenied('Permission required: ' + permission)
 
 
 def paginate(request, queryset, serialize_method=None, elements_name='elements'):
