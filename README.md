@@ -73,6 +73,11 @@ kind of object.
     $ ./manage.py celeryd
     ```
 
+Optional. Added some plugin:
+    Install plugins with pip or by other way
+    Added plugins to PLUGINS in settings
+    Enjoy of your plugin
+
 # Tecnical details
 
 Technically, authapi should:
