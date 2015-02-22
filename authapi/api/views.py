@@ -6,6 +6,7 @@ from django.http import HttpResponse, HttpResponseBadRequest
 from django.views.generic import View
 from django.shortcuts import get_object_or_404
 
+import plugins
 from authmethods import auth_authenticate, METHODS, auth_register, auth_census, check_config
 from utils import genhmac, paginate, VALID_FIELDS, VALID_PIPELINES
 from utils import check_authmethod, check_pipeline, check_extra_fields
@@ -452,7 +453,12 @@ class UserView(View):
         ''' Get user info '''
         permission_required(request.user, 'UserData', 'view', pk)
         user = get_object_or_404(UserData, pk=pk)
-        jsondata = json.dumps(user.serialize())
+        data = user.serialize()
+        extend_info = plugins.call("extend_user_info", pk)
+        if extend_info:
+            for info in extend_info:
+                data.update(info.serialize())
+        jsondata = json.dumps(data)
         return HttpResponse(jsondata, content_type='application/json')
 user = login_required(UserView.as_view())
 

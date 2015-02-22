@@ -52,6 +52,13 @@ INSTALLED_APPS = (
     'djcelery',
 )
 
+PLUGINS = (
+    # Add plugins here
+)
+
+if PLUGINS:
+    INSTALLED_APPS += PLUGINS
+
 MIDDLEWARE_CLASSES = (
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',

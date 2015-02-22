@@ -30,3 +30,8 @@ if settings.ENABLE_CAPTCHA:
     urlpatterns += patterns('',
         url(r'^captcha/', include('captcha.urls')),
     )
+
+for plugin in settings.PLUGINS:
+    urlpatterns += patterns('',
+        url(r'^%s/' % plugin, include('%s.urls' % plugin)),
+    )
