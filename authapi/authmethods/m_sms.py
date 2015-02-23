@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 from utils import genhmac, send_codes
 
+import plugins
 from . import register_method
 from authmethods.utils import *
 
@@ -84,6 +85,9 @@ class Sms:
         return data
 
     def register(self, ae, request):
+        result = plugins.call("check_send_sms", ae, 1)
+        if result:
+            return {'status': 'nok', 'msg': result}
         req = json.loads(request.body.decode('utf-8'))
         msg = check_pipeline(request, ae)
         if msg:
@@ -115,6 +119,9 @@ class Sms:
             data = {'status': 'nok', 'msg': msg}
             return data
 
+        result = plugins.call("extend_send_sms", ae, 1)
+        if result:
+            return {'status': 'nok', 'msg': result}
         send_codes.apply_async(args=[[u,]])
         return {'status': 'ok'}
 

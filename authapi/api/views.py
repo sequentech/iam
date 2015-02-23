@@ -486,6 +486,7 @@ class CensusSendAuth(View):
         ''' Send authentication emails to the whole census '''
         permission_required(request.user, 'AuthEvent', 'edit', pk)
 
+        data = {'msg': 'Sent successful'}
         # first, validate input
         e = get_object_or_404(AuthEvent, pk=pk)
         if e.status != 'started':
@@ -506,13 +507,18 @@ class CensusSendAuth(View):
             if req.get('subject'):
                 config['subject'] = req.get('subject')
         else:
-            census_send_auth_task(pk, None, userids)
+            msg = census_send_auth_task(pk, None, userids)
+            if msg:
+                data['msg'] = msg
             return HttpResponse("", content_type='application/json')
 
         if config.get('msg', None) is not None:
             if type(config.get('msg')) != str or len(config.get('msg')) > settings.MAX_AUTH_MSG_SIZE[e.auth_method]:
                 return HttpResponseBadRequest(invalid_json, content_type='application/json')
 
-        census_send_auth_task(pk, config, userids)
-        return HttpResponse("", content_type='application/json')
+        msg = census_send_auth_task(pk, config, userids)
+        if msg:
+            data['msg'] = msg
+        jsondata = json.dumps(data)
+        return HttpResponse(jsondata, content_type='application/json')
 census_send_auth = login_required(CensusSendAuth.as_view())

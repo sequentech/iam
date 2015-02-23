@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
 
+import plugins
 from authmethods.sms_provider import SMSProvider
 from .models import AuthEvent, ACL
 from utils import send_codes
@@ -26,4 +27,10 @@ def census_send_auth_task(pk, config=None, userids=None):
         for ids in userids:
             census.append(get_object_or_404(User, pk=ids))
 
+    msg = plugins.call("check_send_sms", e, len(census))
+    if msg:
+        return msg
+    msg = plugins.call("extend_send_sms", e, len(census))
+    if msg:
+        return msg
     send_codes.apply_async(args=[census, config])
