@@ -3,7 +3,7 @@ from django.conf import settings
 from django.conf.urls import patterns, url
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
-from utils import genhmac, send_code
+from utils import genhmac, send_codes
 
 from . import register_method
 from authmethods.utils import *
@@ -115,7 +115,7 @@ class Sms:
             data = {'status': 'nok', 'msg': msg}
             return data
 
-        send_code(u)
+        send_codes.apply_async(args=[[u,]])
         return {'status': 'ok'}
 
     def authenticate_error(self):

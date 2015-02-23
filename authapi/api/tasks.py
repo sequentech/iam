@@ -1,14 +1,13 @@
 from django.conf import settings
-from djcelery import celery
 from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
 
 from authmethods.sms_provider import SMSProvider
 from .models import AuthEvent, ACL
-from utils import send_code
+from utils import send_codes
 
-@celery.task
+
 def census_send_auth_task(pk, config=None, userids=None):
     """
     Send an auth token to census
@@ -27,5 +26,4 @@ def census_send_auth_task(pk, config=None, userids=None):
         for ids in userids:
             census.append(get_object_or_404(User, pk=ids))
 
-    for user in census:
-        send_code(user, config)
+    send_codes.apply_async(args=[census, config])

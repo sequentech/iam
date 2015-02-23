@@ -142,16 +142,18 @@ def generate_code(userdata, size=settings.SIZE_CODE):
     return code
 
 
-@celery.task
 def send_email(email):
-    email.send(fail_silently=True)
+    try:
+        email.send(fail_silently=True)
+    except:
+        pass
 
 
-@celery.task
 def send_sms_code(receiver, msg, conf):
     from authmethods.sms_provider import SMSProvider
     con = SMSProvider.get_instance()
     con.send_sms(receiver=receiver, content=msg, is_audio=False)
+
 
 def send_code(user, config=None):
     '''
@@ -202,7 +204,7 @@ def send_code(user, config=None):
     msg = base_msg % raw_msg
 
     if auth_method == "sms":
-        send_sms_code.apply_async([receiver, msg, conf])
+        send_sms_code(receiver, msg, conf)
         m = Message(tlf=receiver, auth_event_id=event_id)
         m.save()
     else: # email
@@ -216,10 +218,15 @@ def send_code(user, config=None):
             [receiver],
             headers = {'Reply-To': acl.user.user.email}
         )
-        try:
-            email.send(fail_silently=True)
-        except:
-            pass
+        send_email(email)
+
+
+@celery.task
+def send_codes(users, config=None):
+    ''' Massive send_code with celery task.  '''
+    for user in users:
+        send_code(user, config)
+
 
 # CHECKERS AUTHEVENT
 VALID_FIELDS = ('name', 'help', 'type', 'required', 'regex', 'min', 'max',
