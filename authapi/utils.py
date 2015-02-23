@@ -216,7 +216,10 @@ def send_code(user, config=None):
             [receiver],
             headers = {'Reply-To': acl.user.user.email}
         )
-        email.send(fail_silently=True)
+        try:
+            email.send(fail_silently=True)
+        except:
+            pass
 
 # CHECKERS AUTHEVENT
 VALID_FIELDS = ('name', 'help', 'type', 'required', 'regex', 'min', 'max',

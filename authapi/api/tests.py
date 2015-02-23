@@ -780,12 +780,12 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(len(r['userids']), 1 + 5)
+        self.assertEqual(len(r['userids']), 1 + 6)
 
         self.assertEqual(Code.objects.count(), 1)
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(Code.objects.count(), 1 + 6 - 2)
+        self.assertEqual(Code.objects.count(), 1 + 7 - 2)
 
 
 class TestRegisterAndAuthenticateSMS(TestCase):

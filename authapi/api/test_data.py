@@ -160,6 +160,7 @@ census_email_no_validate = {
         {"dni": "", "email": "qwerty@test.com"}, # email repeat
         {"dni": True, "email": "qwerty2@test.com"}, # dni bad type
         {"dni": "123123123J", "email": "qwerty"}, # email bad
+        {"email": "i\u0144test@test.com"}, # email bad encode
         {"dni": "11111111H", "email": "@@"},
         {"dni": "11111111H", "email": "@@"} # dni repeat 
     ]
