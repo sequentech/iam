@@ -37,7 +37,8 @@
         "user": 1,
         "object_type": "AuthEvent",
         "object_id": 0,
-        "perm": "create"
+        "perm": "create",
+        "created": "2015-02-16T17:41:28+00:00"
     },
     "model": "api.acl",
     "pk": 0
@@ -47,7 +48,8 @@
         "user": 1,
         "object_type": "AuthEvent",
         "object_id": 1,
-        "perm": "edit"
+        "perm": "edit",
+        "created": "2015-02-16T17:41:28+00:00"
     },
     "model": "api.acl",
     "pk": 0

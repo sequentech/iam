@@ -105,12 +105,14 @@ class ACL(models.Model):
     perm = models.CharField(max_length=255)
     object_type = models.CharField(max_length=255, blank=True, null=True)
     object_id = models.CharField(max_length=255, default=0)
+    created = models.DateTimeField(auto_now_add=True)
 
     def serialize(self):
         d = {
             'perm': self.perm,
             'object_type': self.object_type or '',
             'object_id': self.object_id or '',
+            'created': self.created.isoformat() if hasattr(self.created, 'isoformat') else self.created
         }
         return d
 
