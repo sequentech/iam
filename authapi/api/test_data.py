@@ -1,3 +1,6 @@
+from django.conf import settings
+
+
 pwd_auth = {'username': 'john', 'password': 'smith'}
 
 pwd_auth_email = {'email': 'john@agoravoting.com', 'password': 'smith'}
@@ -380,7 +383,7 @@ ae_email_fields_incorrect_empty = ae_email_fields.copy()
 ae_email_fields_incorrect_empty.update( {'extra_fields': [{'name': '', 'type': 'text', 'required_on_authentication': False}]})
 
 ae_email_fields_incorrect_len1 = ae_email_fields.copy()
-ae_email_fields_incorrect_len1.update( {'extra_fields': [{'name': 256*'i', 'type': 'text', 'required_on_authentication': False}]})
+ae_email_fields_incorrect_len1.update( {'extra_fields': [{'name': settings.MAX_SIZE_NAME_EXTRA_FIELD*'ii', 'type': 'text', 'required_on_authentication': False}]})
 
 from sys import maxsize
 ae_email_fields_incorrect_len2 = ae_email_fields.copy()

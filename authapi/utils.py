@@ -336,7 +336,7 @@ def check_fields(key, value):
     from sys import maxsize
     msg = ''
     if key == 'name' or key == 'help':
-        if len(value) > 1024 or len(value) < 1:
+        if len(value) > settings.MAX_SIZE_NAME_EXTRA_FIELD or len(value) < 1:
             msg += "Invalid extra_fields: bad %s.\n" % key
     elif key == 'type':
         if not value in VALID_TYPE_FIELDS:
