@@ -122,7 +122,7 @@ class Sms:
         result = plugins.call("extend_send_sms", ae, 1)
         if result:
             return {'status': 'nok', 'msg': result}
-        send_codes.apply_async(args=[[u,]])
+        send_codes.apply_async(args=[[u.id,]])
         return {'status': 'ok'}
 
     def authenticate_error(self):

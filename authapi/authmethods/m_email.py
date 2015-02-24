@@ -113,7 +113,7 @@ class Email:
             data = {'status': 'nok', 'msg': msg}
             return data
 
-        send_codes.apply_async(args=[[u,]])
+        send_codes.apply_async(args=[[u.id,]])
         return {'status': 'ok'}
 
     def authenticate_error(self):

@@ -224,6 +224,7 @@ def send_code(user, config=None):
 @celery.task
 def send_codes(users, config=None):
     ''' Massive send_code with celery task.  '''
+    user_objs = User.objects.filter(id__in=users)
     for user in users:
         send_code(user, config)
 
