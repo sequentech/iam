@@ -5,6 +5,7 @@ import json
 import time
 import six
 from djcelery import celery
+from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail, EmailMessage
 from django.core.paginator import Paginator
