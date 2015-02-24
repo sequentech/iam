@@ -487,18 +487,18 @@ def check_metadata(req, user):
 def give_perms(u, ae):
     if u.is_active: # Active users don't give perms. Avoid will send code
         return ''
-    config = ae.auth_method_config.get('config')
-    if not config:
+    pipe = ae.auth_method_config.get('pipeline')
+    if not pipe:
         return 'Bad config'
-    give_perms = config.get('give_perms')
-    if give_perms:
-        obj = give_perms.get('object_type')
-        obj_id = give_perms.get('object_id', 0)
-        for perm in give_perms.get('perms'):
+    give_perms = pipe.get('give_perms', [])
+    for perms in give_perms:
+        obj = perms.get('object_type')
+        obj_id = perms.get('object_id', 0)
+        if obj_id == 'UserDataId':
+            obj_id = u.pk
+        elif obj_id == 'AuthEventId':
+            obj_id = ae.pk
+        for perm in perms.get('perms'):
             acl = ACL(user=u.userdata, object_type=obj, perm=perm, object_id=obj_id)
             acl.save()
-    acl = ACL(user=u.userdata, object_type='UserData', perm='edit', object_id=u.pk)
-    acl.save()
-    acl = ACL(user=u.userdata, object_type='AuthEvent', perm='vote', object_id=ae.pk)
-    acl.save()
     return ''

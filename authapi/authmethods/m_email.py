@@ -14,11 +14,13 @@ class Email:
     DESCRIPTION = 'Register by email. You need to confirm your email.'
     CONFIG = {
         'subject': 'Confirm your email',
-        'msg': 'Click in this %(url)s for validate your email: ',
-        'mail_from': 'authapi@agoravoting.com',
-        'give_perms': {'object_type': 'Vote', 'perms': ['create',] },
+        'msg': 'Click %(url)s and put this code %(code)s'
     }
     PIPELINES = {
+        'give_perms': [
+            {'object_type': 'UserData', 'perms': ['edit',], 'object_id': 'UserDataId' },
+            {'object_type': 'AuthEvent', 'perms': ['vote',], 'object_id': 'AuthEventId' }
+        ],
         "register-pipeline": [
             ["check_whitelisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "ip"}],

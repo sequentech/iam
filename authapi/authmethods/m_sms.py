@@ -13,9 +13,13 @@ from authmethods.utils import *
 class Sms:
     DESCRIPTION = 'Provides authentication using an SMS code.'
     CONFIG = {
-        'msg': 'Tu codigo es %(code)s para votar en %(url)s'
+        'msg': 'Enter in %(url)s and put this code %(code)s'
     }
     PIPELINES = {
+        'give_perms': [
+            {'object_type': 'UserData', 'perms': ['edit',], 'object_id': 'UserDataId' },
+            {'object_type': 'AuthEvent', 'perms': ['vote',], 'object_id': 'AuthEventId' }
+        ],
         "register-pipeline": [
             ["check_whitelisted", {"field": "tlf"}],
             ["check_whitelisted", {"field": "ip"}],

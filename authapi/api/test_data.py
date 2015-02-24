@@ -289,6 +289,10 @@ authmethod_config_email_default = {
             "msg": "Click %(url)s and put this code %(code)s"
         },
         "pipeline": {
+            'give_perms': [
+                {'object_type': 'UserData', 'perms': ['edit',], 'object_id': 'UserDataId' },
+                {'object_type': 'AuthEvent', 'perms': ['vote',], 'object_id': 'AuthEventId' }
+            ],
             "register-pipeline": [
                 ["check_whitelisted", {"field": "ip"}],
                 ["check_blacklisted", {"field": "ip"}],
@@ -305,6 +309,10 @@ authmethod_config_sms_default = {
             "msg": "Enter in %(url)s and put this code %(code)s"
         },
         "pipeline": {
+            'give_perms': [
+                {'object_type': 'UserData', 'perms': ['edit',], 'object_id': 'UserDataId' },
+                {'object_type': 'AuthEvent', 'perms': ['vote',], 'object_id': 'AuthEventId' }
+            ],
             "register-pipeline": [
                 ["check_whitelisted", {"field": "tlf"}],
                 ["check_whitelisted", {"field": "ip"}],
