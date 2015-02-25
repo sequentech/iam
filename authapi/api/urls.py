@@ -21,6 +21,7 @@ urlpatterns = patterns('',
     url(r'^get-perms/', 'api.views.getperms', name='getperms'),
     url(r'^test/', 'api.views.test', name='test'),
 
+    url(r'^user/$', 'api.views.user', name='user'),
     url(r'^user/(?P<pk>\d+)/$', 'api.views.user', name='user'),
     url(r'^user/auth-event/$', 'api.views.user_auth_event', name='user_auth_event'),
 )

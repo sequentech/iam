@@ -453,12 +453,17 @@ authevent_module = AuthEventModule.as_view()
 
 
 class UserView(View):
-    def get(self, request, pk):
+    def get(self, request, pk=None):
         ''' Get user info '''
+        userdata = None
+        if pk is None:
+            pk = request.user.pk
+            userdata = request.user.userdata
         permission_required(request.user, 'UserData', 'view', pk)
-        user = get_object_or_404(UserData, pk=pk)
-        data = user.serialize()
-        extend_info = plugins.call("extend_user_info", user)
+        if userdata is None:
+            userdata = get_object_or_404(UserData, pk=pk)
+        data = userdata.serialize()
+        extend_info = plugins.call("extend_user_info", userdata.user)
         if extend_info:
             for info in extend_info:
                 data.update(info.serialize())
