@@ -50,7 +50,7 @@ class Email:
         msg = ''
         current_emails = []
         for r in req.get('census'):
-            email = r.get('email').strip()
+            email = r.get('email', '').strip()
             msg += check_field_type(self.email_definition, email)
             if validation:
                 msg += check_field_type(self.email_definition, email)
@@ -90,7 +90,7 @@ class Email:
             return msg
 
         msg = ''
-        email = req.get('email').strip()
+        email = req.get('email', '').strip()
         msg += check_field_type(self.email_definition, email)
         msg += check_field_value(self.email_definition, email)
         msg += check_fields_in_request(req, ae)
@@ -125,7 +125,7 @@ class Email:
     def authenticate(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
         msg = ''
-        email = req.get('email').strip()
+        email = req.get('email', '').strip()
         msg += check_field_type(self.email_definition, email, 'authenticate')
         msg += check_field_value(self.email_definition, email, 'authenticate')
         msg += check_field_type(self.code_definition, req.get('code'), 'authenticate')
