@@ -60,9 +60,9 @@ class CensusDelete(View):
         req = json.loads(request.body.decode('utf-8'))
         for uid in req.get('user-ids'):
           u = get_object_or_404(User, pk=uid, userdata__event=ae)
-          for acl in u.userdata.get_perms(object_type, perm, object_id):
+          for acl in u.userdata.acls.all():
               acl.delete()
-          user.delete()
+          u.delete()
         return HttpResponse("ok", status=200, content_type='application/json')
 census_delete = login_required(CensusDelete.as_view())
 
