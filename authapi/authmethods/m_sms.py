@@ -57,7 +57,9 @@ class Sms:
         for r in req.get('census'):
             if r.get('tlf'):
                 r['tlf'] = get_cannonical_tlf(r.get('tlf'))
-            tlf = r.get('tlf', '').strip()
+            tlf = r.get('tlf')
+            if isinstance(tlf, str):
+                tlf = tlf.strip()
             msg += check_field_type(self.tlf_definition, tlf)
             if validation:
                 msg += check_field_value(self.tlf_definition, tlf)
@@ -100,7 +102,9 @@ class Sms:
         msg = ''
         if req.get('tlf'):
             req['tlf'] = get_cannonical_tlf(req.get('tlf'))
-        tlf = req.get('tlf', '').strip()
+        tlf = req.get('tlf')
+        if isinstance(tlf, str):
+            tlf = tlf.strip()
         msg += check_field_type(self.tlf_definition, tlf)
         msg += check_field_value(self.tlf_definition, tlf)
         msg += check_fields_in_request(req, ae)
@@ -139,7 +143,9 @@ class Sms:
         msg = ''
         if req.get('tlf'):
             req['tlf'] = get_cannonical_tlf(req.get('tlf'))
-        tlf = req.get('tlf', '').strip()
+        tlf = req.get('tlf')
+        if isinstance(tlf, str):
+            tlf = tlf.strip()
         msg += check_field_type(self.tlf_definition, tlf, 'authenticate')
         msg += check_field_value(self.tlf_definition, tlf, 'authenticate')
         msg += check_field_type(self.code_definition, req.get('code'), 'authenticate')
