@@ -68,6 +68,16 @@ class Census(View):
         jsondata = json.dumps(data)
         return HttpResponse(jsondata, status=status, content_type='application/json')
 
+    def delete(self, request, pk):
+        ae = get_object_or_404(AuthEvent, pk=pk)
+        req = json.loads(request.body.decode('utf-8'))
+        for uid in req.get('user-ids'):
+          u = get_object_or_404(User, pk=uid, userdata__event=ae)
+          for acl in u.userdata.get_perms(object_type, perm, object_id):
+              acl.delete()
+          user.delete()
+        return HttpResponse("ok", status=200, content_type='application/json')
+
     def get(self, request, pk):
         permission_required(request.user, 'AuthEvent', 'edit', pk)
         e = get_object_or_404(AuthEvent, pk=pk)
