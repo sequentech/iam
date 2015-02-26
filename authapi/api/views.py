@@ -79,11 +79,12 @@ class Census(View):
         for acl in acls:
             userids.append(acl.user.pk)
             users[acl.user.user.username] = acl.user.user.email
-            data[acl.user.user.username] = acl.user.serialize_data()
+            metadata = acl.user.serialize_data()
+            data[acl.user.user.username] = metadata
             object_list.append({
               "id": acl.user.pk,
               "username": acl.user.user.username,
-              "metadata": acl.user.user.email
+              "metadata": metadata
             })
         jsondata = json.dumps({'userids': userids, 'users': users, 'data': data, 'object_list': object_list})
         return HttpResponse(jsondata, content_type='application/json')
