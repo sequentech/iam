@@ -28,6 +28,7 @@ def newcaptcha():
     path = '/static/captcha/%s' % fname
     c = Captcha(code=code, challenge=challenge, path=path)
     c.save()
+    return c
 
 
 @celery.task

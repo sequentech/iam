@@ -59,7 +59,7 @@ kind of object.
 4. Create scheme and load initial data. This command create username admin with password admin, CHANGE IT:
     ```
     $ ./manage.py migrate
-    $ ./manage.py loaddata initial
+    $ ./manage.py loaddata initial # for saas use saas against initial
     ```
 
 5. Run:
