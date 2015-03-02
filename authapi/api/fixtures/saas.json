@@ -17,11 +17,11 @@
           {
             "name":"Email",
             "min":2,
-            "unique":false,
+            "unique":true,
             "max":200,
             "type":"email",
             "required":true,
-            "required_on_authentication":true
+            "required_on_authentication":false
           },
           {
             "name":"Captcha",
