@@ -472,15 +472,16 @@ def check_metadata(req, user):
     for field in extra:
         if field.get('required_on_authentication'):
             name = field.get('name')
-            if (name == 'email'):
+            typee = field.get('type')
+            if (typee == 'email'):
                 if user.email != req.get(name):
-                    return "Incorrent authentication."
-            elif (name == 'tlf'):
+                    return "Incorrect authentication."
+            elif (typee == 'tlf'):
                 if user.userdata.tlf != req.get(name):
-                    return "Incorrent authentication."
+                    return "Incorrect authentication."
             else:
                 if meta.get(name) != req.get(name):
-                    return "Incorrent authentication."
+                    return "Incorrect authentication."
     return ""
 
 
