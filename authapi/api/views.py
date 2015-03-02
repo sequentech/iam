@@ -478,7 +478,7 @@ class UserView(View):
         if pk is None:
             pk = request.user.pk
             userdata = request.user.userdata
-        permission_required(request.user, 'UserData', 'view', pk)
+        permission_required(request.user, 'UserData', 'edit', pk)
         if userdata is None:
             userdata = get_object_or_404(UserData, pk=pk)
         data = userdata.serialize()

@@ -347,7 +347,7 @@ class ApiTestCase(TestCase):
         response = c.get('/api/user/' + str(self.userid) + '/', {})
         self.assertEqual(response.status_code, 403)
         acl = ACL(user=self.testuser.userdata, object_type='UserData',
-                perm='view', object_id=self.userid)
+                perm='edit', object_id=self.userid)
         acl.save()
         response = c.get('/api/user/' + str(self.userid) + '/', {})
         self.assertEqual(response.status_code, 200)
