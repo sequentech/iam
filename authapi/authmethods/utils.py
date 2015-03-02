@@ -426,20 +426,37 @@ def get_cannonical_tlf(tlf):
     con = SMSProvider.get_instance()
     return con.get_canonical_format(tlf)
 
+
+def getEmailSmsFields(ae):
+    email = ''
+    tlf = ''
+    if ae.auth_method == 'email':
+        email = 'email'
+    elif ae.auth_method == 'sms':
+        tlf = 'tlf'
+    if ae.extra_fields:
+        for extra in ae.extra_fields:
+            if not email and extra.get('type') == 'email':
+                email = extra.get('name')
+            elif not tlf and extra.get('type') == 'sms':
+                tlf = extra.get('name')
+    return email, tlf
+
+
 def create_user(req, ae, active=False):
     user = random_username()
     u = User(username=user)
     u.is_active = active
 
-    if req.get('email'):
-        u.email = req.get('email')
-        req.pop('email')
+    email, tlf = getEmailSmsFields(ae)
+    if req.get(email):
+        u.email = req.get(email)
+        req.pop(email)
     u.save()
 
-    if req.get('tlf'):
-        tlf = get_cannonical_tlf(req['tlf'])
-        u.userdata.tlf = tlf
-        req.pop('tlf')
+    if req.get(tlf):
+        u.userdata.tlf = get_cannonical_tlf(req[tlf])
+        req.pop(tlf)
 
     u.userdata.event = ae
     u.userdata.metadata = json.dumps(req)
