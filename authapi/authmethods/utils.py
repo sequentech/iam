@@ -464,16 +464,16 @@ def create_user(req, ae, active=False):
     return u
 
 
-def edit_user(user, req):
-    if req.get('email'):
-        user.email = req.get('email')
-        req.pop('email')
+def edit_user(user, req, ae):
+    email, tlf = getEmailSmsFields(ae)
+    if req.get(email):
+        user.email = req.get(email)
+        req.pop(email)
         user.save()
 
-    if req.get('tlf'):
-        tlf = get_cannonical_tlf(req['tlf'])
-        user.userdata.tlf = tlf
-        req.pop('tlf')
+    if req.get(tlf):
+        user.userdata.tlf = get_cannonical_tlf(req[tlf])
+        req.pop(tlf)
 
     user.userdata.metadata = json.dumps(req)
     user.userdata.save()

@@ -110,7 +110,7 @@ class Email:
             if codes > settings.SEND_CODES_EMAIL_MAX:
                 msg += msg_exist.get('msg')  + "Maximun number of codes sent."
             else:
-                u = edit_user(u, req)
+                u = edit_user(u, req, ae)
         else:
             u = create_user(req, ae)
             msg += give_perms(u, ae)
