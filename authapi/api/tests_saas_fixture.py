@@ -1,6 +1,5 @@
 import json
 from django.test import TestCase
-#from django.conf import settings
 from django.contrib.auth.models import User
 
 from api.models import ACL, AuthEvent, UserData
@@ -21,7 +20,7 @@ class TestFixtureSaas(TestCase):
         captcha = newcaptcha()
         user = {
                 'Email': 'test@agoravoting.com',
-                'tlf': '+34666666666',
+                'tlf': '+34666666667',
                 'captcha_code': captcha.code,
                 'Captcha': captcha.challenge,
                 'Acepto las <a href="https://agoravoting.com/#tos">condiciones de servicio</a>': True,
@@ -42,7 +41,7 @@ class TestFixtureSaas(TestCase):
     def test_authenticate_user(self):
         u = User.objects.create_user('test', 'test@agoravoting.com', 'test')
         u.userdata.event = self.ae
-        u.userdata.tlf = '+34666666666'
+        u.userdata.tlf = '+34666666667'
         u.userdata.save()
 
         acl = ACL(user=u.userdata, object_type='UserData', perm='edit', object_id=u.pk)
@@ -55,11 +54,10 @@ class TestFixtureSaas(TestCase):
 
         auth = {
                 'Email': 'test@agoravoting.com',
-                'tlf': '+34666666666',
+                'tlf': '+34666666667',
                 'code': code.code,
         }
 
         c = JClient()
         response = c.authenticate(1, auth)
-        r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(response.status_code, 200)
