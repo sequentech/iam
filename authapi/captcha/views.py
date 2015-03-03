@@ -93,6 +93,9 @@ def make_image(text, code):
     letter_rotation = (-35, 35)
     pregen_path = settings.STATIC_ROOT + '/captcha/'
 
+    if not os.path.exists(pregen_path):
+        os.makedirs(pregen_path)
+
     if font_path.lower().strip().endswith('ttf'):
         font = ImageFont.truetype(font_path, font_size)
     else:
