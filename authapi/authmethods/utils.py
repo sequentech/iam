@@ -427,57 +427,44 @@ def get_cannonical_tlf(tlf):
     return con.get_canonical_format(tlf)
 
 
-def getEmailSmsFields(ae):
-    email = ''
-    tlf = ''
+def edit_user(user, req, ae):
     if ae.auth_method == 'email':
-        email = 'email'
+        user.email = req.get('email')
+        req.pop('email')
     elif ae.auth_method == 'sms':
-        tlf = 'tlf'
+        if req['tlf']:
+            user.userdata.tlf = get_cannonical_tlf(req['tlf'])
+        else:
+            user.userdata.tlf = req['tlf']
+        req.pop('tlf')
     if ae.extra_fields:
         for extra in ae.extra_fields:
-            if not email and extra.get('type') == 'email':
-                email = extra.get('name')
-            elif not tlf and extra.get('type') == 'sms':
-                tlf = extra.get('name')
-    return email, tlf
+            if extra.get('type') == 'email':
+                user.email = req.get(extra.get('name'))
+                req.pop(extra.get('name'))
+            elif extra.get('type') == 'tlf':
+                if req[extra.get('name')]:
+                    user.userdata.tlf = get_cannonical_tlf(req[extra.get('name')])
+                else:
+                    user.userdata.tlf = req[extra.get('name')]
+                req.pop(extra.get('name'))
+            elif extra.get('type') == 'password':
+                user.set_password(req.get(extra.get('name')))
+                req.pop(extra.get('name'))
+    user.save()
+    user.userdata.metadata = json.dumps(req)
+    user.userdata.save()
+    return user
 
 
 def create_user(req, ae, active=False):
     user = random_username()
     u = User(username=user)
     u.is_active = active
-
-    email, tlf = getEmailSmsFields(ae)
-    if req.get(email):
-        u.email = req.get(email)
-        req.pop(email)
     u.save()
-
-    if req.get(tlf):
-        u.userdata.tlf = get_cannonical_tlf(req[tlf])
-        req.pop(tlf)
-
     u.userdata.event = ae
-    u.userdata.metadata = json.dumps(req)
     u.userdata.save()
-    return u
-
-
-def edit_user(user, req, ae):
-    email, tlf = getEmailSmsFields(ae)
-    if req.get(email):
-        user.email = req.get(email)
-        req.pop(email)
-        user.save()
-
-    if req.get(tlf):
-        user.userdata.tlf = get_cannonical_tlf(req[tlf])
-        req.pop(tlf)
-
-    user.userdata.metadata = json.dumps(req)
-    user.userdata.save()
-    return user
+    return edit_user(u, req, ae)
 
 
 def check_metadata(req, user):
