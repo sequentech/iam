@@ -91,9 +91,6 @@ class Sms:
         return data
 
     def register(self, ae, request):
-        result = plugins.call("check_send_sms", ae, 1)
-        if result:
-            return {'status': 'nok', 'msg': result}
         req = json.loads(request.body.decode('utf-8'))
         msg = check_pipeline(request, ae)
         if msg:

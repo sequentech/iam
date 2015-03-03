@@ -26,9 +26,6 @@ def census_send_auth_task(pk, config=None, userids=None):
     else:
         census = userids
 
-    msg = plugins.call("check_send_sms", e, len(census))
-    if msg:
-        return msg
     msg = plugins.call("extend_send_sms", e, len(census))
     if msg:
         return msg
