@@ -57,7 +57,7 @@
 {
     "fields": {
         "code": "admin123",
-        "event": 1,
+        "auth_event_id": 1,
         "user": 1
     },
     "model": "authmethods.code",
