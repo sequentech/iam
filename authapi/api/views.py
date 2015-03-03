@@ -112,6 +112,9 @@ class Authenticate(View):
         else:
             e = get_object_or_404(AuthEvent, pk=pk)
 
+        extend_auth = plugins.call("extend_auth", e)
+        if extend_auth:
+            return extend_auth
         try:
             data = auth_authenticate(e, request)
         except:
