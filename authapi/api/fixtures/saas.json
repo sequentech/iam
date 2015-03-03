@@ -47,11 +47,20 @@
     "fields": {
         "status": "act",
         "metadata": "\"{}\"",
-        "tlf": null,
+        "tlf": "+34666666666",
         "event": 1,
         "user": 1
     },
     "model": "api.userdata",
+    "pk": 1
+},
+{
+    "fields": {
+        "code": "admin123",
+        "event": 1,
+        "user": 1
+    },
+    "model": "authmethods.codes",
     "pk": 1
 },
 {

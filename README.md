@@ -56,10 +56,13 @@ kind of object.
     $ createdb -O authapi authapi
     ```
 
-4. Create scheme and load initial data. This command create username admin with password admin, CHANGE IT:
+4. Create scheme and load initial data. This command create username admin with
+password admin for initial data, and tlf "+34666666666" and code "admin123" for
+saas. Not very secure credentials for a production environment (on purpose -
+change it!) but works for a first go:
     ```
     $ ./manage.py migrate
-    $ ./manage.py loaddata initial # for saas use saas against initial
+    $ ./manage.py loaddata initial # you can also use "saas" instead of "initial"
     ```
 
 5. Run:
