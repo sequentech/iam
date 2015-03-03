@@ -20,6 +20,8 @@ from utils import (
     genhmac,
     paginate,
     permission_required,
+    random_code,
+    send_mail,
     VALID_FIELDS,
     VALID_PIPELINES,
 )
@@ -475,6 +477,35 @@ authevent_module = AuthEventModule.as_view()
 
 
 class UserView(View):
+    def post(self, request):
+        ''' Edit user. Only can change password. '''
+        pk = request.user.pk
+        user = request.user
+
+        permission_required(user, 'UserData', 'edit', pk)
+        permission_required(user, 'AuthEvent', 'create')
+
+        try:
+            req = json.loads(request.body.decode('utf-8'))
+        except:
+            bad_request = json.dumps({"error": "bad_request"})
+            return HttpResponseBadRequest(bad_request, content_type='application/json')
+
+        old_pwd = req.get('old_pwd')
+        new_pwd = req.get('new_pwd')
+        if not old_pwd or not new_pwd:
+            jsondata = json.dumps({'status': 'nok'})
+            return HttpResponse(jsondata, status=400, content_type='application/json')
+
+        if not user.check_password(old_pwd):
+            jsondata = json.dumps({'status': 'nok', 'msg': 'Invalid old password'})
+            return HttpResponse(jsondata, status=400, content_type='application/json')
+
+        user.set_password(new_pwd)
+        user.save()
+        jsondata = json.dumps({'status': 'ok'})
+        return HttpResponse(jsondata, content_type='application/json')
+
     def get(self, request, pk=None):
         ''' Get user info '''
         userdata = None
@@ -493,6 +524,26 @@ class UserView(View):
         return HttpResponse(jsondata, content_type='application/json')
 user = login_required(UserView.as_view())
 
+
+class UserResetPwd(View):
+    ''' Reset password. '''
+    def post(self, request):
+        pk = request.user.pk
+        user = request.user
+
+        permission_required(user, 'UserData', 'edit', pk)
+        permission_required(user, 'AuthEvent', 'create')
+
+        new_pwd = random_code(8)
+        send_mail.apply_async(args=[
+                'Reset password',
+                'This is your new password: %s' % new_pwd,
+                user.email])
+        user.set_password(new_pwd)
+        user.save()
+        jsondata = json.dumps({'status': 'ok'})
+        return HttpResponse(jsondata, content_type='application/json')
+reset_pwd = login_required(UserResetPwd.as_view())
 
 
 class UserAuthEvent(View):

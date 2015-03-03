@@ -1,5 +1,6 @@
 import time
 import json
+from django.core import mail
 from django.test import TestCase
 from django.test import Client
 from django.test.utils import override_settings
@@ -353,6 +354,56 @@ class ApiTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['email'], test_data.pwd_auth_email['email'])
+
+    def test_edit_user_info(self):
+        data_bad = {'new_pwd': 'test00'}
+        data_invalid = {'old_pwd': 'wrong', 'new_pwd': 'test00'}
+        data = {'old_pwd': 'smith', 'new_pwd': 'test00'}
+
+        c = JClient()
+        c.authenticate(self.aeid, test_data.pwd_auth)
+
+        # without perms
+        response = c.post('/api/user/', data)
+        self.assertEqual(response.status_code, 403)
+
+        acl = ACL(user=self.testuser.userdata, object_type='UserData',
+                perm='edit', object_id=self.userid)
+        acl.save()
+        acl = ACL(user=self.testuser.userdata, object_type='AuthEvent',
+                perm='create')
+        acl.save()
+
+        # data bad
+        response = c.post('/api/user/', data_bad)
+        self.assertEqual(response.status_code, 400)
+
+        # data invalid
+        response = c.post('/api/user/', data_invalid)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], 'Invalid old password')
+
+        # data ok
+        response = c.post('/api/user/', data)
+        self.assertEqual(response.status_code, 200)
+
+    def test_reset_password(self):
+        acl = ACL(user=self.testuser.userdata, object_type='UserData', perm='edit', object_id=self.userid)
+        acl.save()
+        acl = ACL(user=self.testuser.userdata, object_type='AuthEvent', perm='create')
+        acl.save()
+
+        c = JClient()
+        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.post('/api/user/reset-pwd/', {})
+        self.assertEqual(response.status_code, 200)
+
+        response = c.authenticate(self.aeid, test_data.pwd_auth)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].subject, 'Reset password')
+
 
     def test_get_authmethod(self):
         c = JClient()

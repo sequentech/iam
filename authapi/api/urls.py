@@ -25,6 +25,7 @@ urlpatterns = patterns('',
     url(r'^user/$', 'api.views.user', name='user'),
     url(r'^user/(?P<pk>\d+)/$', 'api.views.user', name='user'),
     url(r'^user/auth-event/$', 'api.views.user_auth_event', name='user_auth_event'),
+    url(r'^user/reset-pwd/$', 'api.views.reset_pwd', name='reset_pwd'),
 )
 
 

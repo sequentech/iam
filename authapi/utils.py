@@ -150,6 +150,17 @@ def send_email(email):
         pass
 
 
+@celery.task
+def send_mail(subject, msg, receiver):
+    email = EmailMessage(
+        subject,
+        msg,
+        settings.DEFAULT_FROM_EMAIL,
+        [receiver]
+    )
+    send_email(email)
+
+
 def send_sms_code(receiver, msg, conf):
     from authmethods.sms_provider import SMSProvider
     con = SMSProvider.get_instance()
