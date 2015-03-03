@@ -37,7 +37,7 @@
           }
       ],
       "auth_method": "sms",
-      "auth_method_config": "{\"config\":{\"msg\":\"Este es tu código: %(code)s para registrarte en %(url)s.\"},\"pipeline\":{\"authenticate-pipeline\":[],\"register-pipeline\":[[\"check_whitelisted\",{\"field\":\"tlf\"}],[\"check_whitelisted\",{\"field\":\"ip\"}],[\"check_blacklisted\",{\"field\":\"ip\"}],[\"check_blacklisted\",{\"field\":\"tlf\"}],[\"check_total_max\",{\"max\":8,\"field\":\"ip\"}],[\"check_total_max\",{\"max\":7,\"field\":\"tlf\"}],[\"check_total_max\",{\"max\":5,\"period\":1440,\"field\":\"tlf\"}]],\"give_perms\":[{\"object_id\":\"UserDataId\",\"perms\":[\"edit\"],\"object_type\":\"UserData\"},{\"object_id\":\"AuthEventId\",\"perms\":[\"create\"],\"object_type\":\"AuthEvent\"}]}}",
+      "auth_method_config": "{\"config\":{\"msg\":\"This is your code: %(code)s to register in %(url)s.\"},\"pipeline\":{\"authenticate-pipeline\":[],\"register-pipeline\":[[\"check_whitelisted\",{\"field\":\"tlf\"}],[\"check_whitelisted\",{\"field\":\"ip\"}],[\"check_blacklisted\",{\"field\":\"ip\"}],[\"check_blacklisted\",{\"field\":\"tlf\"}],[\"check_total_max\",{\"max\":8,\"field\":\"ip\"}],[\"check_total_max\",{\"max\":7,\"field\":\"tlf\"}],[\"check_total_max\",{\"max\":5,\"period\":1440,\"field\":\"tlf\"}]],\"give_perms\":[{\"object_id\":\"UserDataId\",\"perms\":[\"edit\"],\"object_type\":\"UserData\"},{\"object_id\":\"AuthEventId\",\"perms\":[\"create\"],\"object_type\":\"AuthEvent\"}]}}",
       "status": "started"
     },
     "pk": 1,
@@ -58,7 +58,8 @@
     "fields": {
         "code": "admin123",
         "auth_event_id": 1,
-        "user": 1
+        "user": 1,
+        "created": "2015-02-16T17:41:28+00:00"
     },
     "model": "authmethods.code",
     "pk": 1
