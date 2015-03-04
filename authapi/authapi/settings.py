@@ -144,6 +144,9 @@ MAX_GLOBAL_STR = 512
 MAX_EXTRA_FIELDS = 15
 MAX_SIZE_NAME_EXTRA_FIELD = 1024
 
+# auth event used for administration bootstrapping
+ADMIN_AUTH_EVENT_ID = 1
+
 # Auth api settings
 from auth_settings import *
 
