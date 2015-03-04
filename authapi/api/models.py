@@ -31,9 +31,16 @@ class AuthEvent(models.Model):
 
     def serialize(self):
         d = self.serialize_restrict()
+
+        # auth sends by authmethod
+        from authmethods.models import Code
+        codes = Code.objects.filter(auth_event_id=self.id).count()
+
         d.update({
             'auth_method_config': self.auth_method_config,
+            'auth_method_stats': {self.auth_method: codes}
         })
+
         return d
 
     def serialize_restrict(self):
