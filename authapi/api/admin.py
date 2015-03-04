@@ -30,7 +30,7 @@ class AuthEventAdmin(admin.ModelAdmin):
 
 class UserDataAdmin(admin.ModelAdmin):
     list_display = ('user', 'status')
-    search_fields = ('user__username', 'status', 'metadata', 'user__email')
+    search_fields = ('user__username', 'status', 'metadata', 'user__email', 'tlf')
 
 
 class ACLAdmin(admin.ModelAdmin):
