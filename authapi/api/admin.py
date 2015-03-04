@@ -45,7 +45,8 @@ class MessageAdmin(admin.ModelAdmin):
 
 
 class CodeAdmin(admin.ModelAdmin):
-    pass
+    list_display = ('auth_event_id', 'user', 'code', 'created')
+    date_hierarchy = 'created'
 
 
 class ConnectionAdmin(admin.ModelAdmin):
