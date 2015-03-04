@@ -163,7 +163,6 @@ class Sms:
         if msg:
             return msg
 
-        u = get_object_or_404(User, userdata__tlf=tlf, userdata__event=ae)
         msg = check_metadata(req, u)
         if msg:
             data = {'status': 'nok', 'msg': msg}
