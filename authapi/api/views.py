@@ -306,7 +306,7 @@ class AuthEventView(View):
             return HttpResponseBadRequest(bad_request, content_type='application/json')
 
         if pk is None: # create
-            permission_required(request.user, 'AuthEvent', 'create', settings.ADMIN_AUTH_EVENT_ID)
+            permission_required(request.user, 'AuthEvent', 'create')
 
             auth_method = req.get('auth_method', '')
             msg = check_authmethod(auth_method)
