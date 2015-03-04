@@ -324,7 +324,7 @@ authmethod_config_sms_default = {
             ],
             "authenticate-pipeline": [
                 #['check_total_connection', {'times': pipe_times }],
-                ['check_sms_code', {'timestamp': pipe_timestamp }]
+                #['check_sms_code', {'timestamp': pipe_timestamp }]
             ]
         }
 }

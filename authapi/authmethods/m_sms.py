@@ -154,9 +154,12 @@ class Sms:
 
         try:
             u = User.objects.get(userdata__tlf=tlf, userdata__event=ae)
-            code = Code.objects.filter(user=u.userdata,
-                    code=req.get('code')).order_by('created').first()
         except:
+            return {'status': 'nok', 'msg': 'User not exist.'}
+
+        code = Code.objects.filter(user=u.userdata,
+                code=req.get('code')).order_by('created').first()
+        if not code:
             return {'status': 'nok', 'msg': 'Invalid code.'}
 
         msg = check_pipeline(request, ae, 'authenticate')

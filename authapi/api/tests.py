@@ -742,6 +742,15 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.authenticate(self.aeid, test_data.auth_email_default)
         self.assertEqual(response.status_code, 200)
 
+    def test_authenticate_authevent_email_invalid_code(self):
+        data = test_data.auth_email_default
+        data['code'] = '654321'
+        c = JClient()
+        response = c.authenticate(self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], 'Invalid code.')
+
     def test_authenticate_authevent_email_fields(self):
         c = JClient()
         self.u.metadata = json.dumps({"name": test_data.auth_email_fields['name']})
@@ -1003,6 +1012,15 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
+
+    def test_authenticate_authevent_sms_invalid_code(self):
+        data = test_data.auth_sms_default
+        data['code'] = '654321'
+        c = JClient()
+        response = c.authenticate(self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['msg'], 'Invalid code.')
 
     def test_authenticate_authevent_sms_fields(self):
         c = JClient()
