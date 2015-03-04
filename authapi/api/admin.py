@@ -34,6 +34,8 @@ class UserDataAdmin(admin.ModelAdmin):
 class ACLAdmin(admin.ModelAdmin):
     list_display = ('user', 'perm', 'object_type', 'object_id')
     list_filter = ('perm', 'object_type')
+    search_fields = ('user__user__username', 'user__user__email', 'user__metadata',
+                     'perm', 'object_type', 'object_id')
 
 
 class ColorListAdmin(admin.ModelAdmin):

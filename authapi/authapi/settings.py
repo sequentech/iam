@@ -54,6 +54,7 @@ INSTALLED_APPS = (
 
 PLUGINS = (
     # Add plugins here
+    'agorapayment',
 )
 
 if PLUGINS:
