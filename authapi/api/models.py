@@ -28,6 +28,7 @@ class AuthEvent(models.Model):
     auth_method_config = JSONField()
     extra_fields = JSONField(blank=True, null=True)
     status = models.CharField(max_length=15, choices=AE_STATUSES, default="notstarted")
+    created = models.DateTimeField(auto_now_add=True)
 
     def serialize(self):
         d = self.serialize_restrict()
@@ -50,6 +51,7 @@ class AuthEvent(models.Model):
             'census': self.census,
             'extra_fields': self.extra_fields,
             'users': self.userdata.count(),
+            'created': self.created.isoformat() if hasattr(self.created, 'isoformat') else self.created
         }
         return d
 
