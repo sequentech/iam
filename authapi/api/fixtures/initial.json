@@ -16,10 +16,12 @@
       "extra_fields": [],
       "auth_method": "email",
       "auth_method_config": "{\"config\":{\"msg\":\"Click %(url)s and put this code %(code)s\",\"subject\":\"Confirm your email\"},\"pipeline\":{\"register-pipeline\":[[\"check_whitelisted\",{\"field\":\"ip\"}],[\"check_blacklisted\",{\"field\":\"ip\"}],[\"check_total_max\",{\"max\":8,\"field\":\"ip\"}]],\"authenticate-pipeline\":[],\"give_perms\":[{\"object_type\":\"UserData\",\"perms\":[\"edit\"],\"object_id\":\"UserDataId\"},{\"object_type\":\"AuthEvent\",\"perms\":[\"create\"]}]}}",
-      "status": "started"
+      "status": "started",
+      "created": "2015-02-16T17:41:28+00:00"
     },
     "pk": 1,
-    "model": "api.authevent"
+    "model": "api.authevent",
+    "created": "2015-02-16T17:41:28+00:00"
 },
 {
     "fields": {
