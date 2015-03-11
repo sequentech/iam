@@ -5,12 +5,12 @@ import binascii
 from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.http import HttpResponse
 from django.utils import timezone
 from .models import ColorList, Message, Code
 from api.models import ACL
 from captcha.models import Captcha
 from captcha.decorators import valid_captcha
+from utils import json_response
 
 
 EMAIL_RX = re.compile(
@@ -26,12 +26,8 @@ RET_PIPE_CONTINUE = 0
 
 
 def error(message="", status=400, field=None, error_codename=None):
-    '''
-    Returns an error message
-    '''
-    data = dict(message=message, field=field, error_codename=error_codename)
-    jsondata = json.dumps(data)
-    return HttpResponse(jsondata, status=status, content_type='application/json')
+    ''' Returns an error message '''
+    return json_response(status=400, message=message, field=field, error_codename=error_codename)
 
 
 def random_username():
