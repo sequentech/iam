@@ -10,8 +10,31 @@ from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail, EmailMessage
 from django.core.paginator import Paginator
 from django.conf import settings
+from django.http import HttpResponse
+from enum import Enum, unique
 from string import ascii_lowercase, digits, ascii_letters
 from random import choice
+
+
+@unique
+class ErrorCodes(Enum):
+    BAD_REQUEST = 1
+    INVALID_REQUEST = 2
+    INVALID_CODE = 3
+    INVALID_PERMS = 4
+    GENERAL_ERROR = 5
+    MAX_CONNECTION = 6
+    BLACKLIST = 7
+
+
+def json_response(data=None, status=200, message="", field=None, error_codename=None):
+    ''' Returns a json response '''
+    if status != 200:
+        if not error_codename:
+            error_codename = ErrorCodes.GENERAL_ERROR
+        data = dict(message=message, field=field, error_codename=error_codename.name)
+    jsondata = json.dumps(data)
+    return HttpResponse(jsondata, status=status, content_type='application/json')
 
 
 def permission_required(user, object_type, permission, object_id=0):

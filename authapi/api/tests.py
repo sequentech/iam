@@ -189,8 +189,6 @@ class ApiTestCase(TestCase):
         data = { "permission": "create" }
         response = c.post('/api/get-perms/', data)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['status'], 'ok')
 
     def test_create_event(self):
         c = JClient()
@@ -382,7 +380,7 @@ class ApiTestCase(TestCase):
         response = c.post('/api/user/', data_invalid)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Invalid old password')
+        self.assertEqual(r['message'], 'Invalid old password')
 
         # data ok
         response = c.post('/api/user/', data)
@@ -491,72 +489,72 @@ class TestAuthEvent(TestCase):
         response = create_authevent(test_data.ae_incorrect_authmethod)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Invalid authmethod\n')
+        self.assertEqual(r['message'], 'Invalid authmethod\n')
 
         response = create_authevent(test_data.ae_incorrect_census)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Invalid type of census\n')
+        self.assertEqual(r['message'], 'Invalid type of census\n')
 
         response = create_authevent(test_data.ae_without_authmethod)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Invalid authmethod\n')
+        self.assertEqual(r['message'], 'Invalid authmethod\n')
 
         response = create_authevent(test_data.ae_without_census)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Invalid type of census\n')
+        self.assertEqual(r['message'], 'Invalid type of census\n')
 
     def test_create_authevent_email_incorrect(self):
         response = create_authevent(test_data.ae_email_fields_incorrect)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Invalid extra_field: boo not possible.\n')
+        self.assertEqual(r['message'], 'Invalid extra_field: boo not possible.\n')
         response = create_authevent(test_data.ae_email_fields_incorrect_empty)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Invalid extra_fields: bad name.\n')
+        self.assertEqual(r['message'], 'Invalid extra_fields: bad name.\n')
         response = create_authevent(test_data.ae_email_fields_incorrect_len1)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Invalid extra_fields: bad name.\n')
+        self.assertEqual(r['message'], 'Invalid extra_fields: bad name.\n')
         response = create_authevent(test_data.ae_email_fields_incorrect_len2)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Invalid extra_fields: bad max.\n')
+        self.assertEqual(r['message'], 'Invalid extra_fields: bad max.\n')
         response = create_authevent(test_data.ae_email_fields_incorrect_type)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Invalid extra_fields: bad type.\n')
+        self.assertEqual(r['message'], 'Invalid extra_fields: bad type.\n')
         response = create_authevent(test_data.ae_email_fields_incorrect_value_int)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Invalid extra_fields: bad min.\n')
+        self.assertEqual(r['message'], 'Invalid extra_fields: bad min.\n')
         response = create_authevent(test_data.ae_email_fields_incorrect_value_bool)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Invalid extra_fields: bad required_on_authentication.\n')
+        self.assertEqual(r['message'], 'Invalid extra_fields: bad required_on_authentication.\n')
         response = create_authevent(test_data.ae_email_fields_incorrect_max_fields)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Maximum number of fields reached')
+        self.assertEqual(r['message'], 'Maximum number of fields reached')
         response = create_authevent(test_data.ae_email_fields_incorrect_repeat)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Two fields with same name: surname.\n')
+        self.assertEqual(r['message'], 'Two fields with same name: surname.\n')
         response = create_authevent(test_data.ae_email_fields_incorrect_email)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Type email not allowed.\n')
+        self.assertEqual(r['message'], 'Type email not allowed.\n')
         response = create_authevent(test_data.ae_email_fields_incorrect_status)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Two fields with same name: status.\n')
+        self.assertEqual(r['message'], 'Two fields with same name: status.\n')
         response = create_authevent(test_data.ae_sms_fields_incorrect_tlf)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Type tlf not allowed.\n')
+        self.assertEqual(r['message'], 'Type tlf not allowed.\n')
 
         response = create_authevent(test_data.ae_email_config_incorrect1)
         self.assertEqual(response.status_code, 400)
@@ -673,7 +671,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.census(self.aeid, test_data.census_email_repeat)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], "Email %s repeat in this census." % test_data.census_email_repeat['census'][0]['email'])
+        self.assertEqual(r['message'], "Email %s repeat in this census." % test_data.census_email_repeat['census'][0]['email'])
 
     def test_add_used_census(self):
         c = JClient()
@@ -687,8 +685,8 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.register(self.aeid, test_data.census_email_default_used['census'][1])
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertTrue(r['msg'].count("Already registered"))
-        self.assertTrue(r['msg'].count("Email %s repeat" % test_data.census_email_default_used['census'][1]['email']))
+        self.assertTrue(r['message'].count("Already registered"))
+        self.assertTrue(r['message'].count("Email %s repeat" % test_data.census_email_default_used['census'][1]['email']))
 
         c = JClient()
         c.authenticate(0, test_data.admin)
@@ -714,7 +712,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.register(self.aeid, test_data.register_email_fields)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Register disable: the auth-event is close')
+        self.assertEqual(r['message'], 'Register disable: the auth-event is close')
 
     def test_add_register_authevent_email_fields_incorrect(self):
         c = JClient()
@@ -733,8 +731,8 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.register(self.aeid, test_data.auth_email_default)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertTrue(r['msg'].count("Maximun number of codes sent"))
-        self.assertTrue(r['msg'].count("Email %s repeat" % test_data.auth_email_default['email']))
+        self.assertTrue(r['message'].count("Maximun number of codes sent"))
+        self.assertTrue(r['message'].count("Email %s repeat" % test_data.auth_email_default['email']))
         self.assertEqual(Code.objects.count(), settings.SEND_CODES_EMAIL_MAX + 1)
 
     def test_authenticate_authevent_email_default(self):
@@ -749,7 +747,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Invalid code.')
+        self.assertEqual(r['message'], 'Invalid code.')
 
     def test_authenticate_authevent_email_fields(self):
         c = JClient()
@@ -809,8 +807,8 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.register(self.aeid, user)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertTrue(r['msg'].count("Maximun number of codes sent"))
-        self.assertTrue(r['msg'].count("dni %s repeat." % user['dni']))
+        self.assertTrue(r['message'].count("Maximun number of codes sent"))
+        self.assertTrue(r['message'].count("dni %s repeat." % user['dni']))
 
 
     @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
@@ -905,7 +903,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.census(self.aeid, test_data.census_sms_repeat)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], "Tlf %s repeat." % get_cannonical_tlf(test_data.census_sms_repeat['census'][0]['tlf']))
+        self.assertEqual(r['message'], "Tlf %s repeat." % get_cannonical_tlf(test_data.census_sms_repeat['census'][0]['tlf']))
 
     def test_add_used_census(self):
         c = JClient()
@@ -919,8 +917,8 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.register(self.aeid, test_data.census_sms_default_used['census'][1])
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertTrue(r['msg'].count("Already registered"))
-        self.assertTrue(r['msg'].count("Tel %s repeat" % get_cannonical_tlf(test_data.census_sms_default_used['census'][1]['tlf'])))
+        self.assertTrue(r['message'].count("Already registered"))
+        self.assertTrue(r['message'].count("Tel %s repeat" % get_cannonical_tlf(test_data.census_sms_default_used['census'][1]['tlf'])))
 
         c = JClient()
         c.authenticate(0, test_data.admin)
@@ -971,8 +969,8 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.register(self.aeid, test_data.auth_sms_default)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertTrue(r['msg'].count("Maximun number of codes sent"))
-        self.assertTrue(r['msg'].count("Tel %s repeat" % get_cannonical_tlf(test_data.auth_sms_default['tlf'])))
+        self.assertTrue(r['message'].count("Maximun number of codes sent"))
+        self.assertTrue(r['message'].count("Tel %s repeat" % get_cannonical_tlf(test_data.auth_sms_default['tlf'])))
         self.assertEqual(Code.objects.count(), settings.SEND_CODES_SMS_MAX + 1)
 
     def test_add_register_authevent_sms_resend_same_cannonical_number(self):
@@ -1001,8 +999,8 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.register(self.aeid, test_data.auth_sms_default)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertTrue(r['msg'].count("Maximun number of codes sent"))
-        self.assertTrue(r['msg'].count("Tel %s repeat" % get_cannonical_tlf(test_data.auth_sms_default['tlf'])))
+        self.assertTrue(r['message'].count("Maximun number of codes sent"))
+        self.assertTrue(r['message'].count("Tel %s repeat" % get_cannonical_tlf(test_data.auth_sms_default['tlf'])))
         self.assertEqual(Code.objects.count(), 3)
         settings.SEND_CODES_SMS_MAX = temp
 
@@ -1020,7 +1018,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Invalid code.')
+        self.assertEqual(r['message'], 'Invalid code.')
 
     def test_authenticate_authevent_sms_fields(self):
         c = JClient()
@@ -1086,8 +1084,8 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.register(self.aeid, user)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertTrue(r['msg'].count("Maximun number of codes sent"))
-        self.assertTrue(r['msg'].count("dni %s repeat." % user['dni']))
+        self.assertTrue(r['message'].count("Maximun number of codes sent"))
+        self.assertTrue(r['message'].count("dni %s repeat." % user['dni']))
 
 
     @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,

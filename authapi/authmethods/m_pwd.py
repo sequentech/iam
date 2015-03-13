@@ -4,14 +4,14 @@ from utils import genhmac
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.conf.urls import patterns, url
-from django.http import HttpResponse
 from django.db.models import Q
+
+from utils import json_response
 
 
 def testview(request, param):
     data = {'status': 'ok'}
-    jsondata = json.dumps(data)
-    return HttpResponse(jsondata, content_type='application/json')
+    return json_response(data)
 
 
 class PWD:

@@ -3,7 +3,6 @@ import json
 import random
 import string
 from django.views.generic import View
-from django.http import HttpResponse
 from django.conf import settings
 from django.db import transaction
 from djcelery import celery
@@ -17,6 +16,7 @@ except ImportError:
     import ImageFilter
 
 from .models import Captcha
+from utils import json_response
 
 
 def newcaptcha():
@@ -53,8 +53,7 @@ class NewCaptcha(View):
             'captcha_code': captcha.code,
             'image_url': captcha.path
         }
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, content_type='application/json')
+        return json_response(data)
 new_captcha = NewCaptcha.as_view()
 
 
