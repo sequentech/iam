@@ -144,6 +144,13 @@ MAX_GLOBAL_STR = 512
 MAX_EXTRA_FIELDS = 15
 MAX_SIZE_NAME_EXTRA_FIELD = 1024
 
+if PLUGINS:
+    import importlib
+    for plugin in PLUGINS:
+        mod = importlib.import_module("%s.settings" % plugin)
+        to_import = [name for name in dir(mod) if not name.startswith('_')]
+        locals().update({name: getattr(mod, name) for name in to_import})
+
 # Auth api settings
 from auth_settings import *
 
