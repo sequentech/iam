@@ -120,6 +120,7 @@ class HMACToken:
         self.digest, msg = msg.split(';')
         self.hash, msg = msg.split('/')
         self.msg = msg
+        self.userid, self.timestamp = self.msg.split(':')
         self.timestamp = self.msg.split(':')[-1]
 
     def check_expiration(self, seconds=300):
@@ -129,10 +130,13 @@ class HMACToken:
         d = d + datetime.timedelta(seconds=seconds)
         return d > n
 
-class AuthToken(HMACToken):
-    def __init__(self, token):
-        super(AuthToken, self).__init__(token)
-        self.userid, self.timestamp = self.msg.split(':')
+    def get_userid(self):
+        '''
+        Note! Can only be used if it's an auth token, with userid
+        '''
+        userid, _ = self.msg.split(':')
+        return userid
+
 
 
 def constant_time_compare(val1, val2):
