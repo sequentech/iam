@@ -335,7 +335,7 @@ def check_field_value(definition, field, step='register'):
                 msg += "Field dni regex incorrect, value %s" % field
         if definition.get('regex'):
             a = re.compile(definition.get('regex'))
-            if not a.match(field):
+            if not a.match(str(field)):
                 msg += "Field %s regex incorrect, value %s" % (definition.get('name'), field)
     return msg
 
