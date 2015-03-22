@@ -26,7 +26,7 @@ def get_login_user(request):
       if not v:
           return None, dict(error_codename="invalid_hmac")
 
-        user = User.objects.get(username=at.userid)
+      user = User.objects.get(username=at.userid)
     except:
         return None, dict(error_codename="invalid_hmac_data")
 
