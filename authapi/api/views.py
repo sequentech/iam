@@ -137,14 +137,18 @@ class Ping(View):
 
     def get(self, request, pk):
         u, error = get_login_user(request)
-        data = {'status': 'ok', 'logged': False}
+        status = None
+        data = {}
 
-        if u:
-            data['logged'] = True
-            data['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
-        elif error is not None:
+        if u and error is None:
+            data = {
+              'auth-token': genhmac(settings.SHARED_SECRET, u.username)
+            }
+            status = 200
+        else:
             data = error
-        status = 200 if data['status'] == 'ok' else 400
+            status = 403
+
         return json_response(data, status=status)
 ping = Ping.as_view()
 
