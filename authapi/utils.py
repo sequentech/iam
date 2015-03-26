@@ -277,7 +277,7 @@ REQUIRED_FIELDS = ('name', 'type', 'required_on_authentication')
 VALID_PIPELINES = ('check_whitelisted', 'check_blacklisted',
         'check_total_max', 'check_total_connection')
 VALID_TYPE_FIELDS = ('text', 'password', 'int', 'bool', 'regex', 'email', 'tlf',
-        'captcha', 'textarea')
+        'captcha', 'textarea', 'dni')
 
 def check_authmethod(method):
     """ Check if method exists in method list. """

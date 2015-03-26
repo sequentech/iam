@@ -330,7 +330,7 @@ def check_field_value(definition, field, step='register'):
         if definition.get('type') == 'email':
             if not email_constraint(field):
                 msg += "Field email regex incorrect, value %s" % field
-        if definition.get('name') == 'dni':
+        if definition.get('type') == 'dni':
             if not dni_constraint(field):
                 msg += "Field dni regex incorrect, value %s" % field
         if definition.get('regex'):
