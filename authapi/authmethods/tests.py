@@ -185,7 +185,7 @@ class AuthMethodSmsTestCase(TestCase):
         self.assertEqual(r['message'].find('Invalid dni'), -1)
 
     def test_method_sms_register_invalid_dni(self):
-        data = {'tlf': '+34666666666', 'code': 'AAAAAAAA', 'dni': '999', 'email': 'test@test.com'}
+        data = {'tlf': '+34666666667', 'code': 'AAAAAAAA', 'dni': '999', 'email': 'test2@test.com'}
         response = self.c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
