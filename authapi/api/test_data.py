@@ -30,7 +30,7 @@ auth_event1 = {
             {
             "name": "dni",
             "help": "put the dni without dash",
-            "type": "text",
+            "type": "dni",
             "required": True,
             "max": 9,
             "max": 9,
@@ -73,7 +73,7 @@ auth_event2 = {
             {
             "name": "dni",
             "help": "put the dni without dash",
-            "type": "text",
+            "type": "dni",
             "required": True,
             "max": 9,
             "max": 9,
@@ -470,7 +470,7 @@ ae_sms_fields_incorrect = {
 extra_field_unique = [
         {
             "name": "dni",
-            "type": "text",
+            "type": "dni",
             "required": True,
             "unique": True,
             "required_on_authentication": True

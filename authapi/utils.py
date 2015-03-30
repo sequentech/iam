@@ -120,7 +120,6 @@ class HMACToken:
         self.digest, msg = msg.split(';')
         self.hash, msg = msg.split('/')
         self.msg = msg
-        self.userid, self.timestamp = self.msg.split(':')
         self.timestamp = self.msg.split(':')[-1]
 
     def check_expiration(self, seconds=300):
