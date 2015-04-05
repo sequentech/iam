@@ -9,6 +9,7 @@ from authmethods import (
     auth_authenticate,
     auth_census,
     auth_register,
+    auth_resend_auth_code,
     check_config,
     METHODS,
 )
@@ -170,6 +171,27 @@ class Register(View):
             return json_response(status=400, message=data.get('msg'),
                     error_codename=data.get('error_codename'))
 register = Register.as_view()
+
+
+class ResendAuthCode(View):
+    ''' Register into the authapi '''
+
+    def post(self, request, pk):
+        e = get_object_or_404(AuthEvent, pk=pk)
+        if (e.census == 'close'):
+            return json_response(status=400, error_codename="auth_event_closed",
+            message="the auth-event is closed")
+        if e.census == 'open' and e.status != 'started': # register is closing
+            return json_response(status=400, error_codename="auth_event_closed",
+            message="the auth-event has not started")
+
+        data = auth_resend_auth_code(e, request)
+        if data['status'] == 'ok':
+            return json_response(data)
+        else:
+            return json_response(status=400, message=data.get('msg'),
+                    error_codename=data.get('error_codename'))
+resend_auth_code = ResendAuthCode.as_view()
 
 
 class AuthEventStatus(View):

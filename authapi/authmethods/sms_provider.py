@@ -16,6 +16,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import re
 import requests
 import logging
 import xmltodict
@@ -58,6 +59,10 @@ class SMSProvider(object):
         """
         if not isinstance(tlf, str):
             return tlf
+
+        # remove whitespace
+        tlf = re.sub(r"\s", "", tlf)
+
         if tlf.startswith("00"):
           return "+" + tlf[2:]
         elif tlf.startswith("+"):

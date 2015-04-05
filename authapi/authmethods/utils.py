@@ -183,6 +183,7 @@ def check_tlf_total_max(data, **kwargs):
                                       auth_event_id=data['auth_event'].id)
     else:
         item = Message.objects.filter(tlf=tlf, auth_event_id=data['auth_event'].id)
+
     if len(item) >= total_max:
         c1 = ColorList(action=ColorList.ACTION_BLACKLIST,
                        key=ColorList.KEY_IP, value=ip_addr,
@@ -252,7 +253,6 @@ def check_total_max(data, **kwargs):
     check = check_ip_total_max(data, **kwargs)
     return check
 
-
 def check_total_connection(data, **kwargs):
     conn = Connection.objects.filter(tlf=req.get('tlf'),
                                      auth_event_id=data['auth_event'].id).count()
@@ -264,7 +264,7 @@ def check_total_connection(data, **kwargs):
     return RET_PIPE_CONTINUE
 
 
-def check_pipeline(request, ae, step='register'):
+def check_pipeline(request, ae, step='register', default_pipeline=None):
     req = json.loads(request.body.decode('utf-8'))
     if req.get('tlf'):
         req['tlf'] = get_cannonical_tlf(req['tlf'])
@@ -276,6 +276,12 @@ def check_pipeline(request, ae, step='register'):
     }
 
     pipeline = ae.auth_method_config.get('pipeline').get('%s-pipeline' % step)
+    if pipeline is None:
+        pipeline = default_pipeline
+
+    if not default_pipeline:
+        return error(message="no pipeline", status=400, error_codename="no-pipeline")
+
     for pipe in pipeline:
         check = getattr(eval(pipe[0]), '__call__')(data, **pipe[1])
         if check:

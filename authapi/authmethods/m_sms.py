@@ -32,6 +32,16 @@ class Sms:
         "authenticate-pipeline": [
             #['check_total_connection', {'times': 5 }],
             #['check_sms_code', {'timestamp': 5 }]
+        ],
+        "resend-auth-pipeline": [
+            ["check_whitelisted", {"field": "tlf"}],
+            ["check_whitelisted", {"field": "ip"}],
+            ["check_blacklisted", {"field": "ip"}],
+            ["check_blacklisted", {"field": "tlf"}],
+            ["check_total_max", {"field": "tlf", "period": 3600, "max": 5}],
+            ["check_total_max", {"field": "tlf", "period": 3600*24, "max": 15}],
+            ["check_total_max", {"field": "ip", "period": 3600, "max": 10}],
+            ["check_total_max", {"field": "ip", "period": 3600*24, "max": 20}],
         ]
     }
     USED_TYPE_FIELDS = ['tlf']
@@ -112,10 +122,10 @@ class Sms:
         if msg_exist:
             u = msg_exist.get('user')
             if u.is_active:
-                msg += msg_exist.get('msg') + "Already registered."
+                return error("Invalid credentials", error_codename="invalid_credentials")
             codes = Code.objects.filter(user=u.userdata).count()
             if codes > settings.SEND_CODES_SMS_MAX:
-                msg += msg_exist.get('msg')  + "Maximun number of codes sent."
+                return error("Invalid credentials", error_codename="invalid_credentials")
         else:
             u = create_user(req, ae)
             msg += give_perms(u, ae)
@@ -155,12 +165,12 @@ class Sms:
         try:
             u = User.objects.get(userdata__tlf=tlf, userdata__event=ae)
         except:
-            return {'status': 'nok', 'msg': 'User not exist.'}
+            return error("Invalid credentials", error_codename="invalid_credentials")
 
         code = Code.objects.filter(user=u.userdata,
                 code=req.get('code')).order_by('created').first()
         if not code:
-            return {'status': 'nok', 'msg': 'Invalid code.'}
+            return error("Invalid credentials", error_codename="invalid_credentials")
 
         msg = check_pipeline(request, ae, 'authenticate')
         if msg:
@@ -177,5 +187,39 @@ class Sms:
         data = {'status': 'ok'}
         data['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
         return data
+
+    def resend_auth_code(self, ae, request):
+        req = json.loads(request.body.decode('utf-8'))
+
+        msg = ''
+        if req.get('tlf'):
+            req['tlf'] = get_cannonical_tlf(req.get('tlf'))
+        tlf = req.get('tlf')
+        if isinstance(tlf, str):
+            tlf = tlf.strip()
+        msg += check_field_type(self.tlf_definition, tlf, 'authenticate')
+        msg += check_field_value(self.tlf_definition, tlf, 'authenticate')
+        if msg:
+            return error("Invalid credentials", error_codename="invalid_credentials")
+
+        try:
+            u = User.objects.get(userdata__tlf=tlf, userdata__event=ae, is_active=True)
+        except:
+            return error("Invalid credentials", error_codename="invalid_credentials")
+
+        msg = check_pipeline(
+          request,
+          ae,
+          'resend-auth-pipeline',
+          Sms.PIPELINES['resend-auth-pipeline'])
+
+        if msg:
+            return msg
+
+        result = plugins.call("extend_send_sms", ae, 1)
+        if result:
+            return {'status': 'nok', 'msg': result}
+        send_codes.apply_async(args=[[u.id,]])
+        return {'status': 'ok'}
 
 register_method('sms', Sms)

@@ -32,7 +32,7 @@ def json_response(data=None, status=200, message="", field=None, error_codename=
     if status != 200:
         if not error_codename:
             error_codename = ErrorCodes.GENERAL_ERROR
-        data = dict(message=message, field=field, error_codename=error_codename.name)
+        data = dict(message=message, field=field, error_codename=error_codename)
     jsondata = json.dumps(data)
     return HttpResponse(jsondata, status=status, content_type='application/json')
 
@@ -273,8 +273,12 @@ def send_codes(users, config=None):
 VALID_FIELDS = ('name', 'help', 'type', 'required', 'regex', 'min', 'max',
     'required_on_authentication', 'unique')
 REQUIRED_FIELDS = ('name', 'type', 'required_on_authentication')
-VALID_PIPELINES = ('check_whitelisted', 'check_blacklisted',
-        'check_total_max', 'check_total_connection')
+VALID_PIPELINES = (
+    'check_whitelisted',
+    'check_blacklisted',
+    'check_total_max',
+    'check_total_connection',
+    )
 VALID_TYPE_FIELDS = ('text', 'password', 'int', 'bool', 'regex', 'email', 'tlf',
         'captcha', 'textarea', 'dni')
 
@@ -361,7 +365,7 @@ def check_pipeline(pipe):
     """
     msg = ''
     for p in pipe:
-        if not p in ('register-pipeline', 'authenticate-pipeline'):
+        if not p in ('register-pipeline', 'authenticate-pipeline', 'resend-auth-pipeline'):
             msg += "Invalid pipeline: %s not possible.\n" % p
         for func in pipe[p]:
             if func[0] in VALID_PIPELINES:
