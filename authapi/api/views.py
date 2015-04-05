@@ -123,7 +123,7 @@ class Authenticate(View):
         except:
             return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
-        if data['status'] == 'ok':
+        if data and 'status' in data and data['status'] == 'ok':
             return json_response(data)
         else:
             return json_response(status=400, message=data.get('msg'),

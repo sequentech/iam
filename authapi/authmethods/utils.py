@@ -277,10 +277,10 @@ def check_pipeline(request, ae, step='register', default_pipeline=None):
 
     pipeline = ae.auth_method_config.get('pipeline').get('%s-pipeline' % step)
     if pipeline is None:
+        if default_pipeline is None:
+            return error(message="no pipeline", status=400, error_codename="no-pipeline")
         pipeline = default_pipeline
 
-    if not default_pipeline:
-        return error(message="no pipeline", status=400, error_codename="no-pipeline")
 
     for pipe in pipeline:
         check = getattr(eval(pipe[0]), '__call__')(data, **pipe[1])
