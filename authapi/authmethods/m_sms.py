@@ -49,6 +49,10 @@ class Sms:
     tlf_definition = { "name": "tlf", "type": "text", "required": True, "min": 4, "max": 20, "required_on_authentication": True }
     code_definition = { "name": "code", "type": "text", "required": True, "min": 6, "max": 255, "required_on_authentication": True }
 
+    def error(self, msg, error_codename):
+        d = {'status': 'nok', 'msg': msg, 'error_codename': error_codename}
+        return d
+
     def check_config(self, config):
         """ Check config when create auth-event. """
         msg = ''
@@ -122,10 +126,10 @@ class Sms:
         if msg_exist:
             u = msg_exist.get('user')
             if u.is_active:
-                return error("Invalid credentials", error_codename="invalid_credentials")
+                return self.error("Already registered", error_codename="invalid_credentials")
             codes = Code.objects.filter(user=u.userdata).count()
             if codes > settings.SEND_CODES_SMS_MAX:
-                return error("Invalid credentials", error_codename="invalid_credentials")
+                return self.error("Maximun number of codes sent", error_codename="invalid_credentials")
         else:
             u = create_user(req, ae)
             msg += give_perms(u, ae)
@@ -139,10 +143,6 @@ class Sms:
             return {'status': 'nok', 'msg': result}
         send_codes.apply_async(args=[[u.id,]])
         return {'status': 'ok'}
-
-    def authenticate_error(self):
-        d = {'status': 'nok'}
-        return d
 
     def authenticate(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
@@ -165,12 +165,12 @@ class Sms:
         try:
             u = User.objects.get(userdata__tlf=tlf, userdata__event=ae)
         except:
-            return error("Invalid credentials", error_codename="invalid_credentials")
+            return self.error("User not exist", error_codename="invalid_credentials")
 
         code = Code.objects.filter(user=u.userdata,
                 code=req.get('code')).order_by('created').first()
         if not code:
-            return error("Invalid credentials", error_codename="invalid_credentials")
+            return self.error("Invalid code", error_codename="invalid_credentials")
 
         msg = check_pipeline(request, ae, 'authenticate')
         if msg:
@@ -200,12 +200,12 @@ class Sms:
         msg += check_field_type(self.tlf_definition, tlf, 'authenticate')
         msg += check_field_value(self.tlf_definition, tlf, 'authenticate')
         if msg:
-            return error("Invalid credentials", error_codename="invalid_credentials")
+            return self.error("Invalid credentials", error_codename="invalid_credentials")
 
         try:
             u = User.objects.get(userdata__tlf=tlf, userdata__event=ae, is_active=True)
         except:
-            return error("Invalid credentials", error_codename="invalid_credentials")
+            return self.error("Invalid credentials", error_codename="invalid_credentials")
 
         msg = check_pipeline(
           request,

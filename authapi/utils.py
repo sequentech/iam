@@ -32,6 +32,8 @@ def json_response(data=None, status=200, message="", field=None, error_codename=
     if status != 200:
         if not error_codename:
             error_codename = ErrorCodes.GENERAL_ERROR
+        if isinstance(error_codename, ErrorCodes):
+            error_codename = error_codename.value
         data = dict(message=message, field=field, error_codename=error_codename)
     jsondata = json.dumps(data)
     return HttpResponse(jsondata, status=status, content_type='application/json')
