@@ -918,7 +918,6 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(r['message'].count("Already registered"))
-        self.assertTrue(r['message'].count("Tel %s repeat" % get_cannonical_tlf(test_data.census_sms_default_used['census'][1]['tlf'])))
 
         c = JClient()
         c.authenticate(0, test_data.admin)
@@ -970,7 +969,6 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(r['message'].count("Maximun number of codes sent"))
-        self.assertTrue(r['message'].count("Tel %s repeat" % get_cannonical_tlf(test_data.auth_sms_default['tlf'])))
         self.assertEqual(Code.objects.count(), settings.SEND_CODES_SMS_MAX + 1)
 
     def test_add_register_authevent_sms_resend_same_cannonical_number(self):
@@ -1000,7 +998,6 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(r['message'].count("Maximun number of codes sent"))
-        self.assertTrue(r['message'].count("Tel %s repeat" % get_cannonical_tlf(test_data.auth_sms_default['tlf'])))
         self.assertEqual(Code.objects.count(), 3)
         settings.SEND_CODES_SMS_MAX = temp
 
@@ -1018,7 +1015,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Invalid code.')
+        self.assertEqual(r['message'], 'Invalid code')
 
     def test_authenticate_authevent_sms_fields(self):
         c = JClient()
@@ -1085,7 +1082,6 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(r['message'].count("Maximun number of codes sent"))
-        self.assertTrue(r['message'].count("dni %s repeat." % user['dni']))
 
 
     @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,

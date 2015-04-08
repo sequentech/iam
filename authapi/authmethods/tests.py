@@ -229,7 +229,7 @@ class AuthMethodSmsTestCase(TestCase):
         response = self.c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Invalid code.')
+        self.assertEqual(r['message'], 'Invalid code')
 
     def test_method_sms_get_perm(self): # Fix
         auth = { 'tlf': '+34666666666', 'code': 'AAAAAAAA',
