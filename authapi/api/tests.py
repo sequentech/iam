@@ -940,6 +940,52 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.register(self.aeid, test_data.register_sms_fields)
         self.assertEqual(response.status_code, 200)
 
+    def test_register_and_resend_code(self):
+        c = JClient()
+        response = c.register(self.aeid, test_data.register_sms_default)
+        self.assertEqual(response.status_code, 200)
+
+        data = test_data.auth_sms_default.copy()
+        # bad: self.aeid.census = close
+        self.ae.census = 'close'
+        self.ae.save()
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['error_codename'], 'auth_event_closed')
+
+        # bad: self.aeid.census = open and status != started
+        self.ae.census = 'open'
+        self.ae.status = 'stopped'
+        self.ae.save()
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['error_codename'], 'auth_event_closed')
+
+        # bad: invalid credentials
+        self.ae.status = 'started'
+        self.ae.save()
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, {})
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
+
+        # bad: problem user inactive
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
+
+        # good
+        response = c.authenticate(self.aeid, test_data.auth_sms_default)
+        self.assertEqual(response.status_code, 200)
+
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(response.status_code, 200)
+
+
     def test_add_authevent_sms_fields_incorrect(self):
         c = JClient()
         self.ae.extra_fields = test_data.auth_event2['extra_fields']
