@@ -2,6 +2,7 @@
 import hmac
 import datetime
 import json
+import types
 import time
 import six
 from djcelery import celery
@@ -76,8 +77,16 @@ def paginate(request, queryset, serialize_method=None, elements_name='elements')
     p = Paginator(queryset, elements)
     page = p.page(pageindex)
 
-    d = {
-        elements_name: page.object_list,
+    def serialize(obj):
+      if serialize_method is None:
+          return obj
+      elif isinstance(serialize_method, str):
+          return getattr(obj, serialize_method)()
+      elif isinstance(serialize_method, types.FunctionType):
+          return serialize_method(obj)
+
+    return {
+        elements_name: [serialize(obj) for obj in page.object_list],
         'page': pageindex,
         'total_count': p.count,
         'page_range': p.page_range,
@@ -86,12 +95,6 @@ def paginate(request, queryset, serialize_method=None, elements_name='elements')
         'has_next': page.has_next(),
         'has_previous': page.has_previous(),
     }
-
-    if serialize_method:
-        d[elements_name] = []
-        for i in page.object_list:
-            d[elements_name].append(getattr(i, serialize_method)())
-    return d
 
 
 def genhmac(key, msg):

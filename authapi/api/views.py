@@ -86,23 +86,21 @@ class Census(View):
     def get(self, request, pk):
         permission_required(request.user, 'AuthEvent', 'edit', pk)
         e = get_object_or_404(AuthEvent, pk=pk)
-        acls = ACL.objects.filter(object_type='AuthEvent', perm='vote', object_id=pk)
-        userids = []
-        object_list = []
-        users = {}
-        data = {}
-        for acl in acls:
-            userids.append(acl.user.pk)
-            users[acl.user.user.username] = acl.user.user.email
-            metadata = acl.user.serialize_data()
-            data[acl.user.user.username] = metadata
-            object_list.append({
-              "id": acl.user.pk,
-              "username": acl.user.user.username,
-              "metadata": metadata
-            })
-        d = {'userids': userids, 'users': users, 'data': data, 'object_list': object_list}
-        return json_response(d)
+        query = ACL.objects.filter(object_type='AuthEvent', perm='vote', object_id=pk)
+
+        def serializer(acl):
+          return {
+            "id": acl.user.pk,
+            "username": acl.user.user.username,
+            "metadata": acl.user.serialize_data()
+          }
+
+        acls = paginate(
+          request,
+          query,
+          serialize_method=serializer,
+          elements_name='object_list')
+        return json_response(acls)
 census = login_required(Census.as_view())
 
 
