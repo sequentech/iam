@@ -71,8 +71,8 @@ def paginate(request, queryset, serialize_method=None, elements_name='elements')
     except:
         elements = 10
 
-    if elements > 30:
-        elements = 30
+    if elements > 200:
+        elements = 200
 
     p = Paginator(queryset, elements)
     page = p.page(pageindex)
