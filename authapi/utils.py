@@ -194,7 +194,7 @@ def send_mail(subject, msg, receiver):
     send_email(email)
 
 
-def send_sms_code(receiver, msg, conf):
+def send_sms_code(receiver, msg):
     from authmethods.sms_provider import SMSProvider
     con = SMSProvider.get_instance()
     con.send_sms(receiver=receiver, content=msg, is_audio=False)
@@ -213,7 +213,6 @@ def send_code(user, config=None):
     '''
     from authmethods.models import Message
     auth_method = user.userdata.event.auth_method
-    conf = user.userdata.event.auth_method_config.get('config')
     event_id = user.userdata.event.id
 
     # if blank tlf or email
@@ -235,6 +234,7 @@ def send_code(user, config=None):
         return "Receiver is none"
 
     if config is None:
+        conf = user.userdata.event.auth_method_config.get('config')
         msg = conf.get('msg')
         subject = conf.get('subject')
     else:
@@ -249,7 +249,7 @@ def send_code(user, config=None):
     msg = base_msg % raw_msg
 
     if auth_method == "sms":
-        send_sms_code(receiver, msg, conf)
+        send_sms_code(receiver, msg)
         m = Message(tlf=receiver, auth_event_id=event_id)
         m.save()
     else: # email
