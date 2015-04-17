@@ -77,7 +77,7 @@ class TestProcessCaptcha(TestCase):
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(len(r['userids']), 4)
+        self.assertEqual(len(r['object_list']), 4)
 
         # add register: without captcha
         response = c.register(self.aeid, test_data.register_email_fields)
@@ -136,7 +136,7 @@ class TestProcessCaptcha(TestCase):
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(len(r['userids']), 4)
+        self.assertEqual(len(r['object_list']), 4)
 
         # add register: without captcha
         response = c.register(self.aeid, test_data.register_email_fields)

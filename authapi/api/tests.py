@@ -641,7 +641,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(len(r['userids']), 4)
+        self.assertEqual(len(r['object_list']), 4)
 
     def test_add_census_authevent_email_fields(self):
         c = JClient()
@@ -681,7 +681,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(len(r['userids']), 0)
+        self.assertEqual(len(r['object_list']), 0)
         response = c.register(self.aeid, test_data.census_email_default_used['census'][1])
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
@@ -794,7 +794,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(len(r['userids']), 2)
+        self.assertEqual(len(r['object_list']), 2)
 
         self.assertEqual(Code.objects.count(), 1)
         user = {'dni': test_data.census_email_unique_dni['census'][1]['dni'], 'email': 'zzz@zzz.com'}
@@ -823,7 +823,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(len(r['userids']), 0)
+        self.assertEqual(len(r['object_list']), 0)
 
         test_data.census_email_repeat['field-validation'] = 'disabled'
         response = c.census(self.aeid, test_data.census_email_repeat)
@@ -831,14 +831,14 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(len(r['userids']), 1)
+        self.assertEqual(len(r['object_list']), 1)
 
         response = c.census(self.aeid, test_data.census_email_no_validate)
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(len(r['userids']), 1 + 6)
+        self.assertEqual(len(r['object_list']), 1 + 6)
 
         self.assertEqual(Code.objects.count(), 1)
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, {})
@@ -913,7 +913,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(len(r['userids']), 0)
+        self.assertEqual(len(r['object_list']), 0)
         response = c.register(self.aeid, test_data.census_sms_default_used['census'][1])
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
@@ -1114,7 +1114,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.get('/api/auth-event/%d/census/?validate' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(len(r['userids']), 2)
+        self.assertEqual(len(r['object_list']), 2)
 
         self.assertEqual(Code.objects.count(), 1)
         user = {'dni': test_data.census_sms_unique_dni['census'][1]['dni'], 'tlf': '123123123'}
@@ -1142,7 +1142,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(len(r['userids']), 0)
+        self.assertEqual(len(r['object_list']), 0)
 
         test_data.census_sms_repeat['field-validation'] = 'disabled'
         response = c.census(self.aeid, test_data.census_sms_repeat)
@@ -1150,14 +1150,14 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(len(r['userids']), 1)
+        self.assertEqual(len(r['object_list']), 1)
 
         response = c.census(self.aeid, test_data.census_sms_no_validate)
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(len(r['userids']), 1 + 4)
+        self.assertEqual(len(r['object_list']), 1 + 4)
 
         self.assertEqual(Code.objects.count(), 1)
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, {})
