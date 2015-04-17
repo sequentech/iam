@@ -9,7 +9,7 @@ from django.contrib.auth.models import User
 
 from . import test_data
 from .models import ACL, AuthEvent
-from authmethods.models import Code
+from authmethods.models import Code, MsgLog
 from utils import verifyhmac
 from authmethods.utils import get_cannonical_tlf
 
@@ -761,15 +761,25 @@ class TestRegisterAndAuthenticateEmail(TestCase):
                        BROKER_BACKEND='memory')
     def test_send_auth_email(self):
         self.test_add_census_authevent_email_default() # Add census
-        correct_tpl = {"subject": "Vote", "msg": "message with %(code)s and the link is %(url)s"}
+        correct_tpl = {"subject": "Vote", "msg": "this is an example %(code)s and %(url)s"}
         incorrect_tpl = {"msg": 10001*"a"}
 
         c = JClient()
         response = c.authenticate(self.aeid, test_data.auth_email_default)
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(MsgLog.objects.count(), 4)
+        msg_log = MsgLog.objects.all().last().msg
+        self.assertEqual(msg_log.get('subject'), 'Confirm your email')
+        self.assertTrue(msg_log.get('msg').count('-- Agora Voting https://agoravoting.com'))
+
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, correct_tpl)
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(MsgLog.objects.count(), 4*2)
+        msg_log = MsgLog.objects.all().last().msg
+        self.assertEqual(msg_log.get('subject'), correct_tpl.get('subject'))
+        self.assertTrue(msg_log.get('msg').count('this is an example'))
+
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, incorrect_tpl)
         self.assertEqual(response.status_code, 400)
 
@@ -1080,15 +1090,23 @@ class TestRegisterAndAuthenticateSMS(TestCase):
     def test_send_auth_sms(self):
         self.test_add_census_authevent_sms_default() # Add census
 
-        correct_tpl = {"msg": "message with %(code)s and the link is %(url)s"}
+        correct_tpl = {"msg": "this is an example %(code)s and %(url)s"}
         incorrect_tpl = {"msg": 121*"a"}
 
         c = JClient()
         response = c.authenticate(self.aeid, test_data.auth_sms_default)
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(MsgLog.objects.count(), 4)
+        msg_log = MsgLog.objects.all().last().msg
+        self.assertTrue(msg_log.get('msg').count('-- Agora Voting'))
+
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, correct_tpl)
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(MsgLog.objects.count(), 4*2)
+        msg_log = MsgLog.objects.all().last().msg
+        self.assertTrue(msg_log.get('msg').count('this is an example'))
+
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, incorrect_tpl)
         self.assertEqual(response.status_code, 400)
 

@@ -211,7 +211,7 @@ def send_code(user, config=None):
 
     NOTE: You are responsible of not calling this on a stopped auth event
     '''
-    from authmethods.models import Message
+    from authmethods.models import Message, MsgLog
     auth_method = user.userdata.event.auth_method
     event_id = user.userdata.event.id
 
@@ -247,6 +247,10 @@ def send_code(user, config=None):
         base_msg = settings.EMAIL_BASE_TEMPLATE
     raw_msg = msg % dict(event_id=event_id, code=code, url=url)
     msg = base_msg % raw_msg
+
+    code_msg = {'subject': subject, 'msg': msg}
+    cm = MsgLog(authevent_id=event_id, receiver=receiver, msg=code_msg)
+    cm.save()
 
     if auth_method == "sms":
         send_sms_code(receiver, msg)
