@@ -86,7 +86,17 @@ class Census(View):
     def get(self, request, pk):
         permission_required(request.user, 'AuthEvent', 'edit', pk)
         e = get_object_or_404(AuthEvent, pk=pk)
+
+        filter_str = request.GET.get('filter', None)
         query = ACL.objects.filter(object_type='AuthEvent', perm='vote', object_id=pk)
+
+        if filter_str is not None:
+            q = (Q(user__user__username__icontains=filter_str) |
+              Q(user__user__email__icontains=filter_str) |
+              Q(user__tlf__icontains=filter_str) |
+              Q(user__metadata__icontains=filter_str))
+
+            query = query.filter(q)
 
         def serializer(acl):
           return {
