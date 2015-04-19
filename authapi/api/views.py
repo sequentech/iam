@@ -54,6 +54,7 @@ class Test(View):
         return json_response(data)
 test = Test.as_view()
 
+
 class CensusDelete(View):
     ''' Delete census in the auth-event '''
     def post(self, request, pk):
