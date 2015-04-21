@@ -8,6 +8,8 @@ from utils import genhmac, send_codes
 import plugins
 from . import register_method
 from authmethods.utils import *
+from pipelines.base import execute_pipeline, PipeReturnvalue
+from contracts import CheckException, JSONContractEncoder
 
 
 class Sms:
@@ -109,6 +111,23 @@ class Sms:
         msg = check_pipeline(request, ae)
         if msg:
             return msg
+
+        for field in ae.extra_fields:
+            name = 'register-pipeline'
+            if name in field:
+                try:
+                    ret = execute_pipeline(field[name], name, req)
+                except CheckException as e:
+                    return self.error(
+                        JSONContractEncoder().encode(e.data['context']),
+                        error_codename=e.data['key'])
+                except Exception as e:
+                    return self.error(
+                        "unknown-exception: " + str(e),
+                        error_codename="unknown-exception")
+                if ret != PipeReturnvalue.CONTINUE:
+                    key = "stopped-field-register-pipeline"
+                    return self.error(key, key)
 
         msg = ''
         if req.get('tlf'):

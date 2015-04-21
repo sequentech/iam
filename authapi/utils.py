@@ -5,6 +5,7 @@ import json
 import types
 import time
 import six
+import re
 from djcelery import celery
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
@@ -15,6 +16,9 @@ from django.http import HttpResponse
 from enum import Enum, unique
 from string import ascii_lowercase, digits, ascii_letters
 from random import choice
+from pipelines import PipeReturnvalue
+from pipelines.base import check_pipeline_conf
+from contracts import CheckException, JSONContractEncoder
 
 
 @unique
@@ -26,6 +30,7 @@ class ErrorCodes(Enum):
     GENERAL_ERROR = 5
     MAX_CONNECTION = 6
     BLACKLIST = 7
+
 
 
 def json_response(data=None, status=200, message="", field=None, error_codename=None):
@@ -40,13 +45,16 @@ def json_response(data=None, status=200, message="", field=None, error_codename=
     return HttpResponse(jsondata, status=status, content_type='application/json')
 
 
-def permission_required(user, object_type, permission, object_id=0):
+def permission_required(user, object_type, permission, object_id=0, return_bool=False):
     if user.is_superuser:
-        return
+        return True
     if object_id and user.userdata.has_perms(object_type, permission, 0):
-        return
+        return True
     if not user.userdata.has_perms(object_type, permission, object_id):
-        raise PermissionDenied('Permission required: ' + permission)
+        if return_bool:
+            return False
+        else:
+            raise PermissionDenied('Permission required: ' + permission)
 
 
 def paginate(request, queryset, serialize_method=None, elements_name='elements'):
@@ -280,7 +288,7 @@ def send_codes(users, config=None):
 
 # CHECKERS AUTHEVENT
 VALID_FIELDS = ('name', 'help', 'type', 'required', 'regex', 'min', 'max',
-    'required_on_authentication', 'unique')
+    'required_on_authentication', 'unique', 'private', 'register-pipeline')
 REQUIRED_FIELDS = ('name', 'type', 'required_on_authentication')
 VALID_PIPELINES = (
     'check_whitelisted',
@@ -397,7 +405,23 @@ def check_fields(key, value):
         if not isinstance(value, bool):
             msg += "Invalid extra_fields: bad %s.\n" % key
     elif key == 'regex':
-        pass
+        if not isinstance(value, str):
+            msg += "Invalid regex. bad %s.\n" % key
+        try:
+            re.compile(value)
+        except:
+            msg += "Invalid regex. bad %s.\n" % key
+    elif key == 'register-pipeline':
+        try:
+            ret = check_pipeline_conf(value, key)
+            if ret != PipeReturnvalue.CONTINUE:
+                msg += "stopped-field-register-pipeline"
+        except CheckException as e:
+            msg += JSONContractEncoder().encode(e.data)
+        except Exception as e:
+            msg += "unknown-exception: " + str(e)
+    elif key == 'private' and not isinstance(value, bool):
+        msg += "Invalid private: bad %s.\n" % key
     elif key == 'min' or key == 'max':
         if not isinstance(value, int):
             msg += "Invalid extra_fields: bad %s.\n" % key

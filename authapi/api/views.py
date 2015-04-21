@@ -34,6 +34,9 @@ from .tasks import census_send_auth_task
 from django.db.models import Q
 from captcha.views import generate_captcha
 
+# import fields checks
+from pipelines.field_register import *
+
 
 class Test(View):
     ''' Test view that returns the response data '''
@@ -414,12 +417,12 @@ class AuthEventView(View):
             Lists all AuthEvents if not pk. If pk show the event with this pk
         '''
         data = {'status': 'ok'}
+        user, _ = get_login_user(request)
 
         if pk:
             e = AuthEvent.objects.get(pk=pk)
-            u = request.user
-            if (u.is_authenticated() and
-                u.userdata.has_perms("AuthEvent", "admin", e.id)):
+            if (user is not None and user.is_authenticated() and
+                permission_required(user, 'AuthEvent', 'admin', e.id, return_bool=True)):
                 aes = e.serialize()
             else:
                 aes = e.serialize_restrict()

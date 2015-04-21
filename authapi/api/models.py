@@ -38,22 +38,45 @@ class AuthEvent(models.Model):
     status = models.CharField(max_length=15, choices=AE_STATUSES, default="notstarted")
     created = models.DateTimeField(auto_now_add=True)
 
-    def serialize(self):
+    def serialize(self, restrict=False):
         '''
         Used to serialize data when the user has priviledges to see all the data
         (for example, admins). This includes auth method config, stats, and
         access to private extra_fields.
         '''
-        d = self.serialize_restrict()
-
-        # auth sends by authmethod
+        # auth codes sent by authmethod
         from authmethods.models import Code
-        codes = Code.objects.filter(auth_event_id=self.id).count()
 
-        d.update({
-            'auth_method_config': self.auth_method_config,
-            'auth_method_stats': {self.auth_method: codes}
-        })
+        d = {
+            'id': self.id,
+            'auth_method': self.auth_method,
+            'census': self.census,
+            'users': self.userdata.count(),
+            'created': (self.created.isoformat()
+                        if hasattr(self.created, 'isoformat')
+                        else self.created)
+        }
+
+        def none_list(e):
+          if e is None:
+              return []
+          return e
+
+        if restrict:
+            d.update({
+                'extra_fields': [
+                    f for f in none_list(self.extra_fields)
+                        if not f.get('private', False)
+                ]
+            })
+        else:
+            d.update({
+                'extra_fields': self.extra_fields,
+                'auth_method_config': self.auth_method_config,
+                'auth_method_stats': {
+                    self.auth_method: Code.objects.filter(auth_event_id=self.id).count()
+                }
+            })
 
         return d
 
@@ -62,15 +85,7 @@ class AuthEvent(models.Model):
         Used to serialize public data that anyone should be able to see about an
         AuthEvent.
         '''
-        d = {
-            'id': self.id,
-            'auth_method': self.auth_method,
-            'census': self.census,
-            'extra_fields': self.extra_fields,
-            'users': self.userdata.count(),
-            'created': self.created.isoformat() if hasattr(self.created, 'isoformat') else self.created
-        }
-        return d
+        return self.serialize(restrict=True)
 
     def __str__(self):
         return "%s - %s" % (self.id, self.census)
