@@ -112,6 +112,38 @@ auth_event5 = {
     ]
 }
 
+# extra-fields pipeline
+auth_event6 = {
+    "auth_method": "email",
+    "census": "open",
+    "config": {
+        "subject": "Confirm your email",
+        "msg": "Click %(url)s and put this code %(code)s"
+    },
+    "extra_fields": [
+            {
+            "name": "dni",
+            "help": "put the dni without dash",
+            "type": "dni",
+            "required": True,
+            "max": 9,
+            "max": 9,
+            "required_on_authentication": True,
+            "register-pipeline": [
+                ["DniChecker", {}],
+                #["ExternalAPICheckAndSave", {
+                #    "mode": "lugo",
+                #    "mode-config": {
+                #        "baseurl": "http://foo/conecta/services",
+                #        "user": "foo",
+                #        "password": "bar"
+                #    }
+                #}]
+            ]
+            }
+    ]
+}
+
 # Users
 admin = {'username': 'john', 'password': 'smith'}
 

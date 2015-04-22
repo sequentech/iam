@@ -119,22 +119,23 @@ class Sms:
         pipedata = dict(
             active=active,
             request=req)
-        for field in ae.extra_fields:
-            name = 'register-pipeline'
-            if name in field:
-                try:
-                    ret = execute_pipeline(field[name], name, pipedata)
-                except CheckException as e:
-                    return self.error(
-                        JSONContractEncoder().encode(e.data['context']),
-                        error_codename=e.data['key'])
-                except Exception as e:
-                    return self.error(
-                        "unknown-exception: " + str(e),
-                        error_codename="unknown-exception")
-                if ret != PipeReturnvalue.CONTINUE:
-                    key = "stopped-field-register-pipeline"
-                    return self.error(key, key)
+        if ae.extra_fields:
+            for field in ae.extra_fields:
+                name = 'register-pipeline'
+                if name in field:
+                    try:
+                        ret = execute_pipeline(field[name], name, pipedata)
+                    except CheckException as e:
+                        return self.error(
+                            JSONContractEncoder().encode(e.data['context']),
+                            error_codename=e.data['key'])
+                    except Exception as e:
+                        return self.error(
+                            "unknown-exception: " + str(e),
+                            error_codename="unknown-exception")
+                    if ret != PipeReturnvalue.CONTINUE:
+                        key = "stopped-field-register-pipeline"
+                        return self.error(key, key)
 
         msg = ''
         if req.get('tlf'):

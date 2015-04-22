@@ -269,3 +269,30 @@ class AuthMethodSmsTestCase(TestCase):
         }
         response = self.c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
+
+
+class ExtraFieldPipelineTestCase(TestCase):
+    fixtures = ['initial.json']
+    def setUp(self):
+        auth_method_config = {
+                "config": Email.CONFIG,
+                "pipeline": Email.PIPELINES
+        }
+        ae = AuthEvent(auth_method=test_data.auth_event6['auth_method'],
+                auth_method_config=auth_method_config,
+                extra_fields=test_data.auth_event6['extra_fields'],
+                status='started', census=test_data.auth_event6['census'])
+        ae.save()
+        self.aeid = ae.pk
+
+    def test_method_extra_field_pipeline(self):
+        c = JClient()
+        data = {'email': 'test@test.com', 'user': 'test',
+                'dni': '39873625C'}
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        data = {'email': 'test2@test.com', 'user': 'test',
+                'dni': '39873625X'}
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 400)

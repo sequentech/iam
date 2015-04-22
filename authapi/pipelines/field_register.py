@@ -14,6 +14,7 @@ class DniChecker(Pipe):
             raise CheckException(
                 key='invalid-dni',
                 context=data['request'].get('dni', ''))
+        return PipeReturnvalue.CONTINUE
 
 Pipe.register_pipe(DniChecker, 'register-pipeline')
 
