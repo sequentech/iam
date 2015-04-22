@@ -112,11 +112,18 @@ class Sms:
         if msg:
             return msg
 
+        # create the user as active? Usually yes, but the execute_pipeline call
+        # might modify this
+        active = True
+
+        pipedata = dict(
+            active=active,
+            request=req)
         for field in ae.extra_fields:
             name = 'register-pipeline'
             if name in field:
                 try:
-                    ret = execute_pipeline(field[name], name, req)
+                    ret = execute_pipeline(field[name], name, pipedata)
                 except CheckException as e:
                     return self.error(
                         JSONContractEncoder().encode(e.data['context']),
@@ -150,12 +157,16 @@ class Sms:
             if codes > settings.SEND_CODES_SMS_MAX:
                 return self.error("Maximun number of codes sent", error_codename="invalid_credentials")
         else:
-            u = create_user(req, ae)
+            u = create_user(req, ae, active)
             msg += give_perms(u, ae)
 
         if msg:
             data = {'status': 'nok', 'msg': msg}
             return data
+        elif not active:
+            # Note, we are not calling to extend_send_sms because we are not
+            # sending the code in here
+            return {'status': 'ok'}
 
         result = plugins.call("extend_send_sms", ae, 1)
         if result:

@@ -27,8 +27,8 @@ class Pipe(object):
         '''
         return Pipe.pipeline_pipes[pipeline_name]
 
-    @classmethod
-    def check_config(cls, config):
+    @staticmethod
+    def check_config(config):
         '''
         Implement this method to check that the input data is valid. It should
         be as strict as possible. By default, config is checked to be empty.
@@ -39,7 +39,8 @@ class Pipe(object):
             'help': 'check config is empty'
         }], config)
 
-    def execute(self, data, config):
+    @staticmethod
+    def execute(data, config):
         '''
         Executes the pipe. Should return a PipeReturnValue. "data" is the value
         that one pipe passes to the other, and config is the specific config of
@@ -73,7 +74,7 @@ def check_pipeline_conf(pipeline_conf, name, checker_conf=DEFAULT_CHECKER_CONF):
             'range': [2,2]
           },
           {
-            'check': 'list-index-check-list',
+            'check': 'index-check-list',
             'index': 0,
             'check-list': [
               {
@@ -113,7 +114,7 @@ def execute_pipeline(pipeline_conf, name, data):
     valid_pipes = Pipe.get_pipes(name)
 
     for pipe_name, pipe_conf in pipeline_conf:
-        ret = valid_pipes[pipe_name](data, name)
+        ret = valid_pipes[pipe_name].execute(data=data, config=pipeline_conf)
         if ret != PipeReturnvalue.CONTINUE:
             return ret
 

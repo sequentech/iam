@@ -85,6 +85,10 @@ class Email:
                 give_perms(u, ae)
         return {'status': 'ok'}
 
+    def error(self, msg, error_codename):
+        d = {'status': 'nok', 'msg': msg, 'error_codename': error_codename}
+        return d
+
     def register(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
 
@@ -92,11 +96,18 @@ class Email:
         if msg:
             return msg
 
+        # create the user as active? Usually yes, but the execute_pipeline call
+        # might modify this
+        active = True
+
+        pipedata = dict(
+            active=active,
+            request=req)
         for field in ae.extra_fields:
             name = 'register-pipeline'
             if name in field:
                 try:
-                    ret = execute_pipeline(field[name], name, req)
+                    ret = execute_pipeline(field[name], name, pipedata)
                 except CheckException as e:
                     return self.error(
                         JSONContractEncoder().encode(e.data['context']),
@@ -136,6 +147,10 @@ class Email:
         if msg:
             data = {'status': 'nok', 'msg': msg}
             return data
+        elif not active:
+            # Note, we are not calling to extend_send_sms because we are not
+            # sending the code in here
+            return {'status': 'ok'}
 
         send_codes.apply_async(args=[[u.id,]])
         return {'status': 'ok'}
