@@ -2,6 +2,7 @@ from contracts import CheckException
 from pipelines import PipeReturnvalue
 from pipelines.base import Pipe
 from authmethods.utils import dni_constraint
+from pipelines import external_soap
 
 
 class DniChecker(Pipe):
@@ -131,15 +132,9 @@ class ExternalAPICheckAndSave(Pipe):
         ], config)
 
     @staticmethod
-    def external_api_call(baseurl='', user='', password=''):
-        # fake
-        data = {'custom': True}
-        return True, data
-
-    @staticmethod
     def get_external_data(data, config):
         dni = data['request'].get('dni', '')
-        valid, custom_data = ExternalAPICheckAndSave.external_api_call(**config)
+        valid, custom_data = external_soap.api_call(dni, **config)
         if not valid:
             data['active'] = False
             # TODO: send message saying that user registration is being checked
