@@ -131,10 +131,29 @@ class ExternalAPICheckAndSave(Pipe):
         ], config)
 
     @staticmethod
-    def execute(data, config):
-        # TODO check with census via DNI instead of checking DNI number
-        if not dni_constraint(data['request'].get('dni', '')):
+    def external_api_call(baseurl='', user='', password=''):
+        # fake
+        data = {'custom': True}
+        return True, data
+
+    @staticmethod
+    def get_external_data(data, config):
+        dni = data['request'].get('dni', '')
+        valid, custom_data = ExternalAPICheckAndSave.external_api_call(**config)
+        if not valid:
             data['active'] = False
             # TODO: send message saying that user registration is being checked
+
+        else:
+            # Adding external data to the user metadata
+            data['request']['external_data'] = custom_data
+
+    @staticmethod
+    def execute(data, config):
+        if config['mode'] == 'lugo':
+            mconfig = config['mode-config']
+            ExternalAPICheckAndSave.get_external_data(data, mconfig)
+
+        return PipeReturnvalue.CONTINUE
 
 Pipe.register_pipe(ExternalAPICheckAndSave, 'register-pipeline')

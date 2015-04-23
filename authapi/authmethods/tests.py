@@ -296,3 +296,30 @@ class ExtraFieldPipelineTestCase(TestCase):
                 'dni': '39873625X'}
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
+
+
+class ExternalCheckPipelineTestCase(TestCase):
+    fixtures = ['initial.json']
+    def setUp(self):
+        auth_method_config = {
+                "config": Email.CONFIG,
+                "pipeline": Email.PIPELINES
+        }
+        ae = AuthEvent(auth_method=test_data.auth_event7['auth_method'],
+                auth_method_config=auth_method_config,
+                extra_fields=test_data.auth_event7['extra_fields'],
+                status='started', census=test_data.auth_event7['census'])
+        ae.save()
+        self.aeid = ae.pk
+
+    def test_method_external_pipeline(self):
+        c = JClient()
+        data = {'email': 'test@test.com', 'user': 'test',
+                'dni': '39873625C'}
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        u = User.objects.get(email='test@test.com')
+        self.assertEqual(u.is_active, True)
+        mdata = json.loads(u.userdata.metadata)
+        self.assertEqual(mdata['external_data']['custom'], True)

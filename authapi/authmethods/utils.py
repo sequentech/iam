@@ -492,8 +492,6 @@ def check_metadata(req, user):
 
 
 def give_perms(u, ae):
-    if u.is_active: # Active users don't give perms. Avoid will send code
-        return ''
     pipe = ae.auth_method_config.get('pipeline')
     if not pipe:
         return 'Bad config'
@@ -506,6 +504,6 @@ def give_perms(u, ae):
         elif obj_id == 'AuthEventId':
             obj_id = ae.pk
         for perm in perms.get('perms'):
-            acl = ACL(user=u.userdata, object_type=obj, perm=perm, object_id=obj_id)
+            acl, created = ACL.objects.get_or_create(user=u.userdata, object_type=obj, perm=perm, object_id=obj_id)
             acl.save()
     return ''

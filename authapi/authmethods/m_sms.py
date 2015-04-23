@@ -108,6 +108,7 @@ class Sms:
 
     def register(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
+
         msg = check_pipeline(request, ae)
         if msg:
             return msg
@@ -137,6 +138,7 @@ class Sms:
                         key = "stopped-field-register-pipeline"
                         return self.error(key, key)
 
+        active = pipedata['active']
         msg = ''
         if req.get('tlf'):
             req['tlf'] = get_cannonical_tlf(req.get('tlf'))

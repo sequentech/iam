@@ -7,3 +7,4 @@ six
 django-cors-headers
 django-celery
 pillow
+git+git://github.com/wadobo/suds.git

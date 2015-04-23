@@ -1,3 +1,4 @@
+import copy
 from django.conf import settings
 
 
@@ -130,19 +131,22 @@ auth_event6 = {
             "max": 9,
             "required_on_authentication": True,
             "register-pipeline": [
-                ["DniChecker", {}],
-                #["ExternalAPICheckAndSave", {
-                #    "mode": "lugo",
-                #    "mode-config": {
-                #        "baseurl": "http://foo/conecta/services",
-                #        "user": "foo",
-                #        "password": "bar"
-                #    }
-                #}]
+                ["DniChecker", {}]
             ]
             }
     ]
 }
+auth_event7 = copy.deepcopy(auth_event6)
+auth_event7['extra_fields'][0]['register-pipeline'] = [
+                ["ExternalAPICheckAndSave", {
+                    "mode": "lugo",
+                    "mode-config": {
+                        "baseurl": "http://foo/conecta/services",
+                        "user": "foo",
+                        "password": "bar"
+                    }
+                }]
+            ]
 
 # Users
 admin = {'username': 'john', 'password': 'smith'}

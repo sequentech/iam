@@ -114,7 +114,7 @@ def execute_pipeline(pipeline_conf, name, data):
     valid_pipes = Pipe.get_pipes(name)
 
     for pipe_name, pipe_conf in pipeline_conf:
-        ret = valid_pipes[pipe_name].execute(data=data, config=pipeline_conf)
+        ret = valid_pipes[pipe_name].execute(data=data, config=pipe_conf)
         if ret != PipeReturnvalue.CONTINUE:
             return ret
 

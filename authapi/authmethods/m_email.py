@@ -121,6 +121,7 @@ class Email:
                         key = "stopped-field-register-pipeline"
                         return self.error(key, key)
 
+        active = pipedata['active']
         msg = ''
         email = req.get('email')
         if isinstance(email, str):
@@ -142,7 +143,7 @@ class Email:
             else:
                 u = edit_user(u, req, ae)
         else:
-            u = create_user(req, ae)
+            u = create_user(req, ae, active)
             msg += give_perms(u, ae)
 
         if msg:
