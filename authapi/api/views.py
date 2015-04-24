@@ -61,6 +61,7 @@ test = Test.as_view()
 class CensusDelete(View):
     ''' Delete census in the auth-event '''
     def post(self, request, pk):
+        permission_required(request.user, 'AuthEvent', 'edit', pk)
         ae = get_object_or_404(AuthEvent, pk=pk)
         req = json.loads(request.body.decode('utf-8'))
         for uid in req.get('user-ids'):
@@ -75,6 +76,7 @@ class Census(View):
     ''' Add census in the auth-event '''
 
     def post(self, request, pk):
+        permission_required(request.user, 'AuthEvent', 'edit', pk)
         e = get_object_or_404(AuthEvent, pk=pk)
         try:
             data = auth_census(e, request)
