@@ -196,7 +196,7 @@ class Sms:
             return data
 
         try:
-            u = User.objects.get(userdata__tlf=tlf, userdata__event=ae)
+            u = User.objects.get(userdata__tlf=tlf, userdata__event=ae, is_active=True)
         except:
             return self.error("User not exist", error_codename="invalid_credentials")
 
@@ -214,7 +214,6 @@ class Sms:
             data = {'status': 'nok', 'msg': msg}
             return data
 
-        u.is_active = True
         u.save()
 
         data = {'status': 'ok'}

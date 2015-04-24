@@ -181,7 +181,7 @@ class Email:
             return msg
 
         try:
-            u = User.objects.get(email=email, userdata__event=ae)
+            u = User.objects.get(email=email, userdata__event=ae, is_active=True)
         except:
             return {'status': 'nok', 'msg': 'User not exist.'}
 
@@ -194,7 +194,6 @@ class Email:
         if msg:
             data = {'status': 'nok', 'msg': msg}
             return data
-        u.is_active = True
         u.save()
 
         data = {'status': 'ok'}

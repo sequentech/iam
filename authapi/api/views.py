@@ -33,6 +33,7 @@ from .models import User, UserData
 from .tasks import census_send_auth_task
 from django.db.models import Q
 from captcha.views import generate_captcha
+from utils import send_codes
 
 # import fields checks
 from pipelines.field_register import *
@@ -65,12 +66,39 @@ class CensusDelete(View):
         ae = get_object_or_404(AuthEvent, pk=pk)
         req = json.loads(request.body.decode('utf-8'))
         for uid in req.get('user-ids'):
-          u = get_object_or_404(User, pk=uid, userdata__event=ae)
-          for acl in u.userdata.acls.all():
-              acl.delete()
-          u.delete()
+            u = get_object_or_404(User, pk=uid, userdata__event=ae)
+            for acl in u.userdata.acls.all():
+                acl.delete()
+            u.delete()
         return json_response()
 census_delete = login_required(CensusDelete.as_view())
+
+
+class CensusActivate(View):
+    ''' Activates an user in the auth-event census '''
+
+    activate = True
+
+    def post(self, request, pk):
+        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        ae = get_object_or_404(AuthEvent, pk=pk)
+        req = json.loads(request.body.decode('utf-8'))
+        for uid in req.get('user-ids'):
+            u = get_object_or_404(User, pk=uid, userdata__event=ae)
+            u.is_active = self.activate
+            u.save()
+        if self.activate:
+            send_codes.apply_async(args=[[u for u in req.get('user-ids')]])
+
+        return json_response()
+census_activate = login_required(CensusActivate.as_view())
+
+
+class CensusDeactivate(CensusActivate):
+    ''' Deactivates an user in the auth-event census '''
+    activate = False
+census_deactivate = login_required(CensusDeactivate.as_view())
+
 
 class Census(View):
     ''' Add census in the auth-event '''
@@ -106,8 +134,9 @@ class Census(View):
 
         def serializer(acl):
           return {
-            "id": acl.user.pk,
+            "id": acl.user.user.pk,
             "username": acl.user.user.username,
+            "active": acl.user.user.is_active,
             "metadata": acl.user.serialize_data()
           }
 

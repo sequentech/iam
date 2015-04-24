@@ -127,6 +127,7 @@ class UserData(models.Model):
     def serialize(self):
         d = {
             'username': self.user.username,
+            'active': self.user.is_active,
         }
         if self.user.email:
             d['email'] = self.user.email
