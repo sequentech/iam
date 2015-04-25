@@ -310,6 +310,11 @@ def check_field_type(definition, field, step='register'):
         elif isinstance(field, int):
             if definition.get('type') != 'int':
                 msg += "Field %s type incorrect, value %s" % (definition.get('name'), field)
+        elif isinstance(field, dict):
+            if definition.get('type') != 'dict':
+                msg += "Field %s type incorrect, value %s" % (definition.get('name'), field)
+            if len(json.dumps(field)) > settings.MAX_GLOBAL_STR*10:
+                msg += "Field %s incorrect len" % definition.get('name')
     return msg
 
 
