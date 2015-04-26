@@ -285,6 +285,14 @@ class ExtraFieldPipelineTestCase(TestCase):
         ae.save()
         self.aeid = ae.pk
 
+        # Create admin user for authevent6
+        u = User(username='admin6', email='admin6@agoravoting.com')
+        u.save()
+        u.userdata.event = ae
+        u.userdata.save()
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit', object_id=ae.pk)
+        acl.save()
+
     def test_method_extra_field_pipeline(self):
         c = JClient()
         data = {'email': 'test@test.com', 'user': 'test',

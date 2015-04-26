@@ -266,7 +266,7 @@ def send_code(user, config=None):
         m.save()
     else: # email
         from api.models import ACL
-        acl = ACL.objects.filter(object_type='AuthEvent', perm='vote',
+        acl = ACL.objects.filter(object_type='AuthEvent', perm='edit',
                 object_id=event_id).first()
         email = EmailMessage(
             subject,
