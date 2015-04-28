@@ -137,6 +137,7 @@ class Census(View):
             "id": acl.user.user.pk,
             "username": acl.user.user.username,
             "active": acl.user.user.is_active,
+            "date_joined": acl.user.user.date_joined.isoformat(),
             "metadata": acl.user.serialize_data()
           }
 
