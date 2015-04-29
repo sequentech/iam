@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import hmac
 import datetime
+import dateutil.parser
 import json
 import types
 import time
@@ -13,6 +14,7 @@ from django.core.mail import send_mail, EmailMessage
 from django.core.paginator import Paginator
 from django.conf import settings
 from django.http import HttpResponse
+from django.utils import timezone
 from enum import Enum, unique
 from string import ascii_lowercase, digits, ascii_letters
 from random import choice
@@ -20,9 +22,10 @@ from pipelines import PipeReturnvalue
 from pipelines.base import check_pipeline_conf
 from contracts import CheckException, JSONContractEncoder
 
-RE_SPLIT_FILTER = re.compile('(__lt|__gt|)')
+RE_SPLIT_FILTER = re.compile('(__lt|__gt|__equals)')
 RE_SPLIT_SORT = re.compile('__sort')
 RE_INT = re.compile('^\d+$')
+RE_BOOL = re.compile('^(true|false)$')
 
 @unique
 class ErrorCodes(Enum):
@@ -456,6 +459,18 @@ def check_extra_fields(fields, used_type_fields=[]):
                 msg += "Invalid extra_field: %s not possible.\n" % key
     return msg
 
+
+def datetime_from_iso8601(when=None, tz=None):
+    '''
+    Parses a ISO-8601 string, returning a timezoned datetime
+    '''
+    _when = dateutil.parser.parse(when)
+    if not _when.tzinfo:
+        if tz is None:
+            tz = timezone.get_current_timezone()
+        _when = tz.localize(_when)
+    return _when
+
 def filter_query(filters, query, constraints, prefix, contraints_policy="ignore_invalid"):
     '''
     USeful for easy query filtering and sorting of a given query within the
@@ -544,9 +559,20 @@ def filter_query(filters, query, constraints, prefix, contraints_policy="ignore_
         if filter_key[val_key] == int:
             if not RE_INT.match(filter_val['value']):
                 return apply_contraint_policy('invalid_filter')
-
             # parse value
             filter_val['value'] = int(filter_val['value'], 10)
+
+        elif filter_key[val_key] == bool:
+            if not RE_BOOL.match(filter_val['value']):
+                return apply_contraint_policy('invalid_filter')
+            # parse value
+            filter_val['value'] = (filter_val['value'] == 'true')
+
+        elif filter_key[val_key] == datetime.datetime:
+            try:
+                filter_val['value'] = datetime_from_iso8601(filter_val['value'])
+            except ValueError as e:
+                return apply_contraint_policy('invalid_filter')
 
         return True
 
@@ -568,6 +594,9 @@ def filter_query(filters, query, constraints, prefix, contraints_policy="ignore_
         given a filter value, gets the pair of (key, value) needed to create
         the dict that will be used for filtering the query
         '''
+        if filter_val['full'].endswith('__equals'):
+            filter_val['full'] = filter_val['full'][:-len('__equals')]
+
         return (filter_val['full'],filter_val['value'])
 
     filters_l = [

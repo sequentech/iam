@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.views.generic import View
@@ -141,10 +142,20 @@ class Census(View):
                 filters=dict(
                     user__user__id=dict(
                         lt=int,
-                        gt=int
+                        gt=int,
+                    ),
+                    user__user__is_active=dict(
+                        equals=bool
+                    ),
+                    user__user__date_joined=dict(
+                        lt=datetime,
+                        gt=datetime
                     )
                 ),
-                order_by=['user__user__id']
+                order_by=[
+                    'user__user__id',
+                    'user__user__is_active',
+                    'user__user__date_joined']
             ),
             prefix='census__',
             contraints_policy='ignore_invalid')
