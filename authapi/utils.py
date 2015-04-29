@@ -20,6 +20,9 @@ from pipelines import PipeReturnvalue
 from pipelines.base import check_pipeline_conf
 from contracts import CheckException, JSONContractEncoder
 
+RE_SPLIT_FILTER = re.compile('(__lt|__gt|)')
+RE_SPLIT_SORT = re.compile('__sort')
+RE_INT = re.compile('^\d+$')
 
 @unique
 class ErrorCodes(Enum):
@@ -452,3 +455,151 @@ def check_extra_fields(fields, used_type_fields=[]):
             else:
                 msg += "Invalid extra_field: %s not possible.\n" % key
     return msg
+
+def filter_query(filters, query, constraints, prefix, contraints_policy="ignore_invalid"):
+    '''
+    USeful for easy query filtering and sorting of a given query within the
+    specified constraints.
+
+    - 'query' should be a QuerySet
+    - 'filters' should be a dictionary with the filters/sorting, usually
+      user-provided.
+    - 'constraints' specifies what filters are valid
+    - 'prefix' is a way to filter keys in 'filters'
+    - 'contraints_policy' can be either 'ignore_invalid' (invalid values will
+      be discarded and not used) or 'strict' (an exception will be raised).
+
+    If you want the result to be like this:
+
+        query.filter(foo__bar__lt=56).order_by(['-creation_date'])
+
+    'filters' should be:
+
+        dict(q__foo__bar__lt=56, q__creation_date__sort='desc')
+
+    if prefix is "q__", and constraints could be:
+
+        dict(filters=dict(foo__bar=dict(lt=int)), order_by=['creation_date'])
+
+    Limitations:
+    - only one sort key is allowed
+    - you cannot sort if your model contains a key called 'sort'
+    '''
+    def is_sort_key(key):
+        '''
+        checks if a key is sort key by looking at the prefix
+        '''
+        return key.endswith('__sort')
+
+    def get_filter(key, value):
+        '''
+        returns the filter parsed
+        '''
+        noprefix = key[len(prefix):]
+        return dict(
+          full=noprefix,
+          split=RE_SPLIT_FILTER.split(noprefix, 1),
+          value=value
+        )
+
+    def get_sort(key, value):
+        '''
+        returns the sort parsed
+        '''
+        noprefix = key[len(prefix):]
+        return dict(
+          full=noprefix,
+          key=noprefix[:-len('__sort')],
+          value=value
+        )
+
+    def apply_contraint_policy(error):
+        '''
+        Either raises an exception or returns False, so that it can be used for
+        filtering.
+        '''
+        if contraints_policy == 'strict':
+            raise Exception(error)
+
+        return False
+
+    def check_filter(filter_val):
+        '''
+        Checks that a filter is valid, and if not, apply contraints_policy.
+
+        Either raises an exception or returns False, so that it can be used for
+        filtering.
+        '''
+        # check filter key is allowed
+        if filter_val['split'][0] not in constraints['filters']:
+            return apply_contraint_policy('invalid_filter')
+
+        # check filter option is allowed. removing __ chars at the begining
+        filter_key = constraints['filters'][filter_val['split'][0]]
+        val_key = filter_val['split'][1][2:]
+        if val_key not in filter_key:
+            return apply_contraint_policy('invalid_filter')
+
+        # check type
+        if filter_key[val_key] == int:
+            if not RE_INT.match(filter_val['value']):
+                return apply_contraint_policy('invalid_filter')
+
+            # parse value
+            filter_val['value'] = int(filter_val['value'], 10)
+
+        return True
+
+    def check_sort(sort_val):
+        '''
+        Checks that a sort is valid, and if not, apply contraints_policy.
+
+        Either raises an exception or returns False, so that it can be used for
+        filtering.
+        '''
+        if (sort_val['key'] not in constraints['order_by'] or
+                not isinstance(sort_val['value'], str) or
+                sort_val['value'] not in ['asc', 'desc']):
+            return apply_contraint_policy('invalid_sort')
+        return True
+
+    def filter_tuple(filter_val):
+        '''
+        given a filter value, gets the pair of (key, value) needed to create
+        the dict that will be used for filtering the query
+        '''
+        return (filter_val['full'],filter_val['value'])
+
+    filters_l = [
+      get_filter(key, val) for key, val in filters.items()
+      if key.startswith(prefix) and not is_sort_key(key)]
+
+    # NOTE sort is limited to one element at most
+    sort_l = [
+        get_sort(key, val) for key, val in filters.items()
+        if key.startswith(prefix) and is_sort_key(key)]
+    if len(sort_l) > 1:
+        apply_contraint_policy('invalid_sort')
+    sort_l = sort_l[:1]
+
+    # apply contraints_policy
+    valid_filters = dict([
+      filter_tuple(filter_val) for filter_val in filters_l
+      if check_filter(filter_val)])
+    valid_sort = [sort_val for sort_val in sort_l if check_sort(sort_val)]
+
+    # filter
+    ret_query = query
+    if len(valid_filters) > 0:
+        ret_query = ret_query.filter(**valid_filters)
+
+    # sort
+    if len(valid_sort) > 0:
+        sort_el = valid_sort[0]
+        if sort_el['value'] == 'asc':
+            sort_str = sort_el['key']
+        else:
+            sort_str = '-' + sort_el['key']
+        ret_query = ret_query.order_by(sort_str)
+
+    return ret_query

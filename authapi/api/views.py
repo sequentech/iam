@@ -26,6 +26,7 @@ from utils import (
     ErrorCodes,
     VALID_FIELDS,
     VALID_PIPELINES,
+    filter_query
 )
 from .decorators import login_required, get_login_user
 from .models import AuthEvent, ACL
@@ -131,6 +132,22 @@ class Census(View):
               Q(user__metadata__icontains=filter_str))
 
             query = query.filter(q)
+
+        # filter, with constraints
+        query = filter_query(
+            filters=request.GET,
+            query=query,
+            constraints=dict(
+                filters=dict(
+                    user__user__id=dict(
+                        lt=int,
+                        gt=int
+                    )
+                ),
+                order_by=['user__user__id']
+            ),
+            prefix='census__',
+            contraints_policy='ignore_invalid')
 
         def serializer(acl):
           return {
