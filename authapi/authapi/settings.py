@@ -137,8 +137,6 @@ EMAIL_BASE_TEMPLATE = "%s\n\n -- Agora Voting https://agoravoting.com"
 SMS_AUTH_CODE_URL = "https://agoravoting.example.com/#/election/%(authid)s/public/login"
 EMAIL_AUTH_CODE_URL = "https://agoravoting.example.com/#/election/%(authid)s/public/login/%(email)s/%(code)s"
 
-SEND_CODES_SMS_MAX = 3
-SEND_CODES_EMAIL_MAX = 3
 SIZE_CODE = 8
 MAX_GLOBAL_STR = 512
 MAX_EXTRA_FIELDS = 15

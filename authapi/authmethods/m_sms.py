@@ -156,9 +156,6 @@ class Sms:
             u = msg_exist.get('user')
             if u.is_active:
                 return self.error("Already registered", error_codename="invalid_credentials")
-            codes = Code.objects.filter(user=u.userdata).count()
-            if codes > settings.SEND_CODES_SMS_MAX:
-                return self.error("Maximun number of codes sent", error_codename="invalid_credentials")
         else:
             u = create_user(req, ae, active)
             msg += give_perms(u, ae)
