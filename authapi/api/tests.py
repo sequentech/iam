@@ -670,7 +670,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.census(self.aeid, test_data.census_email_repeat)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], "Email %s repeat in this census." % test_data.census_email_repeat['census'][0]['email'])
+        self.assertEqual(r['message'], 'Incorrect data')
 
     def test_add_used_census(self):
         c = JClient()
@@ -689,7 +689,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.register(self.aeid, test_data.census_email_default_used['census'][1])
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertTrue(r['message'].count("Already registered"))
+        self.assertEqual(r['message'], 'Incorrect data')
         census = ACL.objects.filter(perm="vote", object_type="AuthEvent",
                 object_id=str(self.aeid))
         self.assertEqual(len(census), 4)
@@ -750,7 +750,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Invalid code.')
+        self.assertEqual(r['message'], 'Incorrect data')
 
     def test_authenticate_authevent_email_fields(self):
         c = JClient()
@@ -915,7 +915,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.census(self.aeid, test_data.census_sms_repeat)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], "Tlf %s repeat." % get_cannonical_tlf(test_data.census_sms_repeat['census'][0]['tlf']))
+        self.assertEqual(r['message'], 'Incorrect data')
 
     def _test_add_used_census(self):
         c = JClient()
@@ -931,7 +931,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.register(self.aeid, test_data.census_sms_default_used['census'][1])
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertTrue(r['message'].count("Already registered"))
+        self.assertEqual(r['message'], 'Incorrect data')
 
         c = JClient()
         c.authenticate(0, test_data.admin)
@@ -1052,13 +1052,13 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertTrue(r['message'].count("Already registered"))
+        self.assertEqual(r['message'], 'Incorrect data')
 
         data['tlf'] = "+34666666667"
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertTrue(r['message'].count("Already registered"))
+        self.assertEqual(r['message'], 'Incorrect data')
 
     def test_authenticate_authevent_sms_default(self):
         c = JClient()
@@ -1074,7 +1074,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Invalid code')
+        self.assertEqual(r['message'], 'Incorrect data')
 
     def test_authenticate_authevent_sms_fields(self):
         c = JClient()

@@ -96,8 +96,7 @@ class Sms:
                 u = create_user(r, ae, used)
                 give_perms(u, ae)
         if msg and validation:
-            data = {'status': 'nok', 'msg': msg}
-            return data
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         if validation:
             for r in req.get('census'):
@@ -111,7 +110,7 @@ class Sms:
 
         msg = check_pipeline(request, ae)
         if msg:
-            return msg
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         # create the user as active? Usually yes, but the execute_pipeline call
         # might modify this
@@ -149,20 +148,18 @@ class Sms:
         msg += check_field_value(self.tlf_definition, tlf)
         msg += check_fields_in_request(req, ae)
         if msg:
-            data = {'status': 'nok', 'msg': msg}
-            return data
+            return self.error("Incorrect data", error_codename="invalid_credentials")
         msg_exist = exist_user(req, ae, get_repeated=True)
         if msg_exist:
             u = msg_exist.get('user')
             if u.is_active:
-                return self.error("Already registered", error_codename="invalid_credentials")
+                return self.error("Incorrect data", error_codename="invalid_credentials")
         else:
             u = create_user(req, ae, active)
             msg += give_perms(u, ae)
 
         if msg:
-            data = {'status': 'nok', 'msg': msg}
-            return data
+            return self.error("Incorrect data", error_codename="invalid_credentials")
         elif not active:
             # Note, we are not calling to extend_send_sms because we are not
             # sending the code in here
@@ -170,7 +167,7 @@ class Sms:
 
         result = plugins.call("extend_send_sms", ae, 1)
         if result:
-            return {'status': 'nok', 'msg': result}
+            return self.error("Incorrect data", error_codename="invalid_credentials")
         send_codes.apply_async(args=[[u.id,]])
         return {'status': 'ok'}
 
@@ -189,27 +186,25 @@ class Sms:
         msg += check_field_value(self.code_definition, req.get('code'), 'authenticate')
         msg += check_fields_in_request(req, ae, 'authenticate')
         if msg:
-            data = {'status': 'nok', 'msg': msg}
-            return data
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         try:
             u = User.objects.get(userdata__tlf=tlf, userdata__event=ae, is_active=True)
         except:
-            return self.error("User not exist", error_codename="invalid_credentials")
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         code = Code.objects.filter(user=u.userdata,
                 code=req.get('code')).order_by('created').first()
         if not code:
-            return self.error("Invalid code", error_codename="invalid_credentials")
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_pipeline(request, ae, 'authenticate')
         if msg:
-            return msg
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_metadata(req, u)
         if msg:
-            data = {'status': 'nok', 'msg': msg}
-            return data
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         u.save()
 
@@ -229,12 +224,12 @@ class Sms:
         msg += check_field_type(self.tlf_definition, tlf, 'authenticate')
         msg += check_field_value(self.tlf_definition, tlf, 'authenticate')
         if msg:
-            return self.error("Invalid credentials", error_codename="invalid_credentials")
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         try:
             u = User.objects.get(userdata__tlf=tlf, userdata__event=ae, is_active=True)
         except:
-            return self.error("Invalid credentials", error_codename="invalid_credentials")
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_pipeline(
           request,
@@ -243,11 +238,11 @@ class Sms:
           Sms.PIPELINES['resend-auth-pipeline'])
 
         if msg:
-            return msg
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         result = plugins.call("extend_send_sms", ae, 1)
         if result:
-            return {'status': 'nok', 'msg': result}
+            return self.error("Incorrect data", error_codename="invalid_credentials")
         send_codes.apply_async(args=[[u.id,]])
         return {'status': 'ok'}
 
