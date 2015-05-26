@@ -36,4 +36,4 @@ def api_call(dni, baseurl='', user='', password=''):
     #resp = client2.service.getHabitanteByDNI(dni)
 
     data = {'custom': True}
-    return False, data
+    return True, data
