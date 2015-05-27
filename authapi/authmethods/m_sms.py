@@ -126,7 +126,7 @@ class Sms:
                 name = 'register-pipeline'
                 if name in field:
                     try:
-                        ret = execute_pipeline(field[name], name, pipedata)
+                        ret = execute_pipeline(field[name], name, pipedata, field['name'])
                     except CheckException as e:
                         return self.error(
                             JSONContractEncoder().encode(e.data['context']),

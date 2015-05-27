@@ -21,7 +21,7 @@ def xml_get_node(dom, tag):
 
 def api_call(baseurl='',
         check_field='empadronado', store_fields=None,
-        query='', args=None):
+        query='', args=None, **kwargs):
 
     if not args:
         args = []

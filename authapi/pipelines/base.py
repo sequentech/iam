@@ -101,7 +101,7 @@ def check_pipeline_conf(pipeline_conf, name, checker_conf=DEFAULT_CHECKER_CONF):
       }
     ], pipeline_conf)
 
-def execute_pipeline(pipeline_conf, name, data):
+def execute_pipeline(pipeline_conf, name, data, field):
     '''
     Executes the pipeline with the given name, starting with the initial data.
 
@@ -114,7 +114,7 @@ def execute_pipeline(pipeline_conf, name, data):
     valid_pipes = Pipe.get_pipes(name)
 
     for pipe_name, pipe_conf in pipeline_conf:
-        ret = valid_pipes[pipe_name].execute(data=data, config=pipe_conf, name=name)
+        ret = valid_pipes[pipe_name].execute(data=data, config=pipe_conf, name=field)
         if ret != PipeReturnvalue.CONTINUE:
             return ret
 
