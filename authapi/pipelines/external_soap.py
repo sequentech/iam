@@ -19,21 +19,22 @@ def xml_get_node(dom, tag):
     return None
 
 
-def api_call(dni, baseurl='', user='', password=''):
-    if not baseurl.endswith('/'):
-        baseurl = baseurl + '/'
-    login = 'TAOWebService?wsdl'
-    queries = 'Poblacion?wsdl'
+def api_call(baseurl='',
+        check_field='empadronado', store_fields=None,
+        query='', args=None):
 
-    #client1 = Client(baseurl + login)
-    #client2 = Client(baseurl + queries)
+    if not args:
+        args = []
 
-    #resp = client1.service.login(user, password)
-    #resp = parseString(resp)
-    #token = xml_text(xml_get_node(resp, "token"))
-    #date = xml_text(xml_get_node(resp, "fechasistema"))
+    client = Client(baseurl)
+    method = getattr(client.service, query)
+    resp = method(*args)
 
-    #resp = client2.service.getHabitanteByDNI(dni)
+    check = getattr(resp, check_field)
 
-    data = {'custom': True}
-    return True, data
+    data = {}
+    if check and store_fields:
+        for k in store_fields:
+            data[k] = str(getattr(resp, k))
+
+    return check, data

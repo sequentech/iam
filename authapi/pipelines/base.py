@@ -40,7 +40,7 @@ class Pipe(object):
         }], config)
 
     @staticmethod
-    def execute(data, config):
+    def execute(data, config, name):
         '''
         Executes the pipe. Should return a PipeReturnValue. "data" is the value
         that one pipe passes to the other, and config is the specific config of
@@ -114,7 +114,7 @@ def execute_pipeline(pipeline_conf, name, data):
     valid_pipes = Pipe.get_pipes(name)
 
     for pipe_name, pipe_conf in pipeline_conf:
-        ret = valid_pipes[pipe_name].execute(data=data, config=pipe_conf)
+        ret = valid_pipes[pipe_name].execute(data=data, config=pipe_conf, name=name)
         if ret != PipeReturnvalue.CONTINUE:
             return ret
 

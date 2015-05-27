@@ -3,6 +3,7 @@ from pipelines import PipeReturnvalue
 from pipelines.base import Pipe
 from authmethods.utils import dni_constraint
 from pipelines import external_soap
+from pipelines import argfuncs
 
 
 class DniChecker(Pipe):
@@ -10,7 +11,7 @@ class DniChecker(Pipe):
     Checks dni
     '''
     @staticmethod
-    def execute(data, config):
+    def execute(data, config, name):
         if not dni_constraint(data['request'].get('dni', '')):
             raise CheckException(
                 key='invalid-dni',
@@ -34,8 +35,10 @@ class ExternalAPICheckAndSave(Pipe):
           "mode": "lugo",
           "mode-config": {
             "baseurl": "http://foo/conecta/services",
-            "user": "foo",
-            "password": "bar"
+            "query":"obterPersoa",
+            "check_field":"empadroado",
+            "store_fields":["nomeCompreto"],
+            "arg_func": "lugo"
           }
         }
         '''
@@ -81,7 +84,8 @@ class ExternalAPICheckAndSave(Pipe):
               'lugo': [
                 {
                   'check': 'dict-keys-exact',
-                  'keys': ['baseurl', 'user', 'password']
+                  'keys': ['baseurl', 'check_field', 'store_fields',
+                           'query', 'arg_func']
                 },
                 {
                   'check': 'index-check-list',
@@ -97,34 +101,6 @@ class ExternalAPICheckAndSave(Pipe):
                     }
                   ]
                 },
-                {
-                  'check': 'index-check-list',
-                  'index': 'user',
-                  'check-list': [
-                    {
-                      'check': 'isinstance',
-                      'type': str
-                    },
-                    {
-                      'check': 'length',
-                      'range': [1, 255]
-                    }
-                  ]
-                },
-                {
-                  'check': 'index-check-list',
-                  'index': 'password',
-                  'check-list': [
-                    {
-                      'check': 'isinstance',
-                      'type': str
-                    },
-                    {
-                      'check': 'length',
-                      'range': [4, 255]
-                    }
-                  ]
-                }
               ]
               # end LUGO
             }
@@ -132,9 +108,11 @@ class ExternalAPICheckAndSave(Pipe):
         ], config)
 
     @staticmethod
-    def get_external_data(data, config):
-        dni = data['request'].get('dni', '')
-        valid, custom_data = external_soap.api_call(dni, **config)
+    def get_external_data(data, config, name):
+        field = data['request'].get(name, '')
+
+        args = getattr(argfuncs, config['arg_func'])(field)
+        valid, custom_data = external_soap.api_call(args=args, **config)
         if not valid:
             data['active'] = False
             # TODO: send message saying that user registration is being checked
@@ -144,10 +122,10 @@ class ExternalAPICheckAndSave(Pipe):
             data['request']['external_data'] = custom_data
 
     @staticmethod
-    def execute(data, config):
+    def execute(data, config, name):
         if config['mode'] == 'lugo':
             mconfig = config['mode-config']
-            ExternalAPICheckAndSave.get_external_data(data, mconfig)
+            ExternalAPICheckAndSave.get_external_data(data, mconfig, name)
 
         return PipeReturnvalue.CONTINUE
 
