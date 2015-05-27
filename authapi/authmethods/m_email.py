@@ -109,7 +109,7 @@ class Email:
                 name = 'register-pipeline'
                 if name in field:
                     try:
-                        ret = execute_pipeline(field[name], name, pipedata, field['name'])
+                        ret = execute_pipeline(field[name], name, pipedata, field['name'], ae)
                     except CheckException as e:
                         return self.error(
                             JSONContractEncoder().encode(e.data['context']),

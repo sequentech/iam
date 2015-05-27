@@ -284,6 +284,27 @@ def send_code(user, config=None):
         send_email(email)
 
 
+def send_msg(data, msg, subject=''):
+    if 'tlf' in data:
+        from authmethods.models import Message
+        auth_method = 'sms'
+        receiver = data['tlf']
+        send_sms_code(receiver, msg)
+        m = Message(tlf=receiver, auth_event_id=0)
+        m.save()
+    elif 'email' in data:
+        from api.models import ACL
+        auth_method = 'email'
+        receiver = data['email']
+        email = EmailMessage(
+            subject,
+            msg,
+            settings.DEFAULT_FROM_EMAIL,
+            [receiver],
+        )
+        send_email(email)
+
+
 @celery.task
 def send_codes(users, config=None):
     ''' Massive send_code with celery task.  '''

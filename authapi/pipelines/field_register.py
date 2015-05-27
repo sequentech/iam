@@ -2,8 +2,10 @@ from contracts import CheckException
 from pipelines import PipeReturnvalue
 from pipelines.base import Pipe
 from authmethods.utils import dni_constraint
+from authmethods.utils import exist_user
 from pipelines import external_soap
 from pipelines import argfuncs
+from utils import send_msg
 
 
 class DniChecker(Pipe):
@@ -11,7 +13,7 @@ class DniChecker(Pipe):
     Checks dni
     '''
     @staticmethod
-    def execute(data, config, name):
+    def execute(data, config, name, ae):
         if not dni_constraint(data['request'].get('dni', '')):
             raise CheckException(
                 key='invalid-dni',
@@ -38,6 +40,8 @@ class ExternalAPICheckAndSave(Pipe):
             "query":"obterPersoa",
             "check_field":"empadroado",
             "store_fields":["nomeCompreto"],
+            "inactive_subject": "",
+            "inactive_msg": "",
             "arg_func": "lugo"
           }
         }
@@ -85,7 +89,8 @@ class ExternalAPICheckAndSave(Pipe):
                 {
                   'check': 'dict-keys-exact',
                   'keys': ['baseurl', 'check_field', 'store_fields',
-                           'query', 'arg_func']
+                           'query', 'arg_func',
+                           'inactive_msg']
                 },
                 {
                   'check': 'index-check-list',
@@ -108,24 +113,27 @@ class ExternalAPICheckAndSave(Pipe):
         ], config)
 
     @staticmethod
-    def get_external_data(data, config, name):
+    def get_external_data(data, config, name, ae):
         field = data['request'].get(name, '')
 
         args = getattr(argfuncs, config['arg_func'])(field)
         valid, custom_data = external_soap.api_call(args=args, **config)
         if not valid:
             data['active'] = False
-            # TODO: send message saying that user registration is being checked
+            if not exist_user(data['request'], ae):
+                msg = config['inactive_msg']
+                subject = config.get('inactive_subject', '')
+                send_msg(data['request'], msg, subject)
 
         else:
             # Adding external data to the user metadata
             data['request']['external_data'] = custom_data
 
     @staticmethod
-    def execute(data, config, name):
+    def execute(data, config, name, ae):
         if config['mode'] == 'lugo':
             mconfig = config['mode-config']
-            ExternalAPICheckAndSave.get_external_data(data, mconfig, name)
+            ExternalAPICheckAndSave.get_external_data(data, mconfig, name, ae)
 
         return PipeReturnvalue.CONTINUE
 

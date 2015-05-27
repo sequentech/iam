@@ -421,12 +421,14 @@ def exist_user(req, ae, get_repeated=False):
             msg += metadata_repeat(req, user, uniques)
             if msg:
                 break
+
     if not msg:
         return ''
+
     if get_repeated:
         return {'msg': msg, 'user': user}
-    else:
-        return msg
+
+    return msg
 
 def get_cannonical_tlf(tlf):
     from authmethods.sms_provider import SMSProvider
