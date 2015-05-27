@@ -92,16 +92,18 @@ class Sms:
                 exist = exist_user(r, ae)
                 if exist and not exist.count('None'):
                     continue
-                used = r.get('status', 'registered') == 'used'
-                u = create_user(r, ae, used)
+                # By default we creates the user as active we don't check
+                # the pipeline
+                u = create_user(r, ae, True)
                 give_perms(u, ae)
         if msg and validation:
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         if validation:
             for r in req.get('census'):
-                used = r.get('status', 'registered') == 'used'
-                u = create_user(r, ae, used)
+                # By default we creates the user as active we don't check
+                # the pipeline
+                u = create_user(r, ae, True)
                 give_perms(u, ae)
         return data
 
