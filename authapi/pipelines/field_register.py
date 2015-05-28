@@ -76,7 +76,7 @@ class ExternalAPICheckAndSave(Pipe):
             'check-list': [
               {
                 'check': 'isinstance',
-                'type': str
+                'type': dict
               }
             ]
           },
