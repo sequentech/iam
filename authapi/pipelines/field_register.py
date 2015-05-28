@@ -6,6 +6,7 @@ from authmethods.utils import exist_user
 from pipelines import external_soap
 from pipelines import argfuncs
 from utils import send_msg
+from contracts.base import check_contract
 
 
 class DniChecker(Pipe):
@@ -79,37 +80,37 @@ class ExternalAPICheckAndSave(Pipe):
               }
             ]
           },
-          {
-            'check': 'switch-contract-by-dict-key',
-            'switch-key': 'mode',
-            'contract-key': 'mode-config',
-            'contracts': {
-              # start LUGO
-              'lugo': [
-                {
-                  'check': 'dict-keys-exact',
-                  'keys': ['baseurl', 'check_field', 'store_fields',
-                           'query', 'arg_func',
-                           'inactive_msg']
-                },
-                {
-                  'check': 'index-check-list',
-                  'index': 'baseurl',
-                  'check-list': [
-                    {
-                      'check': 'isinstance',
-                      'type': str
-                    },
-                    {
-                      'check': 'length',
-                      'range': [1, 512]
-                    }
-                  ]
-                },
-              ]
-              # end LUGO
-            }
-          }
+          #{
+          #  'check': 'switch-contract-by-dict-key',
+          #  'switch-key': 'mode',
+          #  'contract-key': 'mode-config',
+          #  'contracts': {
+          #    # start LUGO
+          #    'lugo': [
+          #      {
+          #        'check': 'dict-keys-exact',
+          #        'keys': ['baseurl', 'check_field', 'store_fields',
+          #                 'query', 'arg_func',
+          #                 'inactive_msg']
+          #      },
+          #      {
+          #        'check': 'index-check-list',
+          #        'index': 'baseurl',
+          #        'check-list': [
+          #          {
+          #            'check': 'isinstance',
+          #            'type': str
+          #          },
+          #          {
+          #            'check': 'length',
+          #            'range': [1, 512]
+          #          }
+          #        ]
+          #      },
+          #    ]
+          #    # end LUGO
+          #  }
+          #}
         ], config)
 
     @staticmethod
