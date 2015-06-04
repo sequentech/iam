@@ -170,7 +170,7 @@ class Sms:
         result = plugins.call("extend_send_sms", ae, 1)
         if result:
             return self.error("Incorrect data", error_codename="invalid_credentials")
-        send_codes.apply_async(args=[[u.id,]])
+        send_codes.apply_async(args=[[u.id,], request])
         return {'status': 'ok'}
 
     def authenticate(self, ae, request):
@@ -245,7 +245,7 @@ class Sms:
         result = plugins.call("extend_send_sms", ae, 1)
         if result:
             return self.error("Incorrect data", error_codename="invalid_credentials")
-        send_codes.apply_async(args=[[u.id,]])
+        send_codes.apply_async(args=[[u.id,], request])
         return {'status': 'ok'}
 
 register_method('sms', Sms)

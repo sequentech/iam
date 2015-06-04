@@ -90,7 +90,7 @@ class CensusActivate(View):
             u.is_active = self.activate
             u.save()
         if self.activate:
-            send_codes.apply_async(args=[[u for u in req.get('user-ids')]])
+            send_codes.apply_async(args=[[u for u in req.get('user-ids')], request])
 
         return json_response()
 census_activate = login_required(CensusActivate.as_view())
@@ -655,7 +655,7 @@ class CensusSendAuth(View):
             if req.get('subject'):
                 config['subject'] = req.get('subject')
         else:
-            msg = census_send_auth_task(pk, None, userids)
+            msg = census_send_auth_task(pk, request, None, userids)
             if msg:
                 data['msg'] = msg
             return json_response(data)
@@ -664,7 +664,7 @@ class CensusSendAuth(View):
             if type(config.get('msg')) != str or len(config.get('msg')) > settings.MAX_AUTH_MSG_SIZE[e.auth_method]:
                 return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
-        msg = census_send_auth_task(pk, config, userids)
+        msg = census_send_auth_task(pk, request, config, userids)
         if msg:
             data['msg'] = msg
         return json_response(data)

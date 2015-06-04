@@ -214,7 +214,7 @@ def send_sms_code(receiver, msg):
     con.send_sms(receiver=receiver, content=msg, is_audio=False)
 
 
-def send_code(user, config=None):
+def send_code(user, ip, config=None):
     '''
     Sends the code for authentication in the related auth event, to the user
     in a message sent via sms or email, depending on the authentication method
@@ -268,7 +268,7 @@ def send_code(user, config=None):
 
     if auth_method == "sms":
         send_sms_code(receiver, msg)
-        m = Message(tlf=receiver, auth_event_id=event_id)
+        m = Message(tlf=receiver, ip=ip, auth_event_id=event_id)
         m.save()
     else: # email
         from api.models import ACL
@@ -305,12 +305,22 @@ def send_msg(data, msg, subject=''):
         send_email(email)
 
 
+def get_client_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
+
 @celery.task
-def send_codes(users, config=None):
+def send_codes(users, request, config=None):
     ''' Massive send_code with celery task.  '''
     user_objs = User.objects.filter(id__in=users)
+    ip = get_client_ip(request)
     for user in user_objs:
-        send_code(user, config)
+        send_code(user, ip, config)
 
 
 # CHECKERS AUTHEVENT

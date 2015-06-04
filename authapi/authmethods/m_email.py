@@ -148,7 +148,7 @@ class Email:
             # sending the code in here
             return {'status': 'ok'}
 
-        send_codes.apply_async(args=[[u.id,]])
+        send_codes.apply_async(args=[[u.id,], request])
         return {'status': 'ok'}
 
     def authenticate_error(self):

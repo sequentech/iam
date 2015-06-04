@@ -10,7 +10,7 @@ from .models import ColorList, Message, Code
 from api.models import ACL
 from captcha.models import Captcha
 from captcha.decorators import valid_captcha
-from utils import json_response
+from utils import json_response, get_client_ip
 
 
 EMAIL_RX = re.compile(
@@ -38,15 +38,6 @@ def random_username():
         return random_username()
     except User.DoesNotExist:
         return username;
-
-
-def get_client_ip(request):
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
-    else:
-        ip = request.META.get('REMOTE_ADDR')
-    return ip
 
 
 def email_constraint(val):
