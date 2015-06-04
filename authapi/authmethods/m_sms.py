@@ -3,7 +3,7 @@ from django.conf import settings
 from django.conf.urls import patterns, url
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
-from utils import genhmac, send_codes
+from utils import genhmac, send_codes, get_client_ip
 
 import plugins
 from . import register_method
@@ -170,7 +170,7 @@ class Sms:
         result = plugins.call("extend_send_sms", ae, 1)
         if result:
             return self.error("Incorrect data", error_codename="invalid_credentials")
-        send_codes.apply_async(args=[[u.id,], request])
+        send_codes.apply_async(args=[[u.id,], get_client_ip(request)])
         return {'status': 'ok'}
 
     def authenticate(self, ae, request):
@@ -245,7 +245,7 @@ class Sms:
         result = plugins.call("extend_send_sms", ae, 1)
         if result:
             return self.error("Incorrect data", error_codename="invalid_credentials")
-        send_codes.apply_async(args=[[u.id,], request])
+        send_codes.apply_async(args=[[u.id,], get_client_ip(request)])
         return {'status': 'ok'}
 
 register_method('sms', Sms)

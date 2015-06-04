@@ -9,7 +9,7 @@ from .models import AuthEvent, ACL
 from utils import send_codes
 
 
-def census_send_auth_task(pk, request, config=None, userids=None):
+def census_send_auth_task(pk, ip, config=None, userids=None):
     """
     Send an auth token to census
     """
@@ -30,4 +30,4 @@ def census_send_auth_task(pk, request, config=None, userids=None):
       msg = plugins.call("extend_send_sms", e, len(census))
       if msg:
           return msg
-    send_codes.apply_async(args=[census, request, config])
+    send_codes.apply_async(args=[census, ip, config])

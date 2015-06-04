@@ -2,7 +2,7 @@ import json
 from django.conf import settings
 from django.conf.urls import patterns, url
 from django.contrib.auth.models import User
-from utils import genhmac, constant_time_compare, send_codes
+from utils import genhmac, constant_time_compare, send_codes, get_client_ip
 
 from . import register_method
 from authmethods.utils import *
@@ -148,7 +148,7 @@ class Email:
             # sending the code in here
             return {'status': 'ok'}
 
-        send_codes.apply_async(args=[[u.id,], request])
+        send_codes.apply_async(args=[[u.id,], get_client_ip(request)])
         return {'status': 'ok'}
 
     def authenticate_error(self):

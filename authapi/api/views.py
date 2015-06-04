@@ -35,7 +35,7 @@ from .models import User, UserData
 from .tasks import census_send_auth_task
 from django.db.models import Q
 from captcha.views import generate_captcha
-from utils import send_codes
+from utils import send_codes, get_client_ip
 
 # import fields checks
 from pipelines.field_register import *
@@ -90,7 +90,7 @@ class CensusActivate(View):
             u.is_active = self.activate
             u.save()
         if self.activate:
-            send_codes.apply_async(args=[[u for u in req.get('user-ids')], request])
+            send_codes.apply_async(args=[[u for u in req.get('user-ids')], get_client_ip(request)])
 
         return json_response()
 census_activate = login_required(CensusActivate.as_view())
@@ -655,7 +655,7 @@ class CensusSendAuth(View):
             if req.get('subject'):
                 config['subject'] = req.get('subject')
         else:
-            msg = census_send_auth_task(pk, request, None, userids)
+            msg = census_send_auth_task(pk, get_client_ip(request), None, userids)
             if msg:
                 data['msg'] = msg
             return json_response(data)
@@ -664,7 +664,7 @@ class CensusSendAuth(View):
             if type(config.get('msg')) != str or len(config.get('msg')) > settings.MAX_AUTH_MSG_SIZE[e.auth_method]:
                 return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
-        msg = census_send_auth_task(pk, request, config, userids)
+        msg = census_send_auth_task(pk, get_client_ip(request), config, userids)
         if msg:
             data['msg'] = msg
         return json_response(data)
