@@ -196,7 +196,7 @@ class Sms:
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         code = Code.objects.filter(user=u.userdata,
-                code=req.get('code')).order_by('created').first()
+                code=req.get('code').upper()).order_by('-created').first()
         if not code:
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
