@@ -49,7 +49,7 @@ class TestFixtureSaas(TestCase):
         acl = ACL(user=u.userdata, object_type='AuthEvent', perm='create', object_id=0)
         acl.save()
 
-        code = Code(user=u.userdata, code='abcdef', auth_event_id=self.ae.pk)
+        code = Code(user=u.userdata, code='ABCDEF', auth_event_id=self.ae.pk)
         code.save()
 
         auth = {

@@ -291,7 +291,7 @@ sms_fields_incorrect_len2 = {"name": 100*"n"}
 # Authenticate
 auth_email_default = {
         "email": "aaaa@aaa.com",
-        "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        "code": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 }
 
 auth_email_fields = {
