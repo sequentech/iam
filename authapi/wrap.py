@@ -1,4 +1,3 @@
-# put this in /home/authapi/authapi/wrap.py
 from time import time
 from logging import getLogger
 
@@ -13,6 +12,9 @@ class LoggingMiddleware(object):
         return None
 
     def process_response(self, request, response):
+        if response.status_code == 200:
+            return response
+
         self.logger.info(
             '[%s] %s %s (%.1fs)\n\trequest=%s\n\tresponse=%s',
             response.status_code,
