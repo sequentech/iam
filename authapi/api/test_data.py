@@ -16,7 +16,7 @@ auth_event1 = {
             "help": "put the name that appear in your dni",
             "type": "text",
             "required": True,
-            "max": 2,
+            "min": 2,
             "max": 64,
             "required_on_authentication": True
             },
@@ -33,7 +33,7 @@ auth_event1 = {
             "help": "put the dni without dash",
             "type": "dni",
             "required": True,
-            "max": 9,
+            "min": 9,
             "max": 9,
             "required_on_authentication": True
             }
@@ -76,7 +76,7 @@ auth_event2 = {
             "help": "put the dni without dash",
             "type": "dni",
             "required": True,
-            "max": 9,
+            "min": 9,
             "max": 9,
             "required_on_authentication": True
             }
@@ -106,7 +106,7 @@ auth_event5 = {
             "name": "name",
             "type": "text",
             "required": True,
-            "max": 2,
+            "min": 2,
             "max": 64,
             "required_on_authentication": True
             },
@@ -127,7 +127,7 @@ auth_event6 = {
             "help": "put the dni without dash",
             "type": "dni",
             "required": True,
-            "max": 9,
+            "min": 9,
             "max": 9,
             "required_on_authentication": True,
             "register-pipeline": [
@@ -478,7 +478,7 @@ ae_sms_fields = {
             "help": "put the name that appear in your dni",
             "type": "text",
             "required": True,
-            "max": 2,
+            "min": 2,
             "max": 64,
             "required_on_authentication": True
             }
