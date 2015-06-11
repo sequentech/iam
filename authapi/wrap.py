@@ -4,8 +4,7 @@ from logging import getLogger
 
 class LoggingMiddleware(object):
     def __init__(self):
-        # arguably poor taste to use django's logger
-        self.logger = getLogger('django.request')
+        self.logger = getLogger('authapi.request')
         self.timer = 0
 
     def process_request(self, request):
