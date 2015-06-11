@@ -386,6 +386,7 @@ class ApiTestCase(TestCase):
         response = c.post('/api/user/', data)
         self.assertEqual(response.status_code, 200)
 
+    @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_reset_password(self):
         acl = ACL(user=self.testuser.userdata, object_type='UserData', perm='edit', object_id=self.userid)
         acl.save()
@@ -437,6 +438,7 @@ class TestAuthEvent(TestCase):
         acl.save()
         self.aeid_special = 1
 
+    @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_register_authevent_special(self):
         data = {"email": "asd@asd.com", "captcha": "asdasd"}
         c = JClient()

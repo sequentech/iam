@@ -50,6 +50,7 @@ INSTALLED_APPS = (
     #3rd party
     'corsheaders',
     'djcelery',
+    'django_nose',
 )
 
 PLUGINS = (
@@ -73,6 +74,7 @@ MIDDLEWARE_CLASSES = (
 # change the test runner to the one provided by celery so that the tests that
 # make use of celery work when ./manage.py test is executed
 TEST_RUNNER = 'djcelery.contrib.test_runner.CeleryTestSuiteRunner'
+TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
 
 ROOT_URLCONF = 'authapi.urls'
 
