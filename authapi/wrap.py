@@ -6,9 +6,10 @@ class LoggingMiddleware(object):
     def __init__(self):
         # arguably poor taste to use django's logger
         self.logger = getLogger('django.request')
+        self.timer = 0
 
     def process_request(self, request):
-        request.timer = time()
+        self.timer = time()
         return None
 
     def process_response(self, request, response):
@@ -20,7 +21,7 @@ class LoggingMiddleware(object):
             response.status_code,
             request.method,
             request.get_full_path(),
-            time() - request.timer,
+            time() - self.timer,
             request.body,
             response.content
         )
