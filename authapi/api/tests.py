@@ -200,6 +200,7 @@ class ApiTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['id'], 3)
 
+    @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_create_event_open(self):
         c = JClient()
         c.authenticate(self.aeid, test_data.pwd_auth)
@@ -696,11 +697,13 @@ class TestRegisterAndAuthenticateEmail(TestCase):
                 object_id=str(self.aeid))
         self.assertEqual(len(census), 4)
 
+    @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_add_register_authevent_email_default(self):
         c = JClient()
         response = c.register(self.aeid, test_data.register_email_default)
         self.assertEqual(response.status_code, 200)
 
+    @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_add_register_authevent_email_fields(self):
         c = JClient()
         response = c.register(self.aeid, test_data.register_email_fields)
@@ -942,11 +945,13 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Code.objects.count(), codes)
 
+    @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_add_register_authevent_sms_default(self):
         c = JClient()
         response = c.register(self.aeid, test_data.register_sms_default)
         self.assertEqual(response.status_code, 200)
 
+    @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_add_register_authevent_sms_fields(self):
         c = JClient()
         self.ae.extra_fields = test_data.ae_sms_fields['extra_fields']
@@ -956,6 +961,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.register(self.aeid, test_data.register_sms_fields)
         self.assertEqual(response.status_code, 200)
 
+    @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_register_and_resend_code(self):
         c = JClient()
         response = c.register(self.aeid, test_data.register_sms_default)
@@ -1040,6 +1046,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertTrue(r['message'].count("Maximun number of codes sent"))
         self.assertEqual(Code.objects.count() - ini_codes, settings.SEND_CODES_SMS_MAX)
 
+    @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_add_register_authevent_sms_same_cannonical_number(self):
         data = {
             "tlf": "666666667",

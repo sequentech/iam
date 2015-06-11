@@ -293,6 +293,7 @@ class ExtraFieldPipelineTestCase(TestCase):
         acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit', object_id=ae.pk)
         acl.save()
 
+    @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_method_extra_field_pipeline(self):
         c = JClient()
         data = {'email': 'test@test.com', 'user': 'test',
