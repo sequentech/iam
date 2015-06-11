@@ -7,7 +7,7 @@ import json
 import time
 from api import test_data
 from api.tests import JClient
-from api.models import AuthEvent, ACL
+from api.models import AuthEvent, ACL, UserData
 from .m_email import Email
 from .m_sms import Sms
 from .models import Message, Code, Connection
@@ -182,14 +182,14 @@ class AuthMethodSmsTestCase(TestCase):
         response = self.c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'].find('Invalid dni'), -1)
+        self.assertEqual(r['message'].find('Invalid dni'), -1)
 
     def test_method_sms_register_invalid_dni(self):
-        data = {'tlf': '+34666666666', 'code': 'AAAAAAAA', 'dni': '999', 'email': 'test@test.com'}
+        data = {'tlf': '+34666666667', 'code': 'AAAAAAAA', 'dni': '999', 'email': 'test2@test.com'}
         response = self.c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertNotEqual(r['msg'].find('dni regex incorrect'), -1)
+        self.assertEqual(r['message'], 'Incorrect data')
 
     def test_method_sms_register_valid_email(self):
         data = {'tlf': '+34666666666', 'code': 'AAAAAAAA',
@@ -197,14 +197,14 @@ class AuthMethodSmsTestCase(TestCase):
         response = self.c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'].find('Invalid email'), -1)
+        self.assertEqual(r['message'].find('Invalid email'), -1)
 
     def test_method_sms_register_invalid_email(self):
         data = {'tlf': '+34666666667', 'code': 'AAAAAAAA', 'email': 'test@@', 'dni': '11111111H'}
         response = self.c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertNotEqual(r['msg'].find('email regex incorrect'), -1)
+        self.assertEqual(r['message'], 'Incorrect data')
 
     def test_method_sms_valid_code(self):
         data = {'tlf': '+34666666666', 'code': 'AAAAAAAA', 'dni': '11111111H', 'email': 'test@test.com'}
@@ -222,14 +222,14 @@ class AuthMethodSmsTestCase(TestCase):
         response = self.c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Invalid code.')
+        self.assertEqual(r['message'], 'Incorrect data')
 
     def test_method_sms_invalid_code(self):
         data = {'tlf': '+34666666666', 'code': 'BBBBBBBB', 'dni': '11111111H', 'email': 'test@test.com'}
         response = self.c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['msg'], 'Invalid code.')
+        self.assertEqual(r['message'], 'Incorrect data')
 
     def test_method_sms_get_perm(self): # Fix
         auth = { 'tlf': '+34666666666', 'code': 'AAAAAAAA',
@@ -269,3 +269,75 @@ class AuthMethodSmsTestCase(TestCase):
         }
         response = self.c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
+
+
+class ExtraFieldPipelineTestCase(TestCase):
+    fixtures = ['initial.json']
+    def setUp(self):
+        auth_method_config = {
+                "config": Email.CONFIG,
+                "pipeline": Email.PIPELINES
+        }
+        ae = AuthEvent(auth_method=test_data.auth_event6['auth_method'],
+                auth_method_config=auth_method_config,
+                extra_fields=test_data.auth_event6['extra_fields'],
+                status='started', census=test_data.auth_event6['census'])
+        ae.save()
+        self.aeid = ae.pk
+
+        # Create admin user for authevent6
+        u = User(username='admin6', email='admin6@agoravoting.com')
+        u.save()
+        u.userdata.event = ae
+        u.userdata.save()
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit', object_id=ae.pk)
+        acl.save()
+
+    @override_settings(CELERY_ALWAYS_EAGER=True)
+    def test_method_extra_field_pipeline(self):
+        c = JClient()
+        data = {'email': 'test@test.com', 'user': 'test',
+                'dni': '39873625C'}
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+        user = UserData.objects.get(user__email=data['email'])
+        self.assertEqual(json.loads(user.metadata).get('dni'), '39873625C')
+
+        data = {'email': 'test1@test.com', 'user': 'test',
+                'dni': '39873625c'}
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json.loads(user.metadata).get('dni'), '39873625C')
+
+        data = {'email': 'test2@test.com', 'user': 'test',
+                'dni': '39873625X'}
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+
+
+class ExternalCheckPipelineTestCase(TestCase):
+    fixtures = ['initial.json']
+    def setUp(self):
+        auth_method_config = {
+                "config": Email.CONFIG,
+                "pipeline": Email.PIPELINES
+        }
+        ae = AuthEvent(auth_method=test_data.auth_event7['auth_method'],
+                auth_method_config=auth_method_config,
+                extra_fields=test_data.auth_event7['extra_fields'],
+                status='started', census=test_data.auth_event7['census'])
+        ae.save()
+        self.aeid = ae.pk
+
+    def _test_method_external_pipeline(self):
+        # TODO: Fixed external api for validate dni, else is_active will be False
+        c = JClient()
+        data = {'email': 'test@test.com', 'user': 'test',
+                'dni': '39873625C'}
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        u = User.objects.get(email='test@test.com')
+        self.assertEqual(u.is_active, True)
+        mdata = json.loads(u.userdata.metadata)
+        self.assertEqual(mdata['external_data']['custom'], True)

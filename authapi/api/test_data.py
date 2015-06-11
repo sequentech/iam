@@ -1,3 +1,4 @@
+import copy
 from django.conf import settings
 
 
@@ -15,7 +16,7 @@ auth_event1 = {
             "help": "put the name that appear in your dni",
             "type": "text",
             "required": True,
-            "max": 2,
+            "min": 2,
             "max": 64,
             "required_on_authentication": True
             },
@@ -30,9 +31,9 @@ auth_event1 = {
             {
             "name": "dni",
             "help": "put the dni without dash",
-            "type": "text",
+            "type": "dni",
             "required": True,
-            "max": 9,
+            "min": 9,
             "max": 9,
             "required_on_authentication": True
             }
@@ -73,9 +74,9 @@ auth_event2 = {
             {
             "name": "dni",
             "help": "put the dni without dash",
-            "type": "text",
+            "type": "dni",
             "required": True,
-            "max": 9,
+            "min": 9,
             "max": 9,
             "required_on_authentication": True
             }
@@ -105,12 +106,47 @@ auth_event5 = {
             "name": "name",
             "type": "text",
             "required": True,
-            "max": 2,
+            "min": 2,
             "max": 64,
             "required_on_authentication": True
             },
     ]
 }
+
+# extra-fields pipeline
+auth_event6 = {
+    "auth_method": "email",
+    "census": "open",
+    "config": {
+        "subject": "Confirm your email",
+        "msg": "Click %(url)s and put this code %(code)s"
+    },
+    "extra_fields": [
+            {
+            "name": "dni",
+            "help": "put the dni without dash",
+            "type": "dni",
+            "required": True,
+            "min": 9,
+            "max": 9,
+            "required_on_authentication": True,
+            "register-pipeline": [
+                ["DniChecker", {}]
+            ]
+            }
+    ]
+}
+auth_event7 = copy.deepcopy(auth_event6)
+auth_event7['extra_fields'][0]['register-pipeline'] = [
+                ["ExternalAPICheckAndSave", {
+                    "mode": "lugo",
+                    "mode-config": {
+                        "baseurl": "http://foo/conecta/services",
+                        "user": "foo",
+                        "password": "bar"
+                    }
+                }]
+            ]
 
 # Users
 admin = {'username': 'john', 'password': 'smith'}
@@ -255,7 +291,7 @@ sms_fields_incorrect_len2 = {"name": 100*"n"}
 # Authenticate
 auth_email_default = {
         "email": "aaaa@aaa.com",
-        "code": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        "code": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 }
 
 auth_email_fields = {
@@ -442,7 +478,7 @@ ae_sms_fields = {
             "help": "put the name that appear in your dni",
             "type": "text",
             "required": True,
-            "max": 2,
+            "min": 2,
             "max": 64,
             "required_on_authentication": True
             }
@@ -470,7 +506,7 @@ ae_sms_fields_incorrect = {
 extra_field_unique = [
         {
             "name": "dni",
-            "type": "text",
+            "type": "dni",
             "required": True,
             "unique": True,
             "required_on_authentication": True

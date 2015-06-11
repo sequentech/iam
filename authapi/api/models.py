@@ -22,36 +22,70 @@ AE_STATUSES = (
     ('stopped', 'stopped'),
 )
 
+
 class AuthEvent(models.Model):
+    '''
+    An Auth Event is an object used for authentication and authorization. It's
+    an abstract interface that anyone should be able to use, although the main
+    use case is that each AuthEvent corresponds with an Election, in principle
+    it could be used for any kind of authentication and authorization event.
+    '''
+
     auth_method = models.CharField(max_length=255)
     census = models.CharField(max_length=5, choices=CENSUS, default="close")
     auth_method_config = JSONField()
     extra_fields = JSONField(blank=True, null=True)
     status = models.CharField(max_length=15, choices=AE_STATUSES, default="notstarted")
+    created = models.DateTimeField(auto_now_add=True)
 
-    def serialize(self):
-        d = self.serialize_restrict()
-
-        # auth sends by authmethod
+    def serialize(self, restrict=False):
+        '''
+        Used to serialize data when the user has priviledges to see all the data
+        (for example, admins). This includes auth method config, stats, and
+        access to private extra_fields.
+        '''
+        # auth codes sent by authmethod
         from authmethods.models import Code
-        codes = Code.objects.filter(auth_event_id=self.id).count()
 
-        d.update({
-            'auth_method_config': self.auth_method_config,
-            'auth_method_stats': {self.auth_method: codes}
-        })
-
-        return d
-
-    def serialize_restrict(self):
         d = {
             'id': self.id,
             'auth_method': self.auth_method,
             'census': self.census,
-            'extra_fields': self.extra_fields,
             'users': self.userdata.count(),
+            'created': (self.created.isoformat()
+                        if hasattr(self.created, 'isoformat')
+                        else self.created)
         }
+
+        def none_list(e):
+          if e is None:
+              return []
+          return e
+
+        if restrict:
+            d.update({
+                'extra_fields': [
+                    f for f in none_list(self.extra_fields)
+                        if not f.get('private', False)
+                ]
+            })
+        else:
+            d.update({
+                'extra_fields': self.extra_fields,
+                'auth_method_config': self.auth_method_config,
+                'auth_method_stats': {
+                    self.auth_method: Code.objects.filter(auth_event_id=self.id).count()
+                }
+            })
+
         return d
+
+    def serialize_restrict(self):
+        '''
+        Used to serialize public data that anyone should be able to see about an
+        AuthEvent.
+        '''
+        return self.serialize(restrict=True)
 
     def __str__(self):
         return "%s - %s" % (self.id, self.census)
@@ -63,7 +97,16 @@ STATUSES = (
     ('dis', 'Disabled'),
 )
 
+
 class UserData(models.Model):
+    '''
+    This is a class attached one to one to a user, that stores extra user
+    information.  We store some user authentication and status information
+    like telephone number (in case authentication works via telephone), and
+    metadat, in this model.
+
+    In authapi each user is created in relation with a specific authevent.
+    '''
     user = models.OneToOneField(User, related_name="userdata")
     event = models.ForeignKey(AuthEvent, related_name="userdata", null=True)
     tlf = models.CharField(max_length=20, blank=True, null=True)
@@ -84,6 +127,7 @@ class UserData(models.Model):
     def serialize(self):
         d = {
             'username': self.user.username,
+            'active': self.user.is_active,
         }
         if self.user.email:
             d['email'] = self.user.email
@@ -108,6 +152,15 @@ def create_user_data(sender, instance, created, *args, **kwargs):
 
 
 class ACL(models.Model):
+    '''
+    The permission model is based in Access Control Lists, and this data model
+    stores these lists in the database. A permission specifies things like:
+    "user <foo> has permission <permission> over object_id <1> of object_type <bar>".
+
+    This allows for a very flexible permission system. The idea is that these
+    permissions can be used outside authapi through HMAC tokens that contain
+    authenticated permission information.
+    '''
     user = models.ForeignKey(UserData, related_name="acls")
     perm = models.CharField(max_length=255)
     object_type = models.CharField(max_length=255, blank=True, null=True)

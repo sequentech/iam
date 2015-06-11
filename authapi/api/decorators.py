@@ -2,7 +2,7 @@ from django.contrib.auth.models import User
 from django.http import HttpResponseForbidden
 import json
 import functools
-from utils import verifyhmac, AuthToken
+from utils import verifyhmac, HMACToken
 from django.conf import settings
 
 
@@ -14,20 +14,23 @@ def get_login_user(request):
             key = request.META.get('HTTP_HTTP_AUTH', None)
 
     if not key:
-        return None
-
-    v = verifyhmac(settings.SHARED_SECRET, key, settings.TIMEOUT)
-
-    if not v:
-        return None
+        return None, dict(error_codename="empty_hmac")
 
     try:
-        at = AuthToken(key)
-        user = User.objects.get(username=at.userid)
-    except:
-        return None
+      at = HMACToken(key)
+      if not at.check_expiration(settings.TIMEOUT):
+          return None, dict(error_codename="expired_hmac_key")
 
-    return user
+      v = verifyhmac(settings.SHARED_SECRET, key, settings.TIMEOUT, at=at)
+
+      if not v:
+          return None, dict(error_codename="invalid_hmac")
+
+      user = User.objects.get(username=at.get_userid())
+    except:
+        return None, dict(error_codename="invalid_hmac_userid")
+
+    return user, None
 
 
 class login_required(object):
@@ -37,9 +40,9 @@ class login_required(object):
         functools.wraps(self.func)(self)
 
     def __call__(self, request, *args, **kwargs):
-        user = get_login_user(request)
+        user, error = get_login_user(request)
         if not user:
-            return HttpResponseForbidden('Invalid auth token')
+            return HttpResponseForbidden(json.dumps(error))
 
         request.user = user
 

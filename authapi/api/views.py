@@ -1,7 +1,7 @@
 import json
+from datetime import datetime
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.http import HttpResponse, HttpResponseBadRequest
 from django.views.generic import View
 from django.shortcuts import get_object_or_404
 
@@ -10,6 +10,7 @@ from authmethods import (
     auth_authenticate,
     auth_census,
     auth_register,
+    auth_resend_auth_code,
     check_config,
     METHODS,
 )
@@ -18,12 +19,15 @@ from utils import (
     check_extra_fields,
     check_pipeline,
     genhmac,
+    json_response,
     paginate,
     permission_required,
     random_code,
     send_mail,
+    ErrorCodes,
     VALID_FIELDS,
     VALID_PIPELINES,
+    filter_query
 )
 from .decorators import login_required, get_login_user
 from .models import AuthEvent, ACL
@@ -31,6 +35,10 @@ from .models import User, UserData
 from .tasks import census_send_auth_task
 from django.db.models import Q
 from captcha.views import generate_captcha
+from utils import send_codes, get_client_ip
+
+# import fields checks
+from pipelines.field_register import *
 
 
 class Test(View):
@@ -40,68 +48,133 @@ class Test(View):
         req = request.GET
         data = {'status': 'ok', 'method': 'GET'}
         data['get'] = req
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, content_type='application/json')
+        return json_response(data)
 
     def post(self, request):
         try:
             req = json.loads(request.body.decode('utf-8'))
         except:
-            bad_request = json.dumps({"error": "bad_request"})
-            return HttpResponseBadRequest(bad_request, content_type='application/json')
+            return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
         data = {'status': 'ok', 'method': 'POST'}
         data['post'] = req
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, content_type='application/json')
+        return json_response(data)
 test = Test.as_view()
+
 
 class CensusDelete(View):
     ''' Delete census in the auth-event '''
     def post(self, request, pk):
+        permission_required(request.user, 'AuthEvent', 'edit', pk)
         ae = get_object_or_404(AuthEvent, pk=pk)
         req = json.loads(request.body.decode('utf-8'))
         for uid in req.get('user-ids'):
-          u = get_object_or_404(User, pk=uid, userdata__event=ae)
-          for acl in u.userdata.acls.all():
-              acl.delete()
-          u.delete()
-        return HttpResponse("ok", status=200, content_type='application/json')
+            u = get_object_or_404(User, pk=uid, userdata__event=ae)
+            for acl in u.userdata.acls.all():
+                acl.delete()
+            u.delete()
+        return json_response()
 census_delete = login_required(CensusDelete.as_view())
+
+
+class CensusActivate(View):
+    ''' Activates an user in the auth-event census '''
+
+    activate = True
+
+    def post(self, request, pk):
+        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        ae = get_object_or_404(AuthEvent, pk=pk)
+        req = json.loads(request.body.decode('utf-8'))
+        for uid in req.get('user-ids'):
+            u = get_object_or_404(User, pk=uid, userdata__event=ae)
+            u.is_active = self.activate
+            u.save()
+        if self.activate:
+            send_codes.apply_async(args=[[u for u in req.get('user-ids')], get_client_ip(request)])
+
+        return json_response()
+census_activate = login_required(CensusActivate.as_view())
+
+
+class CensusDeactivate(CensusActivate):
+    ''' Deactivates an user in the auth-event census '''
+    activate = False
+census_deactivate = login_required(CensusDeactivate.as_view())
+
 
 class Census(View):
     ''' Add census in the auth-event '''
 
     def post(self, request, pk):
+        permission_required(request.user, 'AuthEvent', 'edit', pk)
         e = get_object_or_404(AuthEvent, pk=pk)
         try:
             data = auth_census(e, request)
         except:
             bad_request = json.dumps({"error": "bad_request"})
-            return HttpResponseBadRequest(bad_request, content_type='application/json')
-        status = 200 if data['status'] == 'ok' else 400
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, status=status, content_type='application/json')
+            return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
+        if data['status'] == 'ok':
+            return json_response(data)
+        else:
+            return json_response(status=400, message=data.get('msg'),
+                    error_codename=data.get('error_codename'))
 
     def get(self, request, pk):
         permission_required(request.user, 'AuthEvent', 'edit', pk)
         e = get_object_or_404(AuthEvent, pk=pk)
-        acls = ACL.objects.filter(object_type='AuthEvent', perm='vote', object_id=pk)
-        userids = []
-        object_list = []
-        users = {}
-        data = {}
-        for acl in acls:
-            userids.append(acl.user.pk)
-            users[acl.user.user.username] = acl.user.user.email
-            metadata = acl.user.serialize_data()
-            data[acl.user.user.username] = metadata
-            object_list.append({
-              "id": acl.user.pk,
-              "username": acl.user.user.username,
-              "metadata": metadata
-            })
-        jsondata = json.dumps({'userids': userids, 'users': users, 'data': data, 'object_list': object_list})
-        return HttpResponse(jsondata, content_type='application/json')
+
+        filter_str = request.GET.get('filter', None)
+        query = ACL.objects.filter(object_type='AuthEvent', perm='vote', object_id=pk)
+
+        if filter_str is not None:
+            q = (Q(user__user__username__icontains=filter_str) |
+              Q(user__user__email__icontains=filter_str) |
+              Q(user__tlf__icontains=filter_str) |
+              Q(user__metadata__icontains=filter_str))
+
+            query = query.filter(q)
+
+        # filter, with constraints
+        query = filter_query(
+            filters=request.GET,
+            query=query,
+            constraints=dict(
+                filters=dict(
+                    user__user__id=dict(
+                        lt=int,
+                        gt=int,
+                    ),
+                    user__user__is_active=dict(
+                        equals=bool
+                    ),
+                    user__user__date_joined=dict(
+                        lt=datetime,
+                        gt=datetime
+                    )
+                ),
+                order_by=[
+                    'user__user__id',
+                    'user__user__is_active',
+                    'user__user__date_joined']
+            ),
+            prefix='census__',
+            contraints_policy='ignore_invalid')
+
+        def serializer(acl):
+          return {
+            "id": acl.user.user.pk,
+            "username": acl.user.user.username,
+            "active": acl.user.user.is_active,
+            "date_joined": acl.user.user.date_joined.isoformat(),
+            "metadata": acl.user.serialize_data()
+          }
+
+        acls = paginate(
+          request,
+          query,
+          serialize_method=serializer,
+          elements_name='object_list')
+        return json_response(acls)
 census = login_required(Census.as_view())
 
 
@@ -114,17 +187,20 @@ class Authenticate(View):
         else:
             e = get_object_or_404(AuthEvent, pk=pk)
 
-        extend_auth = plugins.call("extend_auth", e)
-        if extend_auth:
-            return extend_auth
+        if not hasattr(request.user, 'account'):
+            extend_auth = plugins.call("extend_auth", e)
+            if extend_auth:
+                return extend_auth[0]
         try:
             data = auth_authenticate(e, request)
         except:
-            return HttpResponseBadRequest("", content_type='application/json')
+            return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
-        status = 200 if data['status'] == 'ok' else 400
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, status=status, content_type='application/json')
+        if data and 'status' in data and data['status'] == 'ok':
+            return json_response(data)
+        else:
+            return json_response(status=400, message=data.get('msg'),
+                    error_codename=data.get('error_codename'))
 authenticate = Authenticate.as_view()
 
 
@@ -134,15 +210,20 @@ class Ping(View):
     '''
 
     def get(self, request, pk):
-        u = get_login_user(request)
-        data = {'status': 'ok', 'logged': False}
+        u, error = get_login_user(request)
+        status = None
+        data = {}
 
-        if u:
-            data['logged'] = True
-            data['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
-        status = 200 if data['status'] == 'ok' else 400
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, status=status, content_type='application/json')
+        if u and error is None:
+            data = {
+              'auth-token': genhmac(settings.SHARED_SECRET, u.username)
+            }
+            status = 200
+        else:
+            data = error
+            status = 403
+
+        return json_response(data, status=status)
 ping = Ping.as_view()
 
 
@@ -152,21 +233,38 @@ class Register(View):
     def post(self, request, pk):
         e = get_object_or_404(AuthEvent, pk=pk)
         if (e.census == 'close'):
-            jsondata = json.dumps({
-                "msg": "Register disable: the auth-event is close"
-            })
-            return HttpResponse(jsondata, status=400, content_type='application/json')
+            return json_response(status=400, message="Register disable: the auth-event is close")
         if e.census == 'open' and e.status != 'started': # register is closing
-            jsondata = json.dumps({
-                "msg": "Register disable: the auth-event doesn't started"
-            })
-            return HttpResponse(jsondata, status=400, content_type='application/json')
+            return json_response(status=400, message="Register disable: the auth-event doesn't started")
 
         data = auth_register(e, request)
-        status = 200 if data['status'] == 'ok' else 400
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, status=status, content_type='application/json')
+        if data['status'] == 'ok':
+            return json_response(data)
+        else:
+            return json_response(status=400, message=data.get('msg'),
+                    error_codename=data.get('error_codename'))
 register = Register.as_view()
+
+
+class ResendAuthCode(View):
+    ''' Register into the authapi '''
+
+    def post(self, request, pk):
+        e = get_object_or_404(AuthEvent, pk=pk)
+        if (e.census == 'close'):
+            return json_response(status=400, error_codename="auth_event_closed",
+            message="the auth-event is closed")
+        if e.census == 'open' and e.status != 'started': # register is closing
+            return json_response(status=400, error_codename="auth_event_closed",
+            message="the auth-event has not started")
+
+        data = auth_resend_auth_code(e, request)
+        if data['status'] == 'ok':
+            return json_response(data)
+        else:
+            return json_response(status=400, message=data.get('msg'),
+                    error_codename=data.get('error_codename'))
+resend_auth_code = ResendAuthCode.as_view()
 
 
 class AuthEventStatus(View):
@@ -181,8 +279,7 @@ class AuthEventStatus(View):
             st = 200
         else:
             st = 400
-        jsondata = json.dumps({'msg': 'Authevent status:  %s' % status})
-        return HttpResponse(jsondata, status=st, content_type='application/json')
+        return json_response(status=st, message='Authevent status:  %s' % status)
 ae_status = login_required(AuthEventStatus.as_view())
 
 
@@ -195,12 +292,10 @@ class GetPerms(View):
         try:
             req = json.loads(request.body.decode('utf-8'))
         except:
-            bad_request = json.dumps({"error": "bad_request"})
-            return HttpResponseBadRequest(bad_request, content_type='application/json')
+            return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
         if 'permission' not in req or 'object_type' not in req:
-            jsondata = json.dumps(data)
-            return HttpResponse(jsondata, status=400, content_type='application/json')
+            return json_response(status=400, message="")
 
         object_type = req['object_type']
         perm = req['permission']
@@ -208,14 +303,12 @@ class GetPerms(View):
 
         if not request.user.is_superuser and\
                 not request.user.userdata.has_perms(object_type, perm, obj_id):
-            jsondata = json.dumps(data)
-            return HttpResponse(jsondata, status=400, content_type='application/json')
+            return json_response(status=400, message="")
 
         msg = ':'.join((request.user.username, object_type, str(obj_id), perm))
 
         data['permission-token'] = genhmac(settings.SHARED_SECRET, msg)
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, content_type='application/json')
+        return json_response(data)
 getperms = login_required(GetPerms.as_view())
 
 
@@ -228,8 +321,7 @@ class ACLView(View):
         for acl in u.userdata.get_perms(object_type, perm, object_id):
             acl.delete()
         data = {'status': 'ok'}
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, content_type='application/json')
+        return json_response(data)
 
     def get(self, request, username, object_type, perm, object_id=0):
         permission_required(request.user, 'ACL', 'view')
@@ -239,8 +331,7 @@ class ACLView(View):
             data['perm'] = True
         else:
             data['perm'] = False
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, content_type='application/json')
+        return json_response(data)
 
     def post(self, request):
         permission_required(request.user, 'ACL', 'create')
@@ -250,15 +341,14 @@ class ACLView(View):
             req = json.loads(request.body.decode('utf-8'))
         except:
             bad_request = json.dumps({"error": "bad_request"})
-            return HttpResponseBadRequest(bad_request, content_type='application/json')
+            return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
         u = User.objects.get(pk=req['userid'])
         for perm in req['perms']:
             user = get_object_or_404(UserData, user__username=perm['user'])
             acl = ACL(user=user, perm=perm['perm'], object_type=perm['object_type'],
                     object_id=perm.get('object_id', 0))
             acl.save()
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, content_type='application/json')
+        return json_response(data)
 acl = login_required(ACLView.as_view())
 
 
@@ -285,9 +375,7 @@ class ACLMine(View):
                        serialize_method='serialize',
                        elements_name='perms')
         data.update(acls)
-
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, content_type='application/json')
+        return json_response(data)
 aclmine = login_required(ACLMine.as_view())
 
 
@@ -302,8 +390,7 @@ class AuthEventView(View):
         try:
             req = json.loads(request.body.decode('utf-8'))
         except:
-            bad_request = json.dumps({"error": "bad_request"})
-            return HttpResponseBadRequest(bad_request, content_type='application/json')
+            return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
         if pk is None: # create
             permission_required(request.user, 'AuthEvent', 'create')
@@ -311,9 +398,7 @@ class AuthEventView(View):
             auth_method = req.get('auth_method', '')
             msg = check_authmethod(auth_method)
             if msg:
-                data = {'msg': msg}
-                jsondata = json.dumps(data)
-                return HttpResponse(jsondata, status=400, content_type='application/json')
+                return json_response(status=400, message=msg)
 
             auth_method_config = {
                     "config": METHODS.get(auth_method).CONFIG,
@@ -332,9 +417,7 @@ class AuthEventView(View):
                 msg += "Invalid type of census\n"
 
             if msg:
-                data = {'msg': msg}
-                jsondata = json.dumps(data)
-                return HttpResponse(jsondata, status=400, content_type='application/json')
+                return json_response(status=400, message=msg)
 
             if config:
                 auth_method_config.get('config').update(config)
@@ -362,9 +445,7 @@ class AuthEventView(View):
             auth_method = req.get('auth_method', '')
             msg = check_authmethod(auth_method)
             if msg:
-                data = {'msg': msg}
-                jsondata = json.dumps(data)
-                return HttpResponse(jsondata, status=400, content_type='application/json')
+                return json_response(status=400, message=msg)
 
             config = req.get('auth_method_config', None)
             if config:
@@ -375,9 +456,7 @@ class AuthEventView(View):
                 msg += check_extra_fields(extra_fields)
 
             if msg:
-                data = {'msg': msg}
-                jsondata = json.dumps(data)
-                return HttpResponse(jsondata, status=400, content_type='application/json')
+                return json_response(status=400, message=msg)
 
             ae = AuthEvent.objects.get(pk=pk)
             ae.auth_method = auth_method
@@ -392,20 +471,19 @@ class AuthEventView(View):
                     perm='edit', object_type='AuthEvent', object_id=ae.pk)
 
         data = {'status': 'ok', 'id': ae.pk, 'perm': acl.get_hmac()}
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, content_type='application/json')
+        return json_response(data)
 
     def get(self, request, pk=None):
         '''
             Lists all AuthEvents if not pk. If pk show the event with this pk
         '''
         data = {'status': 'ok'}
+        user, _ = get_login_user(request)
 
         if pk:
             e = AuthEvent.objects.get(pk=pk)
-            u = request.user
-            if (u.is_authenticated() and
-                u.userdata.has_perms("AuthEvent", "admin", e.id)):
+            if (user is not None and user.is_authenticated() and
+                permission_required(user, 'AuthEvent', 'admin', e.id, return_bool=True)):
                 aes = e.serialize()
             else:
                 aes = e.serialize_restrict()
@@ -416,9 +494,7 @@ class AuthEventView(View):
                            serialize_method='serialize_restrict',
                            elements_name='events')
             data.update(aes)
-
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, content_type='application/json')
+        return json_response(data)
 
     @login_required
     def delete(request, pk):
@@ -432,8 +508,7 @@ class AuthEventView(View):
         ae.delete()
 
         data = {'status': 'ok'}
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, content_type='application/json')
+        return json_response(data)
 authevent = AuthEventView.as_view()
 
 
@@ -470,9 +545,7 @@ class AuthEventModule(View):
                         'extra_fields': meta,
                     }
             }
-
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, content_type='application/json')
+        return json_response(data)
 authevent_module = AuthEventModule.as_view()
 
 
@@ -488,23 +561,20 @@ class UserView(View):
         try:
             req = json.loads(request.body.decode('utf-8'))
         except:
-            bad_request = json.dumps({"error": "bad_request"})
-            return HttpResponseBadRequest(bad_request, content_type='application/json')
+            return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
         old_pwd = req.get('old_pwd')
         new_pwd = req.get('new_pwd')
         if not old_pwd or not new_pwd:
-            jsondata = json.dumps({'status': 'nok'})
-            return HttpResponse(jsondata, status=400, content_type='application/json')
+            return json_response(status=400, message="")
 
         if not user.check_password(old_pwd):
-            jsondata = json.dumps({'status': 'nok', 'msg': 'Invalid old password'})
-            return HttpResponse(jsondata, status=400, content_type='application/json')
+            return json_response(status=400, message="Invalid old password")
 
         user.set_password(new_pwd)
         user.save()
-        jsondata = json.dumps({'status': 'ok'})
-        return HttpResponse(jsondata, content_type='application/json')
+        data = {'status': 'ok'}
+        return json_response(data)
 
     def get(self, request, pk=None):
         ''' Get user info '''
@@ -520,8 +590,7 @@ class UserView(View):
         if extend_info:
             for info in extend_info:
                 data.update(info.serialize())
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, content_type='application/json')
+        return json_response(data)
 user = login_required(UserView.as_view())
 
 
@@ -541,8 +610,8 @@ class UserResetPwd(View):
                 user.email])
         user.set_password(new_pwd)
         user.save()
-        jsondata = json.dumps({'status': 'ok'})
-        return HttpResponse(jsondata, content_type='application/json')
+        data = {'status': 'ok'}
+        return json_response(data)
 reset_pwd = login_required(UserResetPwd.as_view())
 
 
@@ -554,8 +623,8 @@ class UserAuthEvent(View):
         ae_ids = []
         for acl in acls:
             ae_ids.append(acl.object_id)
-        jsondata = json.dumps({'ids-auth-event': ae_ids})
-        return HttpResponse(jsondata, content_type='application/json')
+        data = {'ids-auth-event': ae_ids}
+        return json_response(data)
 user_auth_event = login_required(UserAuthEvent.as_view())
 
 
@@ -568,14 +637,16 @@ class CensusSendAuth(View):
         # first, validate input
         e = get_object_or_404(AuthEvent, pk=pk)
         if e.status != 'started':
-          jsondata = json.dumps({'error': 'AuthEvent with id = %s has not started' % pk})
-          return HttpResponseBadRequest(jsondata, content_type='application/json')
+            return json_response(status=400,
+                    message='AuthEvent with id = %s has not started' % pk,
+                    error_codename=ErrorCodes.BAD_REQUEST)
+
 
         invalid_json = json.dumps({'error': "Invalid json"})
         try:
             req = json.loads(request.body.decode('utf-8'))
         except:
-            return HttpResponseBadRequest(invalid_json, content_type='application/json')
+            return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
         userids = req.get("user-ids", None)
         if req.get('msg') or req.get('subject'):
@@ -585,18 +656,17 @@ class CensusSendAuth(View):
             if req.get('subject'):
                 config['subject'] = req.get('subject')
         else:
-            msg = census_send_auth_task(pk, None, userids)
+            msg = census_send_auth_task(pk, get_client_ip(request), None, userids)
             if msg:
                 data['msg'] = msg
-            return HttpResponse("", content_type='application/json')
+            return json_response(data)
 
         if config.get('msg', None) is not None:
             if type(config.get('msg')) != str or len(config.get('msg')) > settings.MAX_AUTH_MSG_SIZE[e.auth_method]:
-                return HttpResponseBadRequest(invalid_json, content_type='application/json')
+                return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
-        msg = census_send_auth_task(pk, config, userids)
+        msg = census_send_auth_task(pk, get_client_ip(request), config, userids)
         if msg:
             data['msg'] = msg
-        jsondata = json.dumps(data)
-        return HttpResponse(jsondata, content_type='application/json')
+        return json_response(data)
 census_send_auth = login_required(CensusSendAuth.as_view())

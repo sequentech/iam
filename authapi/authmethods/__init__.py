@@ -23,6 +23,9 @@ def auth_authenticate(event, data):
     return METHODS[event.auth_method].authenticate(event, data)
 
 
+def auth_resend_auth_code(event, data):
+    return METHODS[event.auth_method].resend_auth_code(event, data)
+
 def register_method(name, klass):
     METHODS[name] = klass()
 

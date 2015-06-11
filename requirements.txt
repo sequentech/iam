@@ -7,3 +7,7 @@ six
 django-cors-headers
 django-celery
 pillow
+python-dateutil
+git+git://github.com/wadobo/suds.git
+ipdbplugin
+django-nose

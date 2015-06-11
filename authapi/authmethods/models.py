@@ -1,4 +1,6 @@
 from django.db import models
+from jsonfield import JSONField
+
 from api.models import UserData
 
 
@@ -23,6 +25,12 @@ class Message(models.Model):
     tlf = models.CharField(max_length=20)
     created = models.DateTimeField(auto_now_add=True)
     auth_event_id = models.IntegerField()
+
+class MsgLog(models.Model):
+    authevent_id = models.IntegerField()
+    receiver = models.CharField(max_length=255)
+    msg = JSONField()
+    created = models.DateTimeField(auto_now_add=True)
 
 class Connection(models.Model):
     ip = models.CharField(max_length=15)

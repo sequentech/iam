@@ -2,13 +2,14 @@ import json
 from django.conf import settings
 from django.conf.urls import patterns, url
 from django.contrib.auth.models import User
-from utils import genhmac, constant_time_compare, send_codes
+from utils import genhmac, constant_time_compare, send_codes, get_client_ip
 
 from . import register_method
 from authmethods.utils import *
 from api.models import AuthEvent
 from authmethods.models import Code
-
+from pipelines.base import execute_pipeline, PipeReturnvalue
+from contracts import CheckException, JSONContractEncoder
 
 class Email:
     DESCRIPTION = 'Register by email. You need to confirm your email.'
@@ -70,19 +71,24 @@ class Email:
                 exist = exist_user(r, ae)
                 if exist and not exist.count('None'):
                     continue
-                used = r.get('status', 'registered') == 'used'
-                u = create_user(r, ae, used)
+                # By default we creates the user as active we don't check
+                # the pipeline
+                u = create_user(r, ae, True)
                 give_perms(u, ae)
         if msg and validation:
-            data = {'status': 'nok', 'msg': msg}
-            return data
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         if validation:
             for r in req.get('census'):
-                used = r.get('status', 'registered') == 'used'
-                u = create_user(r, ae, used)
+                # By default we creates the user as active we don't check
+                # the pipeline
+                u = create_user(r, ae, True)
                 give_perms(u, ae)
         return {'status': 'ok'}
+
+    def error(self, msg, error_codename):
+        d = {'status': 'nok', 'msg': msg, 'error_codename': error_codename}
+        return d
 
     def register(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
@@ -91,6 +97,32 @@ class Email:
         if msg:
             return msg
 
+        # create the user as active? Usually yes, but the execute_pipeline call
+        # might modify this
+        active = True
+
+        pipedata = dict(
+            active=active,
+            request=req)
+        if ae.extra_fields:
+            for field in ae.extra_fields:
+                name = 'register-pipeline'
+                if name in field:
+                    try:
+                        ret = execute_pipeline(field[name], name, pipedata, field['name'], ae)
+                    except CheckException as e:
+                        return self.error(
+                            JSONContractEncoder().encode(e.data['context']),
+                            error_codename=e.data['key'])
+                    except Exception as e:
+                        return self.error(
+                            "unknown-exception: " + str(e),
+                            error_codename="unknown-exception")
+                    if ret != PipeReturnvalue.CONTINUE:
+                        key = "stopped-field-register-pipeline"
+                        return self.error(key, key)
+
+        active = pipedata['active']
         msg = ''
         email = req.get('email')
         if isinstance(email, str):
@@ -99,27 +131,24 @@ class Email:
         msg += check_field_value(self.email_definition, email)
         msg += check_fields_in_request(req, ae)
         if msg:
-            data = {'status': 'nok', 'msg': msg}
-            return data
+            return self.error("Incorrect data", error_codename="invalid_credentials")
         msg_exist = exist_user(req, ae, get_repeated=True)
         if msg_exist:
             u = msg_exist.get('user')
             if u.is_active:
-                msg += msg_exist.get('msg') + "Already registered."
-            codes = Code.objects.filter(user=u.userdata).count()
-            if codes > settings.SEND_CODES_EMAIL_MAX:
-                msg += msg_exist.get('msg')  + "Maximun number of codes sent."
-            else:
-                u = edit_user(u, req, ae)
+                return self.error("Incorrect data", error_codename="invalid_credentials")
         else:
-            u = create_user(req, ae)
+            u = create_user(req, ae, active)
             msg += give_perms(u, ae)
 
         if msg:
-            data = {'status': 'nok', 'msg': msg}
-            return data
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+        elif not active:
+            # Note, we are not calling to extend_send_sms because we are not
+            # sending the code in here
+            return {'status': 'ok'}
 
-        send_codes.apply_async(args=[[u.id,]])
+        send_codes.apply_async(args=[[u.id,], get_client_ip(request)])
         return {'status': 'ok'}
 
     def authenticate_error(self):
@@ -138,28 +167,26 @@ class Email:
         msg += check_field_value(self.code_definition, req.get('code'), 'authenticate')
         msg += check_fields_in_request(req, ae, 'authenticate')
         if msg:
-            data = {'status': 'nok', 'msg': msg}
-            return data
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_pipeline(request, ae, 'authenticate')
         if msg:
-            return msg
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         try:
-            u = User.objects.get(email=email, userdata__event=ae)
+            u = User.objects.get(email=email, userdata__event=ae, is_active=True)
         except:
-            return {'status': 'nok', 'msg': 'User not exist.'}
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         code = Code.objects.filter(user=u.userdata,
-                code=req.get('code')).order_by('created').first()
+                code=req.get('code').upper()).order_by('-created').first()
         if not code:
-            return {'status': 'nok', 'msg': 'Invalid code.'}
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_metadata(req, u)
         if msg:
             data = {'status': 'nok', 'msg': msg}
-            return data
-        u.is_active = True
+            return self.error("Incorrect data", error_codename="invalid_credentials")
         u.save()
 
         data = {'status': 'ok'}

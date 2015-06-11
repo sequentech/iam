@@ -5,12 +5,12 @@ import binascii
 from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.http import HttpResponse
 from django.utils import timezone
 from .models import ColorList, Message, Code
 from api.models import ACL
 from captcha.models import Captcha
 from captcha.decorators import valid_captcha
+from utils import json_response, get_client_ip
 
 
 EMAIL_RX = re.compile(
@@ -26,12 +26,8 @@ RET_PIPE_CONTINUE = 0
 
 
 def error(message="", status=400, field=None, error_codename=None):
-    '''
-    Returns an error message
-    '''
-    data = dict(message=message, field=field, error_codename=error_codename)
-    jsondata = json.dumps(data)
-    return HttpResponse(jsondata, status=status, content_type='application/json')
+    ''' Returns an error message '''
+    return json_response(status=400, message=message, field=field, error_codename=error_codename)
 
 
 def random_username():
@@ -42,15 +38,6 @@ def random_username():
         return random_username()
     except User.DoesNotExist:
         return username;
-
-
-def get_client_ip(request):
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
-    else:
-        ip = request.META.get('REMOTE_ADDR')
-    return ip
 
 
 def email_constraint(val):
@@ -187,6 +174,7 @@ def check_tlf_total_max(data, **kwargs):
                                       auth_event_id=data['auth_event'].id)
     else:
         item = Message.objects.filter(tlf=tlf, auth_event_id=data['auth_event'].id)
+
     if len(item) >= total_max:
         c1 = ColorList(action=ColorList.ACTION_BLACKLIST,
                        key=ColorList.KEY_IP, value=ip_addr,
@@ -256,7 +244,6 @@ def check_total_max(data, **kwargs):
     check = check_ip_total_max(data, **kwargs)
     return check
 
-
 def check_total_connection(data, **kwargs):
     conn = Connection.objects.filter(tlf=req.get('tlf'),
                                      auth_event_id=data['auth_event'].id).count()
@@ -268,7 +255,7 @@ def check_total_connection(data, **kwargs):
     return RET_PIPE_CONTINUE
 
 
-def check_pipeline(request, ae, step='register'):
+def check_pipeline(request, ae, step='register', default_pipeline=None):
     req = json.loads(request.body.decode('utf-8'))
     if req.get('tlf'):
         req['tlf'] = get_cannonical_tlf(req['tlf'])
@@ -280,6 +267,12 @@ def check_pipeline(request, ae, step='register'):
     }
 
     pipeline = ae.auth_method_config.get('pipeline').get('%s-pipeline' % step)
+    if pipeline is None:
+        if default_pipeline is None:
+            return error(message="no pipeline", status=400, error_codename="no-pipeline")
+        pipeline = default_pipeline
+
+
     for pipe in pipeline:
         check = getattr(eval(pipe[0]), '__call__')(data, **pipe[1])
         if check:
@@ -308,6 +301,11 @@ def check_field_type(definition, field, step='register'):
         elif isinstance(field, int):
             if definition.get('type') != 'int':
                 msg += "Field %s type incorrect, value %s" % (definition.get('name'), field)
+        elif isinstance(field, dict):
+            if definition.get('type') != 'dict':
+                msg += "Field %s type incorrect, value %s" % (definition.get('name'), field)
+            if len(json.dumps(field)) > settings.MAX_GLOBAL_STR*10:
+                msg += "Field %s incorrect len" % definition.get('name')
     return msg
 
 
@@ -334,12 +332,12 @@ def check_field_value(definition, field, step='register'):
         if definition.get('type') == 'email':
             if not email_constraint(field):
                 msg += "Field email regex incorrect, value %s" % field
-        if definition.get('name') == 'dni':
+        if definition.get('type') == 'dni':
             if not dni_constraint(field):
                 msg += "Field dni regex incorrect, value %s" % field
         if definition.get('regex'):
             a = re.compile(definition.get('regex'))
-            if not a.match(string):
+            if not a.match(str(field)):
                 msg += "Field %s regex incorrect, value %s" % (definition.get('name'), field)
     return msg
 
@@ -414,12 +412,14 @@ def exist_user(req, ae, get_repeated=False):
             msg += metadata_repeat(req, user, uniques)
             if msg:
                 break
+
     if not msg:
         return ''
+
     if get_repeated:
         return {'msg': msg, 'user': user}
-    else:
-        return msg
+
+    return msg
 
 def get_cannonical_tlf(tlf):
     from authmethods.sms_provider import SMSProvider
@@ -490,8 +490,6 @@ def check_metadata(req, user):
 
 
 def give_perms(u, ae):
-    if u.is_active: # Active users don't give perms. Avoid will send code
-        return ''
     pipe = ae.auth_method_config.get('pipeline')
     if not pipe:
         return 'Bad config'
@@ -504,6 +502,6 @@ def give_perms(u, ae):
         elif obj_id == 'AuthEventId':
             obj_id = ae.pk
         for perm in perms.get('perms'):
-            acl = ACL(user=u.userdata, object_type=obj, perm=perm, object_id=obj_id)
+            acl, created = ACL.objects.get_or_create(user=u.userdata, object_type=obj, perm=perm, object_id=obj_id)
             acl.save()
     return ''

@@ -3,11 +3,13 @@ from django.conf import settings
 from django.conf.urls import patterns, url
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
-from utils import genhmac, send_codes
+from utils import genhmac, send_codes, get_client_ip
 
 import plugins
 from . import register_method
 from authmethods.utils import *
+from pipelines.base import execute_pipeline, PipeReturnvalue
+from contracts import CheckException, JSONContractEncoder
 
 
 class Sms:
@@ -32,12 +34,26 @@ class Sms:
         "authenticate-pipeline": [
             #['check_total_connection', {'times': 5 }],
             #['check_sms_code', {'timestamp': 5 }]
+        ],
+        "resend-auth-pipeline": [
+            ["check_whitelisted", {"field": "tlf"}],
+            ["check_whitelisted", {"field": "ip"}],
+            ["check_blacklisted", {"field": "ip"}],
+            ["check_blacklisted", {"field": "tlf"}],
+            ["check_total_max", {"field": "tlf", "period": 3600, "max": 5}],
+            ["check_total_max", {"field": "tlf", "period": 3600*24, "max": 15}],
+            ["check_total_max", {"field": "ip", "period": 3600, "max": 10}],
+            ["check_total_max", {"field": "ip", "period": 3600*24, "max": 20}],
         ]
     }
     USED_TYPE_FIELDS = ['tlf']
 
     tlf_definition = { "name": "tlf", "type": "text", "required": True, "min": 4, "max": 20, "required_on_authentication": True }
     code_definition = { "name": "code", "type": "text", "required": True, "min": 6, "max": 255, "required_on_authentication": True }
+
+    def error(self, msg, error_codename):
+        d = {'status': 'nok', 'msg': msg, 'error_codename': error_codename}
+        return d
 
     def check_config(self, config):
         """ Check config when create auth-event. """
@@ -76,26 +92,54 @@ class Sms:
                 exist = exist_user(r, ae)
                 if exist and not exist.count('None'):
                     continue
-                used = r.get('status', 'registered') == 'used'
-                u = create_user(r, ae, used)
+                # By default we creates the user as active we don't check
+                # the pipeline
+                u = create_user(r, ae, True)
                 give_perms(u, ae)
         if msg and validation:
-            data = {'status': 'nok', 'msg': msg}
-            return data
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         if validation:
             for r in req.get('census'):
-                used = r.get('status', 'registered') == 'used'
-                u = create_user(r, ae, used)
+                # By default we creates the user as active we don't check
+                # the pipeline
+                u = create_user(r, ae, True)
                 give_perms(u, ae)
         return data
 
     def register(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
+
         msg = check_pipeline(request, ae)
         if msg:
-            return msg
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
+        # create the user as active? Usually yes, but the execute_pipeline call
+        # might modify this
+        active = True
+
+        pipedata = dict(
+            active=active,
+            request=req)
+        if ae.extra_fields:
+            for field in ae.extra_fields:
+                name = 'register-pipeline'
+                if name in field:
+                    try:
+                        ret = execute_pipeline(field[name], name, pipedata, field['name'], ae)
+                    except CheckException as e:
+                        return self.error(
+                            JSONContractEncoder().encode(e.data['context']),
+                            error_codename=e.data['key'])
+                    except Exception as e:
+                        return self.error(
+                            "unknown-exception: " + str(e),
+                            error_codename="unknown-exception")
+                    if ret != PipeReturnvalue.CONTINUE:
+                        key = "stopped-field-register-pipeline"
+                        return self.error(key, key)
+
+        active = pipedata['active']
         msg = ''
         if req.get('tlf'):
             req['tlf'] = get_cannonical_tlf(req.get('tlf'))
@@ -106,33 +150,28 @@ class Sms:
         msg += check_field_value(self.tlf_definition, tlf)
         msg += check_fields_in_request(req, ae)
         if msg:
-            data = {'status': 'nok', 'msg': msg}
-            return data
+            return self.error("Incorrect data", error_codename="invalid_credentials")
         msg_exist = exist_user(req, ae, get_repeated=True)
         if msg_exist:
             u = msg_exist.get('user')
             if u.is_active:
-                msg += msg_exist.get('msg') + "Already registered."
-            codes = Code.objects.filter(user=u.userdata).count()
-            if codes > settings.SEND_CODES_SMS_MAX:
-                msg += msg_exist.get('msg')  + "Maximun number of codes sent."
+                return self.error("Incorrect data", error_codename="invalid_credentials")
         else:
-            u = create_user(req, ae)
+            u = create_user(req, ae, active)
             msg += give_perms(u, ae)
 
         if msg:
-            data = {'status': 'nok', 'msg': msg}
-            return data
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+        elif not active:
+            # Note, we are not calling to extend_send_sms because we are not
+            # sending the code in here
+            return {'status': 'ok'}
 
         result = plugins.call("extend_send_sms", ae, 1)
         if result:
-            return {'status': 'nok', 'msg': result}
-        send_codes.apply_async(args=[[u.id,]])
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+        send_codes.apply_async(args=[[u.id,], get_client_ip(request)])
         return {'status': 'ok'}
-
-    def authenticate_error(self):
-        d = {'status': 'nok'}
-        return d
 
     def authenticate(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
@@ -149,33 +188,64 @@ class Sms:
         msg += check_field_value(self.code_definition, req.get('code'), 'authenticate')
         msg += check_fields_in_request(req, ae, 'authenticate')
         if msg:
-            data = {'status': 'nok', 'msg': msg}
-            return data
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         try:
-            u = User.objects.get(userdata__tlf=tlf, userdata__event=ae)
+            u = User.objects.get(userdata__tlf=tlf, userdata__event=ae, is_active=True)
         except:
-            return {'status': 'nok', 'msg': 'User not exist.'}
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         code = Code.objects.filter(user=u.userdata,
-                code=req.get('code')).order_by('created').first()
+                code=req.get('code').upper()).order_by('-created').first()
         if not code:
-            return {'status': 'nok', 'msg': 'Invalid code.'}
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_pipeline(request, ae, 'authenticate')
         if msg:
-            return msg
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_metadata(req, u)
         if msg:
-            data = {'status': 'nok', 'msg': msg}
-            return data
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        u.is_active = True
         u.save()
 
         data = {'status': 'ok'}
         data['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
         return data
+
+    def resend_auth_code(self, ae, request):
+        req = json.loads(request.body.decode('utf-8'))
+
+        msg = ''
+        if req.get('tlf'):
+            req['tlf'] = get_cannonical_tlf(req.get('tlf'))
+        tlf = req.get('tlf')
+        if isinstance(tlf, str):
+            tlf = tlf.strip()
+        msg += check_field_type(self.tlf_definition, tlf, 'authenticate')
+        msg += check_field_value(self.tlf_definition, tlf, 'authenticate')
+        if msg:
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+
+        try:
+            u = User.objects.get(userdata__tlf=tlf, userdata__event=ae, is_active=True)
+        except:
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+
+        msg = check_pipeline(
+          request,
+          ae,
+          'resend-auth-pipeline',
+          Sms.PIPELINES['resend-auth-pipeline'])
+
+        if msg:
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+
+        result = plugins.call("extend_send_sms", ae, 1)
+        if result:
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+        send_codes.apply_async(args=[[u.id,], get_client_ip(request)])
+        return {'status': 'ok'}
 
 register_method('sms', Sms)

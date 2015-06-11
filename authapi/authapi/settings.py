@@ -50,6 +50,7 @@ INSTALLED_APPS = (
     #3rd party
     'corsheaders',
     'djcelery',
+    'django_nose',
 )
 
 PLUGINS = (
@@ -67,11 +68,13 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'wrap.LoggingMiddleware'
 )
 
 # change the test runner to the one provided by celery so that the tests that
 # make use of celery work when ./manage.py test is executed
 TEST_RUNNER = 'djcelery.contrib.test_runner.CeleryTestSuiteRunner'
+TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
 
 ROOT_URLCONF = 'authapi.urls'
 
@@ -137,12 +140,17 @@ EMAIL_BASE_TEMPLATE = "%s\n\n -- Agora Voting https://agoravoting.com"
 SMS_AUTH_CODE_URL = "https://agoravoting.example.com/#/election/%(authid)s/public/login"
 EMAIL_AUTH_CODE_URL = "https://agoravoting.example.com/#/election/%(authid)s/public/login/%(email)s/%(code)s"
 
-SEND_CODES_SMS_MAX = 3
-SEND_CODES_EMAIL_MAX = 3
 SIZE_CODE = 8
 MAX_GLOBAL_STR = 512
 MAX_EXTRA_FIELDS = 15
 MAX_SIZE_NAME_EXTRA_FIELD = 1024
+
+if PLUGINS:
+    import importlib
+    for plugin in PLUGINS:
+        mod = importlib.import_module("%s.settings" % plugin)
+        to_import = [name for name in dir(mod) if not name.startswith('_')]
+        locals().update({name: getattr(mod, name) for name in to_import})
 
 # Auth api settings
 from auth_settings import *
