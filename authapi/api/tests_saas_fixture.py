@@ -1,6 +1,7 @@
 import json
 from django.test import TestCase
 from django.contrib.auth.models import User
+from django.test.utils import override_settings
 
 from api.models import ACL, AuthEvent, UserData
 from api.tests import JClient
@@ -15,6 +16,7 @@ class TestFixtureSaas(TestCase):
     def setUp(self):
         self.ae = AuthEvent.objects.get(pk=1)
 
+    @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_register_user(self):
 
         captcha = newcaptcha()

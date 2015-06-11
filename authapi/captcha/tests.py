@@ -67,6 +67,7 @@ class TestProcessCaptcha(TestCase):
 
         self.assertEqual(settings.PREGENERATION_CAPTCHA, Captcha.objects.filter(used=False).count())
 
+    @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_create_authevent_email_with_captcha(self):
         c = JClient()
 
@@ -122,6 +123,7 @@ class TestProcessCaptcha(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['message'], 'Incorrect data')
 
+    @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_create_authevent_sms_with_captcha(self):
         self.ae.auth_method = 'sms'
         self.ae.auth_method_config = test_data.authmethod_config_sms_default

@@ -7,7 +7,7 @@ import json
 import time
 from api import test_data
 from api.tests import JClient
-from api.models import AuthEvent, ACL
+from api.models import AuthEvent, ACL, UserData
 from .m_email import Email
 from .m_sms import Sms
 from .models import Message, Code, Connection
@@ -293,12 +293,21 @@ class ExtraFieldPipelineTestCase(TestCase):
         acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit', object_id=ae.pk)
         acl.save()
 
+    @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_method_extra_field_pipeline(self):
         c = JClient()
         data = {'email': 'test@test.com', 'user': 'test',
                 'dni': '39873625C'}
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 200)
+        user = UserData.objects.get(user__email=data['email'])
+        self.assertEqual(json.loads(user.metadata).get('dni'), '39873625C')
+
+        data = {'email': 'test1@test.com', 'user': 'test',
+                'dni': '39873625c'}
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json.loads(user.metadata).get('dni'), '39873625C')
 
         data = {'email': 'test2@test.com', 'user': 'test',
                 'dni': '39873625X'}
