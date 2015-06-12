@@ -9,16 +9,28 @@ from utils import send_msg
 from contracts.base import check_contract
 
 
+class CanonizeDni(Pipe):
+    '''
+    Canonize dni
+    '''
+    @staticmethod
+    def execute(data, config, name, ae):
+        data['request'][name] = data['request'][name].upper()
+        return PipeReturnvalue.CONTINUE
+
+Pipe.register_pipe(CanonizeDni, 'register-pipeline')
+
+
 class DniChecker(Pipe):
     '''
     Checks dni
     '''
     @staticmethod
     def execute(data, config, name, ae):
-        if not dni_constraint(data['request'].get('dni', '')):
+        if not dni_constraint(data['request'].get(name, '')):
             raise CheckException(
                 key='invalid-dni',
-                context=data['request'].get('dni', ''))
+                context=data['request'].get(name, ''))
         return PipeReturnvalue.CONTINUE
 
 Pipe.register_pipe(DniChecker, 'register-pipeline')
@@ -120,7 +132,7 @@ class ExternalAPICheckAndSave(Pipe):
         args = getattr(argfuncs, config['arg_func'])(field)
         valid, custom_data = external_soap.api_call(args=args, **config)
         if not valid:
-            data['active'] = False
+            data['request']['active'] = False
             if not exist_user(data['request'], ae):
                 msg = config['inactive_msg']
                 subject = config.get('inactive_subject', '')

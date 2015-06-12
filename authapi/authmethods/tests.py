@@ -307,6 +307,7 @@ class ExtraFieldPipelineTestCase(TestCase):
                 'dni': '39873625c'}
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 200)
+        user = UserData.objects.get(user__email=data['email'])
         self.assertEqual(json.loads(user.metadata).get('dni'), '39873625C')
 
         data = {'email': 'test2@test.com', 'user': 'test',
