@@ -1,4 +1,4 @@
-# authapi [![Build Status][1]][2] [![Coverage Status](https://coveralls.io/repos/agoravoting/authapi/badge.svg?branch=next)](https://coveralls.io/r/agoravoting/authapi?branch=next)
+# authapi [![Build Status][1]][2] [![Coverage Status](https://coveralls.io/repos/agoravoting/authapi/badge.svg?branch=master)](https://coveralls.io/r/agoravoting/authapi?branch=master)
 
 [1]: https://travis-ci.org/agoravoting/authapi.svg?branch=master
 [2]: https://travis-ci.org/agoravoting/authapi
