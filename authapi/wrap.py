@@ -12,7 +12,7 @@ class LoggingMiddleware(object):
         return None
 
     def process_response(self, request, response):
-        if response.status_code >= 200 or response.status_code < 300:
+        if response.status_code >= 200 and response.status_code < 300:
             return response
 
         self.logger.info(
