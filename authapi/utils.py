@@ -324,7 +324,7 @@ def send_codes(users, ip, config=None):
 
 # CHECKERS AUTHEVENT
 VALID_FIELDS = ('name', 'help', 'type', 'required', 'regex', 'min', 'max',
-    'required_on_authentication', 'unique', 'private', 'register-pipeline')
+    'required_on_authentication', 'unique', 'private', 'register-pipeline', 'authenticate-pipeline')
 REQUIRED_FIELDS = ('name', 'type', 'required_on_authentication')
 VALID_PIPELINES = (
     'check_whitelisted',
@@ -447,11 +447,11 @@ def check_fields(key, value):
             re.compile(value)
         except:
             msg += "Invalid regex. bad %s.\n" % key
-    elif key == 'register-pipeline':
+    elif key in ('register-pipeline', 'authenticate-pipeline'):
         try:
             ret = check_pipeline_conf(value, key)
             if ret != PipeReturnvalue.CONTINUE:
-                msg += "stopped-field-register-pipeline"
+                msg += "stopped-field-" + key
         except CheckException as e:
             msg += JSONContractEncoder().encode(e.data)
         except Exception as e:

@@ -8,8 +8,6 @@ from utils import genhmac, send_codes, get_client_ip
 import plugins
 from . import register_method
 from authmethods.utils import *
-from pipelines.base import execute_pipeline, PipeReturnvalue
-from contracts import CheckException, JSONContractEncoder
 
 
 class Sms:
@@ -114,32 +112,10 @@ class Sms:
         if msg:
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        # create the user as active? Usually yes, but the execute_pipeline call
-        # might modify this
-        active = True
+        # create the user as active? Usually yes, but the execute_pipeline call inside
+        # check_fields_in_request might modify this
+        req['active'] = True
 
-        pipedata = dict(
-            active=active,
-            request=req)
-        if ae.extra_fields:
-            for field in ae.extra_fields:
-                name = 'register-pipeline'
-                if name in field:
-                    try:
-                        ret = execute_pipeline(field[name], name, pipedata, field['name'], ae)
-                    except CheckException as e:
-                        return self.error(
-                            JSONContractEncoder().encode(e.data['context']),
-                            error_codename=e.data['key'])
-                    except Exception as e:
-                        return self.error(
-                            "unknown-exception: " + str(e),
-                            error_codename="unknown-exception")
-                    if ret != PipeReturnvalue.CONTINUE:
-                        key = "stopped-field-register-pipeline"
-                        return self.error(key, key)
-
-        active = pipedata['active']
         msg = ''
         if req.get('tlf'):
             req['tlf'] = get_cannonical_tlf(req.get('tlf'))
@@ -151,6 +127,9 @@ class Sms:
         msg += check_fields_in_request(req, ae)
         if msg:
             return self.error("Incorrect data", error_codename="invalid_credentials")
+        # get active from req, this value might have changed in check_fields_in_requests
+        active = req.pop('active')
+
         msg_exist = exist_user(req, ae, get_repeated=True)
         if msg_exist:
             u = msg_exist.get('user')
