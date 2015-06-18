@@ -39,6 +39,7 @@ from utils import send_codes, get_client_ip
 
 # import fields checks
 from pipelines.field_register import *
+from pipelines.field_authenticate import *
 
 
 class Test(View):
