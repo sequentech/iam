@@ -405,7 +405,7 @@ class AuthEventView(View):
                     "config": METHODS.get(auth_method).CONFIG,
                     "pipeline": METHODS.get(auth_method).PIPELINES
             }
-            config = req.get('config', None)
+            config = req.get('auth_method_config', None)
             if config:
                 msg += check_config(config, auth_method)
 

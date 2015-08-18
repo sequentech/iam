@@ -42,6 +42,11 @@ class PWD:
 
         d['username'] = u.username
         d['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
+
+        # add redirection
+        auth_action = ae.auth_method_config['config']['authentication-action']
+        if auth_action['mode'] == 'go-to-url':
+            data['redirect-to-url'] = auth_action['mode-config']['url']
         return d
 
     views = patterns('',

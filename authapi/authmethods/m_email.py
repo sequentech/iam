@@ -7,6 +7,8 @@ from utils import genhmac, constant_time_compare, send_codes, get_client_ip
 from . import register_method
 from authmethods.utils import *
 from api.models import AuthEvent
+from contracts.base import check_contract, JsonTypeEncoder
+from contracts import CheckException
 from authmethods.models import Code
 
 
@@ -14,7 +16,15 @@ class Email:
     DESCRIPTION = 'Register by email. You need to confirm your email.'
     CONFIG = {
         'subject': 'Confirm your email',
-        'msg': 'Click %(url)s and put this code %(code)s'
+        'msg': 'Click %(url)s and put this code %(code)s',
+        'registration-action': {
+            'mode': 'vote',
+            'mode-config': None,
+        },
+        'authentication-action': {
+            'mode': 'vote',
+            'mode-config': None,
+        }
     }
     PIPELINES = {
         'give_perms': [
@@ -35,13 +45,191 @@ class Email:
     email_definition = { "name": "email", "type": "email", "required": True, "min": 4, "max": 255, "required_on_authentication": True }
     code_definition = { "name": "code", "type": "text", "required": True, "min": 6, "max": 255, "required_on_authentication": True }
 
+    CONFIG_CONTRACT = [
+      {
+        'check': 'isinstance',
+        'type': dict
+      },
+      {
+        'check': 'dict-keys-exact',
+        'keys': ['msg', 'subject', 'registration-action', 'authentication-action']
+      },
+      {
+        'check': 'index-check-list',
+        'index': 'msg',
+        'check-list': [
+          {
+            'check': 'isinstance',
+            'type': str
+          },
+          {
+            'check': 'length',
+            'range': [1, 5000]
+          }
+        ]
+      },
+      {
+        'check': 'index-check-list',
+        'index': 'subject',
+        'check-list': [
+          {
+            'check': 'isinstance',
+            'type': str
+          },
+          {
+            'check': 'length',
+            'range': [1, 1024]
+          }
+        ]
+      },
+      {
+        'check': 'index-check-list',
+        'index': 'registration-action',
+        'check-list': [
+          {
+            'check': 'isinstance',
+            'type': dict
+          },
+          {
+            'check': 'dict-keys-exact',
+            'keys': ['mode', 'mode-config']
+          },
+          {
+            'check': 'index-check-list',
+            'index': 'mode',
+            'check-list': [
+              {
+                'check': 'isinstance',
+                'type': str
+              },
+              {
+                'check': 'lambda',
+                'lambda': lambda d: d in ['vote', 'go-to-url']
+              }
+            ]
+          },
+          {
+            'check': 'switch-contract-by-dict-key',
+            'switch-key': 'mode',
+            'contract-key': 'mode-config',
+            'contracts': {
+              'vote': [
+                {
+                  'check': 'lambda',
+                  'lambda': lambda d: d is None
+                }
+              ],
+              'go-to-url': [
+                {
+                  'check': 'isinstance',
+                  'type': dict
+                },
+                {
+                  'check': 'dict-keys-exact',
+                  'keys': ['url']
+                },
+                {
+                  'check': 'index-check-list',
+                  'index': 'url',
+                  'check-list': [
+                    {
+                      'check': 'isinstance',
+                      'type': str
+                    },
+                    {
+                      'check': 'length',
+                      'range': [1, 400]
+                    },
+                    {
+                      'check': 'lambda',
+                      'lambda': lambda d: d.startswith("https://")
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        'check': 'index-check-list',
+        'index': 'authentication-action',
+        'check-list': [
+          {
+            'check': 'isinstance',
+            'type': dict
+          },
+          {
+            'check': 'dict-keys-exact',
+            'keys': ['mode', 'mode-config']
+          },
+          {
+            'check': 'index-check-list',
+            'index': 'mode',
+            'check-list': [
+              {
+                'check': 'isinstance',
+                'type': str
+              },
+              {
+                'check': 'lambda',
+                'lambda': lambda d: d in ['vote', 'go-to-url']
+              }
+            ]
+          },
+          {
+            'check': 'switch-contract-by-dict-key',
+            'switch-key': 'mode',
+            'contract-key': 'mode-config',
+            'contracts': {
+              'vote': [
+                {
+                  'check': 'lambda',
+                  'lambda': lambda d: d is None
+                }
+              ],
+              'go-to-url': [
+                {
+                  'check': 'isinstance',
+                  'type': dict
+                },
+                {
+                  'check': 'dict-keys-exact',
+                  'keys': ['url']
+                },
+                {
+                  'check': 'index-check-list',
+                  'index': 'url',
+                  'check-list': [
+                    {
+                      'check': 'isinstance',
+                      'type': str
+                    },
+                    {
+                      'check': 'length',
+                      'range': [1, 400]
+                    },
+                    {
+                      'check': 'lambda',
+                      'lambda': lambda d: d.startswith("https://")
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+
     def check_config(self, config):
         """ Check config when create auth-event. """
         msg = ''
-        for c in config:
-            if not c in ('subject', 'msg'):
-                msg += "Invalid config: %s not possible.\n" % c
-        return msg
+        try:
+            check_contract(self.CONFIG_CONTRACT, config)
+            return ''
+        except CheckException as e:
+            return json.dumps(e.data, cls=JsonTypeEncoder)
 
     def census(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
@@ -171,6 +359,12 @@ class Email:
 
         data = {'status': 'ok'}
         data['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
+
+        # add redirection
+        auth_action = ae.auth_method_config['config']['authentication-action']
+        if auth_action['mode'] == 'go-to-url':
+            data['redirect-to-url'] = auth_action['mode-config']['url']
+
         return data
 
 register_method('email', Email)
