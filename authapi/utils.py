@@ -8,6 +8,8 @@ import time
 import six
 import re
 from djcelery import celery
+from django.core.validators import URLValidator
+from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail, EmailMessage
@@ -662,3 +664,15 @@ def filter_query(filters, query, constraints, prefix, contraints_policy="ignore_
         ret_query = ret_query.order_by(sort_str)
 
     return ret_query
+
+def is_valid_url(url, *args, **kwargs):
+    '''
+    Validates an url, returning a boolean
+    '''
+    validator = URLValidator(*args, **kwargs)
+    try:
+        validator(url)
+    except ValidationError as ve:
+        return False
+
+    return True

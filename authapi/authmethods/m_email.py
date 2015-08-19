@@ -2,7 +2,7 @@ import json
 from django.conf import settings
 from django.conf.urls import patterns, url
 from django.contrib.auth.models import User
-from utils import genhmac, constant_time_compare, send_codes, get_client_ip
+from utils import genhmac, constant_time_compare, send_codes, get_client_ip, is_valid_url
 
 from . import register_method
 from authmethods.utils import *
@@ -142,7 +142,7 @@ class Email:
                     },
                     {
                       'check': 'lambda',
-                      'lambda': lambda d: d.startswith("https://")
+                      'lambda': lambda d: is_valid_url(d, schemes=['https'])
                     }
                   ]
                 }
@@ -211,7 +211,7 @@ class Email:
                     },
                     {
                       'check': 'lambda',
-                      'lambda': lambda d: d.startswith("https://")
+                      'lambda': lambda d: is_valid_url(d, schemes=['https'])
                     }
                   ]
                 }

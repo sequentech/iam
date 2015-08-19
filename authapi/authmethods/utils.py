@@ -12,7 +12,7 @@ from api.models import ACL
 from captcha.models import Captcha
 from captcha.decorators import valid_captcha
 from contracts import CheckException, JSONContractEncoder
-from utils import json_response, get_client_ip
+from utils import json_response, get_client_ip, is_valid_url
 from pipelines.base import execute_pipeline, PipeReturnvalue
 
 
