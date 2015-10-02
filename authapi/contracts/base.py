@@ -1,8 +1,17 @@
 from collections import defaultdict
 from contracts import CheckException
 from pipelines import PipeReturnvalue
+import json
 
 __all__ = ['check_contract']
+
+class JsonTypeEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, type):
+            return str(obj)
+
+        # Let the base class default method raise the TypeError
+        return json.JSONEncoder.default(self, obj)
 
 def check_contract(contract, data):
     '''

@@ -29,18 +29,12 @@ class PWD:
     def authenticate(self, ae, request):
         d = {'status': 'ok'}
         req = json.loads(request.body.decode('utf-8'))
-        msg = req.get('username', '')
-        if not msg:
-            msg = req.get('email', '')
-
-        pwd = req['password']
+        email = req.get('email', '')
+        pwd = req.get('password', '')
 
         try:
-            u = User.objects.get(Q(username=msg)|Q(email=msg))
+            u = User.objects.get(email=email, userdata__event=ae, is_active=True)
         except:
-            return self.authenticate_error()
-
-        if ae != 0 and u.userdata.event != ae:
             return self.authenticate_error()
 
         if not u.check_password(pwd):
@@ -48,6 +42,11 @@ class PWD:
 
         d['username'] = u.username
         d['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
+
+        # add redirection
+        auth_action = ae.auth_method_config['config']['authentication-action']
+        if auth_action['mode'] == 'go-to-url':
+            data['redirect-to-url'] = auth_action['mode-config']['url']
         return d
 
     views = patterns('',

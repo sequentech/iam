@@ -2,20 +2,29 @@ import json
 from django.conf import settings
 from django.conf.urls import patterns, url
 from django.contrib.auth.models import User
-from utils import genhmac, constant_time_compare, send_codes, get_client_ip
+from utils import genhmac, constant_time_compare, send_codes, get_client_ip, is_valid_url
 
 from . import register_method
 from authmethods.utils import *
 from api.models import AuthEvent
+from contracts.base import check_contract, JsonTypeEncoder
+from contracts import CheckException
 from authmethods.models import Code
-from pipelines.base import execute_pipeline, PipeReturnvalue
-from contracts import CheckException, JSONContractEncoder
+
 
 class Email:
     DESCRIPTION = 'Register by email. You need to confirm your email.'
     CONFIG = {
         'subject': 'Confirm your email',
-        'msg': 'Click %(url)s and put this code %(code)s'
+        'msg': 'Click %(url)s and put this code %(code)s',
+        'registration-action': {
+            'mode': 'vote',
+            'mode-config': None,
+        },
+        'authentication-action': {
+            'mode': 'vote',
+            'mode-config': None,
+        }
     }
     PIPELINES = {
         'give_perms': [
@@ -36,13 +45,191 @@ class Email:
     email_definition = { "name": "email", "type": "email", "required": True, "min": 4, "max": 255, "required_on_authentication": True }
     code_definition = { "name": "code", "type": "text", "required": True, "min": 6, "max": 255, "required_on_authentication": True }
 
+    CONFIG_CONTRACT = [
+      {
+        'check': 'isinstance',
+        'type': dict
+      },
+      {
+        'check': 'dict-keys-exact',
+        'keys': ['msg', 'subject', 'registration-action', 'authentication-action']
+      },
+      {
+        'check': 'index-check-list',
+        'index': 'msg',
+        'check-list': [
+          {
+            'check': 'isinstance',
+            'type': str
+          },
+          {
+            'check': 'length',
+            'range': [1, 5000]
+          }
+        ]
+      },
+      {
+        'check': 'index-check-list',
+        'index': 'subject',
+        'check-list': [
+          {
+            'check': 'isinstance',
+            'type': str
+          },
+          {
+            'check': 'length',
+            'range': [1, 1024]
+          }
+        ]
+      },
+      {
+        'check': 'index-check-list',
+        'index': 'registration-action',
+        'check-list': [
+          {
+            'check': 'isinstance',
+            'type': dict
+          },
+          {
+            'check': 'dict-keys-exact',
+            'keys': ['mode', 'mode-config']
+          },
+          {
+            'check': 'index-check-list',
+            'index': 'mode',
+            'check-list': [
+              {
+                'check': 'isinstance',
+                'type': str
+              },
+              {
+                'check': 'lambda',
+                'lambda': lambda d: d in ['vote', 'go-to-url']
+              }
+            ]
+          },
+          {
+            'check': 'switch-contract-by-dict-key',
+            'switch-key': 'mode',
+            'contract-key': 'mode-config',
+            'contracts': {
+              'vote': [
+                {
+                  'check': 'lambda',
+                  'lambda': lambda d: d is None
+                }
+              ],
+              'go-to-url': [
+                {
+                  'check': 'isinstance',
+                  'type': dict
+                },
+                {
+                  'check': 'dict-keys-exact',
+                  'keys': ['url']
+                },
+                {
+                  'check': 'index-check-list',
+                  'index': 'url',
+                  'check-list': [
+                    {
+                      'check': 'isinstance',
+                      'type': str
+                    },
+                    {
+                      'check': 'length',
+                      'range': [1, 400]
+                    },
+                    {
+                      'check': 'lambda',
+                      'lambda': lambda d: is_valid_url(d, schemes=['https'])
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        'check': 'index-check-list',
+        'index': 'authentication-action',
+        'check-list': [
+          {
+            'check': 'isinstance',
+            'type': dict
+          },
+          {
+            'check': 'dict-keys-exact',
+            'keys': ['mode', 'mode-config']
+          },
+          {
+            'check': 'index-check-list',
+            'index': 'mode',
+            'check-list': [
+              {
+                'check': 'isinstance',
+                'type': str
+              },
+              {
+                'check': 'lambda',
+                'lambda': lambda d: d in ['vote', 'go-to-url']
+              }
+            ]
+          },
+          {
+            'check': 'switch-contract-by-dict-key',
+            'switch-key': 'mode',
+            'contract-key': 'mode-config',
+            'contracts': {
+              'vote': [
+                {
+                  'check': 'lambda',
+                  'lambda': lambda d: d is None
+                }
+              ],
+              'go-to-url': [
+                {
+                  'check': 'isinstance',
+                  'type': dict
+                },
+                {
+                  'check': 'dict-keys-exact',
+                  'keys': ['url']
+                },
+                {
+                  'check': 'index-check-list',
+                  'index': 'url',
+                  'check-list': [
+                    {
+                      'check': 'isinstance',
+                      'type': str
+                    },
+                    {
+                      'check': 'length',
+                      'range': [1, 400]
+                    },
+                    {
+                      'check': 'lambda',
+                      'lambda': lambda d: is_valid_url(d, schemes=['https'])
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+
     def check_config(self, config):
         """ Check config when create auth-event. """
         msg = ''
-        for c in config:
-            if not c in ('subject', 'msg'):
-                msg += "Invalid config: %s not possible.\n" % c
-        return msg
+        try:
+            check_contract(self.CONFIG_CONTRACT, config)
+            return ''
+        except CheckException as e:
+            return json.dumps(e.data, cls=JsonTypeEncoder)
 
     def census(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
@@ -97,32 +284,10 @@ class Email:
         if msg:
             return msg
 
-        # create the user as active? Usually yes, but the execute_pipeline call
-        # might modify this
-        active = True
+        # create the user as active? Usually yes, but the execute_pipeline call inside
+        # check_fields_in_request might modify this
+        req['active'] = True
 
-        pipedata = dict(
-            active=active,
-            request=req)
-        if ae.extra_fields:
-            for field in ae.extra_fields:
-                name = 'register-pipeline'
-                if name in field:
-                    try:
-                        ret = execute_pipeline(field[name], name, pipedata, field['name'], ae)
-                    except CheckException as e:
-                        return self.error(
-                            JSONContractEncoder().encode(e.data['context']),
-                            error_codename=e.data['key'])
-                    except Exception as e:
-                        return self.error(
-                            "unknown-exception: " + str(e),
-                            error_codename="unknown-exception")
-                    if ret != PipeReturnvalue.CONTINUE:
-                        key = "stopped-field-register-pipeline"
-                        return self.error(key, key)
-
-        active = pipedata['active']
         msg = ''
         email = req.get('email')
         if isinstance(email, str):
@@ -132,6 +297,9 @@ class Email:
         msg += check_fields_in_request(req, ae)
         if msg:
             return self.error("Incorrect data", error_codename="invalid_credentials")
+        # get active from req, this value might have changed in check_fields_in_requests
+        active = req.pop('active')
+
         msg_exist = exist_user(req, ae, get_repeated=True)
         if msg_exist:
             u = msg_exist.get('user')
@@ -191,6 +359,12 @@ class Email:
 
         data = {'status': 'ok'}
         data['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
+
+        # add redirection
+        auth_action = ae.auth_method_config['config']['authentication-action']
+        if auth_action['mode'] == 'go-to-url':
+            data['redirect-to-url'] = auth_action['mode-config']['url']
+
         return data
 
 register_method('email', Email)

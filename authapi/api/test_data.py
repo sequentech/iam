@@ -131,7 +131,11 @@ auth_event6 = {
             "max": 9,
             "required_on_authentication": True,
             "register-pipeline": [
+                ["CanonizeDni", {}],
                 ["DniChecker", {}]
+            ],
+            "authenticate-pipeline": [
+                ["CanonizeDni", {}]
             ]
             }
     ]

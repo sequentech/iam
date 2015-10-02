@@ -6,11 +6,14 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.utils import timezone
+
 from .models import ColorList, Message, Code
 from api.models import ACL
 from captcha.models import Captcha
 from captcha.decorators import valid_captcha
-from utils import json_response, get_client_ip
+from contracts import CheckException, JSONContractEncoder
+from utils import json_response, get_client_ip, is_valid_url
+from pipelines.base import execute_pipeline, PipeReturnvalue
 
 
 EMAIL_RX = re.compile(
@@ -288,6 +291,7 @@ def check_pipeline(request, ae, step='register', default_pipeline=None):
 
 # Checkers census, register and authentication
 def check_field_type(definition, field, step='register'):
+    """ Checked the type of field. For example, if type is int, we can't use a str. """
     msg = ''
     if field is not None:
         if isinstance(field, str):
@@ -309,7 +313,8 @@ def check_field_type(definition, field, step='register'):
     return msg
 
 
-def check_field_value(definition, field, step='register'):
+def check_field_value(definition, field, req=None, ae=None, step='register'):
+    """ Checked the value of field, checked regex, min., max or pipe checkers. """
     msg = ''
     if step == 'authenticate' and not definition.get('required_on_authentication'):
         return msg
@@ -339,6 +344,27 @@ def check_field_value(definition, field, step='register'):
             a = re.compile(definition.get('regex'))
             if not a.match(str(field)):
                 msg += "Field %s regex incorrect, value %s" % (definition.get('name'), field)
+        if definition.get(step + '-pipeline'):
+            pipedata = dict(request=req)
+            name = step + '-pipeline'
+            # TODO: return error instead msg
+            try:
+                ret = execute_pipeline(definition[name], name, pipedata, definition['name'], ae)
+                if ret != PipeReturnvalue.CONTINUE:
+                    #key = "stopped-field-" + name
+                    #return error(key, error_codename=key)
+                    msg += key
+            except CheckException as e:
+                #return error(
+                #    JSONContractEncoder().encode(e.data['context']),
+                #    error_codename=e.data['key'])
+                msg += JSONContractEncoder().encode(e.data['context'])
+            except Exception as e:
+                #return error(
+                #    "unknown-exception: " + str(e),
+                #    error_codename="unknown-exception")
+                msg += "unknown-exception: " + str(e)
+            #active = pipedata['active']
     return msg
 
 
@@ -352,6 +378,8 @@ def check_captcha(code, answer):
 
 
 def check_fields_in_request(req, ae, step='register', validation=True):
+    """ Checked fields in extra_fields are correct, checked the type of field and the value if
+    validation is True. """
     msg = ''
     if ae.extra_fields:
         if len(req) > settings.MAX_EXTRA_FIELDS * 2:
@@ -359,7 +387,7 @@ def check_fields_in_request(req, ae, step='register', validation=True):
         for extra in ae.extra_fields:
             msg += check_field_type(extra, req.get(extra.get('name')), step)
             if validation:
-                msg += check_field_value(extra, req.get(extra.get('name')), step)
+                msg += check_field_value(extra, req.get(extra.get('name')), req, ae, step)
                 if not msg and extra.get('type') == 'captcha' and step != 'census':
                     if (step == 'register' and extra.get('required')) or\
                             (step == 'authenticate' and extra.get('required_on_authentication')):

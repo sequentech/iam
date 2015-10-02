@@ -39,6 +39,7 @@ from utils import send_codes, get_client_ip
 
 # import fields checks
 from pipelines.field_register import *
+from pipelines.field_authenticate import *
 
 
 class Test(View):
@@ -404,7 +405,7 @@ class AuthEventView(View):
                     "config": METHODS.get(auth_method).CONFIG,
                     "pipeline": METHODS.get(auth_method).PIPELINES
             }
-            config = req.get('config', None)
+            config = req.get('auth_method_config', None)
             if config:
                 msg += check_config(config, auth_method)
 

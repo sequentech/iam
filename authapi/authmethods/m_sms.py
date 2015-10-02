@@ -3,19 +3,27 @@ from django.conf import settings
 from django.conf.urls import patterns, url
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
-from utils import genhmac, send_codes, get_client_ip
+from utils import genhmac, send_codes, get_client_ip, is_valid_url
 
 import plugins
 from . import register_method
+from contracts.base import check_contract, JsonTypeEncoder
+from contracts import CheckException
 from authmethods.utils import *
-from pipelines.base import execute_pipeline, PipeReturnvalue
-from contracts import CheckException, JSONContractEncoder
 
 
 class Sms:
     DESCRIPTION = 'Provides authentication using an SMS code.'
     CONFIG = {
-        'msg': 'Enter in %(url)s and put this code %(code)s'
+        'msg': 'Enter in %(url)s and put this code %(code)s',
+        'registration-action': {
+            'mode': 'vote',
+            'mode-config': None,
+        },
+        'authentication-action': {
+            'mode': 'vote',
+            'mode-config': None,
+        }
     }
     PIPELINES = {
         'give_perms': [
@@ -51,6 +59,169 @@ class Sms:
     tlf_definition = { "name": "tlf", "type": "text", "required": True, "min": 4, "max": 20, "required_on_authentication": True }
     code_definition = { "name": "code", "type": "text", "required": True, "min": 6, "max": 255, "required_on_authentication": True }
 
+    CONFIG_CONTRACT = [
+      {
+        'check': 'isinstance',
+        'type': dict
+      },
+      {
+        'check': 'dict-keys-exact',
+        'keys': ['msg', 'registration-action', 'authentication-action']
+      },
+      {
+        'check': 'index-check-list',
+        'index': 'msg',
+        'check-list': [
+          {
+            'check': 'isinstance',
+            'type': str
+          },
+          {
+            'check': 'length',
+            'range': [1, 200]
+          }
+        ]
+      },
+      {
+        'check': 'index-check-list',
+        'index': 'registration-action',
+        'check-list': [
+          {
+            'check': 'isinstance',
+            'type': dict
+          },
+          {
+            'check': 'dict-keys-exact',
+            'keys': ['mode', 'mode-config']
+          },
+          {
+            'check': 'index-check-list',
+            'index': 'mode',
+            'check-list': [
+              {
+                'check': 'isinstance',
+                'type': str
+              },
+              {
+                'check': 'lambda',
+                'lambda': lambda d: d in ['vote', 'go-to-url']
+              }
+            ]
+          },
+          {
+            'check': 'switch-contract-by-dict-key',
+            'switch-key': 'mode',
+            'contract-key': 'mode-config',
+            'contracts': {
+              'vote': [
+                {
+                  'check': 'lambda',
+                  'lambda': lambda d: d is None
+                }
+              ],
+              'go-to-url': [
+                {
+                  'check': 'isinstance',
+                  'type': dict
+                },
+                {
+                  'check': 'dict-keys-exact',
+                  'keys': ['url']
+                },
+                {
+                  'check': 'index-check-list',
+                  'index': 'url',
+                  'check-list': [
+                    {
+                      'check': 'isinstance',
+                      'type': str
+                    },
+                    {
+                      'check': 'length',
+                      'range': [1, 400]
+                    },
+                    {
+                      'check': 'lambda',
+                      'lambda': lambda d: is_valid_url(d, schemes=['https'])
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        'check': 'index-check-list',
+        'index': 'authentication-action',
+        'check-list': [
+          {
+            'check': 'isinstance',
+            'type': dict
+          },
+          {
+            'check': 'dict-keys-exact',
+            'keys': ['mode', 'mode-config']
+          },
+          {
+            'check': 'index-check-list',
+            'index': 'mode',
+            'check-list': [
+              {
+                'check': 'isinstance',
+                'type': str
+              },
+              {
+                'check': 'lambda',
+                'lambda': lambda d: d in ['vote', 'go-to-url']
+              }
+            ]
+          },
+          {
+            'check': 'switch-contract-by-dict-key',
+            'switch-key': 'mode',
+            'contract-key': 'mode-config',
+            'contracts': {
+              'vote': [
+                {
+                  'check': 'lambda',
+                  'lambda': lambda d: d is None
+                }
+              ],
+              'go-to-url': [
+                {
+                  'check': 'isinstance',
+                  'type': dict
+                },
+                {
+                  'check': 'dict-keys-exact',
+                  'keys': ['url']
+                },
+                {
+                  'check': 'index-check-list',
+                  'index': 'url',
+                  'check-list': [
+                    {
+                      'check': 'isinstance',
+                      'type': str
+                    },
+                    {
+                      'check': 'length',
+                      'range': [1, 400]
+                    },
+                    {
+                      'check': 'lambda',
+                      'lambda': lambda d: is_valid_url(d, schemes=['https'])
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+
     def error(self, msg, error_codename):
         d = {'status': 'nok', 'msg': msg, 'error_codename': error_codename}
         return d
@@ -58,10 +229,11 @@ class Sms:
     def check_config(self, config):
         """ Check config when create auth-event. """
         msg = ''
-        for c in config:
-            if c != "msg":
-                msg += "Invalid config: %s not possible.\n" % c
-        return msg
+        try:
+            check_contract(self.CONFIG_CONTRACT, config)
+            return ''
+        except CheckException as e:
+            return json.dumps(e.data, cls=JsonTypeEncoder)
 
     def census(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
@@ -114,32 +286,10 @@ class Sms:
         if msg:
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        # create the user as active? Usually yes, but the execute_pipeline call
-        # might modify this
-        active = True
+        # create the user as active? Usually yes, but the execute_pipeline call inside
+        # check_fields_in_request might modify this
+        req['active'] = True
 
-        pipedata = dict(
-            active=active,
-            request=req)
-        if ae.extra_fields:
-            for field in ae.extra_fields:
-                name = 'register-pipeline'
-                if name in field:
-                    try:
-                        ret = execute_pipeline(field[name], name, pipedata, field['name'], ae)
-                    except CheckException as e:
-                        return self.error(
-                            JSONContractEncoder().encode(e.data['context']),
-                            error_codename=e.data['key'])
-                    except Exception as e:
-                        return self.error(
-                            "unknown-exception: " + str(e),
-                            error_codename="unknown-exception")
-                    if ret != PipeReturnvalue.CONTINUE:
-                        key = "stopped-field-register-pipeline"
-                        return self.error(key, key)
-
-        active = pipedata['active']
         msg = ''
         if req.get('tlf'):
             req['tlf'] = get_cannonical_tlf(req.get('tlf'))
@@ -151,6 +301,9 @@ class Sms:
         msg += check_fields_in_request(req, ae)
         if msg:
             return self.error("Incorrect data", error_codename="invalid_credentials")
+        # get active from req, this value might have changed in check_fields_in_requests
+        active = req.pop('active')
+
         msg_exist = exist_user(req, ae, get_repeated=True)
         if msg_exist:
             u = msg_exist.get('user')
@@ -212,6 +365,12 @@ class Sms:
 
         data = {'status': 'ok'}
         data['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
+
+        # add redirection
+        auth_action = ae.auth_method_config['config']['authentication-action']
+        if auth_action['mode'] == 'go-to-url':
+            data['redirect-to-url'] = auth_action['mode-config']['url']
+
         return data
 
     def resend_auth_code(self, ae, request):
