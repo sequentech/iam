@@ -335,7 +335,7 @@ VALID_PIPELINES = (
     'check_total_connection',
     )
 VALID_TYPE_FIELDS = ('text', 'password', 'int', 'bool', 'regex', 'email', 'tlf',
-        'captcha', 'textarea', 'dni', 'dict')
+        'captcha', 'textarea', 'dni', 'dict', 'image')
 
 def check_authmethod(method):
     """ Check if method exists in method list. """
