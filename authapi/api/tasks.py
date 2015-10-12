@@ -1,11 +1,9 @@
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
 
 import plugins
 from authmethods.sms_provider import SMSProvider
-from .models import AuthEvent, ACL
 from utils import send_codes
 
 
@@ -13,6 +11,7 @@ def census_send_auth_task(pk, ip, config=None, userids=None):
     """
     Send an auth token to census
     """
+    from .models import AuthEvent, ACL
 
     e = get_object_or_404(AuthEvent, pk=pk)
     if e.status != "started":
