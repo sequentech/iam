@@ -5,7 +5,6 @@ from authmethods.models import Message, ColorList, Code, Connection
 from authmethods import METHODS
 from django.contrib.auth.admin import UserAdmin
 
-# Register your models here.
 
 class AuthEventAdminForm(forms.ModelForm):
     class Meta:
@@ -26,6 +25,14 @@ class AuthEventAdmin(admin.ModelAdmin):
     list_display = ('id', 'auth_method', 'status')
     list_filter = ('auth_method', 'status')
     search_fields = ('id',)
+
+    def get_form(self, request, obj=None, **kwargs):
+        choices = []
+        for k in METHODS.keys():
+            choices.append((k, k + ': ' + METHODS.get(k).DESCRIPTION))
+        AuthEventAdminForm.Meta.widgets['auth_method'] = forms.Select(attrs={'obj':'str'}, choices=choices)
+        f = super(AuthEventAdmin, self).get_form(request, obj, **kwargs)
+        return f
 
 
 class UserDataAdmin(admin.ModelAdmin):
