@@ -146,7 +146,7 @@ MAX_EXTRA_FIELDS = 15
 MAX_SIZE_NAME_EXTRA_FIELD = 1024
 
 MAX_IMAGE_SIZE = 5 * 1024 * 1024 # 5 MB
-IMAGE_STORE_PATH = '/home/danigm/Projects/work/agora/authapi/authapi/imgfields/'
+IMAGE_STORE_PATH = os.path.join(BASE_DIR, 'imgfields')
 
 if not os.path.exists(IMAGE_STORE_PATH):
     os.mkdir(IMAGE_STORE_PATH)
