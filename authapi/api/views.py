@@ -1,9 +1,13 @@
+import os
 import json
+import mimetypes
 from datetime import datetime
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.views.generic import View
 from django.shortcuts import get_object_or_404
+from django.http import HttpResponse
+from base64 import encodestring
 
 import plugins
 from authmethods import (
@@ -671,3 +675,16 @@ class CensusSendAuth(View):
             data['msg'] = msg
         return json_response(data)
 census_send_auth = login_required(CensusSendAuth.as_view())
+
+
+class GetImage(View):
+    def get(self, request, pk, uid):
+        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        ae = get_object_or_404(AuthEvent, pk=pk)
+        u = get_object_or_404(UserData, event__pk=pk, user__username=uid)
+
+        fname = u.user.username
+        path = os.path.join(settings.IMAGE_STORE_PATH, fname)
+        data = {'img': open(path).read()}
+        return json_response(data)
+get_img = login_required(GetImage.as_view())

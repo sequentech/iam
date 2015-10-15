@@ -22,6 +22,8 @@ urlpatterns = patterns('',
     url(r'^auth-event/module/$', 'api.views.authevent_module', name='authevent_module'),
     url(r'^auth-event/module/(?P<name>[-\w]+)/$', 'api.views.authevent_module', name='authevent_module'),
 
+    url(r'^auth-event/(?P<pk>\d+)/census/img/(?P<uid>\w+)/$', 'api.views.get_img', name='get_img'),
+
     url(r'^get-perms/', 'api.views.getperms', name='getperms'),
     url(r'^test/', 'api.views.test', name='test'),
 
