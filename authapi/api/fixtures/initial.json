@@ -2,10 +2,11 @@
 {
     "pk": 1,
     "fields": {
-        "password": "pbkdf2_sha256$12000$XtMmZ4b1WP4y$BlZiRXITaPLHOJlE6Y8zZ5rAnlk3VhczkHcZK5VJWx8=",
+        "password": "pbkdf2_sha256$12000$zrkTHP06f34l$xKU3InSmsG7p4dbYSHtQ2tQpvAwUUJ+B/QuNtV74Tco=",
         "username": "admin",
         "is_staff": true,
         "is_superuser": true,
+        "email": "admin@agoravoting.com",
         "is_active": true
     },
     "model": "auth.user"
@@ -54,6 +55,16 @@
         "created": "2015-02-16T17:41:28+00:00"
     },
     "model": "api.acl",
+    "pk": 1
+},
+{
+    "fields": {
+        "code": "QWERTY33",
+        "auth_event_id": 0,
+        "user": 1,
+        "created": "2015-02-16T17:41:28+00:00"
+    },
+    "model": "authmethods.code",
     "pk": 1
 }
 ]
