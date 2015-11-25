@@ -379,6 +379,12 @@ ae_email_default = {
     "census": "open",
 }
 
+ae_email_real = ae_email_default.copy()
+ae_email_real.update({"real": True})
+
+ae_email_real_based_in = ae_email_default.copy()
+ae_email_real_based_in.update({"real": True, "based_in": 1})
+
 ae_incorrect_authmethod = ae_email_default.copy()
 ae_incorrect_authmethod.update({"auth_method": "a"})
 

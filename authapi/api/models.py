@@ -37,6 +37,8 @@ class AuthEvent(models.Model):
     extra_fields = JSONField(blank=True, null=True)
     status = models.CharField(max_length=15, choices=AE_STATUSES, default="notstarted")
     created = models.DateTimeField(auto_now_add=True)
+    real = models.BooleanField(default=False)
+    based_in = models.IntegerField(null=True) # auth_event_id
 
     def serialize(self, restrict=False):
         '''
@@ -54,7 +56,9 @@ class AuthEvent(models.Model):
             'users': self.userdata.count(),
             'created': (self.created.isoformat()
                         if hasattr(self.created, 'isoformat')
-                        else self.created)
+                        else self.created),
+            'real': self.real,
+            'based_in': self.based_in
         }
 
         def none_list(e):
