@@ -17,11 +17,12 @@ class AuthMethodTestCase(TestCase):
     fixtures = ['initial.json']
     def setUp(self):
         ae = AuthEvent(auth_method=test_data.auth_event4['auth_method'],
-                status='started', census=test_data.auth_event4['census'])
+                status='started', census=test_data.auth_event4['census'],
+                auth_method_config=test_data.authmethod_config_email_default)
         ae.save()
         self.aeid = ae.pk
 
-        u = User(pk=1, username=test_data.pwd_auth['username'])
+        u = User(pk=1, email=test_data.pwd_auth['email'])
         u.set_password(test_data.pwd_auth['password'])
         u.save()
         u.userdata.event = ae
@@ -36,7 +37,7 @@ class AuthMethodTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
 
-        data = { 'username': 'test', 'password': 'cxzvcx' }
+        data = { 'email': 'test@agoravoting.com', 'password': 'cxzvcx' }
         response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
 
@@ -74,7 +75,7 @@ class AuthMethodEmailTestCase(TestCase):
         acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit', object_id=ae.pk)
         acl.save()
 
-        u2 = User(pk=2, username='test2')
+        u2 = User(pk=2, email='test2@agoravoting.com')
         u2.is_active = False
         u2.save()
         u2.userdata.event = ae
@@ -155,7 +156,7 @@ class AuthMethodSmsTestCase(TestCase):
         m = Message(tlf=u.userdata.tlf, auth_event_id=ae.pk)
         m.save()
 
-        u2 = User(pk=2, username='test2', email='test2@agoravoting.com')
+        u2 = User(pk=2, email='test2@agoravoting.com')
         u2.is_active = False
         u2.save()
         u2.userdata.tlf = '+34766666666'
@@ -286,7 +287,7 @@ class ExtraFieldPipelineTestCase(TestCase):
         self.aeid = ae.pk
 
         # Create admin user for authevent6
-        u = User(username='admin6', email='admin6@agoravoting.com')
+        u = User(email='admin6@agoravoting.com')
         u.save()
         u.userdata.event = ae
         u.userdata.save()
