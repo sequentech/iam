@@ -421,6 +421,11 @@ class AuthEventView(View):
             if not census in ('open', 'close'):
                 msg += "Invalid type of census\n"
 
+            real = req.get('real', False)
+            based_in = req.get('based_in', None)
+            if based_in and not ACL.objects.filter(user=request.user.userdata, perm='edit',
+                    object_type='AuthEvent', object_id=based_in):
+                msg += "Invalid id to based_in"
             if msg:
                 return json_response(status=400, message=msg)
 
@@ -430,7 +435,9 @@ class AuthEventView(View):
             ae = AuthEvent(auth_method=auth_method,
                            auth_method_config=auth_method_config,
                            extra_fields=extra_fields,
-                           census=census)
+                           census=census,
+                           real=real,
+                           based_in=based_in)
             # Save before the acl creation to get the ae id
             ae.save()
             acl = ACL(user=request.user.userdata, perm='edit', object_type='AuthEvent',

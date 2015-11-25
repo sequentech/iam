@@ -588,6 +588,38 @@ class TestAuthEvent(TestCase):
         response = self.create_authevent(test_data.ae_sms_fields)
         self.assertEqual(response.status_code, 200)
 
+    def test_create_authevent_test_and_real(self):
+        # test 1
+        response = self.create_authevent(test_data.ae_email_default)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(AuthEvent.objects.last().real, False)
+
+        # real based_in previous: ok
+        data = test_data.ae_email_real_based_in.copy()
+        data['based_in'] = AuthEvent.objects.last().pk
+        response = self.create_authevent(data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(AuthEvent.objects.last().real, True)
+        self.assertEqual(AuthEvent.objects.last().based_in, data['based_in'])
+
+        # real based_in id not exist: error
+        data = test_data.ae_email_real_based_in.copy()
+        data['based_in'] = 1 # default fixture vot
+        response = self.create_authevent(data)
+        self.assertEqual(response.status_code, 400)
+
+        # real based_in id not permission for user: error
+        data = test_data.ae_email_real_based_in.copy()
+        data['based_in'] = AuthEvent.objects.last().pk + 10
+        response = self.create_authevent(data)
+        self.assertEqual(response.status_code, 400)
+
+        # real no based_in
+        response = self.create_authevent(test_data.ae_email_real)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(AuthEvent.objects.last().real, True)
+        self.assertEqual(AuthEvent.objects.last().based_in, None)
+
     def test_get_auth_events(self):
         c = JClient()
         c.authenticate(self.ae.pk, test_data.admin)
