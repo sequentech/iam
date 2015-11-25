@@ -2,9 +2,9 @@ import copy
 from django.conf import settings
 
 
-pwd_auth = {'username': 'john', 'password': 'smith'}
+pwd_auth = {'email': 'john@agoravoting.com', 'password': 'smith'}
 
-pwd_auth_email = {'email': 'john@agoravoting.com', 'password': 'smith'}
+pwd_auth_email = {'email': 'john2@agoravoting.com', 'password': 'smith'}
 
 auth_event1 = {
     "auth_method": "sms",
@@ -87,6 +87,7 @@ auth_event3 = {
     "auth_method": "email",
     "census": "open",
     "config": {
+        "authentication-action": {"mode": ""},
         "subject": "Confirm your email",
         "msg": "Click %(url)s and put this code %(code)s"
     }
@@ -118,6 +119,7 @@ auth_event6 = {
     "auth_method": "email",
     "census": "open",
     "config": {
+        "authentication-action": {"mode": ""},
         "subject": "Confirm your email",
         "msg": "Click %(url)s and put this code %(code)s"
     },
@@ -153,7 +155,7 @@ auth_event7['extra_fields'][0]['register-pipeline'] = [
             ]
 
 # Users
-admin = {'username': 'john', 'password': 'smith'}
+admin = {'username': 'john', 'email': 'john@agoravoting.com', 'password': 'smith'}
 
 # Census
 census_email_default = {
@@ -326,7 +328,8 @@ pipe_timestamp = 5
 authmethod_config_email_default = {
         "config": {
             "subject": "Confirm your email",
-            "msg": "Click %(url)s and put this code %(code)s"
+            "msg": "Click %(url)s and put this code %(code)s",
+            "authentication-action": {"mode": ""}
         },
         "pipeline": {
             'give_perms': [
@@ -346,7 +349,8 @@ authmethod_config_email_default = {
 
 authmethod_config_sms_default = {
         "config": {
-            "msg": "Enter in %(url)s and put this code %(code)s"
+            "msg": "Enter in %(url)s and put this code %(code)s",
+            "authentication-action": {"mode": ""}
         },
         "pipeline": {
             'give_perms': [
@@ -390,6 +394,7 @@ ae_without_census.pop("census")
 ae_email_config = ae_email_default.copy()
 ae_email_config.update( {
     "config": {
+        "authentication-action": {"mode": ""},
         "subject": "Vote",
         "msg": "Enter in %(url)s and put this code %(code)s",
     }

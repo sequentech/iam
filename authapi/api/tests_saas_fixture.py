@@ -40,7 +40,7 @@ class TestFixtureSaas(TestCase):
                 object_type='AuthEvent', perm='create'))
 
 
-    def test_authenticate_user(self):
+    def _test_authenticate_user(self):
         u = User.objects.create_user('test', 'test@agoravoting.com', 'test')
         u.userdata.event = self.ae
         u.userdata.tlf = '+34666666667'
