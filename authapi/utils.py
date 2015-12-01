@@ -7,6 +7,8 @@ import types
 import time
 import six
 import re
+from logging import getLogger
+
 from djcelery import celery
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
@@ -28,6 +30,7 @@ RE_SPLIT_FILTER = re.compile('(__lt|__gt|__equals)')
 RE_SPLIT_SORT = re.compile('__sort')
 RE_INT = re.compile('^\d+$')
 RE_BOOL = re.compile('^(true|false)$')
+LOGGER = getLogger('authapi.notify')
 
 @unique
 class ErrorCodes(Enum):
@@ -192,11 +195,20 @@ def generate_code(userdata, size=settings.SIZE_CODE):
     return code
 
 
+def email_to_str(email):
+    return '''to: %s
+subject: %s
+body:
+%s
+''' % (', '.join(email.to), email.subject, email.body)
+
+
 def send_email(email):
     try:
-        email.send(fail_silently=True)
+        email.send(fail_silently=False)
+        LOGGER.info('Email sent: \n%s', email_to_str(email))
     except:
-        pass
+        LOGGER.error('Email NOT sent: \n%s', email_to_str(email))
 
 
 @celery.task
@@ -214,6 +226,7 @@ def send_sms_code(receiver, msg):
     from authmethods.sms_provider import SMSProvider
     con = SMSProvider.get_instance()
     con.send_sms(receiver=receiver, content=msg, is_audio=False)
+    LOGGER.info('SMS sent: \n%s: %s', receiver, msg)
 
 
 def send_code(user, ip, config=None):
