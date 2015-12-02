@@ -49,9 +49,9 @@ class PWD:
             data['redirect-to-url'] = auth_action['mode-config']['url']
         return d
 
-    views = patterns('',
+    views = [
         url(r'^test/(\w+)$', testview),
-    )
+    ]
 
 
 register_method('user-and-password', PWD)

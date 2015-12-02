@@ -108,7 +108,7 @@ def paginate(request, queryset, serialize_method=None, elements_name='elements')
         elements_name: [serialize(obj) for obj in page.object_list],
         'page': pageindex,
         'total_count': p.count,
-        'page_range': p.page_range,
+        'page_range': list(p.page_range),
         'start_index': page.start_index(),
         'end_index': page.end_index(),
         'has_next': page.has_next(),
