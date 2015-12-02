@@ -7,7 +7,7 @@ install:
 # command to run tests
 script:
   - cd authapi
-  - python manage.py syncdb --noinput
+  - python manage.py migrate
   - python manage.py loaddata initial
   - python manage.py test
   - coverage run --source='.' manage.py test

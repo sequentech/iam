@@ -4,7 +4,7 @@ from utils import genhmac
 from django.shortcuts import get_object_or_404, redirect
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.conf.urls import patterns, url
+from django.conf.urls import url
 from django.db.models import Q
 from django.http import Http404
 
@@ -152,10 +152,10 @@ class DNIE:
         return {'status': 'ok'}
 
 
-    views = patterns('',
+    views = [
         url(r'^testcert$', testview),
         url(r'^auth/(\d+)$', dnie_auth),
-    )
+    ]
 
 
 register_method('dnie', DNIE)

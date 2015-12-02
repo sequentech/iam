@@ -1,6 +1,6 @@
 import json
 from django.conf import settings
-from django.conf.urls import patterns, url
+from django.conf.urls import url
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 from utils import genhmac, send_codes, get_client_ip, is_valid_url
