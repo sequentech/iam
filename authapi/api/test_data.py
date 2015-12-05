@@ -95,7 +95,10 @@ auth_event3 = {
 
 auth_event4 = {
     "auth_method": "user-and-password",
-    "census": "open"
+    "census": "open",
+    "config": {
+        "authentication-action": {"mode": ""}
+    }
 }
 
 auth_event5 = {
