@@ -25,8 +25,7 @@ def census_send_auth_task(pk, ip, config=None, userids=None):
     else:
         census = userids
 
-    if e.auth_method == "sms":
-      msg = plugins.call("extend_send_sms", e, len(census))
-      if msg:
-          return msg
+    msg = plugins.call("extend_send_message", e, len(census))
+    if msg:
+        return msg
     send_codes.apply_async(args=[census, ip, config])

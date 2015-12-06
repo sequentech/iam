@@ -113,6 +113,9 @@ class Census(View):
     def post(self, request, pk):
         permission_required(request.user, 'AuthEvent', 'edit', pk)
         e = get_object_or_404(AuthEvent, pk=pk)
+        msg = plugins.call("extend_add_census", e, request)
+        if msg:
+            return json_response(status=400, message=msg)
         try:
             data = auth_census(e, request)
         except:
@@ -420,6 +423,9 @@ class AuthEventView(View):
             census = req.get('census', '')
             if not census in ('open', 'close'):
                 msg += "Invalid type of census\n"
+            msg_census = plugins.call("extend_type_census", census)
+            if msg_census:
+                return json_response(status=400, message=msg_census)
 
             real = req.get('real', False)
             based_in = req.get('based_in', None)
@@ -670,7 +676,7 @@ class CensusSendAuth(View):
         else:
             msg = census_send_auth_task(pk, get_client_ip(request), None, userids)
             if msg:
-                data['msg'] = msg
+                return json_response(status=400, message=msg)
             return json_response(data)
 
         if config.get('msg', None) is not None:
@@ -679,7 +685,7 @@ class CensusSendAuth(View):
 
         msg = census_send_auth_task(pk, get_client_ip(request), config, userids)
         if msg:
-            data['msg'] = msg
+            return json_response(status=400, message=msg)
         return json_response(data)
 census_send_auth = login_required(CensusSendAuth.as_view())
 
