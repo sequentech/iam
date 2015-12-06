@@ -91,6 +91,9 @@ class AuthEvent(models.Model):
         '''
         return self.serialize(restrict=True)
 
+    def len_census(self):
+        return UserData.objects.filter(event=self).count()
+
     def __str__(self):
         return "%s - %s" % (self.id, self.census)
 
