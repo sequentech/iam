@@ -501,7 +501,7 @@ class AuthEventView(View):
         if pk:
             e = AuthEvent.objects.get(pk=pk)
             if (user is not None and user.is_authenticated() and
-                permission_required(user, 'AuthEvent', 'admin', e.id, return_bool=True)):
+                permission_required(user, 'AuthEvent', 'edit', e.id, return_bool=True)):
                 aes = e.serialize()
             else:
                 aes = e.serialize_restrict()
