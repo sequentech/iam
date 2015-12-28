@@ -67,6 +67,9 @@ def permission_required(user, object_type, permission, object_id=0, return_bool=
         else:
             raise PermissionDenied('Permission required: ' + permission)
 
+    if return_bool:
+        return True
+
 
 def paginate(request, queryset, serialize_method=None, elements_name='elements'):
     '''
