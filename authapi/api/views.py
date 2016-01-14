@@ -505,6 +505,12 @@ class AuthEventView(View):
                 aes = e.serialize()
             else:
                 aes = e.serialize_restrict()
+
+            extend_info = plugins.call("extend_ae_info", user, e)
+            if extend_info:
+                for info in extend_info:
+                    aes.update(info.serialize())
+
             data['events'] = aes
         else:
             events = AuthEvent.objects.all()
