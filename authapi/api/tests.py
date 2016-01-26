@@ -111,25 +111,6 @@ class ApiTestCase(TestCase):
         response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'stopped'), {})
         self.assertEqual(response.status_code, 400)
 
-
-    def test_api(self):
-        c = JClient()
-        data = test_data.pwd_auth
-        response = c.post('/api/test/', data)
-
-        self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['status'], 'ok')
-        self.assertEqual(r['post']['email'], 'john@agoravoting.com')
-        self.assertEqual(r['post']['password'], 'smith')
-
-        response = c.get('/api/test/', data)
-        self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['status'], 'ok')
-        self.assertEqual(r['get']['email'], 'john@agoravoting.com')
-        self.assertEqual(r['get']['password'], 'smith')
-
     def test_authenticate(self):
         c = JClient()
         data = test_data.pwd_auth
