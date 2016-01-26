@@ -42,7 +42,11 @@ class ErrorCodes(Enum):
     MAX_CONNECTION = 6
     BLACKLIST = 7
 
-
+def parse_json_request(request):
+    '''
+    Returns the request body as a parsed json object
+    '''
+    return json.loads(request.body.decode('utf-8'))
 
 def json_response(data=None, status=200, message="", field=None, error_codename=None):
     ''' Returns a json response '''
