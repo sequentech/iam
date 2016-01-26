@@ -236,7 +236,7 @@ def send_sms_code(receiver, msg):
     LOGGER.info('SMS sent: \n%s: %s', receiver, msg)
 
 
-def send_code(user, ip, config=None):
+def send_code(user, ip, config=None, auth_method_override=None):
     '''
     Sends the code for authentication in the related auth event, to the user
     in a message sent via sms or email, depending on the authentication method
@@ -248,7 +248,10 @@ def send_code(user, ip, config=None):
     NOTE: You are responsible of not calling this on a stopped auth event
     '''
     from authmethods.models import Message, MsgLog
-    auth_method = user.userdata.event.auth_method
+    if auth_method_override is not None:
+        auth_method = auth_method_override
+    else:
+        auth_method = user.userdata.event.auth_method
     event_id = user.userdata.event.id
 
     # if blank tlf or email
