@@ -128,8 +128,8 @@ class Census(View):
         permission_required(request.user, 'AuthEvent', 'edit', pk)
         e = get_object_or_404(AuthEvent, pk=pk)
         error_kwargs = plugins.call("extend_add_census", e, request)
-        if msg:
-            return json_response(status=400, **error_kwargs)
+        if error_kwargs:
+            return json_response(**error_kwargs[0])
         try:
             data = auth_census(e, request)
         except:
@@ -212,7 +212,7 @@ class Authenticate(View):
         if not hasattr(request.user, 'account'):
             error_kwargs = plugins.call("extend_auth", e)
             if error_kwargs:
-                return json_response(status=400, **error_kwargs)
+                return json_response(**error_kwargs[0])
         try:
             data = auth_authenticate(e, request)
         except:
@@ -469,7 +469,7 @@ class AuthEventView(View):
                     error_codename=ErrorCodes.BAD_REQUEST)
             error_kwargs = plugins.call("extend_type_census", census)
             if error_kwargs:
-                return json_response(status=400, **error_kwargs)
+                return json_response(**error_kwargs[0])
 
             real = req.get('real', False)
             based_in = req.get('based_in', None)
@@ -543,6 +543,7 @@ class AuthEventView(View):
         '''
         data = {'status': 'ok'}
         user, _ = get_login_user(request)
+        from celery.contrib import rdb; rdb.set_trace()
 
         if pk:
             e = AuthEvent.objects.get(pk=pk)
@@ -730,9 +731,9 @@ class CensusSendAuth(View):
             if req.get('subject', ''):
                 config['subject'] = req.get('subject', '')
         else:
-            msg = census_send_auth_task(pk, get_client_ip(request), None, userids)
-            if msg:
-                return json_response(status=400, message=msg)
+            send_error = census_send_auth_task(pk, get_client_ip(request), None, userids)
+            if send_error:
+                return json_response(**send_error)
             return json_response(data)
 
         if config.get('msg', None) is not None:
@@ -741,9 +742,9 @@ class CensusSendAuth(View):
                     status=400,
                     error_codename=ErrorCodes.BAD_REQUEST)
 
-        msg = census_send_auth_task(pk, get_client_ip(request), config, userids)
-        if msg:
-            return json_response(status=400, message=msg)
+        send_error = census_send_auth_task(pk, get_client_ip(request), config, userids)
+        if send_error:
+            return json_response(**send_error)
         return json_response(data)
 census_send_auth = login_required(CensusSendAuth.as_view())
 
