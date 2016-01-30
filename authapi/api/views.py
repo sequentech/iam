@@ -543,7 +543,6 @@ class AuthEventView(View):
         '''
         data = {'status': 'ok'}
         user, _ = get_login_user(request)
-        from celery.contrib import rdb; rdb.set_trace()
 
         if pk:
             e = AuthEvent.objects.get(pk=pk)
