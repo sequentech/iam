@@ -466,7 +466,7 @@ class AuthEventView(View):
             if not census in ('open', 'close'):
                 return json_response(
                     status=400,
-                    error_codename=ErrorCodes.BAD_REQUEST)
+                    error_codename="INVALID_CENSUS_TYPE")
             error_kwargs = plugins.call("extend_type_census", census)
             if error_kwargs:
                 return json_response(**error_kwargs[0])
@@ -479,6 +479,7 @@ class AuthEventView(View):
             if msg:
                 return json_response(
                     status=400,
+                    message=msg,
                     error_codename=ErrorCodes.BAD_REQUEST)
 
             if config:

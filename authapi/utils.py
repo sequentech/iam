@@ -235,6 +235,19 @@ def send_sms_code(receiver, msg):
     con.send_sms(receiver=receiver, content=msg, is_audio=False)
     LOGGER.info('SMS sent: \n%s: %s', receiver, msg)
 
+def template_replace_data(templ, data):
+    '''
+    Replaces the data key values in the template. Used by send_code.
+    We use plain old string replace for security reasons.
+
+    Example:
+      template_replace_data("__FOO__ != __BAR__", dict(foo="foo1", bar="bar1"))
+      >>> "foo1 != bar1"
+    '''
+    ret = templ
+    for key, value in data.items():
+        ret = ret.replace("__%s__" % key.upper(), str(value))
+    return ret
 
 def send_code(user, ip, config=None, auth_method_override=None):
     '''
@@ -264,11 +277,17 @@ def send_code(user, ip, config=None, auth_method_override=None):
 
     if auth_method == "sms":
         receiver = user.userdata.tlf
-        url = settings.SMS_AUTH_CODE_URL % dict(authid=event_id, code=code, email=user.email)
-    else: # email
+        base_auth_url = settings.SMS_AUTH_CODE_URL
+    else:
+        # email
         receiver = user.email
-        url = settings.EMAIL_AUTH_CODE_URL % dict(authid=event_id, code=code, email=user.email)
+        base_auth_url = settings.EMAIL_AUTH_CODE_URL
 
+    url = template_replace_data(
+      base_auth_url,
+      dict(event_id=event_id, code=code, receiver=receiver))
+
+    # TODO use proper error codes
     if receiver is None:
         return "Receiver is none"
 
@@ -280,12 +299,19 @@ def send_code(user, ip, config=None, auth_method_override=None):
         msg = config.get('msg')
         subject = config.get('subject')
 
+    # base_msg is the base template, allows the authapi superadmin to configure
+    # a prefix or suffix to all messages
     if auth_method == "sms":
         base_msg = settings.SMS_BASE_TEMPLATE
-    else: # email
+    else:
+        # email
         base_msg = settings.EMAIL_BASE_TEMPLATE
-    raw_msg = msg % dict(event_id=event_id, code=code, url=url)
-    msg = base_msg % raw_msg
+
+    # msg is the message sent by the user
+    raw_msg = template_replace_data(
+      msg,
+      dict(event_id=event_id, code=code, url=url))
+    msg = template_replace_data(base_msg, dict(message=raw_msg))
 
     code_msg = {'subject': subject, 'msg': msg}
     cm = MsgLog(authevent_id=event_id, receiver=receiver, msg=code_msg)
@@ -296,6 +322,7 @@ def send_code(user, ip, config=None, auth_method_override=None):
         m = Message(tlf=receiver, ip=ip, auth_event_id=event_id)
         m.save()
     else: # email
+        # TODO: Allow HTML messages for emails
         from api.models import ACL
         acl = ACL.objects.filter(object_type='AuthEvent', perm='edit',
                 object_id=event_id).first()

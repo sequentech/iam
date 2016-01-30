@@ -146,12 +146,12 @@ MAX_AUTH_MSG_SIZE = {
   "email": 10000
 }
 
-SMS_BASE_TEMPLATE = "%s -- Agora Voting"
+SMS_BASE_TEMPLATE = "__MESSAGE__ -- Agora Voting"
 
-EMAIL_BASE_TEMPLATE = "%s\n\n -- Agora Voting https://agoravoting.com"
+EMAIL_BASE_TEMPLATE = "__MESSAGE__\n\n -- Agora Voting https://agoravoting.com"
 
-SMS_AUTH_CODE_URL = "https://agoravoting.example.com/#/election/%(authid)s/public/login"
-EMAIL_AUTH_CODE_URL = "https://agoravoting.example.com/#/election/%(authid)s/public/login/%(email)s/%(code)s"
+SMS_AUTH_CODE_URL = "https://agoravoting.example.com/#/election/__EVENT_ID__/public/login"
+EMAIL_AUTH_CODE_URL = "https://agoravoting.example.com/#/election/__EVENT_ID__/public/login/__RECEIVER__"
 
 SIZE_CODE = 8
 MAX_GLOBAL_STR = 512

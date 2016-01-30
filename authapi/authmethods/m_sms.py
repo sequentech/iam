@@ -15,7 +15,7 @@ from authmethods.utils import *
 class Sms:
     DESCRIPTION = 'Provides authentication using an SMS code.'
     CONFIG = {
-        'msg': 'Enter in %(url)s and put this code %(code)s',
+        'msg': 'Enter in __URL__ and put this code __CODE__',
         'registration-action': {
             'mode': 'vote',
             'mode-config': None,

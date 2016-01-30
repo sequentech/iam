@@ -363,7 +363,7 @@ class ApiTestCase(TestCase):
         response = c.post('/api/user/', data_invalid)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Invalid old password')
+        self.assertEqual(r['error_codename'], 'INVALID_OLD_PASSWORD')
 
         # data ok
         response = c.post('/api/user/', data)
@@ -484,7 +484,7 @@ class TestAuthEvent(TestCase):
         response = self.create_authevent(test_data.ae_incorrect_census)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Invalid type of census\n')
+        self.assertEqual(r['error_codename'], 'INVALID_CENSUS_TYPE')
 
         response = self.create_authevent(test_data.ae_without_authmethod)
         self.assertEqual(response.status_code, 400)
@@ -494,12 +494,13 @@ class TestAuthEvent(TestCase):
         response = self.create_authevent(test_data.ae_without_census)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Invalid type of census\n')
+        self.assertEqual(r['error_codename'], 'INVALID_CENSUS_TYPE')
 
     def test_create_authevent_email_incorrect(self):
         response = self.create_authevent(test_data.ae_email_fields_incorrect)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
+        #TODO: receive the information in structured data
         self.assertEqual(r['message'], 'Invalid extra_field: boo not possible.\n')
         response = self.create_authevent(test_data.ae_email_fields_incorrect_empty)
         self.assertEqual(response.status_code, 400)
@@ -692,7 +693,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.census(self.aeid, test_data.census_email_repeat)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Incorrect data')
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
 
     def test_add_used_census(self):
         c = JClient()
@@ -788,7 +789,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
                        BROKER_BACKEND='memory')
     def test_send_auth_email(self):
         self.test_add_census_authevent_email_default() # Add census
-        correct_tpl = {"subject": "Vote", "msg": "this is an example %(code)s and %(url)s"}
+        correct_tpl = {"subject": "Vote", "msg": "this is an example __CODE__ and __URL__"}
         incorrect_tpl = {"msg": 10001*"a"}
 
         c = JClient()
@@ -1122,7 +1123,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
     def test_send_auth_sms(self):
         self.test_add_census_authevent_sms_default() # Add census
 
-        correct_tpl = {"msg": "this is an example %(code)s and %(url)s"}
+        correct_tpl = {"msg": "this is an example __CODE__ and __URL__"}
         incorrect_tpl = {"msg": 121*"a"}
 
         c = JClient()
