@@ -712,7 +712,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.register(self.aeid, test_data.census_email_default_used['census'][1])
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Incorrect data')
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
         census = ACL.objects.filter(perm="vote", object_type="AuthEvent",
                 object_id=str(self.aeid))
         self.assertEqual(len(census), 4)
@@ -736,7 +736,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.register(self.aeid, test_data.register_email_fields)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Register disable: the auth-event is close')
+        self.assertEqual(r['error_codename'], 'REGISTER_IS_DISABLED')
 
     def test_add_register_authevent_email_fields_incorrect(self):
         c = JClient()
@@ -775,7 +775,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Incorrect data')
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
 
     def test_authenticate_authevent_email_fields(self):
         c = JClient()
@@ -941,7 +941,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.census(self.aeid, test_data.census_sms_repeat)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Incorrect data')
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
 
     def _test_add_used_census(self):
         c = JClient()
@@ -995,7 +995,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['error_codename'], 'auth_event_closed')
+        self.assertEqual(r['error_codename'], 'AUTH_EVENT_NOT_STARTED')
 
         # bad: self.aeid.census = open and status != started
         self.ae.census = 'open'
@@ -1004,7 +1004,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['error_codename'], 'auth_event_closed')
+        self.assertEqual(r['error_codename'], 'AUTH_EVENT_NOT_STARTED')
 
         # bad: invalid credentials
         self.ae.status = 'started'
@@ -1082,13 +1082,13 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Incorrect data')
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
 
         data['tlf'] = "+34666666667"
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Incorrect data')
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
 
     def test_authenticate_authevent_sms_default(self):
         c = JClient()
@@ -1104,7 +1104,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Incorrect data')
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
 
     def _test_authenticate_authevent_sms_fields(self):
         c = JClient()
