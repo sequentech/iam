@@ -7,7 +7,7 @@ from authmethods.sms_provider import SMSProvider
 from utils import send_codes
 
 
-def census_send_auth_task(pk, ip, config=None, userids=None):
+def census_send_auth_task(pk, ip, config=None, userids=None, **kwargs):
     """
     Send an auth token to census
     """
@@ -25,7 +25,7 @@ def census_send_auth_task(pk, ip, config=None, userids=None):
     else:
         census = userids
 
-    extend_errors = plugins.call("extend_send_message", e, len(census))
+    extend_errors = plugins.call("extend_send_message", e, len(census), kwargs)
     if extend_errors:
         # Only can return one error at least for now
         return extend_errors[0]
