@@ -16,7 +16,7 @@ class Email:
     DESCRIPTION = 'Register by email. You need to confirm your email.'
     CONFIG = {
         'subject': 'Confirm your email',
-        'msg': 'Click %(url)s and put this code %(code)s',
+        'msg': 'Click __URL__ and put this code __CODE__',
         'registration-action': {
             'mode': 'vote',
             'mode-config': None,

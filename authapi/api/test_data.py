@@ -9,7 +9,7 @@ pwd_auth_email = {'email': 'john2@agoravoting.com', 'password': 'smith'}
 auth_event1 = {
     "auth_method": "sms",
     "census": "close",
-    "config": {"msg": "Enter in %(url)s and put this code %(code)s"},
+    "config": {"msg": "Enter in __URL__ and put this code __CODE__"},
     "extra_fields": [
             {
             "name": "name",
@@ -43,7 +43,7 @@ auth_event1 = {
 auth_event2 = {
     "auth_method": "sms",
     "census": "open",
-    "config": {"msg": "Enter in %(url)s and put this code %(code)s"},
+    "config": {"msg": "Enter in __URL__ and put this code __CODE__"},
     "extra_fields": [
             {
             "name": "name",
@@ -89,7 +89,7 @@ auth_event3 = {
     "config": {
         "authentication-action": {"mode": ""},
         "subject": "Confirm your email",
-        "msg": "Click %(url)s and put this code %(code)s"
+        "msg": "Click __URL__ and put this code __CODE__"
     }
 }
 
@@ -124,7 +124,7 @@ auth_event6 = {
     "config": {
         "authentication-action": {"mode": ""},
         "subject": "Confirm your email",
-        "msg": "Click %(url)s and put this code %(code)s"
+        "msg": "Click __URL__ and put this code __CODE__"
     },
     "extra_fields": [
             {
@@ -343,7 +343,7 @@ pipe_timestamp = 5
 authmethod_config_email_default = {
         "config": {
             "subject": "Confirm your email",
-            "msg": "Click %(url)s and put this code %(code)s",
+            "msg": "Click __URL__ and put this code __CODE__",
             "authentication-action": {"mode": ""}
         },
         "pipeline": {
@@ -364,7 +364,7 @@ authmethod_config_email_default = {
 
 authmethod_config_sms_default = {
         "config": {
-            "msg": "Enter in %(url)s and put this code %(code)s",
+            "msg": "Enter in __URL__ and put this code __CODE__",
             "authentication-action": {"mode": ""}
         },
         "pipeline": {
@@ -417,7 +417,7 @@ ae_email_config.update( {
     "config": {
         "authentication-action": {"mode": ""},
         "subject": "Vote",
-        "msg": "Enter in %(url)s and put this code %(code)s",
+        "msg": "Enter in __URL__ and put this code __CODE__",
     }
 })
 
@@ -496,7 +496,7 @@ ae_sms_default = {
 ae_sms_config = {
     "auth_method": "sms",
     "census": "open",
-    "config": {"msg": "Enter in %(url)s and put this code %(code)s"}
+    "config": {"msg": "Enter in __URL__ and put this code __CODE__"}
 }
 
 ae_sms_fields = {
