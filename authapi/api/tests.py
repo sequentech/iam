@@ -694,6 +694,12 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['message'], 'Incorrect data')
 
+    def test_add_census_authevent_email_with_spaces(self):
+        c = JClient()
+        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.census(self.aeid, test_data.census_email_spaces)
+        self.assertEqual(response.status_code, 200)
+
     def test_add_used_census(self):
         c = JClient()
         c.authenticate(self.aeid, test_data.auth_email_default)

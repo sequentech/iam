@@ -199,6 +199,18 @@ census_email_repeat = {
     ]
 }
 
+census_email_spaces = {
+    "field-validation": "enabled",
+    "census": [
+        {"email": " baaa@aaa.com"},
+        {"email": "caaa@aaa.com "},
+        {"email": "daaa@ aaa.com"},
+        {"email": "eaaa@aaa .com"},
+        {"email": "faaa @aaa.com"},
+        {"email": "  gaaa@aaa.com  "},
+    ]
+}
+
 census_email_no_validate = {
     "field-validation": "disabled",
     "census": [
