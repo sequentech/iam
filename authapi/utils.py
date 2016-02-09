@@ -19,7 +19,7 @@ from django.core.paginator import Paginator
 from django.conf import settings
 from django.http import HttpResponse
 from django.utils import timezone
-from enum import Enum, unique
+from enum import IntEnum, unique
 from string import ascii_lowercase, digits, ascii_letters
 from random import choice
 from pipelines import PipeReturnvalue
@@ -33,7 +33,7 @@ RE_BOOL = re.compile('^(true|false)$')
 LOGGER = getLogger('authapi.notify')
 
 @unique
-class ErrorCodes(Enum):
+class ErrorCodes(IntEnum):
     BAD_REQUEST = 1
     INVALID_REQUEST = 2
     INVALID_CODE = 3
