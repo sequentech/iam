@@ -724,7 +724,12 @@ class CensusSendAuth(View):
             return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
         userids = req.get("user-ids", None)
-        extra_req = json.loads(req.get('extra', '{}'))
+        extra_req = req.get('extra', {})
+        # force extra_req type to be a dict
+        if not isinstance(extra_req, dict):
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
         if req.get('msg', '') or req.get('subject', ''):
             config = {}
             if req.get('msg', ''):
