@@ -83,7 +83,7 @@ class TestProcessCaptcha(TestCase):
         response = c.register(self.aeid, test_data.register_email_fields)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Incorrect data')
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
 
         # create captcha
         response = c.get('/api/captcha/new/', {})
@@ -96,7 +96,7 @@ class TestProcessCaptcha(TestCase):
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Incorrect data')
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
 
         # add register # TODO fix
         data.update({'captcha_code': captcha.code, 'captcha': captcha.challenge})
@@ -107,7 +107,7 @@ class TestProcessCaptcha(TestCase):
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Incorrect data')
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
 
         # create captcha
         response = c.get('/api/captcha/new/', {})
@@ -120,7 +120,7 @@ class TestProcessCaptcha(TestCase):
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Incorrect data')
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
 
     @override_settings(CELERY_ALWAYS_EAGER=True)
     def _test_create_authevent_sms_with_captcha(self):
@@ -143,7 +143,7 @@ class TestProcessCaptcha(TestCase):
         response = c.register(self.aeid, test_data.register_email_fields)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Incorrect data')
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
 
         # create captcha
         response = c.get('/api/captcha/new/', {})
@@ -157,7 +157,7 @@ class TestProcessCaptcha(TestCase):
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Incorrect data')
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
 
         # add register # TODO fix
         data.update({'captcha_code': captcha.code, 'captcha': captcha.challenge})
@@ -168,7 +168,7 @@ class TestProcessCaptcha(TestCase):
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Incorrect data')
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
 
         # create captcha
         response = c.get('/api/captcha/new/', {})
@@ -182,7 +182,7 @@ class TestProcessCaptcha(TestCase):
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Incorrect data')
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
 
     def test_get_new_captcha_generate_other_captcha(self):
         self.assertEqual(Captcha.objects.count(), 0)

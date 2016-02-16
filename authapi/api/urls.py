@@ -27,7 +27,6 @@ urlpatterns = [
     url(r'^auth-event/(?P<pk>\d+)/census/img/(?P<uid>\w+)/$', views.get_img, name='get_img'),
 
     url(r'^get-perms/', views.getperms, name='getperms'),
-    url(r'^test/', views.test, name='test'),
 
     url(r'^user/$', views.user, name='user'),
     url(r'^user/(?P<pk>\d+)/$', views.user, name='user'),

@@ -16,7 +16,7 @@ class Email:
     DESCRIPTION = 'Register by email. You need to confirm your email.'
     CONFIG = {
         'subject': 'Confirm your email',
-        'msg': 'Click %(url)s and put this code %(code)s',
+        'msg': 'Click __URL__ and put this code __CODE__',
         'registration-action': {
             'mode': 'vote',
             'mode-config': None,
@@ -241,6 +241,7 @@ class Email:
             email = r.get('email')
             if isinstance(email, str):
                 email = email.strip()
+                email = email.replace(" ", "")
             msg += check_field_type(self.email_definition, email)
             if validation:
                 msg += check_field_type(self.email_definition, email)
@@ -292,6 +293,7 @@ class Email:
         email = req.get('email')
         if isinstance(email, str):
             email = email.strip()
+            email = email.replace(" ", "")
         msg += check_field_type(self.email_definition, email)
         msg += check_field_value(self.email_definition, email)
         msg += check_fields_in_request(req, ae)
@@ -329,6 +331,7 @@ class Email:
         email = req.get('email')
         if isinstance(email, str):
             email = email.strip()
+            email = email.replace(" ", "")
         msg += check_field_type(self.email_definition, email, 'authenticate')
         msg += check_field_value(self.email_definition, email, 'authenticate')
         msg += check_field_type(self.code_definition, req.get('code'), 'authenticate')
