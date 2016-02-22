@@ -235,8 +235,8 @@ def send_sms_code(receiver, msg):
         con = SMSProvider.get_instance()
         con.send_sms(receiver=receiver, content=msg, is_audio=False)
         LOGGER.info('SMS sent: \n%s: %s', receiver, msg)
-    except:
-        LOGGER.error('SMS NOT sent: \n%s: %s', receiver, msg)
+    except Exception as error:
+        LOGGER.error('SMS NOT sent: \n%s: %s, error message %s', receiver, msg, str(error.args))
 
 def template_replace_data(templ, data):
     '''
