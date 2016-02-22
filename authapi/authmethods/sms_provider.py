@@ -22,6 +22,7 @@ import logging
 import xmltodict
 from django.conf import settings
 
+LOGGER = logging.getLogger('authapi.notify')
 
 class SMSProvider(object):
     '''
@@ -93,7 +94,7 @@ class ConsoleSMSProvider(SMSProvider):
         pass
 
     def send_sms(self, receiver, content, is_audio):
-        logging.info("sending message '%(msg)s' to '%(dest)s' "
+        LOGGER.info("sending message '%(msg)s' to '%(dest)s' "
             "(is_audio=%(is_audio)s)" % dict(
                 msg=content, dest=receiver, is_audio=str(is_audio)))
 
@@ -137,11 +138,11 @@ class AltiriaSMSProvider(SMSProvider):
             'senderId': self.sender_id
         }
 
-        logging.debug("sending message.." + str(data))
+        LOGGER.debug("sending message.." + str(data))
         r = requests.post(self.url, data=data, headers=self.headers)
 
         ret = self.parse_response(r)
-        logging.debug(ret)
+        LOGGER.debug(ret)
         return ret
 
     def get_credit(self):
@@ -155,7 +156,7 @@ class AltiriaSMSProvider(SMSProvider):
         r = requests.post(self.url, data=data, headers=self.headers)
 
         ret = self.parse_response(r)
-        logging.debug(ret)
+        LOGGER.debug(ret)
         return ret
 
     def parse_response(self, response):
@@ -254,11 +255,15 @@ class EsendexSMSProvider(SMSProvider):
             body=content,
             sender=self.sender_id,
             extra=extra)
-        logging.debug("sending message.." + str(data))
+        LOGGER.debug("sending message.." + str(data))
         r = requests.post(self.url, data=data, headers=self.headers, auth=self.auth)
 
         ret = self.parse_response(r)
-        logging.debug(ret)
+        LOGGER.debug(ret)
+        if 'error' in ret:
+            raise Exception(
+                'error sending:\n\tdata=%s\t\nret=\t%s' % (str(data), str(ret))
+            )
         return ret
 
     def parse_response(self, response):
