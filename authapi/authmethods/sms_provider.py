@@ -264,6 +264,9 @@ class EsendexSMSProvider(SMSProvider):
             LOGGER.error(
               'error sending:\n\tdata=%s\t\nret=\t%s' % (str(data), str(ret))
             )
+            raise Exception(
+                    'error sending:\n\tdata=%s\t\nret=\t%s' % (str(data), str(ret))
+                  )
         return ret
 
     def parse_response(self, response):
