@@ -253,6 +253,7 @@ class AuthMethodSmsTestCase(TestCase):
                 object_id=self.aeid)
         acl.save()
         response = self.c.authenticate(self.aeid, auth)
+        r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(response.status_code, 200)
         self.assertTrue(isinstance(r['username'], str))
         self.assertTrue(len(r['username']) > 0)
@@ -265,6 +266,7 @@ class AuthMethodSmsTestCase(TestCase):
         data = { 'tlf': '+34666666666', 'code': 'AAAAAAAA',
                 'email': 'test@test.com', 'dni': '11111111H'}
         response = self.c.authenticate(self.aeid, data)
+        r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(isinstance(r['username'], str))
         self.assertTrue(len(r['username']) > 0)
         self.assertEqual(response.status_code, 200)
