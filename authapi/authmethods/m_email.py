@@ -361,6 +361,7 @@ class Email:
         u.save()
 
         data = {'status': 'ok'}
+        data['username'] = u.username
         data['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
 
         # add redirection
