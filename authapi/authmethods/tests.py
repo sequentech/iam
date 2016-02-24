@@ -120,6 +120,8 @@ class AuthMethodEmailTestCase(TestCase):
         response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
+        self.assertTrue(isinstance(r['username'], str))
+        self.assertTrue(len(r['username']) > 0)
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
 
     def test_method_email_authenticate_invalid_code(self):
@@ -213,6 +215,8 @@ class AuthMethodSmsTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
+        self.assertTrue(isinstance(r['username'], str))
+        self.assertTrue(len(r['username']) > 0)
         #self.assertGreaterEqual(Connection.objects.filter(tlf='+34666666666').count(), 1)
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
 
@@ -249,7 +253,10 @@ class AuthMethodSmsTestCase(TestCase):
                 object_id=self.aeid)
         acl.save()
         response = self.c.authenticate(self.aeid, auth)
+        r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(response.status_code, 200)
+        self.assertTrue(isinstance(r['username'], str))
+        self.assertTrue(len(r['username']) > 0)
         response = self.c.post('/api/get-perms/', data1)
         self.assertEqual(response.status_code, 200)
         response = self.c.post('/api/get-perms/', data2)
@@ -259,6 +266,9 @@ class AuthMethodSmsTestCase(TestCase):
         data = { 'tlf': '+34666666666', 'code': 'AAAAAAAA',
                 'email': 'test@test.com', 'dni': '11111111H'}
         response = self.c.authenticate(self.aeid, data)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertTrue(isinstance(r['username'], str))
+        self.assertTrue(len(r['username']) > 0)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
