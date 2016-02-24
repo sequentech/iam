@@ -364,7 +364,7 @@ class Sms:
         u.save()
 
         data = {'status': 'ok'}
-        d['username'] = u.username
+        data['username'] = u.username
         data['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
 
         # add redirection
