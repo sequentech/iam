@@ -97,7 +97,7 @@ class AuthEvent(models.Model):
         return ACL.objects.filter(
             object_type='AuthEvent',
             perm='vote',
-            object_id=pk)
+            object_id=self.id)
 
     def len_census(self):
         return self.get_census_query().count()
