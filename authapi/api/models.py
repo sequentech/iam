@@ -10,7 +10,6 @@ from django.db.models import Q
 from django.conf import settings
 from utils import genhmac
 
-
 CENSUS = (
     ('close', 'Close census'),
     ('open', 'Open census'),
@@ -53,7 +52,7 @@ class AuthEvent(models.Model):
             'id': self.id,
             'auth_method': self.auth_method,
             'census': self.census,
-            'users': self.userdata.count(),
+            'users': self.len_census(),
             'created': (self.created.isoformat()
                         if hasattr(self.created, 'isoformat')
                         else self.created),
@@ -91,8 +90,17 @@ class AuthEvent(models.Model):
         '''
         return self.serialize(restrict=True)
 
+    def get_census_query(self):
+        '''
+        returns a query with all the census of this event.
+        '''
+        return ACL.objects.filter(
+            object_type='AuthEvent',
+            perm='vote',
+            object_id=pk)
+
     def len_census(self):
-        return UserData.objects.filter(event=self).count()
+        return self.get_census_query().count()
 
     def __str__(self):
         return "%s - %s" % (self.id, self.census)
