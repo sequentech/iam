@@ -122,7 +122,9 @@ census_deactivate = login_required(CensusDeactivate.as_view())
 
 
 class Census(View):
-    ''' Add census in the auth-event '''
+    '''
+    Add census in the auth-event
+    '''
 
     def post(self, request, pk):
         permission_required(request.user, 'AuthEvent', 'edit', pk)
@@ -146,7 +148,7 @@ class Census(View):
         e = get_object_or_404(AuthEvent, pk=pk)
 
         filter_str = request.GET.get('filter', None)
-        query = ACL.objects.filter(object_type='AuthEvent', perm='vote', object_id=pk)
+        query = e.get_census_query()
 
         if filter_str is not None:
             q = (Q(user__user__username__icontains=filter_str) |
