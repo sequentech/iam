@@ -310,10 +310,13 @@ def send_code(user, ip, config=None, auth_method_override=None):
         # email
         base_msg = settings.EMAIL_BASE_TEMPLATE
 
+    # url with authentication code
+    url2 = url + '/' + code
+    
     # msg is the message sent by the user
     raw_msg = template_replace_data(
       msg,
-      dict(event_id=event_id, code=code, url=url))
+      dict(event_id=event_id, code=code, url=url, url2=url2))
     msg = template_replace_data(base_msg, dict(message=raw_msg))
 
     code_msg = {'subject': subject, 'msg': msg}

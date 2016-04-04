@@ -150,7 +150,7 @@ SMS_BASE_TEMPLATE = "__MESSAGE__ -- Agora Voting"
 
 EMAIL_BASE_TEMPLATE = "__MESSAGE__\n\n -- Agora Voting https://agoravoting.com"
 
-SMS_AUTH_CODE_URL = "https://agoravoting.example.com/#/election/__EVENT_ID__/public/login"
+SMS_AUTH_CODE_URL = "https://agoravoting.example.com/#/election/__EVENT_ID__/public/login/__RECEIVER__"
 EMAIL_AUTH_CODE_URL = "https://agoravoting.example.com/#/election/__EVENT_ID__/public/login/__RECEIVER__"
 
 SIZE_CODE = 8
