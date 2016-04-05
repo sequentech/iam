@@ -280,6 +280,18 @@ class AuthMethodSmsTestCase(TestCase):
         }
         response = self.c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
+        
+    def test_sms(self):
+        from django.conf import settings
+        smsProviderBk = settings.SMS_PROVIDER
+        settings.SMS_PROVIDER = "test"
+         data = {'tlf': '+34666666667', 'code': 'AAAAAAAA',
+                    'email': 'test1@test.com', 'dni': '11111111H'}
+        response = self.c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['status'], 'ok')
+        settings.SMS_PROVIDER = smsProviderBk
 
 
 class ExtraFieldPipelineTestCase(TestCase):
