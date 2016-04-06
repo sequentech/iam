@@ -101,8 +101,8 @@ class TestSMSProvider(SMSProvider):
         LOGGER.info("sending message '%(msg)s' to '%(dest)s' "
             "(is_audio=%(is_audio)s)" % dict(
                 msg=content, dest=receiver, is_audio=str(is_audio)))
-        self.sms_count += 1
-        self.last_sms = dict(
+        TestSMSProvider.sms_count += 1
+        TestSMSProvider.last_sms = dict(
             content=content, 
             receiver=receiver, 
             is_audio=is_audio
