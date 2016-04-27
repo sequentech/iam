@@ -281,6 +281,30 @@ class AuthMethodSmsTestCase(TestCase):
         response = self.c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
 
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')        
+    def test_send_sms_with_url2_msg(self):
+        data = {'tlf': '+34666666667', 'code': 'AAAAAAAA',
+                    'email': 'test1@test.com', 'dni': '11111111H'}
+        response = self.c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['status'], 'ok')
+        import utils
+        from authmethods.sms_provider import TestSMSProvider
+        sms_count0 = TestSMSProvider.sms_count
+        utils.send_codes(users=[3], ip='127.0.0.1', 
+                         config={'msg':'url[__URL2__], code[__CODE__]',
+                                 'subject':'subject'})
+        self.assertEqual(1+sms_count0, TestSMSProvider.sms_count)
+        import re
+        o = re.match('url\[(.+)\], code\[([A-Z0-9]+)\]', TestSMSProvider.last_sms.get('content'))
+        self.assertEqual(2, len(o.groups()))
+        test_url = 'public/login/\\' + data.get('tlf') + '/' + o.groups()[1]
+        e = re.search(test_url, o.groups()[0])
+        self.assertTrue(e.group(0) == test_url.replace('\\',''))
+
 
 class ExtraFieldPipelineTestCase(TestCase):
     fixtures = ['initial.json']

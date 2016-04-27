@@ -83,10 +83,31 @@ class SMSProvider(object):
             return EsendexSMSProvider()
         if provider == "console":
             return ConsoleSMSProvider()
+        if provider == "test":
+            return TestSMSProvider()
         else:
             raise Exception("invalid SMS_PROVIDER='%s' in app config" % provider)
 
 
+class TestSMSProvider(SMSProvider):
+    provider_name = "test"
+    last_sms = ""
+    sms_count = 0
+
+    def __init__(self):
+        pass
+
+    def send_sms(self, receiver, content, is_audio):
+        LOGGER.info("sending message '%(msg)s' to '%(dest)s' "
+            "(is_audio=%(is_audio)s)" % dict(
+                msg=content, dest=receiver, is_audio=str(is_audio)))
+        TestSMSProvider.sms_count += 1
+        TestSMSProvider.last_sms = dict(
+            content=content, 
+            receiver=receiver, 
+            is_audio=is_audio
+        )
+            
 class ConsoleSMSProvider(SMSProvider):
     provider_name = "console"
 
