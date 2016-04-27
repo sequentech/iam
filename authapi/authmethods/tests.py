@@ -280,7 +280,10 @@ class AuthMethodSmsTestCase(TestCase):
         }
         response = self.c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
-        
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')        
     def test_send_sms_with_url2_msg(self):
         data = {'tlf': '+34666666667', 'code': 'AAAAAAAA',
                     'email': 'test1@test.com', 'dni': '11111111H'}
