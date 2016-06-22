@@ -1,6 +1,21 @@
+# This file is part of authapi.
+# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+
+# authapi is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License.
+
+# authapi  is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+
+# You should have received a copy of the GNU Affero General Public License
+# along with authapi.  If not, see <http://www.gnu.org/licenses/>.
+
 import json
 from django.conf import settings
-from django.conf.urls import patterns, url
+from django.conf.urls import url
 from django.contrib.auth.models import User
 from utils import genhmac, constant_time_compare, send_codes, get_client_ip, is_valid_url
 
@@ -16,7 +31,7 @@ class Email:
     DESCRIPTION = 'Register by email. You need to confirm your email.'
     CONFIG = {
         'subject': 'Confirm your email',
-        'msg': 'Click %(url)s and put this code %(code)s',
+        'msg': 'Click __URL__ and put this code __CODE__',
         'registration-action': {
             'mode': 'vote',
             'mode-config': None,
@@ -241,6 +256,7 @@ class Email:
             email = r.get('email')
             if isinstance(email, str):
                 email = email.strip()
+                email = email.replace(" ", "")
             msg += check_field_type(self.email_definition, email)
             if validation:
                 msg += check_field_type(self.email_definition, email)
@@ -292,6 +308,7 @@ class Email:
         email = req.get('email')
         if isinstance(email, str):
             email = email.strip()
+            email = email.replace(" ", "")
         msg += check_field_type(self.email_definition, email)
         msg += check_field_value(self.email_definition, email)
         msg += check_fields_in_request(req, ae)
@@ -329,6 +346,7 @@ class Email:
         email = req.get('email')
         if isinstance(email, str):
             email = email.strip()
+            email = email.replace(" ", "")
         msg += check_field_type(self.email_definition, email, 'authenticate')
         msg += check_field_value(self.email_definition, email, 'authenticate')
         msg += check_field_type(self.code_definition, req.get('code'), 'authenticate')
@@ -358,6 +376,7 @@ class Email:
         u.save()
 
         data = {'status': 'ok'}
+        data['username'] = u.username
         data['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
 
         # add redirection

@@ -1,3 +1,18 @@
+# This file is part of authapi.
+# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+
+# authapi is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License.
+
+# authapi  is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+
+# You should have received a copy of the GNU Affero General Public License
+# along with authapi.  If not, see <http://www.gnu.org/licenses/>.
+
 from django import forms
 from django.contrib import admin
 from api.models import AuthEvent, UserData, ACL, User
@@ -5,7 +20,6 @@ from authmethods.models import Message, ColorList, Code, Connection
 from authmethods import METHODS
 from django.contrib.auth.admin import UserAdmin
 
-# Register your models here.
 
 class AuthEventAdminForm(forms.ModelForm):
     class Meta:
@@ -26,6 +40,14 @@ class AuthEventAdmin(admin.ModelAdmin):
     list_display = ('id', 'auth_method', 'status')
     list_filter = ('auth_method', 'status')
     search_fields = ('id',)
+
+    def get_form(self, request, obj=None, **kwargs):
+        choices = []
+        for k in METHODS.keys():
+            choices.append((k, k + ': ' + METHODS.get(k).DESCRIPTION))
+        AuthEventAdminForm.Meta.widgets['auth_method'] = forms.Select(attrs={'obj':'str'}, choices=choices)
+        f = super(AuthEventAdmin, self).get_form(request, obj, **kwargs)
+        return f
 
 
 class UserDataAdmin(admin.ModelAdmin):

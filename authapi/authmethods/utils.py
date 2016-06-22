@@ -1,7 +1,23 @@
+# This file is part of authapi.
+# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+
+# authapi is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License.
+
+# authapi  is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+
+# You should have received a copy of the GNU Affero General Public License
+# along with authapi.  If not, see <http://www.gnu.org/licenses/>.
+
 import json
 import re
 import os
 import binascii
+from base64 import decodestring
 from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -297,7 +313,10 @@ def check_field_type(definition, field, step='register'):
         if isinstance(field, str):
             if definition.get('type') == 'int' or definition.get('type') == 'bool':
                 msg += "Field %s type incorrect, value %s" % (definition.get('name'), field)
-            if len(field) > settings.MAX_GLOBAL_STR:
+            if definition.get('type') == 'image':
+                if len(field) > settings.MAX_IMAGE_SIZE:
+                    msg += "Field %s incorrect image size" % definition.get('name')
+            elif len(field) > settings.MAX_GLOBAL_STR:
                 msg += "Field %s incorrect len" % definition.get('name')
         elif isinstance(field, bool):
             if definition.get('type') != 'bool':
@@ -479,6 +498,15 @@ def edit_user(user, req, ae):
             elif extra.get('type') == 'password':
                 user.set_password(req.get(extra.get('name')))
                 req.pop(extra.get('name'))
+            if extra.get('type') == 'image':
+                img = req.get(extra.get('name'))
+                fname = user.username.decode()
+                path = os.path.join(settings.IMAGE_STORE_PATH, fname)
+                head, img2 = img.split('base64,')
+                with open(path, "w") as f:
+                    #f.write(decodestring(img.encode()))
+                    f.write(img)
+                req[extra.get('name')] = fname
     user.save()
     user.userdata.metadata = json.dumps(req)
     user.userdata.save()

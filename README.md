@@ -39,13 +39,13 @@ kind of object.
 
 1. Download from the git repository if you haven't got a copy
     ```
-    $ git clone https://github.com/agoraciudadana/authapi && cd authapi
+    $ git clone https://github.com/agoravoting/authapi && cd authapi
     ```
 
 2. Install package and its dependencies
     ```
     $ sudo apt-get install libfreetype6-dev # necessary for captcha generator, pillow require it
-    $ mkvirtualenv myenv
+    $ mkvirtualenv -p $(which python3) myenv
     $ pip install -r requirements.txt
     ```
 
@@ -208,7 +208,7 @@ Valid Input example:
     {
         "auth_method": "sms",
         "census": "open",
-        "config": {"msg": "Enter in %(url)s and put this code %(code)s"},
+        "config": {"msg": "Enter in __URL__ and put this code __CODE__"},
         "extra_fields": [
                 {
                 "name": "name",

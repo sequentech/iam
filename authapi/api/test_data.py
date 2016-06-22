@@ -1,15 +1,30 @@
+# This file is part of authapi.
+# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+
+# authapi is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License.
+
+# authapi  is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+
+# You should have received a copy of the GNU Affero General Public License
+# along with authapi.  If not, see <http://www.gnu.org/licenses/>.
+
 import copy
 from django.conf import settings
 
 
-pwd_auth = {'username': 'john', 'password': 'smith'}
+pwd_auth = {'email': 'john@agoravoting.com', 'password': 'smith'}
 
-pwd_auth_email = {'email': 'john@agoravoting.com', 'password': 'smith'}
+pwd_auth_email = {'email': 'john2@agoravoting.com', 'password': 'smith'}
 
 auth_event1 = {
     "auth_method": "sms",
     "census": "close",
-    "config": {"msg": "Enter in %(url)s and put this code %(code)s"},
+    "config": {"msg": "Enter in __URL__ and put this code __CODE__"},
     "extra_fields": [
             {
             "name": "name",
@@ -43,7 +58,7 @@ auth_event1 = {
 auth_event2 = {
     "auth_method": "sms",
     "census": "open",
-    "config": {"msg": "Enter in %(url)s and put this code %(code)s"},
+    "config": {"msg": "Enter in __URL__ and put this code __CODE__"},
     "extra_fields": [
             {
             "name": "name",
@@ -87,14 +102,18 @@ auth_event3 = {
     "auth_method": "email",
     "census": "open",
     "config": {
+        "authentication-action": {"mode": ""},
         "subject": "Confirm your email",
-        "msg": "Click %(url)s and put this code %(code)s"
+        "msg": "Click __URL__ and put this code __CODE__"
     }
 }
 
 auth_event4 = {
     "auth_method": "user-and-password",
-    "census": "open"
+    "census": "open",
+    "config": {
+        "authentication-action": {"mode": ""}
+    }
 }
 
 auth_event5 = {
@@ -118,8 +137,9 @@ auth_event6 = {
     "auth_method": "email",
     "census": "open",
     "config": {
+        "authentication-action": {"mode": ""},
         "subject": "Confirm your email",
-        "msg": "Click %(url)s and put this code %(code)s"
+        "msg": "Click __URL__ and put this code __CODE__"
     },
     "extra_fields": [
             {
@@ -153,7 +173,7 @@ auth_event7['extra_fields'][0]['register-pipeline'] = [
             ]
 
 # Users
-admin = {'username': 'john', 'password': 'smith'}
+admin = {'username': 'john', 'email': 'john@agoravoting.com', 'password': 'smith'}
 
 # Census
 census_email_default = {
@@ -191,6 +211,18 @@ census_email_repeat = {
     "census": [
         {"email": "repeat@aaa.com"},
         {"email": "repeat@aaa.com"}
+    ]
+}
+
+census_email_spaces = {
+    "field-validation": "enabled",
+    "census": [
+        {"email": " baaa@aaa.com"},
+        {"email": "caaa@aaa.com "},
+        {"email": "daaa@ aaa.com"},
+        {"email": "eaaa@aaa .com"},
+        {"email": "faaa @aaa.com"},
+        {"email": "  gaaa@aaa.com  "},
     ]
 }
 
@@ -326,7 +358,8 @@ pipe_timestamp = 5
 authmethod_config_email_default = {
         "config": {
             "subject": "Confirm your email",
-            "msg": "Click %(url)s and put this code %(code)s"
+            "msg": "Click __URL__ and put this code __CODE__",
+            "authentication-action": {"mode": ""}
         },
         "pipeline": {
             'give_perms': [
@@ -346,7 +379,8 @@ authmethod_config_email_default = {
 
 authmethod_config_sms_default = {
         "config": {
-            "msg": "Enter in %(url)s and put this code %(code)s"
+            "msg": "Enter in __URL__ and put this code __CODE__",
+            "authentication-action": {"mode": ""}
         },
         "pipeline": {
             'give_perms': [
@@ -375,6 +409,12 @@ ae_email_default = {
     "census": "open",
 }
 
+ae_email_real = ae_email_default.copy()
+ae_email_real.update({"real": True})
+
+ae_email_real_based_in = ae_email_default.copy()
+ae_email_real_based_in.update({"real": True, "based_in": 1})
+
 ae_incorrect_authmethod = ae_email_default.copy()
 ae_incorrect_authmethod.update({"auth_method": "a"})
 
@@ -390,8 +430,9 @@ ae_without_census.pop("census")
 ae_email_config = ae_email_default.copy()
 ae_email_config.update( {
     "config": {
+        "authentication-action": {"mode": ""},
         "subject": "Vote",
-        "msg": "Enter in %(url)s and put this code %(code)s",
+        "msg": "Enter in __URL__ and put this code __CODE__",
     }
 })
 
@@ -470,7 +511,7 @@ ae_sms_default = {
 ae_sms_config = {
     "auth_method": "sms",
     "census": "open",
-    "config": {"msg": "Enter in %(url)s and put this code %(code)s"}
+    "config": {"msg": "Enter in __URL__ and put this code __CODE__"}
 }
 
 ae_sms_fields = {

@@ -1,3 +1,18 @@
+# This file is part of authapi.
+# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+
+# authapi is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License.
+
+# authapi  is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+
+# You should have received a copy of the GNU Affero General Public License
+# along with authapi.  If not, see <http://www.gnu.org/licenses/>.
+
 from django.contrib.auth.models import User
 from django.core import mail
 from django.test import TestCase
@@ -17,11 +32,12 @@ class AuthMethodTestCase(TestCase):
     fixtures = ['initial.json']
     def setUp(self):
         ae = AuthEvent(auth_method=test_data.auth_event4['auth_method'],
-                status='started', census=test_data.auth_event4['census'])
+                status='started', census=test_data.auth_event4['census'],
+                auth_method_config=test_data.authmethod_config_email_default)
         ae.save()
         self.aeid = ae.pk
 
-        u = User(pk=1, username=test_data.pwd_auth['username'])
+        u = User(pk=1, email=test_data.pwd_auth['email'])
         u.set_password(test_data.pwd_auth['password'])
         u.save()
         u.userdata.event = ae
@@ -36,7 +52,7 @@ class AuthMethodTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
 
-        data = { 'username': 'test', 'password': 'cxzvcx' }
+        data = { 'email': 'test@agoravoting.com', 'password': 'cxzvcx' }
         response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
 
@@ -74,7 +90,7 @@ class AuthMethodEmailTestCase(TestCase):
         acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit', object_id=ae.pk)
         acl.save()
 
-        u2 = User(pk=2, username='test2')
+        u2 = User(pk=2, email='test2@agoravoting.com')
         u2.is_active = False
         u2.save()
         u2.userdata.event = ae
@@ -119,6 +135,8 @@ class AuthMethodEmailTestCase(TestCase):
         response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
+        self.assertTrue(isinstance(r['username'], str))
+        self.assertTrue(len(r['username']) > 0)
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
 
     def test_method_email_authenticate_invalid_code(self):
@@ -155,7 +173,7 @@ class AuthMethodSmsTestCase(TestCase):
         m = Message(tlf=u.userdata.tlf, auth_event_id=ae.pk)
         m.save()
 
-        u2 = User(pk=2, username='test2', email='test2@agoravoting.com')
+        u2 = User(pk=2, email='test2@agoravoting.com')
         u2.is_active = False
         u2.save()
         u2.userdata.tlf = '+34766666666'
@@ -189,7 +207,7 @@ class AuthMethodSmsTestCase(TestCase):
         response = self.c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Incorrect data')
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
 
     def test_method_sms_register_valid_email(self):
         data = {'tlf': '+34666666666', 'code': 'AAAAAAAA',
@@ -204,7 +222,7 @@ class AuthMethodSmsTestCase(TestCase):
         response = self.c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Incorrect data')
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
 
     def test_method_sms_valid_code(self):
         data = {'tlf': '+34666666666', 'code': 'AAAAAAAA', 'dni': '11111111H', 'email': 'test@test.com'}
@@ -212,6 +230,8 @@ class AuthMethodSmsTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
+        self.assertTrue(isinstance(r['username'], str))
+        self.assertTrue(len(r['username']) > 0)
         #self.assertGreaterEqual(Connection.objects.filter(tlf='+34666666666').count(), 1)
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
 
@@ -229,7 +249,7 @@ class AuthMethodSmsTestCase(TestCase):
         response = self.c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['message'], 'Incorrect data')
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
 
     def test_method_sms_get_perm(self): # Fix
         auth = { 'tlf': '+34666666666', 'code': 'AAAAAAAA',
@@ -248,7 +268,10 @@ class AuthMethodSmsTestCase(TestCase):
                 object_id=self.aeid)
         acl.save()
         response = self.c.authenticate(self.aeid, auth)
+        r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(response.status_code, 200)
+        self.assertTrue(isinstance(r['username'], str))
+        self.assertTrue(len(r['username']) > 0)
         response = self.c.post('/api/get-perms/', data1)
         self.assertEqual(response.status_code, 200)
         response = self.c.post('/api/get-perms/', data2)
@@ -258,6 +281,9 @@ class AuthMethodSmsTestCase(TestCase):
         data = { 'tlf': '+34666666666', 'code': 'AAAAAAAA',
                 'email': 'test@test.com', 'dni': '11111111H'}
         response = self.c.authenticate(self.aeid, data)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertTrue(isinstance(r['username'], str))
+        self.assertTrue(len(r['username']) > 0)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
@@ -269,6 +295,30 @@ class AuthMethodSmsTestCase(TestCase):
         }
         response = self.c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')        
+    def test_send_sms_with_url2_msg(self):
+        data = {'tlf': '+34666666667', 'code': 'AAAAAAAA',
+                    'email': 'test1@test.com', 'dni': '11111111H'}
+        response = self.c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['status'], 'ok')
+        import utils
+        from authmethods.sms_provider import TestSMSProvider
+        sms_count0 = TestSMSProvider.sms_count
+        utils.send_codes(users=[3], ip='127.0.0.1', 
+                         config={'msg':'url[__URL2__], code[__CODE__]',
+                                 'subject':'subject'})
+        self.assertEqual(1+sms_count0, TestSMSProvider.sms_count)
+        import re
+        o = re.match('url\[(.+)\], code\[([A-Z0-9]+)\]', TestSMSProvider.last_sms.get('content'))
+        self.assertEqual(2, len(o.groups()))
+        test_url = 'public/login/\\' + data.get('tlf') + '/' + o.groups()[1]
+        e = re.search(test_url, o.groups()[0])
+        self.assertTrue(e.group(0) == test_url.replace('\\',''))
 
 
 class ExtraFieldPipelineTestCase(TestCase):
@@ -286,7 +336,7 @@ class ExtraFieldPipelineTestCase(TestCase):
         self.aeid = ae.pk
 
         # Create admin user for authevent6
-        u = User(username='admin6', email='admin6@agoravoting.com')
+        u = User(email='admin6@agoravoting.com')
         u.save()
         u.userdata.event = ae
         u.userdata.save()

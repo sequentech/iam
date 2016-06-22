@@ -1,3 +1,18 @@
+# This file is part of authapi.
+# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+
+# authapi is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License.
+
+# authapi  is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+
+# You should have received a copy of the GNU Affero General Public License
+# along with authapi.  If not, see <http://www.gnu.org/licenses/>.
+
 import json
 from django.db import models
 from django.contrib.auth.models import User
@@ -9,7 +24,6 @@ from django.db.models.signals import post_save
 from django.db.models import Q
 from django.conf import settings
 from utils import genhmac
-
 
 CENSUS = (
     ('close', 'Close census'),
@@ -37,6 +51,8 @@ class AuthEvent(models.Model):
     extra_fields = JSONField(blank=True, null=True)
     status = models.CharField(max_length=15, choices=AE_STATUSES, default="notstarted")
     created = models.DateTimeField(auto_now_add=True)
+    real = models.BooleanField(default=False)
+    based_in = models.IntegerField(null=True) # auth_event_id
 
     def serialize(self, restrict=False):
         '''
@@ -51,10 +67,12 @@ class AuthEvent(models.Model):
             'id': self.id,
             'auth_method': self.auth_method,
             'census': self.census,
-            'users': self.userdata.count(),
+            'users': self.len_census(),
             'created': (self.created.isoformat()
                         if hasattr(self.created, 'isoformat')
-                        else self.created)
+                        else self.created),
+            'real': self.real,
+            'based_in': self.based_in
         }
 
         def none_list(e):
@@ -86,6 +104,18 @@ class AuthEvent(models.Model):
         AuthEvent.
         '''
         return self.serialize(restrict=True)
+
+    def get_census_query(self):
+        '''
+        returns a query with all the census of this event.
+        '''
+        return ACL.objects.filter(
+            object_type='AuthEvent',
+            perm='vote',
+            object_id=self.id)
+
+    def len_census(self):
+        return self.get_census_query().count()
 
     def __str__(self):
         return "%s - %s" % (self.id, self.census)

@@ -1,20 +1,19 @@
 # -*- coding: utf-8 -*-
 #
-# This file is part of agora-election.
-# Copyright (C) 2013  Eduardo Robles Elvira <edulix AT agoravoting DOT com>
+# This file is part of authapi.
+# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
 
-# This program is free software: you can redistribute it and/or modify
+# authapi is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
+# the Free Software Foundation, either version 3 of the License.
+
+# authapi  is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Affero General Public License for more details.
-#
+
 # You should have received a copy of the GNU Affero General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
 import re
 import requests
@@ -22,6 +21,7 @@ import logging
 import xmltodict
 from django.conf import settings
 
+LOGGER = logging.getLogger('authapi.notify')
 
 class SMSProvider(object):
     '''
@@ -82,10 +82,31 @@ class SMSProvider(object):
             return EsendexSMSProvider()
         if provider == "console":
             return ConsoleSMSProvider()
+        if provider == "test":
+            return TestSMSProvider()
         else:
             raise Exception("invalid SMS_PROVIDER='%s' in app config" % provider)
 
 
+class TestSMSProvider(SMSProvider):
+    provider_name = "test"
+    last_sms = ""
+    sms_count = 0
+
+    def __init__(self):
+        pass
+
+    def send_sms(self, receiver, content, is_audio):
+        LOGGER.info("sending message '%(msg)s' to '%(dest)s' "
+            "(is_audio=%(is_audio)s)" % dict(
+                msg=content, dest=receiver, is_audio=str(is_audio)))
+        TestSMSProvider.sms_count += 1
+        TestSMSProvider.last_sms = dict(
+            content=content, 
+            receiver=receiver, 
+            is_audio=is_audio
+        )
+            
 class ConsoleSMSProvider(SMSProvider):
     provider_name = "console"
 
@@ -93,7 +114,7 @@ class ConsoleSMSProvider(SMSProvider):
         pass
 
     def send_sms(self, receiver, content, is_audio):
-        logging.info("sending message '%(msg)s' to '%(dest)s' "
+        LOGGER.info("sending message '%(msg)s' to '%(dest)s' "
             "(is_audio=%(is_audio)s)" % dict(
                 msg=content, dest=receiver, is_audio=str(is_audio)))
 
@@ -137,11 +158,11 @@ class AltiriaSMSProvider(SMSProvider):
             'senderId': self.sender_id
         }
 
-        logging.debug("sending message.." + str(data))
+        LOGGER.debug("sending message.." + str(data))
         r = requests.post(self.url, data=data, headers=self.headers)
 
         ret = self.parse_response(r)
-        logging.debug(ret)
+        LOGGER.debug(ret)
         return ret
 
     def get_credit(self):
@@ -155,7 +176,7 @@ class AltiriaSMSProvider(SMSProvider):
         r = requests.post(self.url, data=data, headers=self.headers)
 
         ret = self.parse_response(r)
-        logging.debug(ret)
+        LOGGER.debug(ret)
         return ret
 
     def parse_response(self, response):
@@ -254,11 +275,15 @@ class EsendexSMSProvider(SMSProvider):
             body=content,
             sender=self.sender_id,
             extra=extra)
-        logging.debug("sending message.." + str(data))
+        LOGGER.debug("sending message.." + str(data))
         r = requests.post(self.url, data=data, headers=self.headers, auth=self.auth)
 
         ret = self.parse_response(r)
-        logging.debug(ret)
+        LOGGER.debug(ret)
+        if 'error' in ret:
+            raise Exception(
+                'error sending:\n\tdata=%s\t\nret=\t%s' % (str(data), str(ret))
+            )
         return ret
 
     def parse_response(self, response):

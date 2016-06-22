@@ -15,10 +15,8 @@
 
 """
 Django settings for authapi project.
-
 For more information on this file, see
 https://docs.djangoproject.com/en/1.7/topics/settings/
-
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/1.7/ref/settings/
 """
@@ -148,7 +146,7 @@ CORS_ORIGIN_WHITELIST = (
 ENABLE_CAPTCHA = True
 PREGENERATION_CAPTCHA = 100
 
-SMS_PROVIDER = "console"
+SMS_PROVIDER = "test"
 SMS_DOMAIN_ID = ""
 SMS_LOGIN = ""
 SMS_PASSWORD = ""
@@ -182,7 +180,7 @@ if not os.path.exists(IMAGE_STORE_PATH):
 if PLUGINS:
     import importlib
     for plugin in PLUGINS:
-        mod = importlib.import_module("%s.settings" % plugin)
+        mod = importlib.import_module("%s.test_settings" % plugin)
         to_import = [name for name in dir(mod) if not name.startswith('_')]
         locals().update({name: getattr(mod, name) for name in to_import})
 
