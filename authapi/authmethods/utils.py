@@ -165,7 +165,7 @@ def check_tlf_total_max(data, **kwargs):
     in total->blacklist, error
     '''
     total_max = kwargs.get('max')
-    period = kwargs.get('period')
+    period = kwargs.get('period', None)
     if data.get('whitelisted', False) == True:
         return RET_PIPE_CONTINUE
 
@@ -173,8 +173,7 @@ def check_tlf_total_max(data, **kwargs):
     tlf = data['tlf']
     if period:
         time_threshold = timezone.now() - timedelta(seconds=period)
-        # Fix
-        item = Message.objects.filter(tlf=tlf, created__lt=time_threshold,
+        item = Message.objects.filter(tlf=tlf, created__gt=time_threshold,
                                       auth_event_id=data['auth_event'].id)
     else:
         item = Message.objects.filter(tlf=tlf, auth_event_id=data['auth_event'].id)
@@ -198,11 +197,22 @@ def check_ip_total_max(data, **kwargs):
     authenticated, blacklist it
     '''
     total_max = kwargs.get('max')
+    period = kwargs.get('period', None)
     if data.get('whitelisted', False) == True:
         return RET_PIPE_CONTINUE
 
     ip_addr = data['ip_addr']
-    item = Message.objects.filter(ip=ip_addr, auth_event_id=data['auth_event'].id)
+    if period:
+        time_threshold = timezone.now() - timedelta(seconds=period)
+        item = Message.objects.filter(
+            ip=ip_addr,
+            created__gt=time_threshold,
+            auth_event_id=data['auth_event'].id)
+    else:
+        item = Message.objects.filter(
+            ip=ip_addr,
+            auth_event_id=data['auth_event'].id)
+
     if len(item) >= total_max:
         cl = ColorList(action=ColorList.ACTION_BLACKLIST,
                        key=ColorList.KEY_IP, value=ip_addr,
@@ -242,10 +252,16 @@ def check_blacklisted(data, **kwargs):
 
 
 def check_total_max(data, **kwargs):
-    check = check_tlf_total_max(data, **kwargs)
+    field = kwargs.get('field', None)
+    check = 0
+
+    if field == 'tlf':
+        check = check_tlf_total_max(data, **kwargs)
     if check != 0:
         return check
-    check = check_ip_total_max(data, **kwargs)
+
+    if field == 'ip':
+        check = check_ip_total_max(data, **kwargs)
     return check
 
 def check_total_connection(data, **kwargs):
