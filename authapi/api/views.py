@@ -783,3 +783,16 @@ class GetImage(View):
         data = {'img': open(path).read()}
         return json_response(data)
 get_img = login_required(GetImage.as_view())
+
+
+class Legal(View)
+    def get(self, request):
+        data = 
+        {
+            'legal_name' : 'test name'
+            'legal_org' : 'test org'
+            'legal_contact' : 'test contact'
+            'legal_id' : 'test id'
+        }
+        return json_response(data)
+legal = login_required(Legal.as_view())
