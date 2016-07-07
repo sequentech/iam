@@ -789,9 +789,9 @@ class Legal(View)
     def get(self, request):
         data = 
         {
-            'legal_name' : 'test name'
-            'legal_org' : 'test org'
-            'legal_contact' : 'test contact'
+            'legal_name' : 'test name',
+            'legal_org' : 'test org',
+            'legal_contact' : 'test contact',
             'legal_id' : 'test id'
         }
         return json_response(data)
