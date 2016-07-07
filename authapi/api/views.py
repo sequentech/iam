@@ -785,7 +785,7 @@ class GetImage(View):
 get_img = login_required(GetImage.as_view())
 
 
-class Legal(View)
+class Legal(View):
     def get(self, request):
         data = 
         {
