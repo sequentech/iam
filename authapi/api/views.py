@@ -784,14 +784,11 @@ class GetImage(View):
         return json_response(data)
 get_img = login_required(GetImage.as_view())
 
-
 class Legal(View):
-    def get(self, request):
-        data = {
-            'legal_name' : 'test name',
-            'legal_org' : 'test org',
-            'legal_contact' : 'test contact',
-            'legal_id' : 'test id'
-        }
+    def get(self, request, pk = None):
+        data = {}
+        extended = plugins.call("extend_get_legal", pk)
+        if len(extended) > 0:
+            data  = extended[0]
         return json_response(data)
-legal = login_required(Legal.as_view())
+legal = Legal.as_view()

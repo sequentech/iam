@@ -50,7 +50,7 @@ urlpatterns = [
 
     url(r'^authmethod/(.*)/', authmethods_views.view),
     
-    url(r'^legal/$', views.legal, name='legal'),
+    url(r'^legal/(?P<pk>\d+)/$', views.legal, name='legal'),
 ]
 
 
