@@ -49,6 +49,8 @@ urlpatterns = [
     url(r'^user/reset-pwd/$', views.reset_pwd, name='reset_pwd'),
 
     url(r'^authmethod/(.*)/', authmethods_views.view),
+    
+    url(r'^legal/(?P<pk>\d+)/$', views.legal, name='legal'),
 ]
 
 
