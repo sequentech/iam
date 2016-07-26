@@ -113,6 +113,15 @@ class AuthEvent(models.Model):
             object_type='AuthEvent',
             perm='vote',
             object_id=self.id)
+     
+    def get_owners(self):
+        '''
+        Returns the list of people that can edit this event
+        '''
+        return ACL.objects.filter(
+            object_type='AuthEvent',
+            perm='edit',
+            object_id=self.id)
 
     def len_census(self):
         return self.get_census_query().count()
