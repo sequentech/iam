@@ -101,7 +101,7 @@ def permission_required(user, object_type, permission, object_id=0, return_bool=
         if return_bool:
             return False
         else:
-            raise PermissionDenied('Permission required: ' + permission)
+            raise PermissionDenied('Permission required: ' + str(permission))
 
     if return_bool:
         return True
