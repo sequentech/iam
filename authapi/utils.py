@@ -79,9 +79,25 @@ def json_response(data=None, status=200, message="", field=None, error_codename=
 def permission_required(user, object_type, permission, object_id=0, return_bool=False):
     if user.is_superuser:
         return True
-    if object_id and user.userdata.has_perms(object_type, permission, 0):
-        return True
-    if not user.userdata.has_perms(object_type, permission, object_id):
+
+    if type(permission) is str:
+        permissions = [permission]
+    elif type(permission) is list:
+        permissions = permission
+    else:
+        raise Exception("invalid permission type")
+
+    if object_id:
+        for perm in permissions:
+            if user.userdata.has_perms(object_type, permission, 0):
+                return True
+
+    found = False
+    for perm in permissions:
+        if user.userdata.has_perms(object_type, permission, object_id):
+            found = True
+
+    if not found:
         if return_bool:
             return False
         else:
@@ -89,7 +105,6 @@ def permission_required(user, object_type, permission, object_id=0, return_bool=
 
     if return_bool:
         return True
-
 
 def paginate(request, queryset, serialize_method=None, elements_name='elements'):
     '''

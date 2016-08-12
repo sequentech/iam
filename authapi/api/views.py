@@ -159,7 +159,7 @@ class Census(View):
                 error_codename=data.get('error_codename'))
 
     def get(self, request, pk):
-        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        permission_required(request.user, 'AuthEvent', ['edit', 'view-census'], pk)
         e = get_object_or_404(AuthEvent, pk=pk)
 
         filter_str = request.GET.get('filter', None)
@@ -565,7 +565,12 @@ class AuthEventView(View):
         if pk:
             e = AuthEvent.objects.get(pk=pk)
             if (user is not None and user.is_authenticated() and
-                permission_required(user, 'AuthEvent', 'edit', e.id, return_bool=True)):
+                permission_required(
+                    user,
+                    'AuthEvent',
+                    ['edit', 'view'],
+                    e.id,
+                    return_bool=True)):
                 aes = e.serialize()
             else:
                 aes = e.serialize_restrict()
@@ -590,7 +595,7 @@ class AuthEventView(View):
             Delete a auth-event.
             delete_authevent permission required
         '''
-        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        permission_required(request.user, 'AuthEvent', ['edit', 'delete'], pk)
 
         ae = AuthEvent.objects.get(pk=pk)
         ae.delete()
@@ -725,7 +730,7 @@ user_auth_event = login_required(UserAuthEvent.as_view())
 class CensusSendAuth(View):
     def post(self, request, pk):
         ''' Send authentication emails to the whole census '''
-        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        permission_required(request.user, 'AuthEvent', ['edit', 'send-auth'], pk)
 
         data = {'msg': 'Sent successful'}
         # first, validate input
