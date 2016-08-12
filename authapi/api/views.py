@@ -759,7 +759,13 @@ class CensusSendAuth(View):
             if req.get('subject', ''):
                 config['subject'] = req.get('subject', '')
         else:
-            send_error = census_send_auth_task(pk, get_client_ip(request), None, userids, **extra_req)
+            send_error = census_send_auth_task(
+                pk,
+                get_client_ip(request),
+                None,
+                userids,
+                request.user.id,
+                **extra_req)
             if send_error:
                 return json_response(**send_error)
             return json_response(data)
@@ -770,7 +776,12 @@ class CensusSendAuth(View):
                     status=400,
                     error_codename=ErrorCodes.BAD_REQUEST)
 
-        send_error = census_send_auth_task(pk, get_client_ip(request), config, userids, **extra_req)
+        send_error = census_send_auth_task(
+            pk,
+            get_client_ip(request),
+            config, userids,
+            request.user.id,
+            **extra_req)
         if send_error:
             return json_response(**send_error)
         return json_response(data)

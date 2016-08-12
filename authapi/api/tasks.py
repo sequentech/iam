@@ -22,7 +22,7 @@ from authmethods.sms_provider import SMSProvider
 from utils import send_codes
 
 
-def census_send_auth_task(pk, ip, config=None, userids=None, **kwargs):
+def census_send_auth_task(pk, ip, config=None, userids=None, sender_uid=None, **kwargs):
     """
     Send an auth token to census
     """
@@ -32,6 +32,9 @@ def census_send_auth_task(pk, ip, config=None, userids=None, **kwargs):
     if e.status != "started":
         print("event is stopped, ignoring request..")
         return
+
+    if sender_uid is not None:
+        print("Sender user id = %d" % sender_uid)
 
     census = []
     if userids is None:
