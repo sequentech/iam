@@ -429,7 +429,8 @@ class ACLMine(View):
         if object_id:
             q &= Q(object_id=object_id)
         if perm:
-            q &= Q(perm=perm)
+            perms = perm.split('|')
+            q &= Q(perm__in=perms)
 
         query = request.user.userdata.acls.filter(q)
 
