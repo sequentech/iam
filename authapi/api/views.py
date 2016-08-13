@@ -356,8 +356,9 @@ class GetPerms(View):
         filtered_perms = "|".join([
             perm
             for perm in perms
-            if (not request.user.is_superuser and
-                not request.user.userdata.has_perms(object_type, perm, obj_id)
+            if (
+                request.user.is_superuser or
+                request.user.userdata.has_perms(object_type, perm, obj_id)
             )
         ])
 
