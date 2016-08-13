@@ -350,16 +350,23 @@ class GetPerms(View):
                 error_codename=ErrorCodes.BAD_REQUEST)
 
         object_type = req['object_type']
-        perm = req['permission']
+        perms = req['permission'].split("|")
         obj_id = req.get('object_id', 0)
 
-        if not request.user.is_superuser and\
-                not request.user.userdata.has_perms(object_type, perm, obj_id):
+        filtered_perms = [
+            perm
+            for perm in perms
+            if (not request.user.is_superuser and
+                not request.user.userdata.has_perms(object_type, perm, obj_id)
+            )
+        ]
+
+        if len(filtered_perms) == 0:
             return json_response(
                 status=400,
                 error_codename=ErrorCodes.BAD_REQUEST)
 
-        msg = ':'.join((request.user.username, object_type, str(obj_id), perm))
+        msg = ':'.join((request.user.username, object_type, str(obj_id), filtered_perms))
 
         data['permission-token'] = genhmac(settings.SHARED_SECRET, msg)
         return json_response(data)
