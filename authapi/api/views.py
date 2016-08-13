@@ -353,13 +353,13 @@ class GetPerms(View):
         perms = req['permission'].split("|")
         obj_id = req.get('object_id', 0)
 
-        filtered_perms = [
+        filtered_perms = "|".join([
             perm
             for perm in perms
             if (not request.user.is_superuser and
                 not request.user.userdata.has_perms(object_type, perm, obj_id)
             )
-        ]
+        ])
 
         if len(filtered_perms) == 0:
             return json_response(
