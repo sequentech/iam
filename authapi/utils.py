@@ -94,14 +94,14 @@ def permission_required(user, object_type, permission, object_id=0, return_bool=
 
     found = False
     for perm in permissions:
-        if user.userdata.has_perms(object_type, permission, object_id):
+        if user.userdata.has_perms(object_type, perm, object_id):
             found = True
 
     if not found:
         if return_bool:
             return False
         else:
-            raise PermissionDenied('Permission required: ' + str(permission))
+            raise PermissionDenied('Permission required: ' + str(permissions))
 
     if return_bool:
         return True
