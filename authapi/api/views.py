@@ -297,10 +297,10 @@ class ResendAuthCode(View):
 
     def post(self, request, pk):
         e = get_object_or_404(AuthEvent, pk=pk)
-        if (e.census == 'close'):
-            return json_response(
-                status=400,
-                error_codename="AUTH_EVENT_NOT_STARTED")
+        #if (e.census == 'close'):
+            #return json_response(
+                #status=400,
+                #error_codename="AUTH_EVENT_NOT_STARTED")
         if e.census == 'open' and e.status != 'started': # register is closing
             return json_response(
                 status=400,
