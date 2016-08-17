@@ -240,7 +240,8 @@ class Authenticate(View):
         else:
             return json_response(
               status=400,
-              error_codename=data.get('error_codename'))
+              error_codename=data.get('error_codename'),
+              message=data.get('msg', '-'))
 authenticate = Authenticate.as_view()
 
 
