@@ -312,6 +312,7 @@ class ResendAuthCode(View):
         else:
             return json_response(
                 status=400,
+                message=data.get('msg', '-'),
                 error_codename=data.get('error_codename'))
 resend_auth_code = ResendAuthCode.as_view()
 
