@@ -356,25 +356,25 @@ class Sms:
         msg += check_field_value(self.code_definition, req.get('code'), 'authenticate')
         msg += check_fields_in_request(req, ae, 'authenticate')
         if msg:
-            return self.error("Incorrect data", error_codename="invalid_credentials")
+            return self.error("Incorrect data 1: " + msg, error_codename="invalid_credentials")
 
         try:
             u = User.objects.get(userdata__tlf=tlf, userdata__event=ae, is_active=True)
         except:
-            return self.error("Incorrect data", error_codename="invalid_credentials")
+            return self.error("Incorrect data 2", error_codename="invalid_credentials")
 
         code = Code.objects.filter(user=u.userdata,
                 code=req.get('code').upper()).order_by('-created').first()
         if not code:
-            return self.error("Incorrect data", error_codename="invalid_credentials")
+            return self.error("Incorrect data 3", error_codename="invalid_credentials")
 
         msg = check_pipeline(request, ae, 'authenticate')
         if msg:
-            return self.error("Incorrect data", error_codename="invalid_credentials")
+            return self.error("Incorrect data 4: " + msg, error_codename="invalid_credentials")
 
         msg = check_metadata(req, u)
         if msg:
-            return self.error("Incorrect data", error_codename="invalid_credentials")
+            return self.error("Incorrect data 5: " + msg, error_codename="invalid_credentials")
 
         u.save()
 
