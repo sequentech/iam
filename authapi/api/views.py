@@ -755,6 +755,8 @@ class CensusSendAuth(View):
             return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
         userids = req.get("user-ids", None)
+        if userids is None:
+            permission_required(request.user, 'AuthEvent', ['send-auth-all'], pk)
         extra_req = req.get('extra', {})
         # force extra_req type to be a dict
         if not isinstance(extra_req, dict):
