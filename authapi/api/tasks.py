@@ -16,6 +16,7 @@
 from django.conf import settings
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
+from django.contrib.auth.models import User
 
 import plugins
 from authmethods.sms_provider import SMSProvider
@@ -26,7 +27,7 @@ def census_send_auth_task(pk, ip, config=None, userids=None, auth_method=None, *
     """
     Send an auth token to census
     """
-    from .models import AuthEvent, ACL
+    from .models import AuthEvent, ACL, UserData
 
     e = get_object_or_404(AuthEvent, pk=pk)
     if e.status != "started":
@@ -41,7 +42,9 @@ def census_send_auth_task(pk, ip, config=None, userids=None, auth_method=None, *
     if userids is None:
         new_census = ACL.objects.filter(perm="vote", object_type="AuthEvent", object_id=str(pk))
     else:
-        new_census = userids
+        users = User.objects.filter(id__in=userids)
+        userdata = UserData.objects.filter(user__in=users)
+        new_census = ACL.objects.filter(perm="vote", object_type="AuthEvent", object_id=str(pk), user__in=userdata)
 
     census = []
     if e.auth_method == auth_method:
