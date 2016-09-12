@@ -47,7 +47,7 @@ def census_send_auth_task(pk, ip, config=None, userids=None, auth_method=None, *
             census_key=''
             if "sms" == auth_method:
                 census_key = 'tlf'
-            else if "email" == auth_method:
+            elif "email" == auth_method:
                 census_key = 'email'
             for item in new_census:
                 if item.metadata.has_key(census_key) and \
