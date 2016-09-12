@@ -37,24 +37,22 @@ def census_send_auth_task(pk, ip, config=None, userids=None, auth_method=None, *
     if auth_method is None:
         auth_method = e.auth_method
 
-    census = []
+    new_census = []
     if userids is None:
         new_census = ACL.objects.filter(perm="vote", object_type="AuthEvent", object_id=str(pk))
-
-        if e.auth_method == auth_method:
-            census = [i.user.user.id for i in new_census]
-        else:
-            census_key=''
-            if "sms" == auth_method:
-                census_key = 'tlf'
-            elif "email" == auth_method:
-                census_key = 'email'
-            for item in new_census:
-                if item.metadata.has_key(census_key) and \
-                   len(item.metadata.get(census_key)):
-                     census += item.user.user.id
     else:
-        census = userids
+        new_census = userids
+
+    census = []
+    if e.auth_method == auth_method:
+        census = [i.user.user.id for i in new_census]
+    else:
+        for item in new_census:
+           if "sms" == auth_method and item.user.tlf:
+               census.append(item.user.user.id)
+           elif "email" == auth_method and item.user.user.email:
+               census.append(item.user.user.id)
+    
 
     extend_errors = plugins.call("extend_send_message", e, len(census), kwargs)
     if extend_errors:
