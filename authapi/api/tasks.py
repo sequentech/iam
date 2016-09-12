@@ -60,4 +60,4 @@ def census_send_auth_task(pk, ip, config=None, userids=None, auth_method=None, *
     if extend_errors:
         # Only can return one error at least for now
         return extend_errors[0]
-    send_codes.apply_async(args=[census, ip, config, auth_method])
+    send_codes.apply_async(args=[census, ip, auth_method, config])

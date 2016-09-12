@@ -333,7 +333,7 @@ class Email:
             # sending the code in here
             return {'status': 'ok'}
 
-        send_codes.apply_async(args=[[u.id,], get_client_ip(request)])
+        send_codes.apply_async(args=[[u.id,], get_client_ip(request),'email'])
         return {'status': 'ok'}
 
     def authenticate_error(self):

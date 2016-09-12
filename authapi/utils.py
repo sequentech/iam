@@ -389,7 +389,7 @@ def get_client_ip(request):
 
 
 @celery.task
-def send_codes(users, ip, config=None, auth_method):
+def send_codes(users, ip, auth_method, config=None):
     ''' Massive send_code with celery task.  '''
     user_objs = User.objects.filter(id__in=users)
     for user in user_objs:
