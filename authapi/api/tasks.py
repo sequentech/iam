@@ -22,7 +22,7 @@ from authmethods.sms_provider import SMSProvider
 from utils import send_codes
 
 
-def census_send_auth_task(pk, ip, config=None, userids=None, **kwargs):
+def census_send_auth_task(pk, ip, config=None, userids=None, auth_method=None, **kwargs):
     """
     Send an auth token to census
     """
@@ -33,10 +33,26 @@ def census_send_auth_task(pk, ip, config=None, userids=None, **kwargs):
         print("event is stopped, ignoring request..")
         return
 
+    # If the auth_method is not set, use the default authmethod for the election
+    if auth_method is None:
+        auth_method = e.auth_method
+
     census = []
     if userids is None:
-        census = ACL.objects.filter(perm="vote", object_type="AuthEvent", object_id=str(pk))
-        census = [i.user.user.id for i in census]
+        new_census = ACL.objects.filter(perm="vote", object_type="AuthEvent", object_id=str(pk))
+
+        if e.auth_method == auth_method:
+            census = [i.user.user.id for i in new_census]
+        else:
+            census_key=''
+            if "sms" == auth_method:
+                census_key = 'tlf'
+            else if "email" == auth_method:
+                census_key = 'email'
+            for item in new_census:
+                if item.metadata.has_key(census_key) and \
+                   len(item.metadata.get(census_key)):
+                     census += item.user.user.id
     else:
         census = userids
 
@@ -44,4 +60,4 @@ def census_send_auth_task(pk, ip, config=None, userids=None, **kwargs):
     if extend_errors:
         # Only can return one error at least for now
         return extend_errors[0]
-    send_codes.apply_async(args=[census, ip, config])
+    send_codes.apply_async(args=[census, ip, config, auth_method])

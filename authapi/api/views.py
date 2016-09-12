@@ -742,6 +742,7 @@ class CensusSendAuth(View):
 
         userids = req.get("user-ids", None)
         extra_req = req.get('extra', {})
+        auth_method = req.get("auth-method", None)
         # force extra_req type to be a dict
         if not isinstance(extra_req, dict):
             return json_response(
@@ -754,7 +755,7 @@ class CensusSendAuth(View):
             if req.get('subject', ''):
                 config['subject'] = req.get('subject', '')
         else:
-            send_error = census_send_auth_task(pk, get_client_ip(request), None, userids, **extra_req)
+            send_error = census_send_auth_task(pk, get_client_ip(request), None, userids, auth_method, **extra_req)
             if send_error:
                 return json_response(**send_error)
             return json_response(data)
@@ -765,7 +766,7 @@ class CensusSendAuth(View):
                     status=400,
                     error_codename=ErrorCodes.BAD_REQUEST)
 
-        send_error = census_send_auth_task(pk, get_client_ip(request), config, userids, **extra_req)
+        send_error = census_send_auth_task(pk, get_client_ip(request), config, userids, auth_method, **extra_req)
         if send_error:
             return json_response(**send_error)
         return json_response(data)
