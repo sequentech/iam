@@ -294,12 +294,16 @@ def send_code(user, ip, config=None, auth_method_override=None):
 
     code = generate_code(user.userdata)
 
-    if auth_method == "sms":
+    if "sms" == user.userdata.event.auth_method:
         receiver = user.userdata.tlf
-        base_auth_url = settings.SMS_AUTH_CODE_URL
     else:
         # email
         receiver = user.email
+
+    if "sms" == auth_method:
+        base_auth_url = settings.SMS_AUTH_CODE_URL
+    else:
+        # email
         base_auth_url = settings.EMAIL_AUTH_CODE_URL
 
     url = template_replace_data(
