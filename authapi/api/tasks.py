@@ -22,8 +22,7 @@ import plugins
 from authmethods.sms_provider import SMSProvider
 from utils import send_codes
 
-
-def census_send_auth_task(pk, ip, config=None, userids=None, auth_method=None, **kwargs):
+def census_send_auth_task(pk, ip, config=None, userids=None, auth_method=None, sender_uid=None, **kwargs):
     """
     Send an auth token to census
     """
@@ -39,6 +38,11 @@ def census_send_auth_task(pk, ip, config=None, userids=None, auth_method=None, *
         auth_method = e.auth_method
 
     new_census = []
+
+    if sender_uid is not None:
+        print("Sender user id = %d" % sender_uid)
+
+    census = []
     if userids is None:
         new_census = ACL.objects.filter(perm="vote", object_type="AuthEvent", object_id=str(pk))
     else:
