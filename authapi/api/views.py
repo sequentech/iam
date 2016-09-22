@@ -322,7 +322,12 @@ class AuthEventStatus(View):
     ''' Change the status of auth-event '''
 
     def post(self, request, pk, status):
-        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        alt = dict(
+            notstarted="notstarted"
+            started='start',
+            stopped='stop'
+        )[status]
+        permission_required(request.user, 'AuthEvent', ['edit', alt], pk)
         e = get_object_or_404(AuthEvent, pk=pk)
         if e.status != status:
             e.status = status

@@ -15,7 +15,7 @@
 
 from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth.models import User
-from .models import AuthEvent, ACL
+from api.models import AuthEvent, ACL
 import json
 
 def insert_or_update(cls, kwargs):
@@ -34,7 +34,7 @@ class Command(BaseCommand):
             type=str)
 
     def handle(self, *args, **options):
-        users_data = json.loads(open(options['usersdata'], 'r').read())
+        users_data = json.loads(open(options['usersdata'][0], 'r').read())
 
         # process each user
         for udata in users_data:
@@ -44,18 +44,16 @@ class Command(BaseCommand):
                 # user doesn't exist -> create it
                 db_user = User.objects.create_user(
                     username=udata['username'],
-                    email=udata['email'],
-                    is_active=udata.get('is_active', False),
-                    is_admin=udata.get('is_admin', False),
-                    is_staff=udata.get('is_admin', False)
+                    email=udata['email']
                 )
             else:
                 # user exists -> update it
                 db_user = users[0]
-                db_user.email = udata['email']
-                db_user.is_active=udata.get('is_active', False)
-                db_user.is_admin=udata.get('is_admin', False)
-                db_user.is_staff=udata.get('is_admin', False)
+
+            db_user.email = udata['email']
+            db_user.is_active=udata.get('is_active', False)
+            db_user.is_admin=udata.get('is_admin', False)
+            db_user.is_staff=udata.get('is_admin', False)
 
             # in any of the previous cases, save to DB
             db_user.save()
@@ -65,10 +63,12 @@ class Command(BaseCommand):
                 db_user.set_password(udata['password'])
                 db_user.save()
 
+            db_user.userdata.event_id = 1
             # if tlf is set, update it
             if 'tlf' in udata:
                 db_user.userdata.tlf = udata['password']
-                db_user.userdata.save()
+
+            db_user.userdata.save()
 
             # make sure the user has permission to login as an admin
             insert_or_update(
@@ -81,15 +81,26 @@ class Command(BaseCommand):
                 )
             )
 
-            # create each permission if needed
             for el in udata['election_permissions']:
-                for perm in el['permissions']:
-                  insert_or_update(
-                      ACL,
-                      dict(
-                          user=db_user.userdata,
-                          perm=perm,
-                          object_type='AuthEvent',
-                          object_id=int(el['election_id'])
-                      )
-                  )
+                if len(el['permissions']) > 0:
+                    # ensure each permission for this election
+                    for perm in el['permissions']:
+                        insert_or_update(
+                            ACL,
+                            dict(
+                                user=db_user.userdata,
+                                perm=perm,
+                                object_type='AuthEvent',
+                                object_id=int(el['election_id'])
+                            )
+                        )
+                else:
+                    # if permission list is empty, it means we have to ensure
+                    # that the user has no permission for that election
+                    perms = ACL.objects.filter(
+                        user=db_user.userdata,
+                        object_type='AuthEvent',
+                        object_id=int(el['election_id'])
+                    )
+                    for perm in perms:
+                        perm.delete()
