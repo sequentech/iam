@@ -323,7 +323,7 @@ class AuthEventStatus(View):
 
     def post(self, request, pk, status):
         alt = dict(
-            notstarted="notstarted"
+            notstarted="notstarted",
             started='start',
             stopped='stop'
         )[status]
