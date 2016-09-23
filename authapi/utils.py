@@ -294,7 +294,11 @@ def send_code(user, ip, config=None, auth_method_override=None):
 
     code = generate_code(user.userdata)
 
-    if auth_method == "sms":
+    default_receiver_account = user.email
+    if "sms" == user.userdata.event.auth_method:
+        default_receiver_account = user.userdata.tlf
+
+    if "sms" == auth_method:
         receiver = user.userdata.tlf
         base_auth_url = settings.SMS_AUTH_CODE_URL
     else:
@@ -304,7 +308,7 @@ def send_code(user, ip, config=None, auth_method_override=None):
 
     url = template_replace_data(
       base_auth_url,
-      dict(event_id=event_id, code=code, receiver=receiver))
+      dict(event_id=event_id, code=code, receiver=default_receiver_account))
 
     # TODO use proper error codes
     if receiver is None:
@@ -389,11 +393,11 @@ def get_client_ip(request):
 
 
 @celery.task
-def send_codes(users, ip, config=None):
+def send_codes(users, ip, auth_method, config=None):
     ''' Massive send_code with celery task.  '''
     user_objs = User.objects.filter(id__in=users)
     for user in user_objs:
-        send_code(user, ip, config)
+        send_code(user, ip, config, auth_method)
 
 
 # CHECKERS AUTHEVENT
