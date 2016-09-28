@@ -14,15 +14,7 @@
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
 from django.core.management.base import BaseCommand, CommandError
-from django.contrib.auth.models import User
-from api.models import AuthEvent, ACL
-import json
-
-def insert_or_update(cls, kwargs):
-    l = cls.objects.filter(**kwargs)
-    if len(l) == 0:
-        obj = ACL(**kwargs)
-        obj.save()
+from api.models import AuthEvent
 
 class Command(BaseCommand):
     help = 'updates valid dnis'
@@ -38,15 +30,15 @@ class Command(BaseCommand):
             type=str)
 
     def handle(self, *args, **options):
-        dnis_text = json.loads(open(options['dnispath'][0], 'r').read())
+        dnis_text = open(options['dnispath'][0], 'r').read()
         dnis = [dni.strip() for dni in dnis_text.split("\n")]
-        event_id = int(options['event_id'][0])
+        event_id = int(options['eventid'][0])
         event = AuthEvent.objects.get(pk=event_id)
         dni_field = [
             field
             for field in event.extra_fields
-            if field.name == 'dni'
+            if 'dni' in field['name'].lower()
         ][0]
 
-        dni_field.regex = "^(%s)$" % ("|".join(dnis))
+        dni_field["regex"] = "^(%s)$" % ("|".join(dnis)[:-1])
         event.save()

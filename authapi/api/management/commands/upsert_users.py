@@ -25,7 +25,7 @@ def insert_or_update(cls, kwargs):
         obj.save()
 
 class Command(BaseCommand):
-    help = 'Closes the specified poll for voting'
+    help = 'updates users data'
 
     def add_arguments(self, parser):
         parser.add_argument(
