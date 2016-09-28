@@ -79,6 +79,15 @@ CONTRACTS = dict(
       }
     ])
 
+dni_array = dict()
+def fill_dni_array():
+    print("INFO: Loading DNI array...")
+    DNI_PATH = "/home/ubuntu/dni.txt"
+    dni_file = open(DNI_PATH, 'r')
+    for line in dni_file:
+        dni_array[line.strip(' \t\n\r')]=True
+fill_dni_array()
+
 class CensusDelete(View):
     '''
     Delete census in the auth-event
@@ -282,6 +291,25 @@ class Register(View):
             return json_response(
                 status=400,
                 error_codename="AUTH_EVENT_NOT_STARTED")
+
+        # check dni field
+        election_has_dni = False
+        for field in e.extra_fields:
+            if 'dni' == field.get('name'):
+                election_has_dni = True
+        if election_has_dni:
+            req = json.loads(request.body.decode('utf-8'))
+            user_dni = req.get('dni')
+            if not user_dni:
+                return json_response(
+                    status=400,
+                    error_codename="MISSING_DNI_FIELD")
+            user_dni = user_dni.strip(' \t\n\r')
+            if not user_dni in dni_array:
+                return json_response(
+                    status=400,
+                    error_codename="DNI_NOT_ALLOWED")
+            print("INFO: DNI allowed")
 
         data = auth_register(e, request)
         if data['status'] == 'ok':
