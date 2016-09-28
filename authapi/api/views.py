@@ -82,7 +82,7 @@ CONTRACTS = dict(
 dni_array = dict()
 def fill_dni_array():
     print("INFO: Loading DNI array...")
-    DNI_PATH = "/home/ubuntu/dni.txt"
+    DNI_PATH = "/home/authapi/dni.txt"
     dni_file = open(DNI_PATH, 'r')
     for line in dni_file:
         dni_array[line.strip(' \t\n\r')]=True
