@@ -227,11 +227,13 @@ def random_code(length=16, chars=ascii_lowercase+digits):
 def generate_code(userdata, size=settings.SIZE_CODE):
     """ Generate necessary codes for different authmethods. """
     from authmethods.models import Code
-    code = random_code(size, "ABCDEFGHJKLMNPQRTUVWXYZ2346789")
+    code = random_code(size, "2346789")
     c = Code(user=userdata, code=code, auth_event_id=userdata.event.id)
     c.save()
     return code
 
+def format_code(code):
+    return '-'.join(code[i:i+4] for i in range(0, len(code), 4))
 
 def email_to_str(email):
     return '''to: %s
@@ -347,11 +349,11 @@ def send_code(user, ip, config=None, auth_method_override=None):
 
     # url with authentication code
     url2 = url + '/' + code
-    
+
     # msg is the message sent by the user
     raw_msg = template_replace_data(
       msg,
-      dict(event_id=event_id, code=code, url=url, url2=url2))
+      dict(event_id=event_id, code=format_code(code), url=url, url2=url2))
     msg = template_replace_data(base_msg, dict(message=raw_msg))
 
     code_msg = {'subject': subject, 'msg': msg}
