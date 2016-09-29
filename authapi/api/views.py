@@ -85,7 +85,7 @@ def fill_dni_array():
     DNI_PATH = "/home/authapi/dnis.txt"
     dni_file = open(DNI_PATH, 'r')
     for line in dni_file:
-        dni_array[line.strip(' \t\n\r')]=True
+        dni_array[line.strip(' \t\n\r').upper()]=True
 fill_dni_array()
 
 class CensusDelete(View):
@@ -294,17 +294,19 @@ class Register(View):
 
         # check dni field
         election_has_dni = False
+        dni_field_name = 'dni'
         for field in e.extra_fields:
-            if 'dni' == field.get('name'):
+            if not 'dni' in field.get('name').strip(' \t\n\r').lower():
                 election_has_dni = True
+                dni_field_name = field.get('name')
         if election_has_dni:
             req = json.loads(request.body.decode('utf-8'))
-            user_dni = req.get('dni')
+            user_dni = req.get(dni_field_name)
             if not user_dni:
                 return json_response(
                     status=400,
                     error_codename="MISSING_DNI_FIELD")
-            user_dni = user_dni.strip(' \t\n\r')
+            user_dni = user_dni.strip(' \t\n\r').upper()
             if not user_dni in dni_array:
                 return json_response(
                     status=400,
