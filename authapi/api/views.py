@@ -296,7 +296,7 @@ class Register(View):
         election_has_dni = False
         dni_field_name = 'dni'
         for field in e.extra_fields:
-            if not 'dni' in field.get('name').strip(' \t\n\r').lower():
+            if 'dni' in field.get('name').strip(' \t\n\r').lower():
                 election_has_dni = True
                 dni_field_name = field.get('name')
         if election_has_dni:
