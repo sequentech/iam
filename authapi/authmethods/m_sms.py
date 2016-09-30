@@ -340,7 +340,7 @@ class Sms:
             # unique reg_fill_empty_fields (i.e. the tlf), because tlf should
             # be unique and we are about to set the tlf to an existing user
             # with an empty tlf
-            if User.objects.filter(userdata__tlf=req.get('tlf')).count():
+            if User.objects.filter(userdata__tlf=tlf, userdata__event=ae).count() > 0:
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
             # lookup in the database if there's any user with those fields
@@ -366,7 +366,7 @@ class Sms:
             # user needs to exist
             if not user_found:
                 return self.error("Incorrect data", error_codename="invalid_credentials")
-            user_found.userdata.tlf = req.get('tlf')
+            user_found.userdata.tlf = tlf
             user_found.userdata.save()
             u = user_found
         else:
