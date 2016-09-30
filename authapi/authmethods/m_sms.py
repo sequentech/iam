@@ -18,7 +18,9 @@ from django.conf import settings
 from django.conf.urls import url
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
-from utils import genhmac, send_codes, get_client_ip, is_valid_url
+from utils import (
+  genhmac, send_codes, get_client_ip, is_valid_url, constant_time_compare
+)
 
 import plugins
 from . import register_method
@@ -305,6 +307,20 @@ class Sms:
         # check_fields_in_request might modify this
         req['active'] = True
 
+        reg_match_fields = [
+            f for f ae.extra_fields
+            if "match_census_on_registration" in f and f['match_census_on_registration']
+        ]
+
+        # TODO: FIXME: use this
+        # NOTE now, the fields of type "fill_if_empty_on_registration" need
+        # to be empty, otherwise user is already registered.
+        # TODO: NOTE that we assume it's only one field, the tlf field
+        #reg_fill_empty_fields = [
+            #f for f ae.extra_fields
+            #if "fill_if_empty_on_registration" in f and f['fill_if_empty_on_registration']
+        #]
+
         msg = ''
         if req.get('tlf'):
             req['tlf'] = get_cannonical_tlf(req.get('tlf'))
@@ -319,14 +335,49 @@ class Sms:
         # get active from req, this value might have changed in check_fields_in_requests
         active = req.pop('active')
 
-        msg_exist = exist_user(req, ae, get_repeated=True)
-        if msg_exist:
-            u = msg_exist.get('user')
-            if u.is_active:
+        if len(reg_match_fields) > 0:
+            # check that there isn't any user registered with the user provided
+            # unique reg_fill_empty_fields (i.e. the tlf), because tlf should
+            # be unique and we are about to set the tlf to an existing user
+            # with an empty tlf
+            if User.objects.filter(userdata__tlf=req.get('tlf')).count():
                 return self.error("Incorrect data", error_codename="invalid_credentials")
+
+            # lookup in the database if there's any user with those fields
+            # NOTE: we assume reg_match_fields are unique in the DB and
+            # required, and only one match_field
+            user_found = None
+            reg_match_field = reg_match_fields[0]
+            for user in User.objects.filter(
+                userdata__event=ae,
+                is_active=True,
+                # assume that the reg_fill_empty_fields is userdata__tlf, and
+                # all reg_fill_empty_fields need to be empty on registration
+                userdata__tlf__isnull=True
+                ):
+                metadata = json.loads(user.userdata.metadata)
+                if constant_time_compare(
+                    metadata.get(reg_match_field['name'], ""),
+                    req.get(reg_match_field['name'])
+                ):
+                    user_found = user
+                    break
+
+            # user needs to exist
+            if not user_found:
+                return self.error("Incorrect data", error_codename="invalid_credentials")
+            user_found.userdata.tlf = req.get('tlf')
+            user_found.userdata.save()
+            u = user_found
         else:
-            u = create_user(req, ae, active)
-            msg += give_perms(u, ae)
+            msg_exist = exist_user(req, ae, get_repeated=True)
+            if msg_exist:
+                u = msg_exist.get('user')
+                if u.is_active:
+                    return self.error("Incorrect data", error_codename="invalid_credentials")
+            else:
+                u = create_user(req, ae, active)
+                msg += give_perms(u, ae)
 
         if msg:
             return self.error("Incorrect data", error_codename="invalid_credentials")

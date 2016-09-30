@@ -418,8 +418,21 @@ def send_codes(users, ip, auth_method, config=None):
 
 
 # CHECKERS AUTHEVENT
-VALID_FIELDS = ('name', 'help', 'type', 'required', 'regex', 'min', 'max',
-    'required_on_authentication', 'unique', 'private', 'register-pipeline', 'authenticate-pipeline')
+VALID_FIELDS = (
+  'name',
+  'help',
+  'type',
+  'required',
+  'regex',
+  'min',
+  'max',
+  'required_on_authentication',
+  'unique',
+  'private',
+  'register-pipeline',
+  'authenticate-pipeline',
+  'match_census_on_registration',
+  'fill_if_empty_on_registration')
 REQUIRED_FIELDS = ('name', 'type', 'required_on_authentication')
 VALID_PIPELINES = (
     'check_whitelisted',

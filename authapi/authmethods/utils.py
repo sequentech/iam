@@ -471,10 +471,14 @@ def exist_user(req, ae, get_repeated=False):
         for extra in ae.extra_fields:
             if 'unique' in extra.keys() and extra.get('unique'):
                 uniques.append(extra)
-        for user in User.objects.filter(userdata__event=ae):
-            msg += metadata_repeat(req, user, uniques)
-            if msg:
-                break
+
+        if len(uniques) > 0:
+            # HACK: TODO: this is very inefficient!
+            # we should use https://docs.djangoproject.com/en/1.10/ref/contrib/postgres/fields/#jsonfield
+            for user in User.objects.filter(userdata__event=ae):
+                msg += metadata_repeat(req, user, uniques)
+                if msg:
+                    break
 
     if not msg:
         return ''

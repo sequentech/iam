@@ -283,7 +283,14 @@ class Register(View):
 
     def post(self, request, pk):
         e = get_object_or_404(AuthEvent, pk=pk)
-        if (e.census == 'close'):
+
+        # find if there's any extra field of type
+        match_census_on_registration = [
+            f for f e.extra_fields
+            if "match_census_on_registration" in f and f['match_census_on_registration']
+        ]
+
+        if (e.census == 'close') and (len(match_census_on_registration) == 0 or e.status != 'started'):
             return json_response(
                 status=400,
                 error_codename="REGISTER_IS_DISABLED")
