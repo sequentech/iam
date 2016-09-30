@@ -351,7 +351,7 @@ class Sms:
             reg_match_field = reg_match_fields[0]
             # assume that the reg_fill_empty_fields is userdata__tlf, and
             # all reg_fill_empty_fields need to be empty on registration
-            q = Q(userdata__event=ae, is_active=True, userdata__tlf__isnull=True)
+            q = Q(userdata__event=ae, is_active=True, userdata__tlf="")
             for user in User.objects.filter(q):
                 metadata = json.loads(user.userdata.metadata)
                 db_field_data = metadata.get(reg_match_field['name'], "")
