@@ -308,7 +308,7 @@ class Sms:
         req['active'] = True
 
         reg_match_fields = [
-            f for f ae.extra_fields
+            f for f in ae.extra_fields
             if "match_census_on_registration" in f and f['match_census_on_registration']
         ]
 
