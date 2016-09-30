@@ -286,7 +286,7 @@ class Register(View):
 
         # find if there's any extra field of type
         match_census_on_registration = [
-            f for f e.extra_fields
+            f for f in e.extra_fields
             if "match_census_on_registration" in f and f['match_census_on_registration']
         ]
 

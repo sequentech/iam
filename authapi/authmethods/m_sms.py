@@ -317,7 +317,7 @@ class Sms:
         # to be empty, otherwise user is already registered.
         # TODO: NOTE that we assume it's only one field, the tlf field
         #reg_fill_empty_fields = [
-            #f for f ae.extra_fields
+            #f for f in ae.extra_fields
             #if "fill_if_empty_on_registration" in f and f['fill_if_empty_on_registration']
         #]
 
