@@ -349,16 +349,14 @@ class Sms:
             # required, and only one match_field
             user_found = None
             reg_match_field = reg_match_fields[0]
-            q_base = Q(userdata__event=ae, is_active=True)
             # assume that the reg_fill_empty_fields is userdata__tlf, and
             # all reg_fill_empty_fields need to be empty on registration
-            q_tlf = Q(userdata__tlf__isnull=True) | Q(userdata__tlf="")
-            for user in User.objects.filter(q_base & q_tlf):
+            q = Q(userdata__event=ae, is_active=True, userdata__tlf__isnull=True)
+            for user in User.objects.filter(q):
                 metadata = json.loads(user.userdata.metadata)
-                if constant_time_compare(
-                    metadata.get(reg_match_field['name'], ""),
-                    req.get(reg_match_field['name'])
-                ):
+                db_field_data = metadata.get(reg_match_field['name'], "")
+                req_field_data = req.get(reg_match_field['name'])
+                if constant_time_compare(db_field_data, req_field_data):
                     user_found = user
                     break
 
