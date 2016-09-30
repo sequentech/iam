@@ -299,27 +299,6 @@ class Register(View):
                 status=400,
                 error_codename="AUTH_EVENT_NOT_STARTED")
 
-        # check dni field
-        election_has_dni = False
-        dni_field_name = 'dni'
-        for field in e.extra_fields:
-            if 'dni' in field.get('name').strip(' \t\n\r').lower():
-                election_has_dni = True
-                dni_field_name = field.get('name')
-        if election_has_dni:
-            req = json.loads(request.body.decode('utf-8'))
-            user_dni = req.get(dni_field_name)
-            if not user_dni:
-                return json_response(
-                    status=400,
-                    error_codename="MISSING_DNI_FIELD")
-            user_dni = user_dni.strip(' \t\n\r').upper()
-            if not user_dni in dni_array:
-                return json_response(
-                    status=400,
-                    error_codename="DNI_NOT_ALLOWED")
-            print("INFO: DNI allowed")
-
         data = auth_register(e, request)
         if data['status'] == 'ok':
             return json_response(data)
