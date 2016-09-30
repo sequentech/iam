@@ -16,6 +16,7 @@
 import json
 from django.conf import settings
 from django.conf.urls import url
+from django.db.models import Q
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 from utils import (
@@ -348,13 +349,11 @@ class Sms:
             # required, and only one match_field
             user_found = None
             reg_match_field = reg_match_fields[0]
-            for user in User.objects.filter(
-                userdata__event=ae,
-                is_active=True,
-                # assume that the reg_fill_empty_fields is userdata__tlf, and
-                # all reg_fill_empty_fields need to be empty on registration
-                userdata__tlf__isnull=True
-                ):
+            q_base = Q(userdata__event=ae, is_active=True)
+            # assume that the reg_fill_empty_fields is userdata__tlf, and
+            # all reg_fill_empty_fields need to be empty on registration
+            q_tlf = Q(userdata__tlf__isnull=True) | Q(userdata__tlf="")
+            for user in User.objects.filter(q_base & q_tlf):
                 metadata = json.loads(user.userdata.metadata)
                 if constant_time_compare(
                     metadata.get(reg_match_field['name'], ""),
