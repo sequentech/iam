@@ -82,6 +82,16 @@ class Command(BaseCommand):
             )
 
             for el in udata['election_permissions']:
+                # if permission list is empty, it means we have to ensure
+                # that the user has no permission for that election
+                perms = ACL.objects.filter(
+                    user=db_user.userdata,
+                    object_type='AuthEvent',
+                    object_id=int(el['election_id'])
+                )
+                for perm in perms:
+                    perm.delete()
+
                 if len(el['permissions']) > 0:
                     # ensure each permission for this election
                     for perm in el['permissions']:
@@ -94,13 +104,3 @@ class Command(BaseCommand):
                                 object_id=int(el['election_id'])
                             )
                         )
-                else:
-                    # if permission list is empty, it means we have to ensure
-                    # that the user has no permission for that election
-                    perms = ACL.objects.filter(
-                        user=db_user.userdata,
-                        object_type='AuthEvent',
-                        object_id=int(el['election_id'])
-                    )
-                    for perm in perms:
-                        perm.delete()

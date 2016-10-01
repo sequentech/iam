@@ -79,21 +79,12 @@ CONTRACTS = dict(
       }
     ])
 
-dni_array = dict()
-def fill_dni_array():
-    print("INFO: Loading DNI array...")
-    DNI_PATH = "/home/authapi/dnis.txt"
-    dni_file = open(DNI_PATH, 'r')
-    for line in dni_file:
-        dni_array[line.strip(' \t\n\r').upper()]=True
-fill_dni_array()
-
 class CensusDelete(View):
     '''
     Delete census in the auth-event
     '''
     def post(self, request, pk):
-        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        permission_required(request.user, 'AuthEvent', ['edit', 'census-delete'], pk)
         ae = get_object_or_404(AuthEvent, pk=pk)
         req = parse_json_request(request)
         user_ids = req.get('user-ids', [])
@@ -116,7 +107,7 @@ class CensusActivate(View):
     activate = True
 
     def post(self, request, pk):
-        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        permission_required(request.user, 'AuthEvent', ['edit', 'census-activation'], pk)
         ae = get_object_or_404(AuthEvent, pk=pk)
         req = parse_json_request(request)
         user_ids = req.get('user-ids', [])
@@ -152,7 +143,7 @@ class Census(View):
     '''
 
     def post(self, request, pk):
-        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        permission_required(request.user, 'AuthEvent', ['edit', 'census-add'], pk)
         e = get_object_or_404(AuthEvent, pk=pk)
         error_kwargs = plugins.call("extend_add_census", e, request)
         if error_kwargs:
