@@ -473,11 +473,13 @@ def exist_user(req, ae, get_repeated=False):
         for extra in ae.extra_fields:
             if 'unique' in extra.keys() and extra.get('unique'):
                 uniques.append(extra)
-                q = q & Q(userdata__metadata__contains=extra['name'])
+                q = q & Q(userdata__metadata__contains=req.get(extra['name']))
 
         if len(uniques) > 0:
-            # HACK: TODO: this is very inefficient!
-            # we should use https://docs.djangoproject.com/en/1.10/ref/contrib/postgres/fields/#jsonfield
+            # This looks inefficient but it usually isn't because we are
+            # filtering for unique values in the DB, although if the value is
+            # unique in one field of the metadata and it's very frequent and not
+            # unique in another then the filtering WILL be inefficient
             for user in User.objects.filter(q):
                 msg += metadata_repeat(req, user, uniques)
                 if msg:
