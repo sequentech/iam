@@ -771,7 +771,7 @@ class CensusSendAuth(View):
 
         userids = req.get("user-ids", None)
         if userids is None:
-            permission_required(request.user, 'AuthEvent', ['send-auth-all'], pk)
+            permission_required(request.user, 'AuthEvent', ['edit', 'send-auth-all'], pk)
         extra_req = req.get('extra', {})
         auth_method = req.get("auth-method", None)
         # force extra_req type to be a dict

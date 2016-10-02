@@ -22,6 +22,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.db.models import Q
 
 from .models import ColorList, Message, Code
 from api.models import ACL
@@ -468,14 +469,16 @@ def exist_user(req, ae, get_repeated=False):
         if not ae.extra_fields:
             return ''
         uniques = []
+        q = Q(userdata__event=ae)
         for extra in ae.extra_fields:
             if 'unique' in extra.keys() and extra.get('unique'):
                 uniques.append(extra)
+                q = q & Q(userdata__metadata__contains=extra['name'])
 
         if len(uniques) > 0:
             # HACK: TODO: this is very inefficient!
             # we should use https://docs.djangoproject.com/en/1.10/ref/contrib/postgres/fields/#jsonfield
-            for user in User.objects.filter(userdata__event=ae):
+            for user in User.objects.filter(q):
                 msg += metadata_repeat(req, user, uniques)
                 if msg:
                     break
