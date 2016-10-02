@@ -349,13 +349,22 @@ class Sms:
             # required, and only one match_field
             user_found = None
             reg_match_field = reg_match_fields[0]
+            req_field_data = req.get(reg_match_field['name'])
             # assume that the reg_fill_empty_fields is userdata__tlf, and
-            # all reg_fill_empty_fields need to be empty on registration
-            q = Q(userdata__event=ae, is_active=True, userdata__tlf="")
+            # all reg_fill_empty_fields need to be empty on registration.
+            q = Q(
+                userdata__event=ae,
+                is_active=True,
+                userdata__tlf="",
+                # HACK: TODO: FIXME: filter strings on metadata because
+                # otherwise the loop will be very inefficient. In the future,
+                # we should use Django's jsonfield that allows to filter inside
+                # the metadata jsonfield directly with postgres, much more
+                # efficient
+                userdata__metadata__contains=req_field_data)
             for user in User.objects.filter(q):
                 metadata = json.loads(user.userdata.metadata)
                 db_field_data = metadata.get(reg_match_field['name'], "")
-                req_field_data = req.get(reg_match_field['name'])
                 if constant_time_compare(db_field_data, req_field_data):
                     user_found = user
                     break
