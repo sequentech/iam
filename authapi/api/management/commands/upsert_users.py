@@ -66,7 +66,7 @@ class Command(BaseCommand):
             db_user.userdata.event_id = 1
             # if tlf is set, update it
             if 'tlf' in udata:
-                db_user.userdata.tlf = udata['password']
+                db_user.userdata.tlf = udata['tlf']
 
             db_user.userdata.save()
 
