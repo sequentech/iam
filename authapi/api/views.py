@@ -170,7 +170,7 @@ class Census(View):
             q = (Q(user__user__username__icontains=filter_str) |
               Q(user__user__email__icontains=filter_str) |
               Q(user__tlf__icontains=filter_str) |
-              Q(user__metadata__icontains=filter_str))
+              Q(user__metadata__contains=filter_str))
 
             query = query.filter(q)
 

@@ -18,6 +18,41 @@ from django.contrib.auth.models import User
 from api.models import AuthEvent, ACL
 import json
 
+# The upsert_users Django manage command for Authapi updates the permissions for
+# a list of users, if those users already exist, and inserts those users with 
+# the given permissions in case they don't exist.
+# This command requires the usersdata argument, which is the path to a text file
+# with the following JSON format:
+#
+# [
+#  {
+#    "username": "census1",
+#    "email": "census1@election.com",
+#    "password": "bbbbbbbbbb",
+#    "is_active": true,
+#    "is_admin": false,
+#    "election_permissions": [
+#      { 
+#        "election_id": 190031,
+#        "permissions": [
+#          "view",
+#          "send-auth",
+#          "view-stats",
+#          "view-voters",
+#          "view-census",
+#          "census-add",
+#          "census-activation"
+#        ]
+#      },
+#      { 
+#        "election_id": 190030,
+#        "permissions": [],
+#        "help": "allow login as an admin and allow to create elections"
+#      }
+#    ]
+#   }
+# ]
+
 def insert_or_update(cls, kwargs):
     l = cls.objects.filter(**kwargs)
     if len(l) == 0:

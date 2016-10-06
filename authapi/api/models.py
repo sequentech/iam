@@ -17,7 +17,7 @@ import json
 from django.db import models
 from django.contrib.auth.models import User
 
-from jsonfield import JSONField
+from django.contrib.postgres.fields import JSONField
 
 from django.dispatch import receiver
 from django.db.models.signals import post_save

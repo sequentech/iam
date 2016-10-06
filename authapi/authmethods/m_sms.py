@@ -317,10 +317,10 @@ class Sms:
         # NOTE now, the fields of type "fill_if_empty_on_registration" need
         # to be empty, otherwise user is already registered.
         # TODO: NOTE that we assume it's only one field, the tlf field
-        #reg_fill_empty_fields = [
-            #f for f in ae.extra_fields
-            #if "fill_if_empty_on_registration" in f and f['fill_if_empty_on_registration']
-        #]
+        reg_fill_empty_fields = [
+            f for f in ae.extra_fields
+            if "fill_if_empty_on_registration" in f and f['fill_if_empty_on_registration']
+        ]
 
         msg = ''
         if req.get('tlf'):
@@ -336,7 +336,7 @@ class Sms:
         # get active from req, this value might have changed in check_fields_in_requests
         active = req.pop('active')
 
-        if len(reg_match_fields) > 0:
+        if len(reg_match_fields) > 0 or len(reg_fill_empty_fields) > 0:
             # check that there isn't any user registered with the user provided
             # unique reg_fill_empty_fields (i.e. the tlf), because tlf should
             # be unique and we are about to set the tlf to an existing user
@@ -347,31 +347,32 @@ class Sms:
             # lookup in the database if there's any user with those fields
             # NOTE: we assume reg_match_fields are unique in the DB and
             # required, and only one match_field
+            q = Q(userdata__event=ae,
+                  is_active=True,
+                  userdata__tlf="")
+            # Check the reg_match_fields
+            for reg_match_field in reg_match_fields:
+                 # Filter with Django's JSONfield
+                 reg_query = 'userdata__metadata__' + reg_match_field['name']
+                 req_field_data = req.get(reg_match_field['name'])
+                 q = q & Q(**{reg_query: req_field_data})
+
+            # Check that the reg_fill_empty_fields are empty, otherwise the user
+            # is already registered
+            for reg_empty_field in reg_fill_empty_fields:
+                 # Filter with Django's JSONfield
+                 reg_query = 'userdata__metadata__' + reg_empty_field['name']
+                 q = q & Q(**{reg_query: ""})
+
             user_found = None
-            reg_match_field = reg_match_fields[0]
-            req_field_data = req.get(reg_match_field['name'])
-            # assume that the reg_fill_empty_fields is userdata__tlf, and
-            # all reg_fill_empty_fields need to be empty on registration.
-            q = Q(
-                userdata__event=ae,
-                is_active=True,
-                userdata__tlf="",
-                # HACK: TODO: FIXME: filter strings on metadata because
-                # otherwise the loop will be very inefficient. In the future,
-                # we should use Django's jsonfield that allows to filter inside
-                # the metadata jsonfield directly with postgres, much more
-                # efficient
-                userdata__metadata__contains=req_field_data)
-            for user in User.objects.filter(q):
-                metadata = json.loads(user.userdata.metadata)
-                db_field_data = metadata.get(reg_match_field['name'], "")
-                if constant_time_compare(db_field_data, req_field_data):
-                    user_found = user
-                    break
+            user_list = User.objects.filter(q)
+            if 1 == len(user_list):
+               user_found = user_list[0]
 
             # user needs to exist
-            if not user_found:
+            if user_found is None:
                 return self.error("Incorrect data", error_codename="invalid_credentials")
+
             user_found.userdata.tlf = tlf
             user_found.userdata.save()
             u = user_found
