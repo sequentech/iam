@@ -17,7 +17,8 @@ import json
 from django.db import models
 from django.contrib.auth.models import User
 
-from django.contrib.postgres.fields import JSONField
+from django.contrib.postgres import fields
+from jsonfield import JSONField
 
 from django.dispatch import receiver
 from django.db.models.signals import post_save
@@ -149,7 +150,7 @@ class UserData(models.Model):
     user = models.OneToOneField(User, related_name="userdata")
     event = models.ForeignKey(AuthEvent, related_name="userdata", null=True)
     tlf = models.CharField(max_length=20, blank=True, null=True)
-    metadata = JSONField(default="{}", blank=True, null=True, db_index=True, max_length=4096)
+    metadata = fields.JSONField(default="{}", blank=True, null=True, db_index=True, max_length=4096)
     status = models.CharField(max_length=255, choices=STATUSES, default="act", db_index=True)
 
     def get_perms(self, obj, permission, object_id=0):
