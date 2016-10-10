@@ -276,10 +276,12 @@ class Register(View):
         e = get_object_or_404(AuthEvent, pk=pk)
 
         # find if there's any extra field of type
-        match_census_on_registration = [
-            f for f in e.extra_fields
-            if "match_census_on_registration" in f and f['match_census_on_registration']
-        ]
+        match_census_on_registration  = []
+        if e.extra_fields is not None:
+            match_census_on_registration = [
+                f for f in e.extra_fields
+                if "match_census_on_registration" in f and f['match_census_on_registration']
+            ]
 
         if (e.census == 'close') and (len(match_census_on_registration) == 0 or e.status != 'started'):
             return json_response(
