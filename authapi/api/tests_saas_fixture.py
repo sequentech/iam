@@ -25,8 +25,15 @@ from captcha.models import Captcha
 from captcha.views import newcaptcha
 
 
+def flush_db_load_fixture():
+    from django.core import management
+    management.call_command("flush", verbosity=0, interactive=False)
+    management.call_command("loaddata", "saas.json", verbosity=0)
+
 class TestFixtureSaas(TestCase):
-    fixtures = ['saas.json']
+    #fixtures = ['saas.json']
+    def setUpTestData():
+        flush_db_load_fixture()
 
     def setUp(self):
         self.ae = AuthEvent.objects.get(pk=1)

@@ -1,4 +1,5 @@
 Django==1.9
+setuptools>=18.5
 ipdb
 jsonfield
 requests

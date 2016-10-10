@@ -28,8 +28,16 @@ from .m_sms import Sms
 from .models import Message, Code, Connection
 
 
+def flush_db_load_fixture():
+    from django.core import management
+    management.call_command("flush", verbosity=0, interactive=False)
+    management.call_command("loaddata", "initial.json", verbosity=0)
+
 class AuthMethodTestCase(TestCase):
-    fixtures = ['initial.json']
+    #fixtures = ['initial.json']
+    def setUpTestData():
+        flush_db_load_fixture()
+
     def setUp(self):
         ae = AuthEvent(auth_method=test_data.auth_event4['auth_method'],
                 status='started', census=test_data.auth_event4['census'],
@@ -67,7 +75,10 @@ class AuthMethodTestCase(TestCase):
 
 
 class AuthMethodEmailTestCase(TestCase):
-    fixtures = ['initial.json']
+    #fixtures = ['initial.json']
+    def setUpTestData():
+        flush_db_load_fixture()
+
     def setUp(self):
         auth_method_config = test_data.authmethod_config_email_default
         ae = AuthEvent(auth_method=test_data.auth_event3['auth_method'],
@@ -150,7 +161,10 @@ class AuthMethodEmailTestCase(TestCase):
 
 
 class AuthMethodSmsTestCase(TestCase):
-    fixtures = ['initial.json']
+    #fixtures = ['initial.json']
+    def setUpTestData():
+        flush_db_load_fixture()
+
     def setUp(self):
         auth_method_config = test_data.authmethod_config_sms_default
         ae = AuthEvent(auth_method=test_data.auth_event2['auth_method'],
@@ -322,7 +336,10 @@ class AuthMethodSmsTestCase(TestCase):
 
 
 class ExtraFieldPipelineTestCase(TestCase):
-    fixtures = ['initial.json']
+    #fixtures = ['initial.json']
+    def setUpTestData():
+        flush_db_load_fixture()
+
     def setUp(self):
         auth_method_config = {
                 "config": Email.CONFIG,
@@ -367,7 +384,10 @@ class ExtraFieldPipelineTestCase(TestCase):
 
 
 class ExternalCheckPipelineTestCase(TestCase):
-    fixtures = ['initial.json']
+    #fixtures = ['initial.json']
+    def setUpTestData():
+        flush_db_load_fixture()
+
     def setUp(self):
         auth_method_config = {
                 "config": Email.CONFIG,
