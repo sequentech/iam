@@ -308,19 +308,23 @@ class Sms:
         # check_fields_in_request might modify this
         req['active'] = True
 
-        reg_match_fields = [
-            f for f in ae.extra_fields
-            if "match_census_on_registration" in f and f['match_census_on_registration']
-        ]
+        reg_match_fields = []
+        if ae.extra_fields is not None:
+            reg_match_fields = [
+                f for f in ae.extra_fields
+                if "match_census_on_registration" in f and f['match_census_on_registration']
+            ]
 
         # TODO: FIXME: use this
         # NOTE now, the fields of type "fill_if_empty_on_registration" need
         # to be empty, otherwise user is already registered.
         # TODO: NOTE that we assume it's only one field, the tlf field
-        reg_fill_empty_fields = [
-            f for f in ae.extra_fields
-            if "fill_if_empty_on_registration" in f and f['fill_if_empty_on_registration']
-        ]
+        reg_fill_empty_fields = []
+        if ae.extra_fields is not None:
+            reg_fill_empty_fields = [
+                f for f in ae.extra_fields
+                if "fill_if_empty_on_registration" in f and f['fill_if_empty_on_registration']
+            ]
 
         msg = ''
         if req.get('tlf'):
