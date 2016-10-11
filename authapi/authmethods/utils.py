@@ -481,7 +481,7 @@ def exist_user(req, ae, get_repeated=False):
                 req_field_data = req.get(reg_name)
                 if reg_name and req_field_data:
                     uniques.append(extra)
-                    q = q & Q(userdata__metadata__contains={reg_name: req_field_data)})
+                    q = q & Q(userdata__metadata__contains={reg_name: req_field_data})
 
         if len(uniques) > 0:
             # This looks inefficient but it usually isn't because we are
