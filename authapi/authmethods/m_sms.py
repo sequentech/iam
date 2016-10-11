@@ -357,16 +357,18 @@ class Sms:
             # Check the reg_match_fields
             for reg_match_field in reg_match_fields:
                  # Filter with Django's JSONfield
-                 reg_query = 'userdata__metadata__' + reg_match_field['name']
-                 req_field_data = req.get(reg_match_field['name'])
-                 q = q & Q(**{reg_query: req_field_data})
+                 reg_name = reg_match_field['name']
+                 req_field_data = req.get(reg_name)
+                 if reg_name and req_field_data:
+                     q = q & Q(userdata__metadata__contains={reg_name: req_field_data})
 
             # Check that the reg_fill_empty_fields are empty, otherwise the user
             # is already registered
             for reg_empty_field in reg_fill_empty_fields:
                  # Filter with Django's JSONfield
-                 reg_query = 'userdata__metadata__' + reg_empty_field['name']
-                 q = q & Q(**{reg_query: ""})
+                 reg_name = reg_empty_field['name']
+                 if reg_name:
+                     q = q & Q(userdata__metadata__contains={reg_name: ""})
 
             user_found = None
             user_list = User.objects.filter(q)

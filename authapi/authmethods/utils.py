@@ -472,13 +472,16 @@ def exist_user(req, ae, get_repeated=False):
         q = Q(userdata__event=ae)
         for extra in ae.extra_fields:
             if 'unique' in extra.keys() and extra.get('unique'):
-                uniques.append(extra)
                 # HACK: TODO: FIXME: filter strings on metadata because
                 # otherwise the loop will be very inefficient. In the future,
                 # we should use Django's jsonfield that allows to filter inside
                 # the metadata jsonfield directly with postgres, much more
                 # efficient
-                q = q & Q(userdata__metadata__contains=req.get(extra['name']))
+                reg_name = extra['name']
+                req_field_data = req.get(reg_name)
+                if reg_name and req_field_data:
+                    uniques.append(extra)
+                    q = q & Q(userdata__metadata__contains={reg_name: req_field_data)})
 
         if len(uniques) > 0:
             # This looks inefficient but it usually isn't because we are
