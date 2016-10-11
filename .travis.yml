@@ -7,9 +7,10 @@ install:
 services:
   - postgresql
 # command to run tests
+before_script:
+  - psql -tAc "CREATE USER authapi WITH PASSWORD '<PASSWORD>';" -U postgres
+  - psql -tAc "ALTER USER authapi CREATEDB;" -U postgres
 script:
-  - psql -tAc "CREATE USER authapi WITH PASSWORD '<PASSWORD>';"
-  - psql -tAc "ALTER USER authapi CREATEDB;"
   - cd authapi
   - python manage.py migrate --settings=authapi.test_settings
   - python manage.py loaddata --settings=authapi.test_settings initial
