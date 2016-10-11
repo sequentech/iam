@@ -320,17 +320,18 @@ class AuthMethodSmsTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
+        user_id = User.objects.filter(email=data['email'])[0].id
         import utils
         from authmethods.sms_provider import TestSMSProvider
         sms_count0 = TestSMSProvider.sms_count
-        utils.send_codes(users=[3], ip='127.0.0.1', auth_method='sms',
+        utils.send_codes(users=[user_id], ip='127.0.0.1', auth_method='sms',
                          config={'msg':'url[__URL2__], code[__CODE__]',
                                  'subject':'subject'})
         self.assertEqual(1+sms_count0, TestSMSProvider.sms_count)
         import re
-        o = re.match('url\[(.+)\], code\[([A-Z0-9]+)\]', TestSMSProvider.last_sms.get('content'))
+        o = re.match('url\[(.+)\], code\[([-2-9]+)\]', TestSMSProvider.last_sms.get('content'))
         self.assertEqual(2, len(o.groups()))
-        test_url = 'public/login/\\' + data.get('tlf') + '/' + o.groups()[1]
+        test_url = 'public/login/\\' + data.get('tlf') + '/' + o.groups()[1].replace("-","")
         e = re.search(test_url, o.groups()[0])
         self.assertTrue(e.group(0) == test_url.replace('\\',''))
 

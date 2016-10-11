@@ -200,7 +200,7 @@ class ApiTestCase(TestCase):
         response = c.post('/api/auth-event/', data)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['id'], 3)
+        self.assertTrue('id' in  r and isinstance(r['id'], int))
 
     @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_create_event_open(self):
