@@ -45,7 +45,7 @@ class AuthMethodTestCase(TestCase):
         ae.save()
         self.aeid = ae.pk
 
-        u = User(pk=1, email=test_data.pwd_auth['email'])
+        u = User(email=test_data.pwd_auth['email'])
         u.set_password(test_data.pwd_auth['password'])
         u.save()
         u.userdata.event = ae
@@ -87,7 +87,7 @@ class AuthMethodEmailTestCase(TestCase):
         ae.save()
         self.aeid = ae.pk
 
-        u = User(pk=1, username='test1', email='test1@agoravoting.com')
+        u = User(username='test1', email='test1@agoravoting.com')
         u.save()
         u.userdata.event = ae
         u.userdata.metadata = json.dumps({
@@ -101,7 +101,7 @@ class AuthMethodEmailTestCase(TestCase):
         acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit', object_id=ae.pk)
         acl.save()
 
-        u2 = User(pk=2, email='test2@agoravoting.com')
+        u2 = User(email='test2@agoravoting.com')
         u2.is_active = False
         u2.save()
         u2.userdata.event = ae
@@ -175,7 +175,7 @@ class AuthMethodSmsTestCase(TestCase):
         ae.save()
         self.aeid = ae.pk
 
-        u = User(pk=1, username='test1', email='test@test.com')
+        u = User(username='test1', email='test@test.com')
         u.save()
         u.userdata.event = ae
         u.userdata.tlf = '+34666666666'
@@ -187,7 +187,7 @@ class AuthMethodSmsTestCase(TestCase):
         m = Message(tlf=u.userdata.tlf, auth_event_id=ae.pk)
         m.save()
 
-        u2 = User(pk=2, email='test2@agoravoting.com')
+        u2 = User(email='test2@agoravoting.com')
         u2.is_active = False
         u2.save()
         u2.userdata.tlf = '+34766666666'
