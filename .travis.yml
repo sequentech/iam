@@ -4,8 +4,12 @@ python:
 install:
   - pip install -r requirements.txt
   - pip install coveralls
+services:
+  - postgresql
 # command to run tests
 script:
+  - psql -tAc "CREATE USER authapi WITH PASSWORD '<PASSWORD>';"
+  - psql -tAc "ALTER USER authapi CREATEDB;"
   - cd authapi
   - python manage.py migrate --settings=authapi.test_settings
   - python manage.py loaddata --settings=authapi.test_settings initial
