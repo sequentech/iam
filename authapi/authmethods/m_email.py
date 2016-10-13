@@ -304,6 +304,24 @@ class Email:
         # check_fields_in_request might modify this
         req['active'] = True
 
+        reg_match_fields = []
+        if ae.extra_fields is not None:
+            reg_match_fields = [
+                f for f in ae.extra_fields
+                if "match_census_on_registration" in f and f['match_census_on_registration']
+            ]
+
+        # TODO: FIXME: use this
+        # NOTE now, the fields of type "fill_if_empty_on_registration" need
+        # to be empty, otherwise user is already registered.
+        # TODO: NOTE that we assume it's only one field, the tlf field
+        reg_fill_empty_fields = []
+        if ae.extra_fields is not None:
+            reg_fill_empty_fields = [
+                f for f in ae.extra_fields
+                if "fill_if_empty_on_registration" in f and f['fill_if_empty_on_registration']
+            ]
+
         msg = ''
         email = req.get('email')
         if isinstance(email, str):
@@ -317,14 +335,57 @@ class Email:
         # get active from req, this value might have changed in check_fields_in_requests
         active = req.pop('active')
 
-        msg_exist = exist_user(req, ae, get_repeated=True)
-        if msg_exist:
-            u = msg_exist.get('user')
-            if u.is_active:
+        if len(reg_match_fields) > 0 or len(reg_fill_empty_fields) > 0:
+            # check that there isn't any user registered with the user provided
+            # unique reg_fill_empty_fields (i.e. the tlf), because tlf should
+            # be unique and we are about to set the tlf to an existing user
+            # with an empty tlf
+            if User.objects.filter(userdata__email=email, userdata__event=ae).count() > 0:
                 return self.error("Incorrect data", error_codename="invalid_credentials")
+
+            # lookup in the database if there's any user with those fields
+            # NOTE: we assume reg_match_fields are unique in the DB and
+            # required, and only one match_field
+            q = Q(userdata__event=ae,
+                  is_active=True,
+                  userdata__email="")
+            # Check the reg_match_fields
+            for reg_match_field in reg_match_fields:
+                 # Filter with Django's JSONfield
+                 reg_name = reg_match_field['name']
+                 req_field_data = req.get(reg_name)
+                 if reg_name and req_field_data:
+                     q = q & Q(userdata__metadata__contains={reg_name: req_field_data})
+
+            # Check that the reg_fill_empty_fields are empty, otherwise the user
+            # is already registered
+            for reg_empty_field in reg_fill_empty_fields:
+                 # Filter with Django's JSONfield
+                 reg_name = reg_empty_field['name']
+                 if reg_name:
+                     q = q & Q(userdata__metadata__contains={reg_name: ""})
+
+            user_found = None
+            user_list = User.objects.filter(q)
+            if 1 == len(user_list):
+               user_found = user_list[0]
+
+            # user needs to exist
+            if user_found is None:
+                return self.error("Incorrect data", error_codename="invalid_credentials")
+
+            user_found.userdata.email = email
+            user_found.userdata.save()
+            u = user_found
         else:
-            u = create_user(req, ae, active)
-            msg += give_perms(u, ae)
+            msg_exist = exist_user(req, ae, get_repeated=True)
+            if msg_exist:
+                u = msg_exist.get('user')
+                if u.is_active:
+                    return self.error("Incorrect data", error_codename="invalid_credentials")
+            else:
+                u = create_user(req, ae, active)
+                msg += give_perms(u, ae)
 
         if msg:
             return self.error("Incorrect data", error_codename="invalid_credentials")
