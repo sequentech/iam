@@ -375,7 +375,7 @@ class Sms:
             user_found = None
             user_list = User.objects.filter(q)
             if 1 == len(user_list):
-               user_found = user_list[0]
+                user_found = user_list[0]
 
                 # check that the unique:True extra fields are actually unique
                 uniques = []
@@ -389,9 +389,9 @@ class Sms:
                         req_field_data = req.get(reg_name)
                         if reg_name and req_field_data:
                             uq = base_q & Q(userdata__metadata__contains={reg_name: req_field_data})
-                               repeated_list = base_list.filter(uq)
-                               if repeated_list.count() > 0:
-                                   return self.error("Incorrect data", error_codename="invalid_credentials")
+                            repeated_list = base_list.filter(uq)
+                            if repeated_list.count() > 0:
+                                return self.error("Incorrect data", error_codename="invalid_credentials")
 
             # user needs to exist
             if user_found is None:
