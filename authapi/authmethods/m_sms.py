@@ -361,6 +361,8 @@ class Sms:
                  req_field_data = req.get(reg_name)
                  if reg_name and req_field_data:
                      q = q & Q(userdata__metadata__contains={reg_name: req_field_data})
+                 else:
+                     return self.error("Incorrect data", error_codename="invalid_credentials")
 
             # Check that the reg_fill_empty_fields are empty, otherwise the user
             # is already registered
@@ -375,6 +377,22 @@ class Sms:
             if 1 == len(user_list):
                user_found = user_list[0]
 
+                # check that the unique:True extra fields are actually unique
+                uniques = []
+                for extra in ae.extra_fields:
+                    if 'unique' in extra.keys() and extra.get('unique'):
+                        uniques.append(extra['name'])
+                if len(uniques) > 0:
+                    base_uq = Q(userdata__event=ae, is_active=True)
+                    base_list = User.objects.exclude(id = user_found.id)
+                    for reg_name in uniques:
+                        req_field_data = req.get(reg_name)
+                        if reg_name and req_field_data:
+                            uq = base_q & Q(userdata__metadata__contains={reg_name: req_field_data})
+                               repeated_list = base_list.filter(uq)
+                               if repeated_list.count() > 0:
+                                   return self.error("Incorrect data", error_codename="invalid_credentials")
+
             # user needs to exist
             if user_found is None:
                 return self.error("Incorrect data", error_codename="invalid_credentials")
@@ -385,9 +403,7 @@ class Sms:
         else:
             msg_exist = exist_user(req, ae, get_repeated=True)
             if msg_exist:
-                u = msg_exist.get('user')
-                if u.is_active:
-                    return self.error("Incorrect data", error_codename="invalid_credentials")
+                return self.error("Incorrect data", error_codename="invalid_credentials")
             else:
                 u = create_user(req, ae, active)
                 msg += give_perms(u, ae)

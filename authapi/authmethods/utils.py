@@ -441,14 +441,6 @@ def have_captcha(ae, step='register'):
     return False
 
 
-def metadata_repeat(req, user, uniques):
-    for unique in uniques:
-        metadata = json.loads(user.userdata.metadata)
-        if metadata.get(unique.get('name')) == req.get(unique.get('name')):
-            return "%s %s repeat." % (unique.get('name'), req.get(unique.get('name')))
-    return ''
-
-
 def exist_user(req, ae, get_repeated=False):
     msg = ''
     if req.get('email'):
@@ -468,30 +460,18 @@ def exist_user(req, ae, get_repeated=False):
     if not msg:
         if not ae.extra_fields:
             return ''
-        uniques = []
-        q = Q(userdata__event=ae)
+        # check that the unique:True extra fields are actually unique
+        base_q = Q(userdata__event=ae, is_active=True)
         for extra in ae.extra_fields:
             if 'unique' in extra.keys() and extra.get('unique'):
-                # HACK: TODO: FIXME: filter strings on metadata because
-                # otherwise the loop will be very inefficient. In the future,
-                # we should use Django's jsonfield that allows to filter inside
-                # the metadata jsonfield directly with postgres, much more
-                # efficient
                 reg_name = extra['name']
                 req_field_data = req.get(reg_name)
                 if reg_name and req_field_data:
-                    uniques.append(extra)
-                    q = q & Q(userdata__metadata__contains={reg_name: req_field_data})
-
-        if len(uniques) > 0:
-            # This looks inefficient but it usually isn't because we are
-            # filtering for unique values in the DB, although if the value is
-            # unique in one field of the metadata and it's very frequent and not
-            # unique in another then the filtering WILL be inefficient
-            for user in User.objects.filter(q):
-                msg += metadata_repeat(req, user, uniques)
-                if msg:
-                    break
+                    q = base_q & Q(userdata__metadata__contains={reg_name: req_field_data})
+                    repeated_list = User.objects.filter(q)
+                    if repeated_list.count() > 0:
+                        msg += "%s %s repeat." % (reg_name, req_field_data)
+                        user = repeated_list[0]
 
     if not msg:
         return ''
