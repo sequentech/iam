@@ -22,17 +22,12 @@ from django.test.utils import override_settings
 
 from api import test_data
 from api.models import ACL, AuthEvent
-from api.tests import JClient
+from api.tests import JClient, FlushTestCase
 from authmethods.models import Code
 from captcha.models import Captcha
 
-def flush_db_load_fixture():
-    from django.core import management
-    management.call_command("flush", verbosity=0, interactive=False)
-    management.call_command("loaddata", "initial.json", verbosity=0)
 
-class TestProcessCaptcha(TestCase):
-    #fixtures = ['initial.json']
+class TestProcessCaptcha(FlushTestCase):
     def setUpTestData():
         flush_db_load_fixture()
 

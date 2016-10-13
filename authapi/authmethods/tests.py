@@ -21,20 +21,14 @@ from django.test.utils import override_settings
 import json
 import time
 from api import test_data
-from api.tests import JClient
+from api.tests import JClient, FlushTestCase
 from api.models import AuthEvent, ACL, UserData
 from .m_email import Email
 from .m_sms import Sms
 from .models import Message, Code, Connection
 
 
-def flush_db_load_fixture():
-    from django.core import management
-    management.call_command("flush", verbosity=0, interactive=False)
-    management.call_command("loaddata", "initial.json", verbosity=0)
-
-class AuthMethodTestCase(TestCase):
-    #fixtures = ['initial.json']
+class AuthMethodTestCase(FlushTestCase):
     def setUpTestData():
         flush_db_load_fixture()
 
@@ -74,8 +68,7 @@ class AuthMethodTestCase(TestCase):
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
 
 
-class AuthMethodEmailTestCase(TestCase):
-    #fixtures = ['initial.json']
+class AuthMethodEmailTestCase(FlushTestCase):
     def setUpTestData():
         flush_db_load_fixture()
 
@@ -160,8 +153,7 @@ class AuthMethodEmailTestCase(TestCase):
         self.assertEqual(response.status_code, 400)
 
 
-class AuthMethodSmsTestCase(TestCase):
-    #fixtures = ['initial.json']
+class AuthMethodSmsTestCase(FlushTestCase):
     def setUpTestData():
         flush_db_load_fixture()
 
@@ -336,8 +328,7 @@ class AuthMethodSmsTestCase(TestCase):
         self.assertTrue(e.group(0) == test_url.replace('\\',''))
 
 
-class ExtraFieldPipelineTestCase(TestCase):
-    #fixtures = ['initial.json']
+class ExtraFieldPipelineTestCase(FlushTestCase):
     def setUpTestData():
         flush_db_load_fixture()
 
@@ -384,8 +375,7 @@ class ExtraFieldPipelineTestCase(TestCase):
         self.assertEqual(response.status_code, 400)
 
 
-class ExternalCheckPipelineTestCase(TestCase):
-    #fixtures = ['initial.json']
+class ExternalCheckPipelineTestCase(FlushTestCase):
     def setUpTestData():
         flush_db_load_fixture()
 

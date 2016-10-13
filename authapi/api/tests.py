@@ -28,10 +28,13 @@ from authmethods.models import Code, MsgLog
 from utils import verifyhmac
 from authmethods.utils import get_cannonical_tlf
 
-def flush_db_load_fixture():
-    from django.core import management
-    management.call_command("flush", verbosity=0, interactive=False)
-    management.call_command("loaddata", "initial.json", verbosity=0)
+
+class FlushTestCase(TestCase):
+    fixture_file = "initial.json"
+    def flush_db_load_fixture():
+        from django.core import management
+        management.call_command("flush", verbosity=0, interactive=False)
+        management.call_command("loaddata", fixture_file, verbosity=0)
 
 class JClient(Client):
     def __init__(self, *args, **kwargs):
@@ -417,8 +420,7 @@ class ApiTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
-class TestAuthEvent(TestCase):
-    #fixtures = ['initial.json']
+class TestAuthEvent(FlushTestCase):
     def setUpTestData():
         flush_db_load_fixture()
 
@@ -641,8 +643,7 @@ class TestAuthEvent(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(len(r['ids-auth-event']), 2)
 
-class TestRegisterAndAuthenticateEmail(TestCase):
-    #fixtures = ['initial.json']
+class TestRegisterAndAuthenticateEmail(FlushTestCase):
     def setUpTestData():
         flush_db_load_fixture()
 
@@ -917,8 +918,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.assertEqual(Code.objects.count(), 1 + 7 - 2)
 
 
-class TestRegisterAndAuthenticateSMS(TestCase):
-    #fixtures = ['initial.json']
+class TestRegisterAndAuthenticateSMS(FlushTestCase):
     def setUpTestData():
         flush_db_load_fixture()
 
