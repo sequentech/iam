@@ -31,7 +31,7 @@ from authmethods.utils import get_cannonical_tlf
 
 class FlushTestCase(TestCase):
     fixture_file = "initial.json"
-    def flush_db_load_fixture():
+    def flush_db_load_fixture(self):
         from django.core import management
         management.call_command("flush", verbosity=0, interactive=False)
         management.call_command("loaddata", fixture_file, verbosity=0)
