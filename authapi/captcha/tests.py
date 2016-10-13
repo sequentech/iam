@@ -22,12 +22,12 @@ from django.test.utils import override_settings
 
 from api import test_data
 from api.models import ACL, AuthEvent
-from api.tests import JClient, FlushTestCase
+from api.tests import JClient, flush_db_load_fixture
 from authmethods.models import Code
 from captcha.models import Captcha
 
 
-class TestProcessCaptcha(FlushTestCase):
+class TestProcessCaptcha(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
 

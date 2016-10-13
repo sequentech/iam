@@ -21,14 +21,14 @@ from django.test.utils import override_settings
 import json
 import time
 from api import test_data
-from api.tests import JClient, FlushTestCase
+from api.tests import JClient, flush_db_load_fixture
 from api.models import AuthEvent, ACL, UserData
 from .m_email import Email
 from .m_sms import Sms
 from .models import Message, Code, Connection
 
 
-class AuthMethodTestCase(FlushTestCase):
+class AuthMethodTestCase(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
 
@@ -68,7 +68,7 @@ class AuthMethodTestCase(FlushTestCase):
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
 
 
-class AuthMethodEmailTestCase(FlushTestCase):
+class AuthMethodEmailTestCase(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
 
@@ -153,7 +153,7 @@ class AuthMethodEmailTestCase(FlushTestCase):
         self.assertEqual(response.status_code, 400)
 
 
-class AuthMethodSmsTestCase(FlushTestCase):
+class AuthMethodSmsTestCase(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
 
@@ -328,7 +328,7 @@ class AuthMethodSmsTestCase(FlushTestCase):
         self.assertTrue(e.group(0) == test_url.replace('\\',''))
 
 
-class ExtraFieldPipelineTestCase(FlushTestCase):
+class ExtraFieldPipelineTestCase(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
 
@@ -375,7 +375,7 @@ class ExtraFieldPipelineTestCase(FlushTestCase):
         self.assertEqual(response.status_code, 400)
 
 
-class ExternalCheckPipelineTestCase(FlushTestCase):
+class ExternalCheckPipelineTestCase(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
 

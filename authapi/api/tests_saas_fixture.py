@@ -19,16 +19,15 @@ from django.contrib.auth.models import User
 from django.test.utils import override_settings
 
 from api.models import ACL, AuthEvent, UserData
-from api.tests import JClient, FlushTestCase
+from api.tests import JClient, flush_db_load_fixture
 from authmethods.models import Code
 from captcha.models import Captcha
 from captcha.views import newcaptcha
 
 
-class TestFixtureSaas(FlushTestCase):
-    fixture_file = "saas.json"
+class TestFixtureSaas(TestCase):
     def setUpTestData():
-        flush_db_load_fixture()
+        flush_db_load_fixture("saas.json")
 
     def setUp(self):
         self.ae = AuthEvent.objects.get(pk=1)
