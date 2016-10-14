@@ -201,6 +201,10 @@ auth_event8 = {
                 "min": 0,
                 "max": 24,
                 "required_on_authentication": False
+            },
+            {
+                "name": "email",
+                "match_census_on_registration": True
             }
     ]
 }

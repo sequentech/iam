@@ -391,11 +391,11 @@ class PreRegisterTestCase(TestCase):
         self.aeid = ae.pk
 
         # Create user for authevent8
-        u = User(username='test1', email='', is_active=False)
+        u = User(username='test1', email='test@agoravoting.com', is_active=False)
         u.save()
         u.userdata.event = ae
         u.userdata.metadata = json.dumps({
-                'email': '',
+                'email': 'test@agoravoting.com',
                 'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
                 'email_verified': True,
                 'match_field': 'match_code_555',

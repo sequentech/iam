@@ -314,7 +314,6 @@ class Sms:
                 f for f in ae.extra_fields
                 if "match_census_on_registration" in f and f['match_census_on_registration']
             ]
-        match_tlf = 'tlf' in reg_match_fields
 
         # TODO: FIXME: use this
         # NOTE now, the fields of type "fill_if_empty_on_registration" need
@@ -346,6 +345,13 @@ class Sms:
             # unique reg_fill_empty_fields (i.e. the tlf), because tlf should
             # be unique and we are about to set the tlf to an existing user
             # with an empty tlf
+            match_tlf = False
+            match_tlf_element = None
+            for extra in ae.extra_fields:
+                if 'name' in extra and 'tlf' == extra['name'] and "match_census_on_registration" in extra and extra['match_census_on_registration']:
+                    match_tlf = True
+                    match_tlf_element = extra
+                    break
             if not match_tlf and User.objects.filter(userdata__tlf=tlf, userdata__event=ae, is_active=True).count() > 0:
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
@@ -354,9 +360,9 @@ class Sms:
             # required, and only one match_field
             search_tlf = tlf if match_tlf else ""
             if match_tlf:
-                reg_match_fields.remove('tlf')
+                reg_match_fields.remove(match_tlf_element)
             q = Q(userdata__event=ae,
-                  is_active=True,
+                  is_active=False,
                   userdata__tlf=search_tlf)
             # Check the reg_match_fields
             for reg_match_field in reg_match_fields:
