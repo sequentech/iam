@@ -172,6 +172,39 @@ auth_event7['extra_fields'][0]['register-pipeline'] = [
                 }]
             ]
 
+
+# extra-fields pipeline
+auth_event8 = {
+    "auth_method": "email",
+    "census": "open",
+    "config": {
+        "authentication-action": {"mode": ""},
+        "subject": "Confirm your email",
+        "msg": "Click __URL__ and put this code __CODE__"
+    },
+    "extra_fields": [
+            {
+                "name": "match_field",
+                "match_census_on_registration": True,
+                "help": "match census on registration",
+                "type": "text",
+                "required": True,
+                "min": 0,
+                "max": 24,
+                "required_on_authentication": False
+            },
+            {
+                "name": "fill_field",
+                "fill_if_empty_on_registration": True,
+                "help": "fill if empty on registration",
+                "type": "text",
+                "min": 0,
+                "max": 24,
+                "required_on_authentication": False
+            }
+    ]
+}
+
 # Users
 admin = {'username': 'john', 'email': 'john@agoravoting.com', 'password': 'smith'}
 

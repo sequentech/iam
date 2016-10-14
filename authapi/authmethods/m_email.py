@@ -310,6 +310,7 @@ class Email:
                 f for f in ae.extra_fields
                 if "match_census_on_registration" in f and f['match_census_on_registration']
             ]
+        match_email = 'email' in reg_match_fields
 
         # TODO: FIXME: use this
         # NOTE now, the fields of type "fill_if_empty_on_registration" need
@@ -340,15 +341,18 @@ class Email:
             # unique reg_fill_empty_fields (i.e. the tlf), because tlf should
             # be unique and we are about to set the tlf to an existing user
             # with an empty tlf
-            if User.objects.filter(userdata__email=email, userdata__event=ae).count() > 0:
+            if not match_email and User.objects.filter(email=email, userdata__event=ae, is_active=True).count() > 0:
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
             # lookup in the database if there's any user with those fields
             # NOTE: we assume reg_match_fields are unique in the DB and
             # required, and only one match_field
+            search_email = email if match_email else ""
+            if match_email:
+                reg_match_fields.remove('email')
             q = Q(userdata__event=ae,
                   is_active=True,
-                  userdata__email="")
+                  email=search_email)
             # Check the reg_match_fields
             for reg_match_field in reg_match_fields:
                  # Filter with Django's JSONfield
@@ -393,8 +397,16 @@ class Email:
             if user_found is None:
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
-            user_found.userdata.email = email
+            meta = json.loads(user_found.userdata.metadata)
+            for reg_empty_field in reg_fill_empty_fields:
+                reg_name = reg_empty_field['name']
+                if reg_name in req:
+                    meta[reg_name] = req.get(reg_name)
+            user_found.userdata.metadata = json.dumps(meta)
             user_found.userdata.save()
+            if not match_email:
+               user_found.email = email
+            user_found.save()   
             u = user_found
         else:
             msg_exist = exist_user(req, ae, get_repeated=True)

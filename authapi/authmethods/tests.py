@@ -374,6 +374,52 @@ class ExtraFieldPipelineTestCase(TestCase):
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
 
+class PreRegisterTestCase(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        auth_method_config = {
+                "config": Email.CONFIG,
+                "pipeline": Email.PIPELINES
+        }
+        ae = AuthEvent(auth_method=test_data.auth_event8['auth_method'],
+                auth_method_config=auth_method_config,
+                extra_fields=test_data.auth_event8['extra_fields'],
+                status='started', census=test_data.auth_event8['census'])
+        ae.save()
+        self.aeid = ae.pk
+
+        # Create user for authevent8
+        u = User(username='test1', email='', is_active=False)
+        u.save()
+        u.userdata.event = ae
+        u.userdata.metadata = json.dumps({
+                'email': '',
+                'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+                'email_verified': True,
+                'match_field': 'match_code_555',
+                'fill_field': ''
+        })
+        u.userdata.save()
+        self.userid = u.pk
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit', object_id=ae.pk)
+        acl.save()
+        code = Code(user=u.userdata, code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', auth_event_id=ae.pk)
+        code.save()
+
+    def test_ok_match(self):
+        c = JClient()
+        data = {
+             'email': 'test@agoravoting.com', 
+             'user': 'test1',
+             'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+             'match_field': 'match_code_555',
+             'fill_field': 'filled'
+        }
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
 
 class ExternalCheckPipelineTestCase(TestCase):
     def setUpTestData():

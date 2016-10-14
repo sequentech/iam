@@ -314,6 +314,7 @@ class Sms:
                 f for f in ae.extra_fields
                 if "match_census_on_registration" in f and f['match_census_on_registration']
             ]
+        match_tlf = 'tlf' in reg_match_fields
 
         # TODO: FIXME: use this
         # NOTE now, the fields of type "fill_if_empty_on_registration" need
@@ -345,15 +346,18 @@ class Sms:
             # unique reg_fill_empty_fields (i.e. the tlf), because tlf should
             # be unique and we are about to set the tlf to an existing user
             # with an empty tlf
-            if User.objects.filter(userdata__tlf=tlf, userdata__event=ae).count() > 0:
+            if not match_tlf and User.objects.filter(userdata__tlf=tlf, userdata__event=ae, is_active=True).count() > 0:
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
             # lookup in the database if there's any user with those fields
             # NOTE: we assume reg_match_fields are unique in the DB and
             # required, and only one match_field
+            search_tlf = tlf if match_tlf else ""
+            if match_tlf:
+                reg_match_fields.remove('tlf')
             q = Q(userdata__event=ae,
                   is_active=True,
-                  userdata__tlf="")
+                  userdata__tlf=search_tlf)
             # Check the reg_match_fields
             for reg_match_field in reg_match_fields:
                  # Filter with Django's JSONfield
@@ -397,7 +401,15 @@ class Sms:
             if user_found is None:
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
-            user_found.userdata.tlf = tlf
+            meta = json.loads(user_found.userdata.metadata)
+            for reg_empty_field in reg_fill_empty_fields:
+                reg_name = reg_empty_field['name']
+                if reg_name in req:
+                    meta[reg_name] = req.get(reg_name)
+            user_found.userdata.metadata = json.dumps(meta)
+            user_found.userdata.save()
+            if not match_email:
+                user_found.userdata.tlf = tlf
             user_found.userdata.save()
             u = user_found
         else:
