@@ -379,8 +379,11 @@ class Sms:
             for reg_empty_field in reg_fill_empty_fields:
                  # Filter with Django's JSONfield
                  reg_name = reg_empty_field['name']
-                 if reg_name:
+                 # Note: the register query _must_ contain a value for these fields
+                 if reg_name and reg_name in req:
                      q = q & Q(userdata__metadata__contains={reg_name: ""})
+                 else:
+                     return self.error("Incorrect data", error_codename="invalid_credentials")
 
             user_found = None
             user_list = User.objects.filter(q)

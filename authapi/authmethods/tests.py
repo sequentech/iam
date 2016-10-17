@@ -414,6 +414,24 @@ class PreRegisterTestCase(TestCase):
              'email': 'test@agoravoting.com', 
              'user': 'test1',
              'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+             'match_field': 'wrong-code',
+             'fill_field': 'filled'
+        }
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        data = {
+             'email': 'test@agoravoting.com', 
+             'user': 'test1',
+             'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+             'match_field': 'match_code_555',
+             'fill_field': ''
+        }
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        data = {
+             'email': 'test@agoravoting.com', 
+             'user': 'test1',
+             'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
              'match_field': 'match_code_555',
              'fill_field': 'filled'
         }
