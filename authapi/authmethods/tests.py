@@ -83,11 +83,11 @@ class AuthMethodEmailTestCase(TestCase):
         u = User(username='test1', email='test1@agoravoting.com')
         u.save()
         u.userdata.event = ae
-        u.userdata.metadata = json.dumps({
+        u.userdata.metadata = {
                 'email': 'test@test.com',
                 'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
                 'email_verified': True
-        })
+        }
         u.userdata.save()
         self.userid = u.pk
 
@@ -98,11 +98,11 @@ class AuthMethodEmailTestCase(TestCase):
         u2.is_active = False
         u2.save()
         u2.userdata.event = ae
-        u2.userdata.metadata = json.dumps({
+        u2.userdata.metadata = {
                 'email': 'test2@test.com',
                 'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
                 'email_verified': False
-        })
+        }
         u2.userdata.save()
 
         code = Code(user=u.userdata, code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', auth_event_id=ae.pk)
@@ -171,7 +171,7 @@ class AuthMethodSmsTestCase(TestCase):
         u.save()
         u.userdata.event = ae
         u.userdata.tlf = '+34666666666'
-        u.userdata.metadata = json.dumps({ 'dni': '11111111H' })
+        u.userdata.metadata = { 'dni': '11111111H' }
         u.userdata.save()
         self.u = u.userdata
         code = Code(user=u.userdata, code='AAAAAAAA', auth_event_id=ae.pk)
@@ -184,7 +184,7 @@ class AuthMethodSmsTestCase(TestCase):
         u2.save()
         u2.userdata.tlf = '+34766666666'
         u2.userdata.event = ae
-        u2.userdata.metadata = json.dumps({ 'dni': '11111111H' })
+        u2.userdata.metadata = { 'dni': '11111111H' }
         u2.userdata.save()
         code = Code(user=u2.userdata, code='AAAAAAAA', auth_event_id=ae.pk)
         code.save()
@@ -360,14 +360,14 @@ class ExtraFieldPipelineTestCase(TestCase):
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 200)
         user = UserData.objects.get(user__email=data['email'])
-        self.assertEqual(json.loads(user.metadata).get('dni'), '39873625C')
+        self.assertEqual(user.metadata.get('dni'), '39873625C')
 
         data = {'email': 'test1@test.com', 'user': 'test',
                 'dni': '39873625c'}
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 200)
         user = UserData.objects.get(user__email=data['email'])
-        self.assertEqual(json.loads(user.metadata).get('dni'), '39873625C')
+        self.assertEqual(user.metadata.get('dni'), '39873625C')
 
         data = {'email': 'test2@test.com', 'user': 'test',
                 'dni': '39873625X'}
@@ -394,13 +394,13 @@ class PreRegisterTestCase(TestCase):
         u = User(username='test1', email='test@agoravoting.com', is_active=False)
         u.save()
         u.userdata.event = ae
-        u.userdata.metadata = json.dumps({
+        u.userdata.metadata = {
                 'email': 'test@agoravoting.com',
                 'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
                 'email_verified': True,
                 'match_field': 'match_code_555',
                 'fill_field': ''
-        })
+        }
         u.userdata.save()
         self.userid = u.pk
         acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit', object_id=ae.pk)
@@ -447,5 +447,5 @@ class ExternalCheckPipelineTestCase(TestCase):
 
         u = User.objects.get(email='test@test.com')
         self.assertEqual(u.is_active, True)
-        mdata = json.loads(u.userdata.metadata)
+        mdata = u.userdata.metadata
         self.assertEqual(mdata['external_data']['custom'], True)

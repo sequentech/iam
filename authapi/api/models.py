@@ -179,7 +179,7 @@ class UserData(models.Model):
         d = self.serialize()
         del d['username']
         if self.metadata:
-            d.update(json.loads(self.metadata))
+            d.update(self.metadata)
         return d
 
     def __str__(self):

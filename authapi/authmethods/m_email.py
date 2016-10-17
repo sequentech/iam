@@ -403,16 +403,14 @@ class Email:
             if user_found is None:
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
-            meta = json.loads(user_found.userdata.metadata)
             for reg_empty_field in reg_fill_empty_fields:
                 reg_name = reg_empty_field['name']
                 if reg_name in req:
-                    meta[reg_name] = req.get(reg_name)
-            user_found.userdata.metadata = json.dumps(meta)
+                    user_found.userdata.metadata[reg_name] = req.get(reg_name)
             user_found.userdata.save()
             if not match_email:
                user_found.email = email
-            user_found.save()   
+            user_found.save()
             u = user_found
         else:
             msg_exist = exist_user(req, ae, get_repeated=True)

@@ -810,7 +810,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
 
     def test_authenticate_authevent_email_fields(self):
         c = JClient()
-        self.u.metadata = json.dumps({"name": test_data.auth_email_fields['name']})
+        self.u.metadata = {"name": test_data.auth_email_fields['name']}
         self.u.save()
         response = c.authenticate(self.aeid, test_data.auth_email_fields)
         self.assertEqual(response.status_code, 200)
@@ -1010,7 +1010,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         c = JClient()
         self.ae.extra_fields = test_data.ae_sms_fields['extra_fields']
         self.ae.save()
-        self.u.metadata = json.dumps({"name": test_data.auth_sms_fields['name']})
+        self.u.metadata = {"name": test_data.auth_sms_fields['name']}
         self.u.save()
         response = c.register(self.aeid, test_data.register_sms_fields)
         self.assertEqual(response.status_code, 200)
@@ -1070,7 +1070,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         c = JClient()
         self.ae.extra_fields = test_data.auth_event2['extra_fields']
         self.ae.save()
-        self.u.metadata = json.dumps({"name": test_data.auth_sms_fields['name']})
+        self.u.metadata = {"name": test_data.auth_sms_fields['name']}
         self.u.save()
         response = c.register(self.aeid, test_data.sms_fields_incorrect_type1)
         self.assertEqual(response.status_code, 400)
@@ -1143,7 +1143,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         c = JClient()
         self.ae.extra_fields = test_data.ae_sms_fields['extra_fields']
         self.ae.save()
-        self.u.metadata = json.dumps({"name": test_data.auth_sms_fields['name']})
+        self.u.metadata = {"name": test_data.auth_sms_fields['name']}
         self.u.save()
         response = c.authenticate(self.aeid, test_data.auth_sms_fields)
         self.assertEqual(response.status_code, 200)

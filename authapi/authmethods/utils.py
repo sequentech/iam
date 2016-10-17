@@ -521,7 +521,7 @@ def edit_user(user, req, ae):
                     f.write(img)
                 req[extra.get('name')] = fname
     user.save()
-    user.userdata.metadata = json.dumps(req)
+    user.userdata.metadata = req
     user.userdata.save()
     return user
 
@@ -537,7 +537,7 @@ def create_user(req, ae, active=False):
 
 
 def check_metadata(req, user):
-    meta = json.loads(user.userdata.metadata)
+    meta = user.userdata.metadata
     extra = user.userdata.event.extra_fields
     if not extra:
         return ""
