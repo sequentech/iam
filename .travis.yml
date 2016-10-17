@@ -1,6 +1,4 @@
 language: python
-sudo: required
-dist: trusty
 python:
   - "3.4"
 addons:
@@ -10,6 +8,7 @@ install:
   - pip install coveralls
 services:
   - postgresql
+  - rabbitmq
 # command to run tests
 before_script:
   - psql -tAc "CREATE USER authapi WITH PASSWORD '<PASSWORD>';" -U postgres
