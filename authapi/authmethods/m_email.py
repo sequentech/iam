@@ -294,6 +294,7 @@ class Email:
         return d
 
     def register(self, ae, request):
+        print("test_register 12321")
         req = json.loads(request.body.decode('utf-8'))
 
         msg = check_pipeline(request, ae)
