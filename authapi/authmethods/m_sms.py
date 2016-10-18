@@ -315,10 +315,8 @@ class Sms:
                 if "match_census_on_registration" in f and f['match_census_on_registration']
             ]
 
-        # TODO: FIXME: use this
-        # NOTE now, the fields of type "fill_if_empty_on_registration" need
-        # to be empty, otherwise user is already registered.
-        # TODO: NOTE that we assume it's only one field, the tlf field
+        # NOTE the fields of type "fill_if_empty_on_registration" need
+        # to be empty, otherwise the user is already registered.
         reg_fill_empty_fields = []
         if ae.extra_fields is not None:
             reg_fill_empty_fields = [
@@ -341,10 +339,7 @@ class Sms:
         active = req.pop('active')
 
         if len(reg_match_fields) > 0 or len(reg_fill_empty_fields) > 0:
-            # check that there isn't any user registered with the user provided
-            # unique reg_fill_empty_fields (i.e. the tlf), because tlf should
-            # be unique and we are about to set the tlf to an existing user
-            # with an empty tlf
+            # is the tlf a match field?
             match_tlf = False
             match_tlf_element = None
             for extra in ae.extra_fields:
@@ -352,12 +347,13 @@ class Sms:
                     match_tlf = True
                     match_tlf_element = extra
                     break
+            # if the tlf is not a match field, and there already is a user
+            # with that tlf, reject the registration request
             if not match_tlf and User.objects.filter(userdata__tlf=tlf, userdata__event=ae, is_active=True).count() > 0:
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
-            # lookup in the database if there's any user with those fields
-            # NOTE: we assume reg_match_fields are unique in the DB and
-            # required, and only one match_field
+            # lookup in the database if there's any user with the match fields
+            # NOTE: we assume reg_match_fields are unique in the DB and required
             search_tlf = tlf if match_tlf else ""
             if match_tlf:
                 reg_match_fields.remove(match_tlf_element)

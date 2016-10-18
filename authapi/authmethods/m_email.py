@@ -311,10 +311,8 @@ class Email:
                 if "match_census_on_registration" in f and f['match_census_on_registration']
             ]
 
-        # TODO: FIXME: use this
-        # NOTE now, the fields of type "fill_if_empty_on_registration" need
-        # to be empty, otherwise user is already registered.
-        # TODO: NOTE that we assume it's only one field, the tlf field
+        # NOTE the fields of type "fill_if_empty_on_registration" need
+        # to be empty, otherwise the user is already registered.
         reg_fill_empty_fields = []
         if ae.extra_fields is not None:
             reg_fill_empty_fields = [
@@ -336,10 +334,7 @@ class Email:
         active = req.pop('active')
 
         if len(reg_match_fields) > 0 or len(reg_fill_empty_fields) > 0:
-            # check that there isn't any user registered with the user provided
-            # unique reg_fill_empty_fields (i.e. the tlf), because tlf should
-            # be unique and we are about to set the tlf to an existing user
-            # with an empty tlf
+            # is the email a match field?
             match_email = False
             match_email_element = None
             for extra in ae.extra_fields:
@@ -347,12 +342,13 @@ class Email:
                     match_email = True
                     match_email_element = extra
                     break
+            # if the email is not a match field, and there already is a user
+            # with that email, reject the registration request
             if not match_email and User.objects.filter(email=email, userdata__event=ae, is_active=True).count() > 0:
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
-            # lookup in the database if there's any user with those fields
-            # NOTE: we assume reg_match_fields are unique in the DB and
-            # required, and only one match_field
+            # lookup in the database if there's any user with the match fields
+            # NOTE: we assume reg_match_fields are unique in the DB and required
             search_email = email if match_email else ""
             if match_email:
                 reg_match_fields.remove(match_email_element)
