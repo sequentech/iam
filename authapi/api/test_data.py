@@ -173,7 +173,9 @@ auth_event7['extra_fields'][0]['register-pipeline'] = [
             ]
 
 
-# extra-fields pipeline
+# extra-fields pipeline for email
+# email and match_field must match with a pre-registered user
+# the user must fill 'fill_field' upon registration
 auth_event8 = {
     "auth_method": "email",
     "census": "open",
@@ -205,6 +207,88 @@ auth_event8 = {
             {
                 "name": "email",
                 "match_census_on_registration": True
+            }
+    ]
+}
+
+
+# extra-fields pipeline for email
+# match_field must match with a pre-registered user
+# the user must fill the email field upon registration
+auth_event9 = {
+    "auth_method": "email",
+    "census": "open",
+    "config": {
+        "authentication-action": {"mode": ""},
+        "subject": "Confirm your email",
+        "msg": "Click __URL__ and put this code __CODE__"
+    },
+    "extra_fields": [
+            {
+                "name": "match_field",
+                "match_census_on_registration": True,
+                "help": "match census on registration",
+                "type": "text",
+                "required": True,
+                "min": 0,
+                "max": 24,
+                "required_on_authentication": False
+            }
+    ]
+}
+
+# extra-fields pipeline for sms
+# sms and match_field must match with a pre-registered user
+# the user must fill 'fill_field' upon registration
+auth_event10 = {
+    "auth_method": "sms",
+    "census": "open",
+    "config": {"msg": "Enter in __URL__ and put this code __CODE__"},
+    "extra_fields": [
+            {
+                "name": "match_field",
+                "match_census_on_registration": True,
+                "help": "match census on registration",
+                "type": "text",
+                "required": True,
+                "min": 0,
+                "max": 24,
+                "required_on_authentication": False
+            },
+            {
+                "name": "fill_field",
+                "fill_if_empty_on_registration": True,
+                "help": "fill if empty on registration",
+                "type": "text",
+                "min": 0,
+                "max": 24,
+                "required_on_authentication": False
+            },
+            {
+                "name": "tlf",
+                "match_census_on_registration": True
+            }
+    ]
+}
+
+
+# extra-fields pipeline for sms
+# match_field must match with a pre-registered user
+# the user must fill the tlf field upon registration
+auth_event11 = {
+    "auth_method": "sms",
+    "census": "open",
+    "config": {"msg": "Enter in __URL__ and put this code __CODE__"},
+    "extra_fields": [
+            {
+                "name": "match_field",
+                "match_census_on_registration": True,
+                "help": "match census on registration",
+                "type": "text",
+                "required": True,
+                "min": 0,
+                "max": 24,
+                "required_on_authentication": False
             }
     ]
 }

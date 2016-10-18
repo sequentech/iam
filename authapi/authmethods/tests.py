@@ -374,7 +374,7 @@ class ExtraFieldPipelineTestCase(TestCase):
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
 
-class PreRegisterTestCase(TestCase):
+class PreRegisterTestCaseEmail(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
 
@@ -396,7 +396,6 @@ class PreRegisterTestCase(TestCase):
         u.userdata.event = ae
         u.userdata.metadata = {
                 'email': 'test@agoravoting.com',
-                'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
                 'email_verified': True,
                 'match_field': 'match_code_555',
                 'fill_field': ''
@@ -408,6 +407,9 @@ class PreRegisterTestCase(TestCase):
         code = Code(user=u.userdata, code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', auth_event_id=ae.pk)
         code.save()
 
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
     def test_ok_match(self):
         c = JClient()
         data = {
@@ -418,6 +420,7 @@ class PreRegisterTestCase(TestCase):
              'fill_field': 'filled'
         }
         response = c.register(self.aeid, data)
+        # no pre-registered user matches to the 'match_field' field
         self.assertEqual(response.status_code, 400)
         data = {
              'email': 'test@agoravoting.com', 
@@ -426,7 +429,18 @@ class PreRegisterTestCase(TestCase):
              'match_field': 'match_code_555',
              'fill_field': ''
         }
+        # the fill_field is not filled
         response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        data = {
+             'email': 'test@agoravotin.com', 
+             'user': 'test1',
+             'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+             'match_field': 'match_code_555',
+             'fill_field': 'filled'
+        }
+        response = c.register(self.aeid, data)
+        # the email field doesn't match with any of the pre-registered users
         self.assertEqual(response.status_code, 400)
         data = {
              'email': 'test@agoravoting.com', 
@@ -434,6 +448,206 @@ class PreRegisterTestCase(TestCase):
              'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
              'match_field': 'match_code_555',
              'fill_field': 'filled'
+        }
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+
+class PreRegisterTestCaseFillEmail(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        auth_method_config = {
+                "config": Email.CONFIG,
+                "pipeline": Email.PIPELINES
+        }
+        ae = AuthEvent(auth_method=test_data.auth_event9['auth_method'],
+                auth_method_config=auth_method_config,
+                extra_fields=test_data.auth_event9['extra_fields'],
+                status='started', census=test_data.auth_event9['census'])
+        ae.save()
+        self.aeid = ae.pk
+
+        # Create user for authevent9
+        u = User(username='test1', email='', is_active=False)
+        u.save()
+        u.userdata.event = ae
+        u.userdata.metadata = {
+                'email': '',
+                'email_verified': True,
+                'match_field': 'match_code_555'
+        }
+        u.userdata.save()
+        self.userid = u.pk
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit', object_id=ae.pk)
+        acl.save()
+        code = Code(user=u.userdata, code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', auth_event_id=ae.pk)
+        code.save()
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_ok_match(self):
+        c = JClient()
+        data = {
+             'email': 'test@agoravoting.com', 
+             'user': 'test1',
+             'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+             'match_field': 'wrong-code'
+        }
+        response = c.register(self.aeid, data)
+        # no pre-registered user matches with the 'match_field' field
+        self.assertEqual(response.status_code, 400)
+        data = {
+             'email': '', 
+             'user': 'test1',
+             'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+             'match_field': 'match_code_555'
+        }
+        # the email is not filled but it's required, even when not listed as a match field
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        data = {
+             'email': 'test@agoravoting.com', 
+             'user': 'test1',
+             'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+             'match_field': 'match_code_555'
+        }
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+class PreRegisterTestCaseTlf(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        auth_method_config = test_data.authmethod_config_sms_default
+        ae = AuthEvent(auth_method=test_data.auth_event10['auth_method'],
+                auth_method_config=auth_method_config,
+                extra_fields=test_data.auth_event10['extra_fields'],
+                status='started', census=test_data.auth_event10['census'])
+        ae.save()
+        self.aeid = ae.pk
+
+        # Create user for authevent10
+        u = User(username='test1', email='test@agoravoting.com', is_active=False)
+        u.save()
+        u.userdata.event = ae
+        u.userdata.tlf = '+34666666666'
+        u.userdata.metadata = {
+                'match_field': 'match_code_555',
+                'fill_field': ''
+        }
+        u.userdata.save()
+        self.userid = u.pk
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit', object_id=ae.pk)
+        acl.save()
+        code = Code(user=u.userdata, code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', auth_event_id=ae.pk)
+        code.save()
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_ok_match(self):
+        c = JClient()
+        data = {
+             'tlf': '+34666666666',
+             'user': 'test1',
+             'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+             'match_field': 'wrong-code',
+             'fill_field': 'filled'
+        }
+        response = c.register(self.aeid, data)
+        # no pre-registered user matches to the 'match_field' field
+        self.assertEqual(response.status_code, 400)
+        data = {
+             'tlf': '+34666666666',
+             'user': 'test1',
+             'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+             'match_field': 'match_code_555',
+             'fill_field': ''
+        }
+        # the fill_field is not filled
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        data = {
+             'tlf': '+34666666667',
+             'user': 'test1',
+             'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+             'match_field': 'match_code_555',
+             'fill_field': 'filled'
+        }
+        response = c.register(self.aeid, data)
+        # the tlf field doesn't match with any of the pre-registered users
+        self.assertEqual(response.status_code, 400)
+        data = {
+             'tlf': '+34666666666',
+             'user': 'test1',
+             'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+             'match_field': 'match_code_555',
+             'fill_field': 'filled'
+        }
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+
+class PreRegisterTestCaseFillTlf(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        auth_method_config = test_data.authmethod_config_sms_default
+        ae = AuthEvent(auth_method=test_data.auth_event11['auth_method'],
+                auth_method_config=auth_method_config,
+                extra_fields=test_data.auth_event11['extra_fields'],
+                status='started', census=test_data.auth_event11['census'])
+        ae.save()
+        self.aeid = ae.pk
+
+        # Create user for authevent11
+        u = User(username='test1', email='test@agoravoting.com', is_active=False)
+        u.save()
+        u.userdata.event = ae
+        u.userdata.tlf = ''
+        u.userdata.metadata = {
+                'match_field': 'match_code_555'
+        }
+        u.userdata.save()
+        self.userid = u.pk
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit', object_id=ae.pk)
+        acl.save()
+        code = Code(user=u.userdata, code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', auth_event_id=ae.pk)
+        code.save()
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_ok_match(self):
+        c = JClient()
+        data = {
+             'tlf': '+34666666666',
+             'user': 'test1',
+             'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+             'match_field': 'wrong-code'
+        }
+        response = c.register(self.aeid, data)
+        # no pre-registered user matches with the 'match_field' field
+        self.assertEqual(response.status_code, 400)
+        data = {
+             'tlf': '',
+             'user': 'test1',
+             'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+             'match_field': 'match_code_555'
+        }
+        # the tlf is not filled but it's required, even when it's not listed as a match field
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        data = {
+             'tlf': '+34666666666',
+             'user': 'test1',
+             'code': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+             'match_field': 'match_code_555'
         }
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 200)
@@ -455,6 +669,9 @@ class ExternalCheckPipelineTestCase(TestCase):
         ae.save()
         self.aeid = ae.pk
 
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
     def _test_method_external_pipeline(self):
         # TODO: Fixed external api for validate dni, else is_active will be False
         c = JClient()

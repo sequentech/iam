@@ -415,7 +415,7 @@ class Sms:
                 if reg_name in req:
                     user_found.userdata.metadata[reg_name] = req.get(reg_name)
             user_found.userdata.save()
-            if not match_email:
+            if not match_tlf:
                 user_found.userdata.tlf = tlf
             user_found.userdata.save()
             u = user_found
