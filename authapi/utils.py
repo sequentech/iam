@@ -79,17 +79,32 @@ def json_response(data=None, status=200, message="", field=None, error_codename=
 def permission_required(user, object_type, permission, object_id=0, return_bool=False):
     if user.is_superuser:
         return True
-    if object_id and user.userdata.has_perms(object_type, permission, 0):
-        return True
-    if not user.userdata.has_perms(object_type, permission, object_id):
+
+    if type(permission) is str:
+        permissions = [permission]
+    elif type(permission) is list:
+        permissions = permission
+    else:
+        raise Exception("invalid permission type")
+
+    if object_id:
+        for perm in permissions:
+            if user.userdata.has_perms(object_type, permission, 0):
+                return True
+
+    found = False
+    for perm in permissions:
+        if user.userdata.has_perms(object_type, perm, object_id):
+            found = True
+
+    if not found:
         if return_bool:
             return False
         else:
-            raise PermissionDenied('Permission required: ' + permission)
+            raise PermissionDenied('Permission required: ' + str(permissions))
 
     if return_bool:
         return True
-
 
 def paginate(request, queryset, serialize_method=None, elements_name='elements'):
     '''
@@ -212,11 +227,16 @@ def random_code(length=16, chars=ascii_lowercase+digits):
 def generate_code(userdata, size=settings.SIZE_CODE):
     """ Generate necessary codes for different authmethods. """
     from authmethods.models import Code
-    code = random_code(size, "ABCDEFGHJKLMNPQRTUVWXYZ2346789")
+    # Generates codes from [2-9]. Numbers 1 and 0 are not included because they
+    # can be mistaken with i and o.
+    code = random_code(size, "2346789")
     c = Code(user=userdata, code=code, auth_event_id=userdata.event.id)
     c.save()
     return code
 
+# Separate code into groups of 4 digits with hyphens ("-")
+def format_code(code):
+    return '-'.join(code[i:i+4] for i in range(0, len(code), 4))
 
 def email_to_str(email):
     return '''to: %s
@@ -280,6 +300,8 @@ def send_code(user, ip, config=None, auth_method_override=None):
     NOTE: You are responsible of not calling this on a stopped auth event
     '''
     from authmethods.models import Message, MsgLog
+    # Check if the client is requesting to use an authentication method
+    # different from the default one for this election
     if auth_method_override is not None:
         auth_method = auth_method_override
     else:
@@ -332,11 +354,11 @@ def send_code(user, ip, config=None, auth_method_override=None):
 
     # url with authentication code
     url2 = url + '/' + code
-    
+
     # msg is the message sent by the user
     raw_msg = template_replace_data(
       msg,
-      dict(event_id=event_id, code=code, url=url, url2=url2))
+      dict(event_id=event_id, code=format_code(code), url=url, url2=url2))
     msg = template_replace_data(base_msg, dict(message=raw_msg))
 
     code_msg = {'subject': subject, 'msg': msg}
@@ -401,8 +423,29 @@ def send_codes(users, ip, auth_method, config=None):
 
 
 # CHECKERS AUTHEVENT
-VALID_FIELDS = ('name', 'help', 'type', 'required', 'regex', 'min', 'max',
-    'required_on_authentication', 'unique', 'private', 'register-pipeline', 'authenticate-pipeline')
+VALID_FIELDS = (
+  'name',
+  'help',
+  'type',
+  'required',
+  'regex',
+  'min',
+  'max',
+  'required_on_authentication',
+  'unique',
+  'private',
+  'register-pipeline',
+  'authenticate-pipeline',
+  # match_census_on_registration can be True or False. It is used for
+  # pre-registration. If true, when the user registers, this field is used for
+  # whitelisting: the user will only succeed registering if there is already a
+  # pre-registered user in the census that matches all the 
+  # 'match_census_on_registration':True fields.
+  'match_census_on_registration',
+  # fill_if_empty_on_registration can be True or False. It is used for
+  # pre-registration. If the pre-registered user on the census has this field
+  # empty, then when the user will be able to set its value upon registration.
+  'fill_if_empty_on_registration')
 REQUIRED_FIELDS = ('name', 'type', 'required_on_authentication')
 VALID_PIPELINES = (
     'check_whitelisted',

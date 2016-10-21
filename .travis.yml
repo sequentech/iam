@@ -1,10 +1,18 @@
 language: python
 python:
   - "3.4"
+addons:
+  postgresql: "9.4"
 install:
   - pip install -r requirements.txt
   - pip install coveralls
+services:
+  - postgresql
 # command to run tests
+before_script:
+  - psql -tAc "CREATE USER authapi WITH PASSWORD '<PASSWORD>';" -U postgres
+  - psql -tAc "ALTER USER authapi CREATEDB;" -U postgres
+  - psql -tAc "CREATE DATABASE authapi OWNER authapi;" -U postgres
 script:
   - cd authapi
   - python manage.py migrate --settings=authapi.test_settings

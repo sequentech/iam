@@ -28,6 +28,12 @@ from authmethods.models import Code, MsgLog
 from utils import verifyhmac
 from authmethods.utils import get_cannonical_tlf
 
+def flush_db_load_fixture(ffile="initial.json"):
+    from django.core import management
+    management.call_command("flush", verbosity=0, interactive=False)
+    management.call_command("loaddata", ffile, verbosity=0)
+
+
 class JClient(Client):
     def __init__(self, *args, **kwargs):
         self.auth_token = ''
@@ -195,7 +201,7 @@ class ApiTestCase(TestCase):
         response = c.post('/api/auth-event/', data)
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['id'], 3)
+        self.assertTrue('id' in  r and isinstance(r['id'], int))
 
     @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_create_event_open(self):
@@ -413,7 +419,9 @@ class ApiTestCase(TestCase):
 
 
 class TestAuthEvent(TestCase):
-    fixtures = ['initial.json']
+    def setUpTestData():
+        flush_db_load_fixture()
+
     def setUp(self):
         self.ae = AuthEvent(auth_method=test_data.auth_event4['auth_method'],
                 auth_method_config=test_data.authmethod_config_email_default)
@@ -634,7 +642,9 @@ class TestAuthEvent(TestCase):
         self.assertEqual(len(r['ids-auth-event']), 2)
 
 class TestRegisterAndAuthenticateEmail(TestCase):
-    fixtures = ['initial.json']
+    def setUpTestData():
+        flush_db_load_fixture()
+
     def setUp(self):
         ae = AuthEvent(auth_method="email",
                 auth_method_config=test_data.authmethod_config_email_default,
@@ -800,7 +810,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
 
     def test_authenticate_authevent_email_fields(self):
         c = JClient()
-        self.u.metadata = json.dumps({"name": test_data.auth_email_fields['name']})
+        self.u.metadata = {"name": test_data.auth_email_fields['name']}
         self.u.save()
         response = c.authenticate(self.aeid, test_data.auth_email_fields)
         self.assertEqual(response.status_code, 200)
@@ -907,7 +917,9 @@ class TestRegisterAndAuthenticateEmail(TestCase):
 
 
 class TestRegisterAndAuthenticateSMS(TestCase):
-    fixtures = ['initial.json']
+    def setUpTestData():
+        flush_db_load_fixture()
+
     def setUp(self):
         ae = AuthEvent(auth_method="sms",
                 auth_method_config=test_data.authmethod_config_sms_default,
@@ -998,7 +1010,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         c = JClient()
         self.ae.extra_fields = test_data.ae_sms_fields['extra_fields']
         self.ae.save()
-        self.u.metadata = json.dumps({"name": test_data.auth_sms_fields['name']})
+        self.u.metadata = {"name": test_data.auth_sms_fields['name']}
         self.u.save()
         response = c.register(self.aeid, test_data.register_sms_fields)
         self.assertEqual(response.status_code, 200)
@@ -1058,7 +1070,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         c = JClient()
         self.ae.extra_fields = test_data.auth_event2['extra_fields']
         self.ae.save()
-        self.u.metadata = json.dumps({"name": test_data.auth_sms_fields['name']})
+        self.u.metadata = {"name": test_data.auth_sms_fields['name']}
         self.u.save()
         response = c.register(self.aeid, test_data.sms_fields_incorrect_type1)
         self.assertEqual(response.status_code, 400)
@@ -1131,7 +1143,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         c = JClient()
         self.ae.extra_fields = test_data.ae_sms_fields['extra_fields']
         self.ae.save()
-        self.u.metadata = json.dumps({"name": test_data.auth_sms_fields['name']})
+        self.u.metadata = {"name": test_data.auth_sms_fields['name']}
         self.u.save()
         response = c.authenticate(self.aeid, test_data.auth_sms_fields)
         self.assertEqual(response.status_code, 200)

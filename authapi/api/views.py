@@ -84,7 +84,7 @@ class CensusDelete(View):
     Delete census in the auth-event
     '''
     def post(self, request, pk):
-        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        permission_required(request.user, 'AuthEvent', ['edit', 'census-delete'], pk)
         ae = get_object_or_404(AuthEvent, pk=pk)
         req = parse_json_request(request)
         user_ids = req.get('user-ids', [])
@@ -107,7 +107,7 @@ class CensusActivate(View):
     activate = True
 
     def post(self, request, pk):
-        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        permission_required(request.user, 'AuthEvent', ['edit', 'census-activation'], pk)
         ae = get_object_or_404(AuthEvent, pk=pk)
         req = parse_json_request(request)
         user_ids = req.get('user-ids', [])
@@ -143,7 +143,7 @@ class Census(View):
     '''
 
     def post(self, request, pk):
-        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        permission_required(request.user, 'AuthEvent', ['edit', 'census-add'], pk)
         e = get_object_or_404(AuthEvent, pk=pk)
         error_kwargs = plugins.call("extend_add_census", e, request)
         if error_kwargs:
@@ -160,7 +160,7 @@ class Census(View):
                 error_codename=data.get('error_codename'))
 
     def get(self, request, pk):
-        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        permission_required(request.user, 'AuthEvent', ['edit', 'view-census'], pk)
         e = get_object_or_404(AuthEvent, pk=pk)
 
         filter_str = request.GET.get('filter', None)
@@ -170,7 +170,7 @@ class Census(View):
             q = (Q(user__user__username__icontains=filter_str) |
               Q(user__user__email__icontains=filter_str) |
               Q(user__tlf__icontains=filter_str) |
-              Q(user__metadata__icontains=filter_str))
+              Q(user__metadata__contains=filter_str))
 
             query = query.filter(q)
 
@@ -241,7 +241,8 @@ class Authenticate(View):
         else:
             return json_response(
               status=400,
-              error_codename=data.get('error_codename'))
+              error_codename=data.get('error_codename'),
+              message=data.get('msg', '-'))
 authenticate = Authenticate.as_view()
 
 
@@ -273,7 +274,16 @@ class Register(View):
 
     def post(self, request, pk):
         e = get_object_or_404(AuthEvent, pk=pk)
-        if (e.census == 'close'):
+
+        # find if there's any extra field of type
+        match_census_on_registration  = []
+        if e.extra_fields is not None:
+            match_census_on_registration = [
+                f for f in e.extra_fields
+                if "match_census_on_registration" in f and f['match_census_on_registration']
+            ]
+
+        if (e.census == 'close') and (len(match_census_on_registration) == 0 or e.status != 'started'):
             return json_response(
                 status=400,
                 error_codename="REGISTER_IS_DISABLED")
@@ -312,6 +322,7 @@ class ResendAuthCode(View):
         else:
             return json_response(
                 status=400,
+                message=data.get('msg', '-'),
                 error_codename=data.get('error_codename'))
 resend_auth_code = ResendAuthCode.as_view()
 
@@ -320,7 +331,12 @@ class AuthEventStatus(View):
     ''' Change the status of auth-event '''
 
     def post(self, request, pk, status):
-        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        alt = dict(
+            notstarted="notstarted",
+            started='start',
+            stopped='stop'
+        )[status]
+        permission_required(request.user, 'AuthEvent', ['edit', alt], pk)
         e = get_object_or_404(AuthEvent, pk=pk)
         if e.status != status:
             e.status = status
@@ -351,16 +367,24 @@ class GetPerms(View):
                 error_codename=ErrorCodes.BAD_REQUEST)
 
         object_type = req['object_type']
-        perm = req['permission']
+        perms = req['permission'].split("|")
         obj_id = req.get('object_id', 0)
 
-        if not request.user.is_superuser and\
-                not request.user.userdata.has_perms(object_type, perm, obj_id):
+        filtered_perms = "|".join([
+            perm
+            for perm in perms
+            if (
+                request.user.is_superuser or
+                request.user.userdata.has_perms(object_type, perm, obj_id)
+            )
+        ])
+
+        if len(filtered_perms) == 0:
             return json_response(
                 status=400,
                 error_codename=ErrorCodes.BAD_REQUEST)
 
-        msg = ':'.join((request.user.username, object_type, str(obj_id), perm))
+        msg = ':'.join((request.user.username, object_type, str(obj_id), filtered_perms))
 
         data['permission-token'] = genhmac(settings.SHARED_SECRET, msg)
         return json_response(data)
@@ -430,7 +454,8 @@ class ACLMine(View):
         if object_id:
             q &= Q(object_id=object_id)
         if perm:
-            q &= Q(perm=perm)
+            perms = perm.split('|')
+            q &= Q(perm__in=perms)
 
         query = request.user.userdata.acls.filter(q)
 
@@ -566,7 +591,12 @@ class AuthEventView(View):
         if pk:
             e = AuthEvent.objects.get(pk=pk)
             if (user is not None and user.is_authenticated() and
-                permission_required(user, 'AuthEvent', 'edit', e.id, return_bool=True)):
+                permission_required(
+                    user,
+                    'AuthEvent',
+                    ['edit', 'view'],
+                    e.id,
+                    return_bool=True)):
                 aes = e.serialize()
             else:
                 aes = e.serialize_restrict()
@@ -591,7 +621,7 @@ class AuthEventView(View):
             Delete a auth-event.
             delete_authevent permission required
         '''
-        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        permission_required(request.user, 'AuthEvent', ['edit', 'delete'], pk)
 
         ae = AuthEvent.objects.get(pk=pk)
         ae.delete()
@@ -726,7 +756,7 @@ user_auth_event = login_required(UserAuthEvent.as_view())
 class CensusSendAuth(View):
     def post(self, request, pk):
         ''' Send authentication emails to the whole census '''
-        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        permission_required(request.user, 'AuthEvent', ['edit', 'send-auth'], pk)
 
         data = {'msg': 'Sent successful'}
         # first, validate input
@@ -742,6 +772,8 @@ class CensusSendAuth(View):
             return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
         userids = req.get("user-ids", None)
+        if userids is None:
+            permission_required(request.user, 'AuthEvent', ['edit', 'send-auth-all'], pk)
         extra_req = req.get('extra', {})
         auth_method = req.get("auth-method", None)
         # force extra_req type to be a dict
@@ -756,7 +788,14 @@ class CensusSendAuth(View):
             if req.get('subject', ''):
                 config['subject'] = req.get('subject', '')
         else:
-            send_error = census_send_auth_task(pk, get_client_ip(request), None, userids, auth_method, **extra_req)
+            send_error = census_send_auth_task(
+                pk,
+                get_client_ip(request),
+                None,
+                userids,
+                auth_method,
+                request.user.id,
+                **extra_req)
             if send_error:
                 return json_response(**send_error)
             return json_response(data)
@@ -767,7 +806,13 @@ class CensusSendAuth(View):
                     status=400,
                     error_codename=ErrorCodes.BAD_REQUEST)
 
-        send_error = census_send_auth_task(pk, get_client_ip(request), config, userids, auth_method, **extra_req)
+        send_error = census_send_auth_task(
+            pk,
+            get_client_ip(request),
+            config, userids,
+            auth_method,
+            request.user.id,
+            **extra_req)
         if send_error:
             return json_response(**send_error)
         return json_response(data)
