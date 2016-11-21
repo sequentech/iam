@@ -39,6 +39,7 @@ from utils import (
     check_extra_fields,
     check_pipeline,
     genhmac,
+    HMACToken,
     json_response,
     paginate,
     permission_required,
@@ -50,7 +51,7 @@ from utils import (
     filter_query
 )
 from .decorators import login_required, get_login_user
-from .models import AuthEvent, ACL
+from .models import AuthEvent, ACL, SuccessfulLogin
 from .models import User, UserData
 from .tasks import census_send_auth_task
 from django.db.models import Q
@@ -252,7 +253,7 @@ class Ping(View):
     '''
 
     def get(self, request, pk):
-        u, error = get_login_user(request)
+        u, error, _ = get_login_user(request)
         status = None
         data = {}
 
@@ -267,6 +268,24 @@ class Ping(View):
 
         return json_response(data, status=status)
 ping = Ping.as_view()
+
+
+class SuccessfulLoginView(View):
+    '''
+    Records a successful login
+    '''
+    def post(self, request, pk, uid):
+        # userid is not used, but recorded in the log
+        user, error, khmac_obj = get_login_user(request)
+
+        # if it's invalid it's invalid
+        if not user or error is not None or type(khmac_obj) != HMACToken:
+            return json_response({}, status=403)
+
+        sl = SuccessfulLogin(user)
+        sl.save()
+
+successful_login = SuccessfulLoginView.as_view()
 
 
 class Register(View):
@@ -519,6 +538,14 @@ class AuthEventView(View):
             if based_in and not ACL.objects.filter(user=request.user.userdata, perm='edit',
                     object_type='AuthEvent', object_id=based_in):
                 msg += "Invalid id to based_in"
+
+            # Note that a login is only complete if a call has been received and
+            # accepted at /authevent/<ID>/successful_login
+            num_successful_logins_allowed = req.get(
+                'num_successful_logins_allowed', 0)
+            if type(num_successful_logins_allowed) is not int:
+                msg += "num_successful_logins_allowed invalid type"
+
             if msg:
                 return json_response(
                     status=400,
@@ -533,6 +560,7 @@ class AuthEventView(View):
                            extra_fields=extra_fields,
                            census=census,
                            real=real,
+                           allow_change_vote=allow_change_vote,
                            based_in=based_in)
             # Save before the acl creation to get the ae id
             ae.save()
@@ -586,7 +614,7 @@ class AuthEventView(View):
             Lists all AuthEvents if not pk. If pk show the event with this pk
         '''
         data = {'status': 'ok'}
-        user, _ = get_login_user(request)
+        user, _, _ = get_login_user(request)
 
         if pk:
             e = AuthEvent.objects.get(pk=pk)

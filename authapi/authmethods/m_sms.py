@@ -451,11 +451,15 @@ class Sms:
         msg += check_field_value(self.code_definition, req.get('code'), 'authenticate')
         msg += check_fields_in_request(req, ae, 'authenticate')
         if msg:
-            return self.error("Incorrect data" + msg, error_codename="invalid_credentials")
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         try:
             u = User.objects.get(userdata__tlf=tlf, userdata__event=ae, is_active=True)
         except:
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+
+        if (ae.num_successful_logins_allowed > 0 and
+            u.successful_logins.filter(is_active=True).count() >= ae.num_successful_logins_allowed):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         code = Code.objects.filter(user=u.userdata,
@@ -465,11 +469,11 @@ class Sms:
 
         msg = check_pipeline(request, ae, 'authenticate')
         if msg:
-            return self.error("Incorrect data" + msg, error_codename="invalid_credentials")
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_metadata(req, u)
         if msg:
-            return self.error("Incorrect data" + msg, error_codename="invalid_credentials")
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         u.save()
 
@@ -496,7 +500,7 @@ class Sms:
         msg += check_field_type(self.tlf_definition, tlf, 'authenticate')
         msg += check_field_value(self.tlf_definition, tlf, 'authenticate')
         if msg:
-            return self.error("Incorrect data" + msg, error_codename="invalid_credentials")
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         try:
             u = User.objects.get(userdata__tlf=tlf, userdata__event=ae, is_active=True)
@@ -510,7 +514,7 @@ class Sms:
           Sms.PIPELINES['resend-auth-pipeline'])
 
         if msg:
-            return self.error("Incorrect data" + msg, error_codename="invalid_credentials")
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         result = plugins.call("extend_send_sms", ae, 1)
         if result:

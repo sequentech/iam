@@ -20,32 +20,35 @@ import functools
 from utils import verifyhmac, HMACToken
 from django.conf import settings
 
+def get_auth_key(request):
+    return request.META.get('HTTP_AUTHORIZATION', None)
+    if not key:
+        return request.META.get('HTTP_AUTH', None)
+        if not key:
+            return request.META.get('HTTP_HTTP_AUTH', None)
 
 def get_login_user(request):
-    key = request.META.get('HTTP_AUTHORIZATION', None)
-    if not key:
-        key = request.META.get('HTTP_AUTH', None)
-        if not key:
-            key = request.META.get('HTTP_HTTP_AUTH', None)
+    key = get_auth_key(request)
+    hmac_token = None
 
     if not key:
-        return None, dict(error_codename="empty_hmac")
+        return None, dict(error_codename="empty_hmac"), hmac_token
 
     try:
-      at = HMACToken(key)
-      if not at.check_expiration(settings.TIMEOUT):
-          return None, dict(error_codename="expired_hmac_key")
+      hmac_token = HMACToken(key)
+      if not hmac_token.check_expiration(settings.TIMEOUT):
+          return None, dict(error_codename="expired_hmac_key"), hmac_token
 
-      v = verifyhmac(settings.SHARED_SECRET, key, settings.TIMEOUT, at=at)
+      v = verifyhmac(settings.SHARED_SECRET, key, settings.TIMEOUT, at=hmac_token)
 
       if not v:
-          return None, dict(error_codename="invalid_hmac")
+          return None, dict(error_codename="invalid_hmac"), hmac_token
 
-      user = User.objects.get(username=at.get_userid())
+      user = User.objects.get(username=hmac_token.get_userid())
     except:
-        return None, dict(error_codename="invalid_hmac_userid")
+        return None, dict(error_codename="invalid_hmac_userid"), hmac_token
 
-    return user, None
+    return user, None, hmac_token
 
 
 class login_required(object):
@@ -55,7 +58,7 @@ class login_required(object):
         functools.wraps(self.func)(self)
 
     def __call__(self, request, *args, **kwargs):
-        user, error = get_login_user(request)
+        user, error, _ = get_login_user(request)
         if not user:
             return HttpResponseForbidden(json.dumps(error))
 

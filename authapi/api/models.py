@@ -15,6 +15,7 @@
 
 import json
 from django.db import models
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.contrib.auth.models import User
 
 from django.contrib.postgres import fields
@@ -53,6 +54,14 @@ class AuthEvent(models.Model):
     status = models.CharField(max_length=15, choices=AE_STATUSES, default="notstarted")
     created = models.DateTimeField(auto_now_add=True)
     real = models.BooleanField(default=False)
+
+    # 0 means any number of logins is allowed
+    num_successful_logins_allowed = models.IntegerField(
+        default=True,
+        validators=[
+            MinValueValidator(0)
+        ]
+    )
     based_in = models.IntegerField(null=True) # auth_event_id
 
     def serialize(self, restrict=False):
@@ -224,3 +233,16 @@ class ACL(models.Model):
     def __str__(self):
         return "%s - %s - %s - %s" % (self.user.user.username, self.perm,
                                       self.object_type, self.object_id)
+
+class SuccessfulLogin(models.Model):
+    '''
+    Each successful login attempt is recorded with an object of this type, and
+    usually triggered by a explicit call to /authevent/<ID>/successful_login
+    '''
+    user = models.ForeignKey(UserData, related_name="successful_logins")
+    created = models.DateTimeField(auto_now_add=True)
+    # when counting the number of successful logins, only active ones count
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return "%d: %s - %s" % (self.id, self.user.user.username, str(self.created))
