@@ -279,7 +279,8 @@ class SuccessfulLoginView(View):
         user, error, khmac_obj = get_login_user(request)
 
         # if it's invalid it's invalid
-        if not user or error is not None or type(khmac_obj) != HMACToken:
+        if (not user or error is not None or type(khmac_obj) != HMACToken or
+            khmac_obj.get_other_values() != ['successful_auth']):
             return json_response({}, status=403)
 
         sl = SuccessfulLogin(user)
