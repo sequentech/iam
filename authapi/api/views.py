@@ -278,9 +278,14 @@ class SuccessfulLoginView(View):
         # userid is not used, but recorded in the log
         user, error, khmac_obj = get_login_user(request)
 
-        # if it's invalid it's invalid
-        if (not user or error is not None or type(khmac_obj) != HMACToken or
-            khmac_obj.get_other_values() != ['successful_auth']):
+        valid_data = ["AuthEvent", pk, "RegisterSuccessfulLogin"]
+
+        # check everything is ok
+        if (not user or
+            error is not None or
+            str(user.userdata.event.id) != pk or
+            type(khmac_obj) != HMACToken or
+            khmac_obj.get_other_values() != valid_data):
             return json_response({}, status=403)
 
         sl = SuccessfulLogin(user)
