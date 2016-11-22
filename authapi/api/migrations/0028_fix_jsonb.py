@@ -39,7 +39,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(fix_metadata, reverse_code=lambda:None),
+        migrations.RunPython(fix_metadata, reverse_code=lambda apps, schema_editor:None),
         migrations.AlterField(
             model_name='userdata',
             name='metadata',
