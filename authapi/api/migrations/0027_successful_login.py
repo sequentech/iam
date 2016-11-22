@@ -41,11 +41,6 @@ class Migration(migrations.Migration):
             name='num_successful_logins_allowed',
             field=models.IntegerField(default=True, validators=[django.core.validators.MinValueValidator(0)]),
         ),
-        migrations.AlterField(
-            model_name='userdata',
-            name='metadata',
-            field=jsonfield.fields.JSONField(blank=True, db_index=True, default={}, max_length=4096, null=True),
-        ),
         migrations.AddField(
             model_name='successfullogin',
             name='user',
