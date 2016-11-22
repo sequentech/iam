@@ -458,7 +458,7 @@ class Email:
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         if (ae.num_successful_logins_allowed > 0 and
-            u.successful_logins.filter(is_active=True).count() >= ae.num_successful_logins_allowed):
+            u.userdata.successful_logins.filter(is_active=True).count() >= ae.num_successful_logins_allowed):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         code = Code.objects.filter(user=u.userdata,
