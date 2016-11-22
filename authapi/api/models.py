@@ -159,7 +159,7 @@ class UserData(models.Model):
     user = models.OneToOneField(User, related_name="userdata")
     event = models.ForeignKey(AuthEvent, related_name="userdata", null=True)
     tlf = models.CharField(max_length=20, blank=True, null=True)
-    metadata = fields.JSONField(default="{}", blank=True, null=True, db_index=True, max_length=4096)
+    metadata = fields.JSONField(default=dict(), blank=True, null=True, db_index=True)
     status = models.CharField(max_length=255, choices=STATUSES, default="act", db_index=True)
 
     def get_perms(self, obj, permission, object_id=0):
@@ -190,6 +190,8 @@ class UserData(models.Model):
         if self.metadata:
             if type(self.metadata) == str:
                 metadata = json.loads(self.metadata)
+                if type(metadata) == str:
+                    metadata = json.loads(metadata)
             else:
                 metadata = self.metadata
             d.update(metadata)

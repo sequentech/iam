@@ -19,36 +19,30 @@ import django.core.validators
 from django.db import migrations, models
 import django.db.models.deletion
 import jsonfield.fields
+import json
+
+
+def fix_metadata(apps, schema_editor):
+    # We can't import the Person model directly as it may be a newer
+    # version than this migration expects. We use the historical version.
+    UserData = apps.get_model("api", "UserData")
+    for user_data in UserData.objects.all():
+        if type(user_data) == str:
+          user_data.metadata = json.loads(user_data.metadata)
+          user_data.save()
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0026_use_core_jsonfield'),
+        ('api', '0027_successful_login'),
     ]
 
     operations = [
-        migrations.CreateModel(
-            name='SuccessfulLogin',
-            fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created', models.DateTimeField(auto_now_add=True)),
-                ('is_active', models.BooleanField(default=True)),
-            ],
-        ),
-        migrations.AddField(
-            model_name='authevent',
-            name='num_successful_logins_allowed',
-            field=models.IntegerField(default=True, validators=[django.core.validators.MinValueValidator(0)]),
-        ),
+        migrations.RunPython(fix_metadata),
         migrations.AlterField(
             model_name='userdata',
             name='metadata',
-            field=jsonfield.fields.JSONField(blank=True, db_index=True, default={}, max_length=4096, null=True),
-        ),
-        migrations.AddField(
-            model_name='successfullogin',
-            name='user',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='successful_logins', to='api.UserData'),
+            field=jsonfield.fields.JSONField(blank=True, db_index=True, default=dict(), null=True),
         ),
     ]
