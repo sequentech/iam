@@ -168,12 +168,42 @@ class Census(View):
         query = e.get_census_query()
 
         if filter_str is not None:
-            q = (Q(user__user__username__icontains=filter_str) |
-              Q(user__user__email__icontains=filter_str) |
-              Q(user__tlf__icontains=filter_str) |
-              Q(user__metadata__contains=filter_str))
+            if len(e.extra_fields):
+                filter_str = "%" + filter_str + "%"
+                raw_sql = '''
+                             SELECT "api_acl"."id", "api_acl"."user_id", "api_acl"."perm", 
+                                    "api_acl"."object_type", "api_acl"."object_id", "api_acl"."created", 
+                                    "api_userdata"."id", "api_userdata"."user_id",
+                                    "api_userdata"."event_id", "api_userdata"."tlf",
+                                    "api_userdata"."metadata", "api_userdata"."status"
+                            FROM "api_acl" 
+                            INNER JOIN "api_userdata" 
+                            ON ("api_acl"."user_id" = "api_userdata"."id") 
+                            INNER JOIN "auth_user" 
+                            ON ("api_userdata"."user_id" = "auth_user"."id") 
+                            WHERE 
+                                ("api_acl"."object_id"::int = %s
+                                AND "api_acl"."perm" = 'vote'
+                                AND "api_acl"."object_type" = 'AuthEvent'
+                                AND (UPPER("auth_user"."username"::text) LIKE UPPER(%s) 
+                                OR UPPER("auth_user"."email"::text) LIKE UPPER(%s) 
+                                OR UPPER("api_userdata"."tlf"::text) LIKE UPPER(%s)'''
+                params_array = [pk, filter_str, filter_str, filter_str]
+                for field in e.extra_fields:
+                    raw_sql += '''
+                                OR UPPER(api_userdata.metadata::jsonb->>'newfield') LIKE UPPER(%s)'''
+                    params_array += [filter_str]
+                raw_sql += '''
+                                ))'''
+                raw_query = ACL.objects.raw(raw_sql, params=params_array)
+                id_list = [obj.id for obj in raw_query]
+                query = query.filter(id__in=id_list)
 
-            query = query.filter(q)
+            else:
+                q = (Q(user__user__username__icontains=filter_str) |
+                  Q(user__user__email__icontains=filter_str) |
+                  Q(user__tlf__icontains=filter_str))
+                query = query.filter(q)
 
         # filter, with constraints
         query = filter_query(
