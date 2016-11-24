@@ -21,11 +21,12 @@ from utils import verifyhmac, HMACToken
 from django.conf import settings
 
 def get_auth_key(request):
-    return request.META.get('HTTP_AUTHORIZATION', None)
+    key = request.META.get('HTTP_AUTHORIZATION', None)
     if not key:
-        return request.META.get('HTTP_AUTH', None)
+        key = request.META.get('HTTP_AUTH', None)
         if not key:
-            return request.META.get('HTTP_HTTP_AUTH', None)
+            key = request.META.get('HTTP_HTTP_AUTH', None)
+    return key
 
 def get_login_user(request):
     key = get_auth_key(request)

@@ -493,7 +493,6 @@ class ACLView(View):
         return json_response(data)
 acl = login_required(ACLView.as_view())
 
-
 class ACLMine(View):
     ''' Returns the user ACL perms '''
 
