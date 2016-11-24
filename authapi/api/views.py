@@ -191,8 +191,8 @@ class Census(View):
                 params_array = [pk, filter_str, filter_str, filter_str]
                 for field in e.extra_fields:
                     raw_sql += '''
-                                OR UPPER(api_userdata.metadata::jsonb->>'newfield') LIKE UPPER(%s)'''
-                    params_array += [filter_str]
+                                OR UPPER(api_userdata.metadata::jsonb->>%s) LIKE UPPER(%s)'''
+                    params_array += [field['name'], filter_str]
                 raw_sql += '''
                                 ))'''
                 raw_query = ACL.objects.raw(raw_sql, params=params_array)
