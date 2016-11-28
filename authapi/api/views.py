@@ -318,9 +318,9 @@ class SuccessfulLoginView(View):
             khmac_obj.get_other_values() != valid_data):
             return json_response({}, status=403)
 
-        sl = SuccessfulLogin(user)
-        sl.is_active = user.is_active
+        sl = SuccessfulLogin(user=user.userdata, is_active = user.is_active)
         sl.save()
+        return json_response({}, status=200)
 
 successful_login = SuccessfulLoginView.as_view()
 
