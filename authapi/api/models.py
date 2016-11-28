@@ -82,7 +82,8 @@ class AuthEvent(models.Model):
                         if hasattr(self.created, 'isoformat')
                         else self.created),
             'real': self.real,
-            'based_in': self.based_in
+            'based_in': self.based_in,
+            'num_successful_logins_allowed': self.num_successful_logins_allowed
         }
 
         def none_list(e):

@@ -319,6 +319,7 @@ class SuccessfulLoginView(View):
             return json_response({}, status=403)
 
         sl = SuccessfulLogin(user)
+        sl.is_active = user.is_active
         sl.save()
 
 successful_login = SuccessfulLoginView.as_view()
