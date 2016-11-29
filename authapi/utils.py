@@ -334,9 +334,16 @@ def send_code(user, ip, config=None, auth_method_override=None):
         receiver = user.email
         base_auth_url = settings.EMAIL_AUTH_CODE_URL
 
+    template_dict = dict(event_id=event_id, code=code, receiver=default_receiver_account)
+
+    if user.userdata.event.extra_fields:
+        for field in user.userdata.event.extra_fields:
+            if 'name' in field and 'slug' in field and field.name in user.userdata.metadata:
+                template_dict[field.slug] = user.userdata.metadata[field.name]
+
     url = template_replace_data(
       base_auth_url,
-      dict(event_id=event_id, code=code, receiver=default_receiver_account))
+      template_dict)
 
     # TODO use proper error codes
     if receiver is None:
