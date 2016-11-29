@@ -195,9 +195,15 @@ class HMACToken:
         '''
         Note! Can only be used if it's an auth token, with userid
         '''
-        userid, _ = self.msg.split(':')
+        userid = self.msg.split(':')[0]
         return userid
 
+    def get_other_values(self):
+        '''
+        Removed the userid and the timestamp, returns the list of string objects
+        in the message, that are separated by ':'
+        '''
+        return self.msg.split(':')[1:-1]
 
 
 def constant_time_compare(val1, val2):

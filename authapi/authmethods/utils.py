@@ -538,6 +538,8 @@ def create_user(req, ae, active=False):
 
 def check_metadata(req, user):
     meta = user.userdata.metadata
+    if type(meta) == str:
+        meta = json.loads(meta)
     extra = user.userdata.event.extra_fields
     if not extra:
         return ""
