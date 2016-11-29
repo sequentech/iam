@@ -597,7 +597,7 @@ def check_extra_fields(fields, used_type_fields=[]):
     """ Check extra_fields when create auth-event. """
     msg = ''
     if len(fields) > settings.MAX_EXTRA_FIELDS:
-        return "Maximum number of fields reached"
+        return "Maximum number of fields reached\n"
     used_fields = ['status']
     used_type_fields = used_type_fields
     for field in fields:

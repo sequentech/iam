@@ -561,10 +561,13 @@ class AuthEventView(View):
                     METHODS.get(auth_method).USED_TYPE_FIELDS)
                 slug_set = set()
                 for field in extra_fields:
-                    field['slug'] = slugify(field['name']).replace("-","_").upper()
-                    slug_set.add(field['slug'])
+                    if 'name' in field:
+                        field['slug'] = slugify(field['name']).replace("-","_").upper()
+                        slug_set.add(field['slug'])
+                    else:
+                        msg += "some extra_fields have no name\n"
                 if len(slug_set) != len(extra_fields):
-                    msg += "some extra_fields have repeated slug names\n"
+                    msg += "some extra_fields may have repeated slug names\n"
 
             census = req.get('census', '')
             # check census mode
