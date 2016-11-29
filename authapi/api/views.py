@@ -24,6 +24,7 @@ from django.views.generic import View
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from base64 import encodestring
+from django.utils.text import slugify
 
 import plugins
 from authmethods import (
@@ -503,6 +504,12 @@ class AuthEventView(View):
                 msg += check_extra_fields(
                     extra_fields,
                     METHODS.get(auth_method).USED_TYPE_FIELDS)
+                slug_set = set()
+                for field in extra_fields:
+                    field['slug'] = slugify(field['name']).replace("-","_").upper()
+                    slug_set.append(field['slug'])
+                if len(slug_set) != len(extra_fields):
+                    msg += "some extra_fields have repeated slug names\n"
 
             census = req.get('census', '')
             # check census mode
