@@ -1249,3 +1249,86 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Code.objects.count(), 1 + 5 - 2)
+
+
+class TestSmallCensusSearch(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        from authmethods.m_email import Email
+        auth_method_config = {
+                "config": Email.CONFIG,
+                "pipeline": Email.PIPELINES
+        }
+        ae = AuthEvent(auth_method=test_data.auth_event9['auth_method'],
+                auth_method_config=auth_method_config,
+                extra_fields=test_data.auth_event9['extra_fields'],
+                status='started', census=test_data.auth_event9['census'])
+        ae.save()
+        self.ae = ae
+        self.aeid = ae.pk
+
+        u_admin = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u_admin.set_password(test_data.admin['password'])
+        u_admin.save()
+        u_admin.userdata.event = ae
+        u_admin.userdata.save()
+        self.uid_admin = u_admin.id
+
+        acl = ACL(user=u_admin.userdata, object_type='AuthEvent', perm='edit',
+            object_id=self.aeid)
+        acl.save()
+
+        u = User(username='test', email=test_data.auth_email_default['email'])
+        u.save()
+        u.userdata.event = ae
+        u.userdata.metadata = {
+                'email_verified': True,
+                'match_field': 'match_code_555'
+        }
+        u.userdata.save()
+        self.u = u.userdata
+        self.uid = u.id
+
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit',
+            object_id=self.aeid)
+        acl.save()
+
+        c = Code(user=u.userdata, code=test_data.auth_email_default['code'], auth_event_id=ae.pk)
+        c.save()
+        self.code = c
+
+    def test_add_census_search_filter(self):
+        c = JClient()
+        res_auth = c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.census(self.aeid, test_data.census_email_auth9)
+        self.assertEqual(response.status_code, 200)
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {"filter": "ma1"})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['object_list']), 1)
+        self.assertEqual(r['object_list'][0]["metadata"]["email"], "baaa@aaa.com")
+
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {"filter": "aaa@aaa.com"})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['object_list']), 4)
+
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {"filter": "aaa@aaa.com"})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['object_list']), 4)
+
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {"filter": "mc"})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['object_list']), 2)
+        remaillist = [ r['object_list'][0]["metadata"]["email"],
+                       r['object_list'][1]["metadata"]["email"] ]
+        self.assertTrue("eaaa@aaa.com" in remaillist and "daaa@aaa.com" in remaillist)
+
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {"filter": "md"})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['object_list']), 0)
