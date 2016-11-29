@@ -338,8 +338,8 @@ def send_code(user, ip, config=None, auth_method_override=None):
 
     if user.userdata.event.extra_fields:
         for field in user.userdata.event.extra_fields:
-            if 'name' in field and 'slug' in field and field.name in user.userdata.metadata:
-                template_dict[field.slug] = user.userdata.metadata[field.name]
+            if 'name' in field and 'slug' in field and field['name'] in user.userdata.metadata:
+                template_dict[field['slug']] = user.userdata.metadata[field['name']]
 
     url = template_replace_data(
       base_auth_url,
