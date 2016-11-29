@@ -1,4 +1,5 @@
 Django==1.9
+Celery<4.0
 setuptools>=18.5
 ipdb
 jsonfield

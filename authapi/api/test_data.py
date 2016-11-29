@@ -430,6 +430,16 @@ census_sms_no_validate = {
     ]
 }
 
+census_email_auth9 = {
+    "field-validation": "enabled",
+    "census": [
+        {"email": "baaa@aaa.com", "match_field": "ma1"},
+        {"email": "caaa@aaa.com", "match_field": "mb2"},
+        {"email": "daaa@aaa.com", "match_field": "mc3"},
+        {"email": "eaaa@aaa.com", "match_field": "mc4"}
+    ]
+}
+
 
 # Register
 register_email_default = {"email": "bbbb@aaa.com", "captcha": "asdasd"}

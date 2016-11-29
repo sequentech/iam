@@ -15,6 +15,7 @@
 
 import json
 from django.db import models
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.contrib.auth.models import User
 
 from django.contrib.postgres import fields
@@ -53,6 +54,14 @@ class AuthEvent(models.Model):
     status = models.CharField(max_length=15, choices=AE_STATUSES, default="notstarted")
     created = models.DateTimeField(auto_now_add=True)
     real = models.BooleanField(default=False)
+
+    # 0 means any number of logins is allowed
+    num_successful_logins_allowed = models.IntegerField(
+        default=True,
+        validators=[
+            MinValueValidator(0)
+        ]
+    )
     based_in = models.IntegerField(null=True) # auth_event_id
 
     def serialize(self, restrict=False):
@@ -73,7 +82,8 @@ class AuthEvent(models.Model):
                         if hasattr(self.created, 'isoformat')
                         else self.created),
             'real': self.real,
-            'based_in': self.based_in
+            'based_in': self.based_in,
+            'num_successful_logins_allowed': self.num_successful_logins_allowed
         }
 
         def none_list(e):
@@ -150,7 +160,7 @@ class UserData(models.Model):
     user = models.OneToOneField(User, related_name="userdata")
     event = models.ForeignKey(AuthEvent, related_name="userdata", null=True)
     tlf = models.CharField(max_length=20, blank=True, null=True)
-    metadata = fields.JSONField(default="{}", blank=True, null=True, db_index=True, max_length=4096)
+    metadata = fields.JSONField(default=dict(), blank=True, null=True, db_index=True)
     status = models.CharField(max_length=255, choices=STATUSES, default="act", db_index=True)
 
     def get_perms(self, obj, permission, object_id=0):
@@ -179,7 +189,13 @@ class UserData(models.Model):
         d = self.serialize()
         del d['username']
         if self.metadata:
-            d.update(self.metadata)
+            if type(self.metadata) == str:
+                metadata = json.loads(self.metadata)
+                if type(metadata) == str:
+                    metadata = json.loads(metadata)
+            else:
+                metadata = self.metadata
+            d.update(metadata)
         return d
 
     def __str__(self):
@@ -224,3 +240,16 @@ class ACL(models.Model):
     def __str__(self):
         return "%s - %s - %s - %s" % (self.user.user.username, self.perm,
                                       self.object_type, self.object_id)
+
+class SuccessfulLogin(models.Model):
+    '''
+    Each successful login attempt is recorded with an object of this type, and
+    usually triggered by a explicit call to /authevent/<ID>/successful_login
+    '''
+    user = models.ForeignKey(UserData, related_name="successful_logins")
+    created = models.DateTimeField(auto_now_add=True)
+    # when counting the number of successful logins, only active ones count
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return "%d: %s - %s" % (self.id, self.user.user.username, str(self.created))
