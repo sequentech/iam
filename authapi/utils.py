@@ -365,9 +365,10 @@ def send_code(user, ip, config=None, auth_method_override=None):
     if needs_code:
         url2 = url + '/' + code
 
-    template_dict = dict(event_id=event_id, url=url, url2=url2)
+    template_dict = dict(event_id=event_id, url=url)
     if needs_code:
         template_dict['code'] = format_code(code)
+        template_dict['url2'] = url2
 
     if user.userdata.event.extra_fields:
         for field in user.userdata.event.extra_fields:
