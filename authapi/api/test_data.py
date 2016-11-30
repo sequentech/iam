@@ -293,6 +293,55 @@ auth_event11 = {
     ]
 }
 
+# extra-fields pipeline for email
+# used to test slug names
+auth_event12 = {
+    "auth_method": "email",
+    "census": "open",
+    "config": {
+        "authentication-action": {"mode": ""},
+        "subject": "Confirm your email",
+        "msg": "Click __URL__ and put this code __CODE__"
+    },
+    "extra_fields": [
+            {
+                "name": "nº de _socio 你好",
+                "slug": "NO_DE__SOCIO",
+                "match_census_on_registration": False,
+                "help": "something",
+                "type": "text",
+                "required": True,
+                "min": 0,
+                "max": 24,
+                "required_on_authentication": False
+            }
+    ]
+}
+
+# extra-fields pipeline for email
+# used to test slug names
+auth_event13 = {
+    "auth_method": "email",
+    "census": "open",
+    "config": {
+        "authentication-action": {"mode": ""},
+        "subject": "Confirm your email",
+        "msg": "Click __URL__ and put this code __CODE__"
+    },
+    "extra_fields": [
+            {
+                "name": "nº de _socio 你好",
+                "match_census_on_registration": False,
+                "help": "something",
+                "type": "text",
+                "required": True,
+                "min": 0,
+                "max": 24,
+                "required_on_authentication": False
+            }
+    ]
+}
+
 # Users
 admin = {'username': 'john', 'email': 'john@agoravoting.com', 'password': 'smith'}
 
@@ -437,6 +486,13 @@ census_email_auth9 = {
         {"email": "caaa@aaa.com", "match_field": "mb2"},
         {"email": "daaa@aaa.com", "match_field": "mc3"},
         {"email": "eaaa@aaa.com", "match_field": "mc4"}
+    ]
+}
+# Census
+census_email12 = {
+    "field-validation": "enabled",
+    "census": [
+        {"email": "eaaa@aaa.com", 'nº de _socio 你好': 'socio 119'}
     ]
 }
 

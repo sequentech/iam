@@ -24,6 +24,7 @@ from django.views.generic import View
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from base64 import encodestring
+from django.utils.text import slugify
 
 import plugins
 from authmethods import (
@@ -558,6 +559,15 @@ class AuthEventView(View):
                 msg += check_extra_fields(
                     extra_fields,
                     METHODS.get(auth_method).USED_TYPE_FIELDS)
+                slug_set = set()
+                for field in extra_fields:
+                    if 'name' in field:
+                        field['slug'] = slugify(field['name']).replace("-","_").upper()
+                        slug_set.add(field['slug'])
+                    else:
+                        msg += "some extra_fields have no name\n"
+                if len(slug_set) != len(extra_fields):
+                    msg += "some extra_fields may have repeated slug names\n"
 
             census = req.get('census', '')
             # check census mode
@@ -825,10 +835,6 @@ class CensusSendAuth(View):
         data = {'msg': 'Sent successful'}
         # first, validate input
         e = get_object_or_404(AuthEvent, pk=pk)
-        if e.status != 'started':
-            return json_response(
-                status=400,
-                error_codename="AUTH_EVENT_NOT_STARTED")
 
         try:
             req = parse_json_request(request)

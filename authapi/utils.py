@@ -320,7 +320,18 @@ def send_code(user, ip, config=None, auth_method_override=None):
     elif auth_method == "email" and not user.email:
         return
 
-    code = generate_code(user.userdata)
+    if config is None:
+        conf = user.userdata.event.auth_method_config.get('config')
+        msg = conf.get('msg')
+        subject = conf.get('subject')
+    else:
+        msg = config.get('msg')
+        subject = config.get('subject')
+
+    # only generate the code if required
+    needs_code = "__URL2__" in msg or "__CODE__" in msg
+    if needs_code:
+        code = generate_code(user.userdata)
 
     default_receiver_account = user.email
     if "sms" == user.userdata.event.auth_method:
@@ -336,19 +347,11 @@ def send_code(user, ip, config=None, auth_method_override=None):
 
     url = template_replace_data(
       base_auth_url,
-      dict(event_id=event_id, code=code, receiver=default_receiver_account))
+      dict(event_id=event_id, receiver=default_receiver_account))
 
     # TODO use proper error codes
     if receiver is None:
         return "Receiver is none"
-
-    if config is None:
-        conf = user.userdata.event.auth_method_config.get('config')
-        msg = conf.get('msg')
-        subject = conf.get('subject')
-    else:
-        msg = config.get('msg')
-        subject = config.get('subject')
 
     # base_msg is the base template, allows the authapi superadmin to configure
     # a prefix or suffix to all messages
@@ -359,12 +362,23 @@ def send_code(user, ip, config=None, auth_method_override=None):
         base_msg = settings.EMAIL_BASE_TEMPLATE
 
     # url with authentication code
-    url2 = url + '/' + code
+    if needs_code:
+        url2 = url + '/' + code
+
+    template_dict = dict(event_id=event_id, url=url)
+    if needs_code:
+        template_dict['code'] = format_code(code)
+        template_dict['url2'] = url2
+
+    if user.userdata.event.extra_fields:
+        for field in user.userdata.event.extra_fields:
+            if 'name' in field and 'slug' in field and field['name'] in user.userdata.metadata:
+                template_dict[field['slug']] = user.userdata.metadata[field['name']]
 
     # msg is the message sent by the user
     raw_msg = template_replace_data(
       msg,
-      dict(event_id=event_id, code=format_code(code), url=url, url2=url2))
+      template_dict)
     msg = template_replace_data(base_msg, dict(message=raw_msg))
 
     code_msg = {'subject': subject, 'msg': msg}
@@ -597,7 +611,7 @@ def check_extra_fields(fields, used_type_fields=[]):
     """ Check extra_fields when create auth-event. """
     msg = ''
     if len(fields) > settings.MAX_EXTRA_FIELDS:
-        return "Maximum number of fields reached"
+        return "Maximum number of fields reached\n"
     used_fields = ['status']
     used_type_fields = used_type_fields
     for field in fields:
