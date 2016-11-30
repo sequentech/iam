@@ -1332,3 +1332,91 @@ class TestSmallCensusSearch(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(len(r['object_list']), 0)
+
+class TestSlugMessages(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        from authmethods.m_email import Email
+        auth_method_config = {
+                "config": Email.CONFIG,
+                "pipeline": Email.PIPELINES
+        }
+        ae = AuthEvent(auth_method=test_data.auth_event12['auth_method'],
+                auth_method_config=auth_method_config,
+                extra_fields=test_data.auth_event12['extra_fields'],
+                status='started', census=test_data.auth_event12['census'])
+        ae.save()
+        self.ae = ae
+        self.aeid = ae.pk
+
+        u_admin = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u_admin.set_password(test_data.admin['password'])
+        u_admin.save()
+        u_admin.userdata.event = ae
+        u_admin.userdata.save()
+        self.uid_admin = u_admin.id
+
+        acl = ACL(user=u_admin.userdata, object_type='AuthEvent', perm='edit',
+            object_id=self.aeid)
+        acl.save()
+
+        u = User(username='test', email=test_data.auth_email_default['email'])
+        u.save()
+        u.userdata.event = ae
+        u.userdata.metadata = {
+                'email_verified': True,
+                'nº de _socio 你好': 'socio 342'
+        }
+        u.userdata.save()
+        self.u = u.userdata
+        self.uid = u.id
+
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit',
+            object_id=self.aeid)
+        acl.save()
+
+        c = Code(user=u.userdata, code=test_data.auth_email_default['code'], auth_event_id=ae.pk)
+        c.save()
+        self.code = c
+
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='create', object_id=0)
+        acl.save()
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_send_auth_email_slug(self):
+        c = JClient()
+        res_auth = c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.census(self.aeid, test_data.census_email12)
+        self.assertEqual(response.status_code, 200)
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['object_list']), 1)
+
+        template_email = {"subject": "Vote", "msg": "Vote in __URL__ with code __CODE__ extra __NO_DE__SOCIO__"}
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, template_email)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(MsgLog.objects.count(), 1)
+        self.assertTrue("extra socio 119" in MsgLog.objects.all()[0].msg['msg'])
+
+    def test_create_event_slug_name(self):
+
+        c = JClient()
+        res_auth = c.authenticate(self.aeid, test_data.auth_email_default)
+
+        data = test_data.auth_event13
+        response = c.post('/api/auth-event/', data)
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertTrue('id' in  r and isinstance(r['id'], int))
+        auth_id = r['id']
+        response = c.get('/api/auth-event/%d/' % auth_id, data)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertTrue('events' in r and 'extra_fields' in r['events'])
+        self.assertEqual(1, len(r['events']['extra_fields']))
+        self.assertTrue('slug' in r['events']['extra_fields'][0])
+        self.assertEqual("NO_DE__SOCIO", r['events']['extra_fields'][0]['slug'])
