@@ -273,7 +273,8 @@ auth_event10 = {
 
 
 # extra-fields pipeline for sms
-# used to test slug names
+# match_field must match with a pre-registered user
+# the user must fill the tlf field upon registration
 auth_event11 = {
     "auth_method": "sms",
     "census": "open",
@@ -317,6 +318,8 @@ auth_event12 = {
     ]
 }
 
+# extra-fields pipeline for email
+# used to test slug names
 auth_event13 = {
     "auth_method": "email",
     "census": "open",
