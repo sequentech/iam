@@ -835,10 +835,6 @@ class CensusSendAuth(View):
         data = {'msg': 'Sent successful'}
         # first, validate input
         e = get_object_or_404(AuthEvent, pk=pk)
-        if e.status != 'started':
-            return json_response(
-                status=400,
-                error_codename="AUTH_EVENT_NOT_STARTED")
 
         try:
             req = parse_json_request(request)
