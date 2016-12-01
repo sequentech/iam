@@ -808,6 +808,9 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['error_codename'], 'invalid_credentials')
 
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
     def test_authenticate_authevent_email_fields(self):
         c = JClient()
         self.u.metadata = {"name": test_data.auth_email_fields['name']}
@@ -848,6 +851,25 @@ class TestRegisterAndAuthenticateEmail(TestCase):
     def test_send_auth_email_specific(self):
         tpl_specific = {"user-ids": [self.uid, self.uid_admin]}
         c = JClient()
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, tpl_specific)
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_send_auth_email_change_authevent_status(self):
+        tpl_specific = {"user-ids": [self.uid, self.uid_admin]}
+        c = JClient()
+        ae = self.ae
+        ae.status = 'stopped'
+        ae.save()
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, tpl_specific)
+        self.assertEqual(response.status_code, 200)
+
+        ae.status = 'notstarted'
+        ae.save()
         response = c.authenticate(self.aeid, test_data.auth_email_default)
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, tpl_specific)
         self.assertEqual(response.status_code, 200)
@@ -1333,6 +1355,8 @@ class TestSmallCensusSearch(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(len(r['object_list']), 0)
 
+# Check that the extra field data registers can be included in the messages
+# sent to the users.
 class TestSlugMessages(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
@@ -1420,3 +1444,156 @@ class TestSlugMessages(TestCase):
         self.assertEqual(1, len(r['events']['extra_fields']))
         self.assertTrue('slug' in r['events']['extra_fields'][0])
         self.assertEqual("NO_DE__SOCIO", r['events']['extra_fields'][0]['slug'])
+
+# Check the allowed number of revotes, using AuthEvent's
+# num_successful_logins_allowed field and calls to successful_login
+class TestRevotes(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def genhmac(self, key, msg):
+        import hmac
+        import datetime
+        timestamp = int(datetime.datetime.now().timestamp())
+        msg = "%s:%s" % (msg, str(timestamp))
+
+        h = hmac.new(key, msg.encode('utf-8'), "sha256")
+        return 'khmac:///sha-256;' + h.hexdigest() + '/' + msg
+
+    def setUp(self):
+        ae = AuthEvent(auth_method="email",
+                auth_method_config=test_data.authmethod_config_email_default,
+                status='started',
+                census="open",
+                num_successful_logins_allowed = 0)
+        ae.save()
+        self.ae = ae
+        self.aeid = ae.pk
+
+        u_admin = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u_admin.set_password(test_data.admin['password'])
+        u_admin.save()
+        u_admin.userdata.event = ae
+        u_admin.userdata.save()
+        self.uid_admin = u_admin.id
+
+        acl = ACL(user=u_admin.userdata, object_type='AuthEvent', perm='edit',
+            object_id=self.aeid)
+        acl.save()
+
+        u = User(username='test', email=test_data.auth_email_default['email'])
+        u.save()
+        u.userdata.event = ae
+        u.userdata.save()
+        self.u = u.userdata
+        self.uid = u.id
+
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit',
+            object_id=self.aeid)
+        acl.save()
+
+        c = Code(user=u.userdata, code=test_data.auth_email_default['code'], auth_event_id=ae.pk)
+        c.save()
+        self.code = c
+
+    def test_check_1_2_revotes(self):
+        c = JClient()
+        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.census(self.aeid, test_data.census_email_default1)
+        self.assertEqual(response.status_code, 200)
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['object_list']), 1)
+        cuid = r['object_list'][0]['id']
+        cuser = User.objects.get(id=cuid)
+        code = Code(user=cuser.userdata, code=test_data.auth_email_default1['code'], auth_event_id=self.aeid)
+        code.save()
+
+        # allow 1 vote
+        self.ae.num_successful_logins_allowed = 1
+        self.ae.save()
+        response = c.authenticate(self.aeid, test_data.auth_email_default1)
+        self.assertEqual(response.status_code, 200)
+        response = c.authenticate(self.aeid, test_data.auth_email_default1)
+        self.assertEqual(response.status_code, 200)
+        response = c.authenticate(self.aeid, test_data.auth_email_default1)
+        self.assertEqual(response.status_code, 200)
+        auth_token = self.genhmac(settings.SHARED_SECRET, "%s:AuthEvent:%d:RegisterSuccessfulLogin" % (cuser.username, self.aeid))
+        c.set_auth_token(auth_token)
+        response = c.post('/api/auth-event/%d/successful_login/%s' % (self.aeid, cuser.username), {})
+        self.assertEqual(response.status_code, 200)
+        response = c.authenticate(self.aeid, test_data.auth_email_default1)
+        self.assertEqual(response.status_code, 400)
+        response = c.authenticate(self.aeid, test_data.auth_email_default1)
+        self.assertEqual(response.status_code, 400)
+
+        # allow 2 votes
+        self.ae.num_successful_logins_allowed = 2
+        self.ae.save()
+        response = c.authenticate(self.aeid, test_data.auth_email_default1)
+        self.assertEqual(response.status_code, 200)
+        response = c.authenticate(self.aeid, test_data.auth_email_default1)
+        self.assertEqual(response.status_code, 200)
+        auth_token = self.genhmac(settings.SHARED_SECRET, "%s:AuthEvent:%d:RegisterSuccessfulLogin" % (cuser.username, self.aeid))
+        c.set_auth_token(auth_token)
+        response = c.post('/api/auth-event/%d/successful_login/%s' % (self.aeid, cuser.username), {})
+        self.assertEqual(response.status_code, 200)
+        response = c.authenticate(self.aeid, test_data.auth_email_default1)
+        self.assertEqual(response.status_code, 400)
+
+    def test_check_50_revotes_max(self):
+        c = JClient()
+        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.census(self.aeid, test_data.census_email_default1)
+        self.assertEqual(response.status_code, 200)
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['object_list']), 1)
+        cuid = r['object_list'][0]['id']
+        cuser = User.objects.get(id=cuid)
+        code = Code(user=cuser.userdata, code=test_data.auth_email_default1['code'], auth_event_id=self.aeid)
+        code.save()
+        # allow 50 votes
+        self.ae.num_successful_logins_allowed = 50
+        self.ae.save()
+
+        # vote 50 times
+        for i in range(0, 50):
+            response = c.authenticate(self.aeid, test_data.auth_email_default1)
+            self.assertEqual(response.status_code, 200)
+            auth_token = self.genhmac(settings.SHARED_SECRET, "%s:AuthEvent:%d:RegisterSuccessfulLogin" % (cuser.username, self.aeid))
+            c.set_auth_token(auth_token)
+            response = c.post('/api/auth-event/%d/successful_login/%s' % (self.aeid, cuser.username), {})
+
+        response = c.authenticate(self.aeid, test_data.auth_email_default1)
+        self.assertEqual(response.status_code, 400)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
