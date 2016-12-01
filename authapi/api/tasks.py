@@ -29,9 +29,6 @@ def census_send_auth_task(pk, ip, config=None, userids=None, auth_method=None, s
     from .models import AuthEvent, ACL, UserData
 
     e = get_object_or_404(AuthEvent, pk=pk)
-    if e.status != "started":
-        print("event is stopped, ignoring request..")
-        return
 
     # If the auth_method is not set, use the default authmethod for the election
     if auth_method is None:
