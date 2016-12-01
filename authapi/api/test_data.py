@@ -356,6 +356,13 @@ census_email_default = {
     ]
 }
 
+census_email_default1 = {
+    "field-validation": "enabled",
+    "census": [
+        {"email": "baaa@aaa.com"},
+    ]
+}
+
 census_email_default_used = {
     "field-validation": "enabled",
     "census": [
@@ -513,6 +520,16 @@ sms_fields_incorrect_len2 = {"name": 100*"n"}
 
 # Authenticate
 auth_email_default = {
+        "email": "aaaa@aaa.com",
+        "code": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+}
+
+auth_email_default1 = {
+        "email": "baaa@aaa.com",
+        "code": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+}
+
+auth_email_revote = {
         "email": "aaaa@aaa.com",
         "code": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 }
