@@ -79,17 +79,32 @@ def json_response(data=None, status=200, message="", field=None, error_codename=
 def permission_required(user, object_type, permission, object_id=0, return_bool=False):
     if user.is_superuser:
         return True
-    if object_id and user.userdata.has_perms(object_type, permission, 0):
-        return True
-    if not user.userdata.has_perms(object_type, permission, object_id):
+
+    if type(permission) is str:
+        permissions = [permission]
+    elif type(permission) is list:
+        permissions = permission
+    else:
+        raise Exception("invalid permission type")
+
+    if object_id:
+        for perm in permissions:
+            if user.userdata.has_perms(object_type, permission, 0):
+                return True
+
+    found = False
+    for perm in permissions:
+        if user.userdata.has_perms(object_type, perm, object_id):
+            found = True
+
+    if not found:
         if return_bool:
             return False
         else:
-            raise PermissionDenied('Permission required: ' + permission)
+            raise PermissionDenied('Permission required: ' + str(permissions))
 
     if return_bool:
         return True
-
 
 def paginate(request, queryset, serialize_method=None, elements_name='elements'):
     '''
@@ -180,9 +195,15 @@ class HMACToken:
         '''
         Note! Can only be used if it's an auth token, with userid
         '''
-        userid, _ = self.msg.split(':')
+        userid = self.msg.split(':')[0]
         return userid
 
+    def get_other_values(self):
+        '''
+        Removed the userid and the timestamp, returns the list of string objects
+        in the message, that are separated by ':'
+        '''
+        return self.msg.split(':')[1:-1]
 
 
 def constant_time_compare(val1, val2):
@@ -212,11 +233,16 @@ def random_code(length=16, chars=ascii_lowercase+digits):
 def generate_code(userdata, size=settings.SIZE_CODE):
     """ Generate necessary codes for different authmethods. """
     from authmethods.models import Code
-    code = random_code(size, "ABCDEFGHJKLMNPQRTUVWXYZ2346789")
+    # Generates codes from [2-9]. Numbers 1 and 0 are not included because they
+    # can be mistaken with i and o.
+    code = random_code(size, "2346789")
     c = Code(user=userdata, code=code, auth_event_id=userdata.event.id)
     c.save()
     return code
 
+# Separate code into groups of 4 digits with hyphens ("-")
+def format_code(code):
+    return '-'.join(code[i:i+4] for i in range(0, len(code), 4))
 
 def email_to_str(email):
     return '''to: %s
@@ -280,6 +306,8 @@ def send_code(user, ip, config=None, auth_method_override=None):
     NOTE: You are responsible of not calling this on a stopped auth event
     '''
     from authmethods.models import Message, MsgLog
+    # Check if the client is requesting to use an authentication method
+    # different from the default one for this election
     if auth_method_override is not None:
         auth_method = auth_method_override
     else:
@@ -292,9 +320,24 @@ def send_code(user, ip, config=None, auth_method_override=None):
     elif auth_method == "email" and not user.email:
         return
 
-    code = generate_code(user.userdata)
+    if config is None:
+        conf = user.userdata.event.auth_method_config.get('config')
+        msg = conf.get('msg')
+        subject = conf.get('subject')
+    else:
+        msg = config.get('msg')
+        subject = config.get('subject')
 
-    if auth_method == "sms":
+    # only generate the code if required
+    needs_code = "__URL2__" in msg or "__CODE__" in msg
+    if needs_code:
+        code = generate_code(user.userdata)
+
+    default_receiver_account = user.email
+    if "sms" == user.userdata.event.auth_method:
+        default_receiver_account = user.userdata.tlf
+
+    if "sms" == auth_method:
         receiver = user.userdata.tlf
         base_auth_url = settings.SMS_AUTH_CODE_URL
     else:
@@ -304,19 +347,11 @@ def send_code(user, ip, config=None, auth_method_override=None):
 
     url = template_replace_data(
       base_auth_url,
-      dict(event_id=event_id, code=code, receiver=receiver))
+      dict(event_id=event_id, receiver=default_receiver_account))
 
     # TODO use proper error codes
     if receiver is None:
         return "Receiver is none"
-
-    if config is None:
-        conf = user.userdata.event.auth_method_config.get('config')
-        msg = conf.get('msg')
-        subject = conf.get('subject')
-    else:
-        msg = config.get('msg')
-        subject = config.get('subject')
 
     # base_msg is the base template, allows the authapi superadmin to configure
     # a prefix or suffix to all messages
@@ -327,12 +362,28 @@ def send_code(user, ip, config=None, auth_method_override=None):
         base_msg = settings.EMAIL_BASE_TEMPLATE
 
     # url with authentication code
-    url2 = url + '/' + code
-    
+    if needs_code:
+        url2 = url + '/' + code
+
+    template_dict = dict(event_id=event_id, url=url)
+    if needs_code:
+        template_dict['code'] = format_code(code)
+        template_dict['url2'] = url2
+
+    if user.userdata.event.extra_fields:
+        for field in user.userdata.event.extra_fields:
+            if 'name' in field and 'slug' in field and field['name'] in user.userdata.metadata:
+                template_dict[field['slug']] = user.userdata.metadata[field['name']]
+
+    # replace fields on subject and message
+    if subject:
+        subject = template_replace_data(
+          subject,
+          template_dict)
     # msg is the message sent by the user
     raw_msg = template_replace_data(
       msg,
-      dict(event_id=event_id, code=code, url=url, url2=url2))
+      template_dict)
     msg = template_replace_data(base_msg, dict(message=raw_msg))
 
     code_msg = {'subject': subject, 'msg': msg}
@@ -389,16 +440,37 @@ def get_client_ip(request):
 
 
 @celery.task
-def send_codes(users, ip, config=None):
+def send_codes(users, ip, auth_method, config=None):
     ''' Massive send_code with celery task.  '''
     user_objs = User.objects.filter(id__in=users)
     for user in user_objs:
-        send_code(user, ip, config)
+        send_code(user, ip, config, auth_method)
 
 
 # CHECKERS AUTHEVENT
-VALID_FIELDS = ('name', 'help', 'type', 'required', 'regex', 'min', 'max',
-    'required_on_authentication', 'unique', 'private', 'register-pipeline', 'authenticate-pipeline')
+VALID_FIELDS = (
+  'name',
+  'help',
+  'type',
+  'required',
+  'regex',
+  'min',
+  'max',
+  'required_on_authentication',
+  'unique',
+  'private',
+  'register-pipeline',
+  'authenticate-pipeline',
+  # match_census_on_registration can be True or False. It is used for
+  # pre-registration. If true, when the user registers, this field is used for
+  # whitelisting: the user will only succeed registering if there is already a
+  # pre-registered user in the census that matches all the 
+  # 'match_census_on_registration':True fields.
+  'match_census_on_registration',
+  # fill_if_empty_on_registration can be True or False. It is used for
+  # pre-registration. If the pre-registered user on the census has this field
+  # empty, then when the user will be able to set its value upon registration.
+  'fill_if_empty_on_registration')
 REQUIRED_FIELDS = ('name', 'type', 'required_on_authentication')
 VALID_PIPELINES = (
     'check_whitelisted',
@@ -544,7 +616,7 @@ def check_extra_fields(fields, used_type_fields=[]):
     """ Check extra_fields when create auth-event. """
     msg = ''
     if len(fields) > settings.MAX_EXTRA_FIELDS:
-        return "Maximum number of fields reached"
+        return "Maximum number of fields reached\n"
     used_fields = ['status']
     used_type_fields = used_type_fields
     for field in fields:

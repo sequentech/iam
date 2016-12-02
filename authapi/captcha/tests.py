@@ -22,14 +22,15 @@ from django.test.utils import override_settings
 
 from api import test_data
 from api.models import ACL, AuthEvent
-from api.tests import JClient
+from api.tests import JClient, flush_db_load_fixture
 from authmethods.models import Code
 from captcha.models import Captcha
 
-# Create your tests here.
 
 class TestProcessCaptcha(TestCase):
-    fixtures = ['initial.json']
+    def setUpTestData():
+        flush_db_load_fixture()
+
     def setUp(self):
         ae = AuthEvent(auth_method="email",
                 auth_method_config=test_data.authmethod_config_email_default,

@@ -16,9 +16,12 @@
 import json
 from django.conf import settings
 from django.conf.urls import url
+from django.db.models import Q
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
-from utils import genhmac, send_codes, get_client_ip, is_valid_url
+from utils import (
+  genhmac, send_codes, get_client_ip, is_valid_url, constant_time_compare
+)
 
 import plugins
 from . import register_method
@@ -305,6 +308,22 @@ class Sms:
         # check_fields_in_request might modify this
         req['active'] = True
 
+        reg_match_fields = []
+        if ae.extra_fields is not None:
+            reg_match_fields = [
+                f for f in ae.extra_fields
+                if "match_census_on_registration" in f and f['match_census_on_registration']
+            ]
+
+        # NOTE the fields of type "fill_if_empty_on_registration" need
+        # to be empty, otherwise the user is already registered.
+        reg_fill_empty_fields = []
+        if ae.extra_fields is not None:
+            reg_fill_empty_fields = [
+                f for f in ae.extra_fields
+                if "fill_if_empty_on_registration" in f and f['fill_if_empty_on_registration']
+            ]
+
         msg = ''
         if req.get('tlf'):
             req['tlf'] = get_cannonical_tlf(req.get('tlf'))
@@ -319,14 +338,90 @@ class Sms:
         # get active from req, this value might have changed in check_fields_in_requests
         active = req.pop('active')
 
-        msg_exist = exist_user(req, ae, get_repeated=True)
-        if msg_exist:
-            u = msg_exist.get('user')
-            if u.is_active:
+        if len(reg_match_fields) > 0 or len(reg_fill_empty_fields) > 0:
+            # is the tlf a match field?
+            match_tlf = False
+            match_tlf_element = None
+            for extra in ae.extra_fields:
+                if 'name' in extra and 'tlf' == extra['name'] and "match_census_on_registration" in extra and extra['match_census_on_registration']:
+                    match_tlf = True
+                    match_tlf_element = extra
+                    break
+            # if the tlf is not a match field, and there already is a user
+            # with that tlf, reject the registration request
+            if not match_tlf and User.objects.filter(userdata__tlf=tlf, userdata__event=ae, is_active=True).count() > 0:
                 return self.error("Incorrect data", error_codename="invalid_credentials")
+
+            # lookup in the database if there's any user with the match fields
+            # NOTE: we assume reg_match_fields are unique in the DB and required
+            search_tlf = tlf if match_tlf else ""
+            if match_tlf:
+                reg_match_fields.remove(match_tlf_element)
+            q = Q(userdata__event=ae,
+                  is_active=False,
+                  userdata__tlf=search_tlf)
+            # Check the reg_match_fields
+            for reg_match_field in reg_match_fields:
+                 # Filter with Django's JSONfield
+                 reg_name = reg_match_field['name']
+                 req_field_data = req.get(reg_name)
+                 if reg_name and req_field_data:
+                     q = q & Q(userdata__metadata__contains={reg_name: req_field_data})
+                 else:
+                     return self.error("Incorrect data", error_codename="invalid_credentials")
+
+            # Check that the reg_fill_empty_fields are empty, otherwise the user
+            # is already registered
+            for reg_empty_field in reg_fill_empty_fields:
+                 # Filter with Django's JSONfield
+                 reg_name = reg_empty_field['name']
+                 # Note: the register query _must_ contain a value for these fields
+                 if reg_name and reg_name in req and req[reg_name]:
+                     q = q & Q(userdata__metadata__contains={reg_name: ""})
+                 else:
+                     return self.error("Incorrect data", error_codename="invalid_credentials")
+
+            user_found = None
+            user_list = User.objects.filter(q)
+            if 1 == len(user_list):
+                user_found = user_list[0]
+
+                # check that the unique:True extra fields are actually unique
+                uniques = []
+                for extra in ae.extra_fields:
+                    if 'unique' in extra.keys() and extra.get('unique'):
+                        uniques.append(extra['name'])
+                if len(uniques) > 0:
+                    base_uq = Q(userdata__event=ae, is_active=True)
+                    base_list = User.objects.exclude(id = user_found.id)
+                    for reg_name in uniques:
+                        req_field_data = req.get(reg_name)
+                        if reg_name and req_field_data:
+                            uq = base_q & Q(userdata__metadata__contains={reg_name: req_field_data})
+                            repeated_list = base_list.filter(uq)
+                            if repeated_list.count() > 0:
+                                return self.error("Incorrect data", error_codename="invalid_credentials")
+
+            # user needs to exist
+            if user_found is None:
+                return self.error("Incorrect data", error_codename="invalid_credentials")
+
+            for reg_empty_field in reg_fill_empty_fields:
+                reg_name = reg_empty_field['name']
+                if reg_name in req:
+                    user_found.userdata.metadata[reg_name] = req.get(reg_name)
+            user_found.userdata.save()
+            if not match_tlf:
+                user_found.userdata.tlf = tlf
+            user_found.userdata.save()
+            u = user_found
         else:
-            u = create_user(req, ae, active)
-            msg += give_perms(u, ae)
+            msg_exist = exist_user(req, ae, get_repeated=True)
+            if msg_exist:
+                return self.error("Incorrect data", error_codename="invalid_credentials")
+            else:
+                u = create_user(req, ae, active)
+                msg += give_perms(u, ae)
 
         if msg:
             return self.error("Incorrect data", error_codename="invalid_credentials")
@@ -338,7 +433,7 @@ class Sms:
         result = plugins.call("extend_send_sms", ae, 1)
         if result:
             return self.error("Incorrect data", error_codename="invalid_credentials")
-        send_codes.apply_async(args=[[u.id,], get_client_ip(request)])
+        send_codes.apply_async(args=[[u.id,], get_client_ip(request),'sms'])
         return {'status': 'ok'}
 
     def authenticate(self, ae, request):
@@ -361,6 +456,10 @@ class Sms:
         try:
             u = User.objects.get(userdata__tlf=tlf, userdata__event=ae, is_active=True)
         except:
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+
+        if (ae.num_successful_logins_allowed > 0 and
+            u.userdata.successful_logins.filter(is_active=True).count() >= ae.num_successful_logins_allowed):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         code = Code.objects.filter(user=u.userdata,
@@ -420,7 +519,7 @@ class Sms:
         result = plugins.call("extend_send_sms", ae, 1)
         if result:
             return self.error("Incorrect data", error_codename="invalid_credentials")
-        send_codes.apply_async(args=[[u.id,], get_client_ip(request)])
+        send_codes.apply_async(args=[[u.id,], get_client_ip(request),'sms'])
         return {'status': 'ok'}
 
 register_method('sms', Sms)

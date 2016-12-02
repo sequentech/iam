@@ -22,6 +22,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.db.models import Q
 
 from .models import ColorList, Message, Code
 from api.models import ACL
@@ -440,14 +441,6 @@ def have_captcha(ae, step='register'):
     return False
 
 
-def metadata_repeat(req, user, uniques):
-    for unique in uniques:
-        metadata = json.loads(user.userdata.metadata)
-        if metadata.get(unique.get('name')) == req.get(unique.get('name')):
-            return "%s %s repeat." % (unique.get('name'), req.get(unique.get('name')))
-    return ''
-
-
 def exist_user(req, ae, get_repeated=False):
     msg = ''
     if req.get('email'):
@@ -467,14 +460,18 @@ def exist_user(req, ae, get_repeated=False):
     if not msg:
         if not ae.extra_fields:
             return ''
-        uniques = []
+        # check that the unique:True extra fields are actually unique
+        base_q = Q(userdata__event=ae, is_active=True)
         for extra in ae.extra_fields:
             if 'unique' in extra.keys() and extra.get('unique'):
-                uniques.append(extra)
-        for user in User.objects.filter(userdata__event=ae):
-            msg += metadata_repeat(req, user, uniques)
-            if msg:
-                break
+                reg_name = extra['name']
+                req_field_data = req.get(reg_name)
+                if reg_name and req_field_data:
+                    q = base_q & Q(userdata__metadata__contains={reg_name: req_field_data})
+                    repeated_list = User.objects.filter(q)
+                    if repeated_list.count() > 0:
+                        msg += "%s %s repeat." % (reg_name, req_field_data)
+                        user = repeated_list[0]
 
     if not msg:
         return ''
@@ -524,7 +521,7 @@ def edit_user(user, req, ae):
                     f.write(img)
                 req[extra.get('name')] = fname
     user.save()
-    user.userdata.metadata = json.dumps(req)
+    user.userdata.metadata = req
     user.userdata.save()
     return user
 
@@ -540,7 +537,9 @@ def create_user(req, ae, active=False):
 
 
 def check_metadata(req, user):
-    meta = json.loads(user.userdata.metadata)
+    meta = user.userdata.metadata
+    if type(meta) == str:
+        meta = json.loads(meta)
     extra = user.userdata.event.extra_fields
     if not extra:
         return ""

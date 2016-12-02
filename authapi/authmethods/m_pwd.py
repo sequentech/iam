@@ -55,6 +55,10 @@ class PWD:
         if not u.check_password(pwd):
             return self.authenticate_error()
 
+        if (ae.num_successful_logins_allowed > 0 and
+            u.userdata.successful_logins.filter(is_active=True).count() >= ae.num_successful_logins_allowed):
+            return self.authenticate_error()
+
         d['username'] = u.username
         d['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
 
