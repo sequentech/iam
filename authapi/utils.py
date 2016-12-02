@@ -375,6 +375,11 @@ def send_code(user, ip, config=None, auth_method_override=None):
             if 'name' in field and 'slug' in field and field['name'] in user.userdata.metadata:
                 template_dict[field['slug']] = user.userdata.metadata[field['name']]
 
+    # replace fields on subject and message
+    if subject:
+        subject = template_replace_data(
+          subject,
+          template_dict)
     # msg is the message sent by the user
     raw_msg = template_replace_data(
       msg,
