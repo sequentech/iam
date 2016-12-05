@@ -24,6 +24,7 @@ from django.views.generic import View
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from base64 import encodestring
+from django.utils.text import slugify
 
 import plugins
 from authmethods import (
@@ -39,6 +40,7 @@ from utils import (
     check_extra_fields,
     check_pipeline,
     genhmac,
+    HMACToken,
     json_response,
     paginate,
     permission_required,
@@ -50,7 +52,7 @@ from utils import (
     filter_query
 )
 from .decorators import login_required, get_login_user
-from .models import AuthEvent, ACL
+from .models import AuthEvent, ACL, SuccessfulLogin
 from .models import User, UserData
 from .tasks import census_send_auth_task
 from django.db.models import Q
@@ -167,12 +169,42 @@ class Census(View):
         query = e.get_census_query()
 
         if filter_str is not None:
-            q = (Q(user__user__username__icontains=filter_str) |
-              Q(user__user__email__icontains=filter_str) |
-              Q(user__tlf__icontains=filter_str) |
-              Q(user__metadata__contains=filter_str))
+            if len(e.extra_fields):
+                filter_str = "%" + filter_str + "%"
+                raw_sql = '''
+                             SELECT "api_acl"."id", "api_acl"."user_id", "api_acl"."perm", 
+                                    "api_acl"."object_type", "api_acl"."object_id", "api_acl"."created", 
+                                    "api_userdata"."id", "api_userdata"."user_id",
+                                    "api_userdata"."event_id", "api_userdata"."tlf",
+                                    "api_userdata"."metadata", "api_userdata"."status"
+                            FROM "api_acl" 
+                            INNER JOIN "api_userdata" 
+                            ON ("api_acl"."user_id" = "api_userdata"."id") 
+                            INNER JOIN "auth_user" 
+                            ON ("api_userdata"."user_id" = "auth_user"."id") 
+                            WHERE 
+                                ("api_acl"."object_id"::int = %s
+                                AND "api_acl"."perm" = 'vote'
+                                AND "api_acl"."object_type" = 'AuthEvent'
+                                AND (UPPER("auth_user"."username"::text) LIKE UPPER(%s) 
+                                OR UPPER("auth_user"."email"::text) LIKE UPPER(%s) 
+                                OR UPPER("api_userdata"."tlf"::text) LIKE UPPER(%s)'''
+                params_array = [pk, filter_str, filter_str, filter_str]
+                for field in e.extra_fields:
+                    raw_sql += '''
+                                OR UPPER(api_userdata.metadata::jsonb->>%s) LIKE UPPER(%s)'''
+                    params_array += [field['name'], filter_str]
+                raw_sql += '''
+                                ))'''
+                raw_query = ACL.objects.raw(raw_sql, params=params_array)
+                id_list = [obj.id for obj in raw_query]
+                query = query.filter(id__in=id_list)
 
-            query = query.filter(q)
+            else:
+                q = (Q(user__user__username__icontains=filter_str) |
+                  Q(user__user__email__icontains=filter_str) |
+                  Q(user__tlf__icontains=filter_str))
+                query = query.filter(q)
 
         # filter, with constraints
         query = filter_query(
@@ -252,7 +284,7 @@ class Ping(View):
     '''
 
     def get(self, request, pk):
-        u, error = get_login_user(request)
+        u, error, _ = get_login_user(request)
         status = None
         data = {}
 
@@ -267,6 +299,31 @@ class Ping(View):
 
         return json_response(data, status=status)
 ping = Ping.as_view()
+
+
+class SuccessfulLoginView(View):
+    '''
+    Records a successful login
+    '''
+    def post(self, request, pk, uid):
+        # userid is not used, but recorded in the log
+        user, error, khmac_obj = get_login_user(request)
+
+        valid_data = ["AuthEvent", pk, "RegisterSuccessfulLogin"]
+
+        # check everything is ok
+        if (not user or
+            error is not None or
+            str(user.userdata.event.id) != pk or
+            type(khmac_obj) != HMACToken or
+            khmac_obj.get_other_values() != valid_data):
+            return json_response({}, status=403)
+
+        sl = SuccessfulLogin(user=user.userdata, is_active = user.is_active)
+        sl.save()
+        return json_response({}, status=200)
+
+successful_login = SuccessfulLoginView.as_view()
 
 
 class Register(View):
@@ -438,7 +495,6 @@ class ACLView(View):
         return json_response(data)
 acl = login_required(ACLView.as_view())
 
-
 class ACLMine(View):
     ''' Returns the user ACL perms '''
 
@@ -503,6 +559,15 @@ class AuthEventView(View):
                 msg += check_extra_fields(
                     extra_fields,
                     METHODS.get(auth_method).USED_TYPE_FIELDS)
+                slug_set = set()
+                for field in extra_fields:
+                    if 'name' in field:
+                        field['slug'] = slugify(field['name']).replace("-","_").upper()
+                        slug_set.add(field['slug'])
+                    else:
+                        msg += "some extra_fields have no name\n"
+                if len(slug_set) != len(extra_fields):
+                    msg += "some extra_fields may have repeated slug names\n"
 
             census = req.get('census', '')
             # check census mode
@@ -519,6 +584,14 @@ class AuthEventView(View):
             if based_in and not ACL.objects.filter(user=request.user.userdata, perm='edit',
                     object_type='AuthEvent', object_id=based_in):
                 msg += "Invalid id to based_in"
+
+            # Note that a login is only complete if a call has been received and
+            # accepted at /authevent/<ID>/successful_login
+            num_successful_logins_allowed = req.get(
+                'num_successful_logins_allowed', 0)
+            if type(num_successful_logins_allowed) is not int:
+                msg += "num_successful_logins_allowed invalid type"
+
             if msg:
                 return json_response(
                     status=400,
@@ -533,6 +606,7 @@ class AuthEventView(View):
                            extra_fields=extra_fields,
                            census=census,
                            real=real,
+                           num_successful_logins_allowed=num_successful_logins_allowed,
                            based_in=based_in)
             # Save before the acl creation to get the ae id
             ae.save()
@@ -586,7 +660,7 @@ class AuthEventView(View):
             Lists all AuthEvents if not pk. If pk show the event with this pk
         '''
         data = {'status': 'ok'}
-        user, _ = get_login_user(request)
+        user, _, _ = get_login_user(request)
 
         if pk:
             e = AuthEvent.objects.get(pk=pk)
@@ -761,10 +835,6 @@ class CensusSendAuth(View):
         data = {'msg': 'Sent successful'}
         # first, validate input
         e = get_object_or_404(AuthEvent, pk=pk)
-        if e.status != 'started':
-            return json_response(
-                status=400,
-                error_codename="AUTH_EVENT_NOT_STARTED")
 
         try:
             req = parse_json_request(request)
