@@ -25,6 +25,7 @@ from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from base64 import encodestring
 from django.utils.text import slugify
+from django.db.models import Count
 
 import plugins
 from authmethods import (
@@ -197,12 +198,6 @@ class Census(View):
                 raw_sql += '''
                                 ))'''
                 raw_query = ACL.objects.raw(raw_sql, params=params_array)
-                has_voted_str = request.GET.get('has_voted', None)
-                if has_voted_str is not None:
-                    if 'false' == has_voted_str:
-                        raw_query = raw_query.annotate(logins=Count('user__successful_logins')).filter(logins=0)
-                    elif 'true' == has_voted_str:
-                        raw_query = raw_query.annotate(logins=Count('user__successful_logins')).filter(logins>0)
                 id_list = [obj.id for obj in raw_query]
                 query = query.filter(id__in=id_list)
 
@@ -211,6 +206,13 @@ class Census(View):
                   Q(user__user__email__icontains=filter_str) |
                   Q(user__tlf__icontains=filter_str))
                 query = query.filter(q)
+
+        has_voted_str = request.GET.get('has_voted__equals', None)
+        if has_voted_str is not None:
+            if 'false' == has_voted_str:
+                query = query.annotate(logins=Count('user__successful_logins')).filter(logins__exact=0)
+            elif 'true' == has_voted_str:
+                query = query.annotate(logins=Count('user__successful_logins')).filter(logins__gt=0)
 
         # filter, with constraints
         query = filter_query(
