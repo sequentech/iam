@@ -197,6 +197,12 @@ class Census(View):
                 raw_sql += '''
                                 ))'''
                 raw_query = ACL.objects.raw(raw_sql, params=params_array)
+                has_voted_str = request.GET.get('has_voted', None)
+                if has_voted_str is not None:
+                    if 'false' == has_voted_str:
+                        raw_query = raw_query.annotate(logins=Count('user__successful_logins')).filter(logins=0)
+                    elif 'true' == has_voted_str:
+                        raw_query = raw_query.annotate(logins=Count('user__successful_logins')).filter(logins>0)
                 id_list = [obj.id for obj in raw_query]
                 query = query.filter(id__in=id_list)
 
