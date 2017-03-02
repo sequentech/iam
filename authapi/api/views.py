@@ -542,7 +542,9 @@ class AuthEventView(View):
             permission_required(request.user, 'AuthEvent', 'create')
             real = req.get('real', False)
             if real:
-                permission_required(request.user, 'AuthEvent', 'edit|register-real')
+                # require edit or register-real perms.
+                # edit means general administrator powers
+                permission_required(request.user, 'AuthEvent', ['edit', 'register-real'])
 
             auth_method = req.get('auth_method', '')
             msg = check_authmethod(auth_method)
