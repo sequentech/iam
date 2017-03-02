@@ -79,6 +79,67 @@ class JClient(Client):
             content_type="application/json", HTTP_AUTH=self.auth_token)
 
 
+
+class ApiTestCreateNotReal(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        self.ae = AuthEvent(auth_method=test_data.auth_event4['auth_method'],
+                auth_method_config=test_data.authmethod_config_email_default)
+        self.ae.save()
+
+        u = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u.set_password(test_data.admin['password'])
+        u.save()
+        u.userdata.event = self.ae
+        u.userdata.save()
+        self.user = u
+
+        u2 = User(username='noperm', email="noperm@agoravoting.com")
+        u2.set_password("qwerty")
+        u2.save()
+        u2.userdata.save()
+
+        self.aeid_special = 1
+
+    def create_authevent(self, authevent):
+        c = JClient()
+        c.authenticate(self.ae.pk, test_data.admin)
+        return c.post('/api/auth-event/', authevent)
+
+    def test_create_authevent_test_and_real_create(self):
+        acl = ACL(user=self.user.userdata, object_type='AuthEvent', perm='create',
+                object_id=0)
+        acl.save()
+        # test 1
+        response = self.create_authevent(test_data.ae_email_default)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(AuthEvent.objects.last().real, False)
+
+        # real based_in previous: ok
+        data = test_data.ae_email_real_based_in.copy()
+        data['based_in'] = AuthEvent.objects.last().pk
+        response = self.create_authevent(data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(AuthEvent.objects.last().real, True)
+        self.assertEqual(AuthEvent.objects.last().based_in, data['based_in'])
+
+    def test_create_authevent_test_and_real_create_notreal(self):
+        acl = ACL(user=self.user.userdata, object_type='AuthEvent', perm='create-notreal',
+                object_id=0)
+        acl.save()
+        # test 1
+        response = self.create_authevent(test_data.ae_email_default)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(AuthEvent.objects.last().real, False)
+
+        # real based_in previous: ok
+        data = test_data.ae_email_real_based_in.copy()
+        data['based_in'] = AuthEvent.objects.last().pk
+        response = self.create_authevent(data)
+        self.assertEqual(response.status_code, 400)
+
 class ApiTestCase(TestCase):
     fixtures = ['initial.json']
     def setUp(self):
