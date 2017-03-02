@@ -539,12 +539,13 @@ class AuthEventView(View):
                 error_codename=ErrorCodes.BAD_REQUEST)
 
         if pk is None: # create
-            permission_required(request.user, 'AuthEvent', 'create')
             real = req.get('real', False)
             if real:
-                # require edit or register-real perms.
-                # edit means general administrator powers
-                permission_required(request.user, 'AuthEvent', ['edit', 'register-real'])
+                # requires create perm
+                permission_required(request.user, 'AuthEvent', 'create')
+            else:
+                # requires create or create-notreal
+                permission_required(request.user, 'AuthEvent', ['create', 'create-notreal'])
 
             auth_method = req.get('auth_method', '')
             msg = check_authmethod(auth_method)
