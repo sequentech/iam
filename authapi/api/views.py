@@ -540,6 +540,9 @@ class AuthEventView(View):
 
         if pk is None: # create
             permission_required(request.user, 'AuthEvent', 'create')
+            real = req.get('real', False)
+            if real:
+                permission_required(request.user, 'AuthEvent', 'register-real')
 
             auth_method = req.get('auth_method', '')
             msg = check_authmethod(auth_method)
@@ -579,7 +582,6 @@ class AuthEventView(View):
             if error_kwargs:
                 return json_response(**error_kwargs[0])
 
-            real = req.get('real', False)
             based_in = req.get('based_in', None)
             if based_in and not ACL.objects.filter(user=request.user.userdata, perm='edit',
                     object_type='AuthEvent', object_id=based_in):
