@@ -42,6 +42,7 @@ from pipelines import PipeReturnvalue
 from pipelines.base import check_pipeline_conf
 from contracts import CheckException, JSONContractEncoder
 from time import sleep
+import plugins
 
 RE_SPLIT_FILTER = re.compile('(__lt|__gt|__equals)')
 RE_SPLIT_SORT = re.compile('__sort')
