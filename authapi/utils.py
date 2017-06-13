@@ -41,6 +41,7 @@ from random import choice
 from pipelines import PipeReturnvalue
 from pipelines.base import check_pipeline_conf
 from contracts import CheckException, JSONContractEncoder
+from time import sleep
 
 RE_SPLIT_FILTER = re.compile('(__lt|__gt|__equals)')
 RE_SPLIT_SORT = re.compile('__sort')
@@ -441,10 +442,18 @@ def get_client_ip(request):
 
 @celery.task
 def send_codes(users, ip, auth_method, config=None):
+    # delay between send code calls
+    delay = 0
+    extend_info = plugins.call("extend_send_codes")
+    if extend_info:
+        for info in extend_info:
+             delay = info
     ''' Massive send_code with celery task.  '''
     user_objs = User.objects.filter(id__in=users)
     for user in user_objs:
         send_code(user, ip, config, auth_method)
+        if delay > 0:
+            sleep(delay)
 
 
 # CHECKERS AUTHEVENT
