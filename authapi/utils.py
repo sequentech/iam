@@ -383,10 +383,8 @@ def send_code(user, ip, config=None, auth_method_override=None):
           subject,
           template_dict)
     # msg is the message sent by the user
-    raw_msg = template_replace_data(
-      msg,
-      template_dict)
-    msg = template_replace_data(base_msg, dict(message=raw_msg))
+    raw_msg = template_replace_data(base_msg, dict(message=msg))
+    msg = template_replace_data(raw_msg, template_dict)
 
     code_msg = {'subject': subject, 'msg': msg}
     cm = MsgLog(authevent_id=event_id, receiver=receiver, msg=code_msg)
