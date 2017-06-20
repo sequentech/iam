@@ -556,6 +556,18 @@ class AuthEventView(View):
                 permission_required(request.user, 'AuthEvent', ['create', 'create-notreal'])
 
             auth_method = req.get('auth_method', '')
+
+            # check if send code method is authorized 
+            disable_auth_method = False
+            extend_info = plugins.call("extend_disable_auth_method", auth_method, None)
+            if extend_info:
+                for info in extend_info:
+                     disable_auth_method = info
+            if disable_auth_method:
+                return json_response(
+                    status=400,
+                    error_codename=ErrorCodes.BAD_REQUEST)
+
             msg = check_authmethod(auth_method)
             if msg:
                 return json_response(status=400, message=msg)
@@ -641,6 +653,17 @@ class AuthEventView(View):
             msg = check_authmethod(auth_method)
             if msg:
                 return json_response(status=400, message=msg)
+
+            # check if send code method is authorized 
+            disable_auth_method = False
+            extend_info = plugins.call("extend_disable_auth_method", auth_method, pk)
+            if extend_info:
+                for info in extend_info:
+                     disable_auth_method = info
+            if disable_auth_method:
+                return json_response(
+                    status=400,
+                    error_codename=ErrorCodes.BAD_REQUEST)
 
             config = req.get('auth_method_config', None)
             if config:
@@ -864,6 +887,18 @@ class CensusSendAuth(View):
             return json_response(
                 status=400,
                 error_codename=ErrorCodes.BAD_REQUEST)
+
+        # check if send code method is authorized 
+        disable_auth_method = False
+        extend_info = plugins.call("extend_disable_auth_method", auth_method, pk)
+        if extend_info:
+            for info in extend_info:
+                 disable_auth_method = info
+        if disable_auth_method:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
         if req.get('msg', '') or req.get('subject', ''):
             config = {}
             if req.get('msg', ''):

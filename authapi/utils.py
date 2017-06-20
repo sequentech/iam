@@ -316,8 +316,6 @@ def send_code(user, ip, config=None, auth_method_override=None):
         auth_method = user.userdata.event.auth_method
     event_id = user.userdata.event.id
 
-    if check_authmethod(auth_method):
-        return
     # if blank tlf or email
     if auth_method == "sms" and not user.userdata.tlf:
         return
@@ -494,15 +492,9 @@ VALID_TYPE_FIELDS = ('text', 'password', 'int', 'bool', 'regex', 'email', 'tlf',
         'captcha', 'textarea', 'dni', 'dict', 'image')
 
 def check_authmethod(method):
-    # check if send code method is authorized 
-    disable_auth_method = False
-    extend_info = plugins.call("extend_disable_auth_method", method)
-    if extend_info:
-        for info in extend_info:
-             disable_auth_method = info
     """ Check if method exists in method list. """
     from authmethods import METHODS
-    if method in METHODS.keys() and not disable_auth_method:
+    if method in METHODS.keys():
         return ''
     else:
         return "Invalid authmethod\n"
