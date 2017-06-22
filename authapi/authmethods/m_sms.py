@@ -523,3 +523,4 @@ class Sms:
         return {'status': 'ok'}
 
 register_method('sms', Sms)
+register_method('sms-otp', Sms)
