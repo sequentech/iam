@@ -317,7 +317,7 @@ def send_code(user, ip, config=None, auth_method_override=None):
     event_id = user.userdata.event.id
 
     # if blank tlf or email
-    if auth_method == "sms" and not user.userdata.tlf:
+    if auth_method in ["sms", "sms-otp"] and not user.userdata.tlf:
         return
     elif auth_method == "email" and not user.email:
         return
@@ -336,10 +336,10 @@ def send_code(user, ip, config=None, auth_method_override=None):
         code = generate_code(user.userdata)
 
     default_receiver_account = user.email
-    if "sms" == user.userdata.event.auth_method:
+    if user.userdata.event.auth_method in ["sms", "sms-otp"]:
         default_receiver_account = user.userdata.tlf
 
-    if "sms" == auth_method:
+    if auth_method in ["sms", "sms-otp"]:
         receiver = user.userdata.tlf
         base_auth_url = settings.SMS_AUTH_CODE_URL
     else:
@@ -357,7 +357,7 @@ def send_code(user, ip, config=None, auth_method_override=None):
 
     # base_msg is the base template, allows the authapi superadmin to configure
     # a prefix or suffix to all messages
-    if auth_method == "sms":
+    if auth_method in ["sms", "sms-otp"]:
         base_msg = settings.SMS_BASE_TEMPLATE
     else:
         # email
@@ -390,7 +390,7 @@ def send_code(user, ip, config=None, auth_method_override=None):
     cm = MsgLog(authevent_id=event_id, receiver=receiver, msg=code_msg)
     cm.save()
 
-    if auth_method == "sms":
+    if auth_method in ["sms", "sms-otp"]:
         send_sms_code(receiver, msg)
         m = Message(tlf=receiver, ip=ip, auth_event_id=event_id)
         m.save()

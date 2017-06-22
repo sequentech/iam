@@ -30,7 +30,7 @@ from contracts import CheckException
 from authmethods.utils import *
 
 
-class Sms:
+class SmsOtp:
     DESCRIPTION = 'Provides authentication using an SMS code.'
     CONFIG = {
         'msg': 'Enter in __URL__ and put this code __CODE__',
@@ -66,10 +66,10 @@ class Sms:
             ["check_whitelisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "tlf"}],
-            ["check_total_max", {"field": "tlf", "period": 3600, "max": 5}],
-            ["check_total_max", {"field": "tlf", "period": 3600*24, "max": 15}],
-            ["check_total_max", {"field": "ip", "period": 3600, "max": 10}],
-            ["check_total_max", {"field": "ip", "period": 3600*24, "max": 20}],
+            ["check_total_max", {"field": "tlf", "period": 3600, "max": 15}],
+            ["check_total_max", {"field": "tlf", "period": 3600*24, "max": 100}],
+            ["check_total_max", {"field": "ip", "period": 3600, "max": 15}],
+            ["check_total_max", {"field": "ip", "period": 3600*24, "max": 100}],
         ]
     }
     USED_TYPE_FIELDS = ['tlf']
@@ -462,9 +462,11 @@ class Sms:
             u.userdata.successful_logins.filter(is_active=True).count() >= ae.num_successful_logins_allowed):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        code = Code.objects.filter(user=u.userdata,
-                code=req.get('code').upper()).order_by('-created').first()
+        code = Code.objects.filter(user=u.userdata).order_by('-created').first()
         if not code:
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+          
+        if !constant_time_compare(req.get('code').upper(), code.code):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_pipeline(request, ae, 'authenticate')
@@ -511,7 +513,7 @@ class Sms:
           request,
           ae,
           'resend-auth-pipeline',
-          Sms.PIPELINES['resend-auth-pipeline'])
+          SmsOtp.PIPELINES['resend-auth-pipeline'])
 
         if msg:
             return self.error("Incorrect data", error_codename="invalid_credentials")
@@ -522,4 +524,4 @@ class Sms:
         send_codes.apply_async(args=[[u.id,], get_client_ip(request),'sms'])
         return {'status': 'ok'}
 
-register_method('sms', Sms)
+register_method('sms-otp', SmsOtp)
