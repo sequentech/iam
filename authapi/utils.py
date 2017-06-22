@@ -362,6 +362,7 @@ def send_code(user, ip, config=None, auth_method_override=None):
     else:
         # email
         base_msg = settings.EMAIL_BASE_TEMPLATE
+        base_title = settings.EMAIL_BASE_TITLE_TEMPLATE
 
     # url with authentication code
     if needs_code:
@@ -379,9 +380,9 @@ def send_code(user, ip, config=None, auth_method_override=None):
 
     # replace fields on subject and message
     if subject:
-        subject = template_replace_data(
-          subject,
-          template_dict)
+        raw_title = template_replace_data(base_title, dict(title=subject))
+        subject = template_replace_data(raw_title, template_dict)
+
     # msg is the message sent by the user
     raw_msg = template_replace_data(base_msg, dict(message=msg))
     msg = template_replace_data(raw_msg, template_dict)
