@@ -466,7 +466,7 @@ class SmsOtp:
         if not code:
             return self.error("Incorrect data", error_codename="invalid_credentials")
           
-        if !constant_time_compare(req.get('code').upper(), code.code):
+        if not constant_time_compare(req.get('code').upper(), code.code):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_pipeline(request, ae, 'authenticate')
