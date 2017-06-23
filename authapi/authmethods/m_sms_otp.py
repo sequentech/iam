@@ -19,6 +19,7 @@ from django.conf.urls import url
 from django.db.models import Q
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
+from datetime import datetime, timedelta
 from utils import (
   genhmac, send_codes, get_client_ip, is_valid_url, constant_time_compare
 )
@@ -66,9 +67,9 @@ class SmsOtp:
             ["check_whitelisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "tlf"}],
-            ["check_total_max", {"field": "tlf", "period": 3600, "max": 15}],
+            ["check_total_max", {"field": "tlf", "period": 3600, "max": 25}],
             ["check_total_max", {"field": "tlf", "period": 3600*24, "max": 100}],
-            ["check_total_max", {"field": "ip", "period": 3600, "max": 15}],
+            ["check_total_max", {"field": "ip", "period": 3600, "max": 25}],
             ["check_total_max", {"field": "ip", "period": 3600*24, "max": 100}],
         ]
     }
@@ -462,7 +463,10 @@ class SmsOtp:
             u.userdata.successful_logins.filter(is_active=True).count() >= ae.num_successful_logins_allowed):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        code = Code.objects.filter(user=u.userdata).order_by('-created').first()
+        code = Code.objects.filter(
+            user=u.userdata,
+            created_gt=datetime.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
+            ).order_by('-created').first()
         if not code:
             return self.error("Incorrect data", error_codename="invalid_credentials")
           
