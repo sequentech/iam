@@ -53,9 +53,10 @@ class Sms:
             ["check_whitelisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "tlf"}],
-            ["check_total_max", {"field": "ip", "max": 8}],
-            ["check_total_max", {"field": "tlf", "max": 7}],
-            ["check_total_max", {"field": "tlf", "period": 1440, "max": 5}],
+            ["check_total_max", {"field": "ip", "period": 3600, "max": 10}],
+            ["check_total_max", {"field": "tlf", "period": 3600, "max": 10}],
+            ["check_total_max", {"field": "ip", "period": 3600*24, "max": 50}],
+            ["check_total_max", {"field": "tlf", "period": 3600*24, "max": 50}],
         ],
         "authenticate-pipeline": [
             #['check_total_connection', {'times': 5 }],
@@ -422,6 +423,8 @@ class Sms:
             else:
                 u = create_user(req, ae, active)
                 msg += give_perms(u, ae)
+                u.userdata.tlf = tlf
+                u.userdata.save()
 
         if msg:
             return self.error("Incorrect data", error_codename="invalid_credentials")
