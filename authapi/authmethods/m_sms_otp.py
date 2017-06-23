@@ -465,7 +465,7 @@ class SmsOtp:
 
         code = Code.objects.filter(
             user=u.userdata,
-            created_gt=datetime.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
+            created__gt=datetime.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
             ).order_by('-created').first()
         if not code:
             return self.error("Incorrect data", error_codename="invalid_credentials")
