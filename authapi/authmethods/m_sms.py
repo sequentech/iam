@@ -423,6 +423,8 @@ class Sms:
             else:
                 u = create_user(req, ae, active)
                 msg += give_perms(u, ae)
+                u.userdata.tlf = tlf
+                u.userdata.save()
 
         if msg:
             return self.error("Incorrect data", error_codename="invalid_credentials")
