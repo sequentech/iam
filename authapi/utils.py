@@ -644,6 +644,33 @@ def check_extra_fields(fields, used_type_fields=[]):
                 msg += "Invalid extra_field: %s not possible.\n" % key
     return msg
 
+def check_admin_field(key, value):
+    """ Check fields in admin_field when create auth-event. """
+    msg = ''
+    return msg
+
+def check_admin_fields(fields, used_type_fields=[]):
+    """ Check extra_fields when create auth-event. """
+    msg = ''
+    if len(fields) > settings.MAX_ADMIN_FIELDS:
+        return "Maximum number of fields reached\n"
+    used_type_fields = used_type_fields
+    for field in fields:
+        if field.get('name') in used_fields:
+            msg += "Two admin fields with same name: %s.\n" % field.get('name')
+        used_fields.append(field.get('name'))
+        if field.get('type') in used_type_fields:
+            msg += "Two admin fields with the same type %s are not allowed.\n" % field.get('type')
+        for required in REQUIRED_ADMIN_FIELDS:
+            if not required in field.keys():
+                msg += "Required field %s.\n" % required
+        for key in field.keys():
+            if key in VALID_ADMIN_FIELDS:
+                msg += check_admin_field(key, field.get(key))
+            else:
+                msg += "Invalid admin_field: %s not possible.\n" % key
+    return msg
+
 
 def datetime_from_iso8601(when=None, tz=None):
     '''
