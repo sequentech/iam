@@ -49,7 +49,8 @@ class Email:
         "register-pipeline": [
             ["check_whitelisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "ip"}],
-            ["check_total_max", {"field": "ip", "max": 8}],
+            ["check_total_max", {"field": "ip", "period": 3600, "max": 10}],
+            ["check_total_max", {"field": "ip", "period": 3600*24, "max": 50}],
         ],
         "authenticate-pipeline": [
             #['check_total_connection', {'times': 5 }],

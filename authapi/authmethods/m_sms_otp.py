@@ -54,9 +54,10 @@ class SmsOtp:
             ["check_whitelisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "tlf"}],
-            ["check_total_max", {"field": "ip", "max": 8}],
-            ["check_total_max", {"field": "tlf", "max": 7}],
-            ["check_total_max", {"field": "tlf", "period": 1440, "max": 5}],
+            ["check_total_max", {"field": "ip", "period": 3600, "max": 10}],
+            ["check_total_max", {"field": "tlf", "period": 3600, "max": 10}],
+            ["check_total_max", {"field": "ip", "period": 3600*24, "max": 50}],
+            ["check_total_max", {"field": "tlf", "period": 3600*24, "max": 50}],
         ],
         "authenticate-pipeline": [
             #['check_total_connection', {'times': 5 }],
