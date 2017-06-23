@@ -29,7 +29,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='authevent',
             name='admin_fields',
-            field=jsonfield.fields.JSONField(blank=True, db_index=True, default='{}', max_length=4096, null=True),
+            field=jsonfield.fields.JSONField(blank=True, db_index=True, default=[], max_length=4096, null=True),
             preserve_default=True,
         )
     ]
