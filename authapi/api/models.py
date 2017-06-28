@@ -100,7 +100,7 @@ class AuthEvent(models.Model):
                 ],
                 'admin_fields': [
                     f for f in none_list(self.admin_fields)
-                        if not f.get('private', False)
+                        if not f.get('private', True)
                 ]
             })
         else:
