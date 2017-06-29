@@ -54,6 +54,7 @@ class AuthEvent(models.Model):
     status = models.CharField(max_length=15, choices=AE_STATUSES, default="notstarted")
     created = models.DateTimeField(auto_now_add=True)
     real = models.BooleanField(default=False)
+    admin_fields = JSONField(blank=True, null=True)
 
     # 0 means any number of logins is allowed
     num_successful_logins_allowed = models.IntegerField(
@@ -96,6 +97,10 @@ class AuthEvent(models.Model):
                 'extra_fields': [
                     f for f in none_list(self.extra_fields)
                         if not f.get('private', False)
+                ],
+                'admin_fields': [
+                    f for f in none_list(self.admin_fields)
+                        if not f.get('private', True)
                 ]
             })
         else:
@@ -104,7 +109,8 @@ class AuthEvent(models.Model):
                 'auth_method_config': self.auth_method_config,
                 'auth_method_stats': {
                     self.auth_method: Code.objects.filter(auth_event_id=self.id).count()
-                }
+                },
+                'admin_fields': self.admin_fields,
             })
 
         return d
