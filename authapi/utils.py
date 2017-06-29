@@ -379,7 +379,7 @@ def send_code(user, ip, config=None, auth_method_override=None):
                 template_dict[field['slug']] = user.userdata.metadata[field['name']]
 
     # replace fields on subject and message
-    if subject:
+    if subject and "sms" != auth_method:
         raw_title = template_replace_data(base_title, dict(title=subject))
         subject = template_replace_data(raw_title, template_dict)
 

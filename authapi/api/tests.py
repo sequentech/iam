@@ -913,14 +913,14 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(MsgLog.objects.count(), 4)
         msg_log = MsgLog.objects.all().last().msg
-        self.assertEqual(msg_log.get('subject'), 'Confirm your email')
-        self.assertTrue(msg_log.get('msg').count('-- Agora Voting https://agoravoting.com'))
+        self.assertEqual(msg_log.get('subject'), 'Confirm your email - nVotes')
+        self.assertTrue(msg_log.get('msg').count(' -- nVotes https://nvotes.com'))
 
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, correct_tpl)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(MsgLog.objects.count(), 4*2)
         msg_log = MsgLog.objects.all().last().msg
-        self.assertEqual(msg_log.get('subject'), correct_tpl.get('subject'))
+        self.assertEqual(msg_log.get('subject'), correct_tpl.get('subject') + ' - nVotes')
         self.assertTrue(msg_log.get('msg').count('this is an example'))
 
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, incorrect_tpl)
@@ -1268,7 +1268,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(MsgLog.objects.count(), 4)
         msg_log = MsgLog.objects.all().last().msg
-        self.assertTrue(msg_log.get('msg').count('-- Agora Voting'))
+        self.assertTrue(msg_log.get('msg').count('-- nVotes'))
 
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, correct_tpl)
         self.assertEqual(response.status_code, 200)
