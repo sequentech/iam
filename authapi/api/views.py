@@ -581,12 +581,6 @@ class AuthEventView(View):
             if config:
                 msg += check_config(config, auth_method)
 
-            admin_fields = req.get('admin_fields', None)
-            if admin_fields:
-                msg += check_admin_fields(
-                    extra_fields,
-                    METHODS.get(auth_method).USED_TYPE_FIELDS)
-
             extra_fields = req.get('extra_fields', None)
             if extra_fields:
                 msg += check_extra_fields(
@@ -601,6 +595,12 @@ class AuthEventView(View):
                         msg += "some extra_fields have no name\n"
                 if len(slug_set) != len(extra_fields):
                     msg += "some extra_fields may have repeated slug names\n"
+
+            admin_fields = req.get('admin_fields', None)
+            if admin_fields:
+                msg += check_admin_fields(
+                    extra_fields,
+                    METHODS.get(auth_method).USED_TYPE_FIELDS)
 
             census = req.get('census', '')
             # check census mode

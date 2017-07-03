@@ -654,6 +654,8 @@ def check_admin_field(key, value):
 def check_admin_fields(fields, used_type_fields=[]):
     """ Check extra_fields when create auth-event. """
     msg = ''
+    if fields is None:
+       return msg
     if len(fields) > settings.MAX_ADMIN_FIELDS:
         return "Maximum number of fields reached\n"
     used_type_fields = used_type_fields
