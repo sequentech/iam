@@ -658,11 +658,13 @@ def check_admin_fields(fields, used_type_fields=[]):
        return msg
     if len(fields) > settings.MAX_ADMIN_FIELDS:
         return "Maximum number of fields reached\n"
+    # create a copy of the list to not modify it
+    used_fields = used_type_fields[:]
     for field in fields:
-        if field.get('name') in used_type_fields:
+        if field.get('name') in used_fields:
             msg += "Two admin fields with same name: %s.\n" % field.get('name')
-        used_type_fields.append(field.get('name'))
-        if field.get('type') in used_type_fields:
+        used_fields.append(field.get('name'))
+        if field.get('type') in used_fields:
             msg += "Two admin fields with the same type %s are not allowed.\n" % field.get('type')
         for required in REQUIRED_ADMIN_FIELDS:
             if not required in field.keys():
