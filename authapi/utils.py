@@ -490,7 +490,7 @@ VALID_PIPELINES = (
 VALID_TYPE_FIELDS = ('text', 'password', 'int', 'bool', 'regex', 'email', 'tlf',
         'captcha', 'textarea', 'dni', 'dict', 'image')
 REQUIRED_ADMIN_FIELDS = ('name', 'type')
-VALID_ADMIN_FIELDS = VALID_FIELDS
+VALID_ADMIN_FIELDS = VALID_FIELDS + ('slug',)
 
 def check_authmethod(method):
     """ Check if method exists in method list. """
