@@ -599,7 +599,7 @@ class AuthEventView(View):
             admin_fields = req.get('admin_fields', None)
             if admin_fields:
                 msg += check_admin_fields(
-                    extra_fields,
+                    admin_fields,
                     METHODS.get(auth_method).USED_TYPE_FIELDS)
 
             census = req.get('census', '')
