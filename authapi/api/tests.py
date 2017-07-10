@@ -1651,7 +1651,60 @@ class TestRevotes(TestCase):
         response = c.authenticate(self.aeid, test_data.auth_email_default1)
         self.assertEqual(response.status_code, 400)
 
+class TestAdminFields(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
 
+    def setUp(self):
+        self.ae = AuthEvent(auth_method=test_data.auth_event4['auth_method'],
+                auth_method_config=test_data.authmethod_config_email_default)
+        self.ae.save()
+
+        u = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u.set_password(test_data.admin['password'])
+        u.save()
+        u.userdata.event = self.ae
+        u.userdata.save()
+        self.user = u
+
+        u2 = User(username='noperm', email="noperm@agoravoting.com")
+        u2.set_password("qwerty")
+        u2.save()
+        u2.userdata.save()
+
+        self.aeid_special = 1
+
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def create_authevent(self, authevent):
+        c = JClient()
+        c.authenticate(self.ae.pk, test_data.admin)
+        return c.post('/api/auth-event/', authevent)
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_create_authevent_admin_and_extra_fields(self):
+        acl = ACL(user=self.user.userdata, object_type='AuthEvent', perm='create',
+                object_id=0)
+        acl.save()
+        # test 1
+        response = self.create_authevent(test_data.auth_event14)
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_create_authevent_repeated_admin_fields(self):
+        acl = ACL(user=self.user.userdata, object_type='AuthEvent', perm='create',
+                object_id=0)
+        acl.save()
+        # test 1
+        response = self.create_authevent(test_data.auth_event15)
+        self.assertEqual(response.status_code, 400)
+  
 
 
 

@@ -342,6 +342,89 @@ auth_event13 = {
     ]
 }
 
+auth_event14 = {
+    "auth_method": "email",
+    "census": "open",
+    "config": {},
+    "extra_fields":[
+      {
+         "name":"MemberID",
+         "type":"text",
+         "required": True,
+         "min":9,
+         "max":9,
+         "private": False,
+         "required_on_authentication": True,
+         "match_census_on_registration": True,
+         "fill_if_empty_on_registration": False,
+         "register-pipeline":[
+         ],
+         "help":" True your Member ID",
+         "unique": True
+      }
+   ],
+   "admin_fields":[
+      {
+         "name":"expected_census",
+         "label":"Expected Census",
+         "description":"Expected census",
+         "type":"int",
+         "min":0,
+         "step":1,
+         "value":1000,
+         "required": True,
+         "private": True
+      }
+   ]
+}
+
+auth_event15 = {
+    "auth_method": "email",
+    "census": "open",
+    "config": {},
+    "extra_fields":[
+      {
+         "name":"MemberID",
+         "type":"text",
+         "required": True,
+         "min":9,
+         "max":9,
+         "private": False,
+         "required_on_authentication": True,
+         "match_census_on_registration": True,
+         "fill_if_empty_on_registration": False,
+         "register-pipeline":[
+         ],
+         "help":" True your Member ID",
+         "unique": True
+      }
+   ],
+   "admin_fields":[
+      {
+         "name":"expected_census",
+         "label":"Expected Census",
+         "description":"Expected census",
+         "type":"int",
+         "min":0,
+         "step":1,
+         "value":1000,
+         "required": True,
+         "private": True
+      },
+      {
+         "name":"expected_census",
+         "label":"Expected Census2",
+         "description":"Expected census2",
+         "type":"int",
+         "min":0,
+         "step":1,
+         "value":1000,
+         "required": True,
+         "private": True
+      }
+   ]
+}
+
 # Users
 admin = {'username': 'john', 'email': 'john@agoravoting.com', 'password': 'smith'}
 
