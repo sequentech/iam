@@ -350,8 +350,10 @@ class CallbackView(View):
             type(khmac_obj) != HMACToken or
             khmac_obj.get_other_values() != valid_data):
             return json_response({}, status=403)
+        ae = get_object_or_404(AuthEvent, pk=pk)
+        client_ip = get_client_ip(request)
 
-        error_kwargs = plugins.call("callback", request)
+        error_kwargs = plugins.call("extend_callback", request, ae, client_ip)
         if error_kwargs:
             return json_response(**error_kwargs[0])
 
