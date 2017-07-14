@@ -339,6 +339,11 @@ def send_code(user, ip, config=None, auth_method_override=None):
     if user.userdata.event.auth_method in ["sms", "sms-otp"]:
         default_receiver_account = user.userdata.tlf
 
+    base_home_url = settings.HOME_URL
+    home_url = template_replace_data(
+      base_home_url,
+      dict(event_id=event_id))
+
     if auth_method in ["sms", "sms-otp"]:
         receiver = user.userdata.tlf
         base_auth_url = settings.SMS_AUTH_CODE_URL
@@ -368,7 +373,7 @@ def send_code(user, ip, config=None, auth_method_override=None):
     if needs_code:
         url2 = url + '/' + code
 
-    template_dict = dict(event_id=event_id, url=url)
+    template_dict = dict(event_id=event_id, url=url, home_url=home_url)
     if needs_code:
         template_dict['code'] = format_code(code)
         template_dict['url2'] = url2
