@@ -495,7 +495,7 @@ VALID_PIPELINES = (
 VALID_TYPE_FIELDS = ('text', 'password', 'int', 'bool', 'regex', 'email', 'tlf',
         'captcha', 'textarea', 'dni', 'dict', 'image')
 REQUIRED_ADMIN_FIELDS = ('name', 'type')
-VALID_ADMIN_FIELDS = VALID_FIELDS + ('description', 'label', 'step', 'value')
+VALID_ADMIN_FIELDS = VALID_FIELDS + ('description', 'label', 'step', 'value', 'placeholder')
 
 def check_authmethod(method):
     """ Check if method exists in method list. """
@@ -669,8 +669,8 @@ def check_admin_fields(fields, used_type_fields=[]):
         if field.get('name') in used_fields:
             msg += "Two admin fields with same name: %s.\n" % field.get('name')
         used_fields.append(field.get('name'))
-        if field.get('type') in used_fields:
-            msg += "Two admin fields with the same type %s are not allowed.\n" % field.get('type')
+        #if field.get('type') in used_fields:
+        #    msg += "Two admin fields with the same type %s are not allowed.\n" % field.get('type')
         for required in REQUIRED_ADMIN_FIELDS:
             if not required in field.keys():
                 msg += "Required field %s.\n" % required
