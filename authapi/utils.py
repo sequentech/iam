@@ -339,6 +339,11 @@ def send_code(user, ip, config=None, auth_method_override=None):
     if user.userdata.event.auth_method in ["sms", "sms-otp"]:
         default_receiver_account = user.userdata.tlf
 
+    base_home_url = settings.HOME_URL
+    home_url = template_replace_data(
+      base_home_url,
+      dict(event_id=event_id))
+
     if auth_method in ["sms", "sms-otp"]:
         receiver = user.userdata.tlf
         base_auth_url = settings.SMS_AUTH_CODE_URL
@@ -368,7 +373,7 @@ def send_code(user, ip, config=None, auth_method_override=None):
     if needs_code:
         url2 = url + '/' + code
 
-    template_dict = dict(event_id=event_id, url=url)
+    template_dict = dict(event_id=event_id, url=url, home_url=home_url)
     if needs_code:
         template_dict['code'] = format_code(code)
         template_dict['url2'] = url2
@@ -490,7 +495,7 @@ VALID_PIPELINES = (
 VALID_TYPE_FIELDS = ('text', 'password', 'int', 'bool', 'regex', 'email', 'tlf',
         'captcha', 'textarea', 'dni', 'dict', 'image')
 REQUIRED_ADMIN_FIELDS = ('name', 'type')
-VALID_ADMIN_FIELDS = VALID_FIELDS + ('description', 'label', 'step', 'value')
+VALID_ADMIN_FIELDS = VALID_FIELDS + ('description', 'label', 'step', 'value', 'placeholder')
 
 def check_authmethod(method):
     """ Check if method exists in method list. """
@@ -664,8 +669,6 @@ def check_admin_fields(fields, used_type_fields=[]):
         if field.get('name') in used_fields:
             msg += "Two admin fields with same name: %s.\n" % field.get('name')
         used_fields.append(field.get('name'))
-        if field.get('type') in used_fields:
-            msg += "Two admin fields with the same type %s are not allowed.\n" % field.get('type')
         for required in REQUIRED_ADMIN_FIELDS:
             if not required in field.keys():
                 msg += "Required field %s.\n" % required

@@ -929,6 +929,38 @@ class TestRegisterAndAuthenticateEmail(TestCase):
     @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
                        CELERY_ALWAYS_EAGER=True,
                        BROKER_BACKEND='memory')
+    def test_send_auth_email_url2_home_url(self):
+        # Add census
+        c = JClient()
+        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.census(self.aeid, test_data.census_email_default1)
+        self.assertEqual(response.status_code, 200)
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['object_list']), 1)
+        
+        correct_tpl = {
+          "msg" : "Vote in __URL2__ with home page __HOME_URL__",
+          "subject" : "Vote now with nVotes",
+          "user-ids" : None,
+          "auth-method" : "email"
+        }
+        incorrect_tpl = {"msg": 10001*"a"}
+
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, correct_tpl)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(MsgLog.objects.count(), 1)
+        msg_log = MsgLog.objects.all().last().msg
+        self.assertEqual(msg_log.get('subject'), correct_tpl.get('subject') + ' - nVotes')
+        self.assertEqual(1, msg_log.get('msg').count(' -- nVotes https://nvotes.com'))
+        home_url =  settings.HOME_URL.replace("__EVENT_ID__", str(self.aeid))
+        self.assertEqual(1, msg_log.get('msg').count(home_url))
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
     def test_send_auth_email_specific(self):
         tpl_specific = {"user-ids": [self.uid, self.uid_admin]}
         c = JClient()
@@ -1525,6 +1557,73 @@ class TestSlugMessages(TestCase):
         self.assertEqual(1, len(r['events']['extra_fields']))
         self.assertTrue('slug' in r['events']['extra_fields'][0])
         self.assertEqual("NO_DE__SOCIO", r['events']['extra_fields'][0]['slug'])
+
+class TestCallback(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        ae = AuthEvent(auth_method="email",
+                auth_method_config=test_data.authmethod_config_email_default,
+                status='started',
+                census="open")
+        ae.save()
+        self.ae = ae
+        self.aeid = ae.pk
+
+        u_admin = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u_admin.set_password(test_data.admin['password'])
+        u_admin.save()
+        u_admin.userdata.event = ae
+        u_admin.userdata.save()
+        self.uid_admin = u_admin.id
+
+        acl = ACL(user=u_admin.userdata, object_type='AuthEvent', perm='edit',
+            object_id=self.aeid)
+        acl.save()
+
+        u = User(username='test', email=test_data.auth_email_default['email'])
+        u.save()
+        u.userdata.event = ae
+        u.userdata.save()
+        self.u = u.userdata
+        self.uid = u.id
+
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit',
+            object_id=self.aeid)
+        acl.save()
+
+        c = Code(user=u.userdata, code=test_data.auth_email_default['code'], auth_event_id=ae.pk)
+        c.save()
+        self.code = c
+
+    def genhmac(self, key, msg):
+        import hmac
+        import datetime
+
+        if not key or not msg:
+           return
+
+        timestamp = int(datetime.datetime.now().timestamp())
+        msg = "%s:%s" % (msg, str(timestamp))
+
+        h = hmac.new(key, msg.encode('utf-8'), "sha256")
+        return 'khmac:///sha-256;' + h.hexdigest() + '/' + msg
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_callback(self):
+        c = JClient()
+        timed_auth = "admin:AuthEvent:%d:Callback" % self.aeid
+        hmac = self.genhmac(settings.SHARED_SECRET, timed_auth)
+        c.set_auth_token(hmac)
+        response = c.post('/api/auth-event/%d/callback/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.post('/api/auth-event/%d/callback/' % self.aeid, {})
+        self.assertEqual(response.status_code, 403)
+   
 
 # Check the allowed number of revotes, using AuthEvent's
 # num_successful_logins_allowed field and calls to successful_login
