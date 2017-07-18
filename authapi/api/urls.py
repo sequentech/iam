@@ -26,7 +26,7 @@ urlpatterns = [
 
     url(r'^auth-event/$', views.authevent, name='authevent'),
     url(r'^auth-event/(?P<pk>\d+)/$', views.authevent, name='authevent'),
-    url(r'^auth-event/(?P<pk>\d+)/callback/$', views.callback, name='census'),
+    url(r'^auth-event/(?P<pk>\d+)/callback/$', views.callback, name='callback'),
     url(r'^auth-event/(?P<pk>\d+)/census/$', views.census, name='census'),
     url(r'^auth-event/(?P<pk>\d+)/census/delete/$', views.census_delete, name='census_delete'),
     url(r'^auth-event/(?P<pk>\d+)/census/activate/$', views.census_activate, name='census_activate'),
