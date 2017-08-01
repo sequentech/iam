@@ -27,7 +27,7 @@ from contracts.base import check_contract, JsonTypeEncoder
 from contracts import CheckException
 from authmethods.models import Code
 
-LOGGER = logging.getLogger('authapi')
+LOGGER = logging.getLogger('authapi.request')
 
 class Email:
     DESCRIPTION = 'Register by email. You need to confirm your email.'
@@ -253,7 +253,7 @@ class Email:
     def census(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
         validation = req.get('field-validation', 'enabled') == 'enabled'
-        LOGGER.debug("census. request '%(req)r', validation '%(validation)r', "\
+        LOGGER.info("census. request '%(req)r', validation '%(validation)r', "\
             "authevent '%(ae)r'" % dict(req=req, validation=validation, ae=ae))
 
         msg = ''
@@ -275,7 +275,7 @@ class Email:
                 current_emails.append(email)
             else:
                 if msg:
-                    LOGGER.debug("census warning. error (but validation disabled) '%(msg)r'" % dict(msg=msg))
+                    LOGGER.info("census warning. error (but validation disabled) '%(msg)r'" % dict(msg=msg))
                     msg = ''
                     continue
                 exist = exist_user(r, ae)
@@ -295,7 +295,7 @@ class Email:
                 # the pipeline
                 u = create_user(r, ae, True)
                 give_perms(u, ae)
-        LOGGER.debug("census returns ok");
+        LOGGER.info("census returns ok");
         return {'status': 'ok'}
 
     def error(self, msg, error_codename):
@@ -304,7 +304,7 @@ class Email:
 
     def register(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
-        LOGGER.debug("register request '%(req)r'" % dict(req=req))
+        LOGGER.info("register request '%(req)r'" % dict(req=req))
 
         msg = check_pipeline(request, ae)
         if msg:
@@ -456,7 +456,7 @@ class Email:
             # sending the code in here
             return {'status': 'ok'}
 
-        LOGGER.debug("register. Sending (email) codes to user id '%(uid)r', "\
+        LOGGER.info("register. Sending (email) codes to user id '%(uid)r', "\
             "client ip '%(ip)r'" % dict(uid=u.id, ip=get_client_ip(request)))
         send_codes.apply_async(args=[[u.id,], get_client_ip(request),'email'])
         return {'status': 'ok'}
@@ -467,7 +467,7 @@ class Email:
 
     def authenticate(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
-        LOGGER.debug("authenticate request '%(req)r'" % dict(req=req))
+        LOGGER.info("authenticate request '%(req)r'" % dict(req=req))
         msg = ''
         email = req.get('email')
         if isinstance(email, str):
@@ -530,7 +530,7 @@ class Email:
         if auth_action['mode'] == 'go-to-url':
             data['redirect-to-url'] = auth_action['mode-config']['url']
 
-        LOGGER.debug("authenticate success, returns '%(data)r'" % dict(data=data))
+        LOGGER.info("authenticate success, returns '%(data)r'" % dict(data=data))
         return data
 
 register_method('email', Email)
