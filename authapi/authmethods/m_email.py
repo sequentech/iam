@@ -27,7 +27,7 @@ from contracts.base import check_contract, JsonTypeEncoder
 from contracts import CheckException
 from authmethods.models import Code
 
-LOGGER = logging.getLogger('authapi.notify')
+LOGGER = logging.getLogger('authapi')
 
 class Email:
     DESCRIPTION = 'Register by email. You need to confirm your email.'
