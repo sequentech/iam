@@ -14,6 +14,7 @@
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
+import logging
 from django.conf import settings
 from django.conf.urls import url
 from django.contrib.auth.models import User
@@ -26,6 +27,7 @@ from contracts.base import check_contract, JsonTypeEncoder
 from contracts import CheckException
 from authmethods.models import Code
 
+LOGGER = logging.getLogger('authapi.notify')
 
 class Email:
     DESCRIPTION = 'Register by email. You need to confirm your email.'
@@ -245,11 +247,14 @@ class Email:
             check_contract(self.CONFIG_CONTRACT, config)
             return ''
         except CheckException as e:
+            LOGGER.error("check_config error. CheckException '%(e)r'" % dict(e=e))
             return json.dumps(e.data, cls=JsonTypeEncoder)
 
     def census(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
         validation = req.get('field-validation', 'enabled') == 'enabled'
+        LOGGER.debug("census. request '%(req)r', validation '%(validation)r', "\
+            "authevent '%(ae)r'" % dict(req=req, validation=validation, ae=ae))
 
         msg = ''
         current_emails = []
@@ -270,6 +275,7 @@ class Email:
                 current_emails.append(email)
             else:
                 if msg:
+                    LOGGER.debug("census warning. error (but validation disabled) '%(msg)r'" % dict(msg=msg))
                     msg = ''
                     continue
                 exist = exist_user(r, ae)
@@ -280,6 +286,7 @@ class Email:
                 u = create_user(r, ae, True)
                 give_perms(u, ae)
         if msg and validation:
+            LOGGER.error("census error. error '%(msg)r'" % dict(msg=msg))
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         if validation:
@@ -288,6 +295,7 @@ class Email:
                 # the pipeline
                 u = create_user(r, ae, True)
                 give_perms(u, ae)
+        LOGGER.debug("census returns ok");
         return {'status': 'ok'}
 
     def error(self, msg, error_codename):
@@ -296,9 +304,11 @@ class Email:
 
     def register(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
+        LOGGER.debug("register request '%(req)r'" % dict(req=req))
 
         msg = check_pipeline(request, ae)
         if msg:
+            LOGGER.error("register error on pipeline check '%(msg)r'" % dict(msg=msg))
             return msg
 
         # create the user as active? Usually yes, but the execute_pipeline call inside
@@ -330,6 +340,7 @@ class Email:
         msg += check_field_value(self.email_definition, email)
         msg += check_fields_in_request(req, ae)
         if msg:
+            LOGGER.error("register error. Fields check  failed '%(msg)r'" % dict(msg=msg))
             return self.error("Incorrect data", error_codename="invalid_credentials")
         # get active from req, this value might have changed in check_fields_in_requests
         active = req.pop('active')
@@ -346,6 +357,10 @@ class Email:
             # if the email is not a match field, and there already is a user
             # with that email, reject the registration request
             if not match_email and User.objects.filter(email=email, userdata__event=ae, is_active=True).count() > 0:
+                LOGGER.error("register error. email is not a match field, and "\
+                    "there already is a user with email '%(email)r'" %\
+                    dict(email=email,\
+                    already_user=User.objects.filter(email=email, userdata__event=ae, is_active=True)[0]))
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
             # lookup in the database if there's any user with the match fields
@@ -375,6 +390,9 @@ class Email:
                  if reg_name and reg_name in req and req[reg_name]:
                      q = q & Q(userdata__metadata__contains={reg_name: ""})
                  else:
+                     LOGGER.error("register error. reg_name '%(reg_name)r', "\
+                         "reg_name in req '%(r_in_r)r', req[reg_name] '%(val)r'" %\
+                         dict(reg_name=reg_name, r_in_r=(reg_name in req), val=req[reg_name]))
                      return self.error("Incorrect data", error_codename="invalid_credentials")
 
 
@@ -397,10 +415,16 @@ class Email:
                             uq = base_q & Q(userdata__metadata__contains={reg_name: req_field_data})
                             repeated_list = base_list.filter(uq)
                             if repeated_list.count() > 0:
+                                LOGGER.error("register error. unique field "\
+                                    "named '%(reg_name)r' with content '%(req_field_data)r'"\
+                                    "is repeated on '%(repeated)r'" %\
+                                    dict(reg_name=reg_name,req_field_data=req_field_data, repeated=repeated_list[0]))
                                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
             # user needs to exist
             if user_found is None:
+                LOGGER.error("register error. user not found for query "\
+                    "'%(q)r'" % dict(q=q))
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
             for reg_empty_field in reg_fill_empty_fields:
@@ -415,18 +439,25 @@ class Email:
         else:
             msg_exist = exist_user(req, ae, get_repeated=True)
             if msg_exist:
+                LOGGER.error("register error. User already exists. request "\
+                    "'%(req)r', authevent '%(ae)r', error msg '%(error)r'" %\
+                    dict(req=req, ae=ae, error=msg_exist))
                 return self.error("Incorrect data", error_codename="invalid_credentials")
             else:
                 u = create_user(req, ae, active)
                 msg += give_perms(u, ae)
 
         if msg:
+            LOGGER.error("register error. Probably a permissions error. "\
+                "Error '%(msg)r'" % dict(msg=msg))
             return self.error("Incorrect data", error_codename="invalid_credentials")
         elif not active:
             # Note, we are not calling to extend_send_sms because we are not
             # sending the code in here
             return {'status': 'ok'}
 
+        LOGGER.debug("register. Sending (email) codes to user id '%(uid)r', "\
+            "client ip '%(ip)r'" % dict(uid=u.id, ip=get_client_ip(request)))
         send_codes.apply_async(args=[[u.id,], get_client_ip(request),'email'])
         return {'status': 'ok'}
 
@@ -436,6 +467,7 @@ class Email:
 
     def authenticate(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
+        LOGGER.debug("authenticate request '%(req)r'" % dict(req=req))
         msg = ''
         email = req.get('email')
         if isinstance(email, str):
@@ -447,28 +479,44 @@ class Email:
         msg += check_field_value(self.code_definition, req.get('code'), 'authenticate')
         msg += check_fields_in_request(req, ae, 'authenticate')
         if msg:
+            LOGGER.error("authenticate error: '%(msg)r'" % dict(error=msg))
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_pipeline(request, ae, 'authenticate')
         if msg:
+            LOGGER.error("authenticate error: '%(msg)r'" % dict(error=msg))
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         try:
             u = User.objects.get(email=email, userdata__event=ae, is_active=True)
         except:
+            LOGGER.error("authenticate error. User not found with "\
+                "these characteristics: email '%(email)r', "\
+                "authevent '%(authevent)r', is_active True" %\
+                dict(email=email, authevent=ae))
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         if (ae.num_successful_logins_allowed > 0 and
             u.userdata.successful_logins.filter(is_active=True).count() >= ae.num_successful_logins_allowed):
+            LOGGER.error("authenticate error. Maximum number of revotes "\
+                "already reached. revotes for user '%(revotes)r', maximum "\
+                "allowed '%(max)r'" %\
+                (revotes=u.userdata.successful_logins.filter(is_active=True).count(),\
+                 max=ae.num_successful_logins_allowed))
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         code = Code.objects.filter(user=u.userdata,
                 code=req.get('code').upper()).order_by('-created').first()
         if not code:
+            LOGGER.error("authenticate error. Code not found on db for user "\
+                "'%(user)r' and code '%(code)r'" %\
+                dict(user=u.userdata, code=req.get('code').upper()))
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_metadata(req, u)
         if msg:
+            LOGGER.error("authenticate error. Metadata error "\
+                "'%(msg)r'" % dict(msg=msg))
             data = {'status': 'nok', 'msg': msg}
             return self.error("Incorrect data", error_codename="invalid_credentials")
         u.save()
@@ -482,6 +530,7 @@ class Email:
         if auth_action['mode'] == 'go-to-url':
             data['redirect-to-url'] = auth_action['mode-config']['url']
 
+        LOGGER.debug("authenticate success, returns '%(data)r'" % dict(data=data))
         return data
 
 register_method('email', Email)
