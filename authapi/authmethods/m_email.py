@@ -501,8 +501,8 @@ class Email:
             LOGGER.error("authenticate error. Maximum number of revotes "\
                 "already reached. revotes for user '%(revotes)r', maximum "\
                 "allowed '%(max)r'" %\
-                (revotes=u.userdata.successful_logins.filter(is_active=True).count(),\
-                 max=ae.num_successful_logins_allowed))
+                dict(revotes=u.userdata.successful_logins.filter(is_active=True).count(),\
+                max=ae.num_successful_logins_allowed))
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         code = Code.objects.filter(user=u.userdata,
