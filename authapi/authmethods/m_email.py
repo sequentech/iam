@@ -247,14 +247,12 @@ class Email:
             check_contract(self.CONFIG_CONTRACT, config)
             return ''
         except CheckException as e:
-            LOGGER.error("check_config error. CheckException '%(e)r'" % dict(e=e))
+            LOGGER.error("Email.check_config error\nCheckException '%r'", e)
             return json.dumps(e.data, cls=JsonTypeEncoder)
 
     def census(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
         validation = req.get('field-validation', 'enabled') == 'enabled'
-        LOGGER.debug("census. request '%(req)r', validation '%(validation)r', "\
-            "authevent '%(ae)r'" % dict(req=req, validation=validation, ae=ae))
 
         msg = ''
         current_emails = []
@@ -275,7 +273,9 @@ class Email:
                 current_emails.append(email)
             else:
                 if msg:
-                    LOGGER.debug("census warning. error (but validation disabled) '%(msg)r'" % dict(msg=msg))
+                    LOGGER.debug("Email.census warning\nerror (but validation "\
+                        " disabled) '%r'\nrequest '%r'\nvalidation '%r'\n"\
+                        "authevent '%r' '%s'", msg, req, validation, ae, ae)
                     msg = ''
                     continue
                 exist = exist_user(r, ae)
@@ -286,7 +286,9 @@ class Email:
                 u = create_user(r, ae, True)
                 give_perms(u, ae)
         if msg and validation:
-            LOGGER.error("census error. error '%(msg)r'" % dict(msg=msg))
+            LOGGER.error("Email.census error\nerror '%r'\nrequest '%r'\n"\
+                         "validation '%r'\nauthevent '%r' '%s'",\
+                         msg, req, validation, ae, ae)
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         if validation:
@@ -295,8 +297,11 @@ class Email:
                 # the pipeline
                 u = create_user(r, ae, True)
                 give_perms(u, ae)
-        LOGGER.debug("census returns ok");
-        return {'status': 'ok'}
+        
+        ret = {'status': 'ok'}
+        LOGGER.debug("Email.census\nrequest '%r'\nvalidation '%r'\n"\
+            "authevent '%r' '%s'\nreturns '%r'", req, validation, ae, ae, ret)
+        return ret
 
     def error(self, msg, error_codename):
         d = {'status': 'nok', 'msg': msg, 'error_codename': error_codename}
