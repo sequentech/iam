@@ -15,6 +15,8 @@
 
 import json
 import logging
+import inspect
+import traceback
 from django.conf import settings
 from django.conf.urls import url
 from django.db.models import Q
@@ -31,6 +33,11 @@ from contracts import CheckException
 from authmethods.utils import *
 
 LOGGER = logging.getLogger('authapi')
+
+def stack_trace_str():
+  frame = inspect.currentframe()
+  stack_trace = traceback.format_stack(frame)
+  return "\n".join(stack_trace[:-1])
 
 class Sms:
     DESCRIPTION = 'Provides authentication using an SMS code.'
@@ -245,7 +252,11 @@ class Sms:
 
     def error(self, msg, error_codename):
         d = {'status': 'nok', 'msg': msg, 'error_codename': error_codename}
-        LOGGER.error("Sms.error\nerror '%r'", d)
+        LOGGER.error(\
+            "Sms.error\n"\
+            "error '%r'"\
+            "Stack trace: \n%s",\
+            d, stack_trace_str())
         return d
 
     def check_config(self, config):
@@ -255,8 +266,12 @@ class Sms:
             check_contract(self.CONFIG_CONTRACT, config)
             return ''
         except CheckException as e:
-            LOGGER.error("Sms.check_config error\nerror '%r'\nconfig '%r'",
-                         e, config)
+            LOGGER.error(\
+                "Sms.check_config error\n"\
+                "error '%r'\n"\
+                "config '%r'"\
+                "Stack trace: \n%s",\
+                e, config, stack_trace_str())
             return json.dumps(e.data, cls=JsonTypeEncoder)
 
     def census(self, ae, request):
@@ -293,9 +308,14 @@ class Sms:
                 u = create_user(r, ae, True)
                 give_perms(u, ae)
         if msg and validation:
-            LOGGER.error("Sms.census error\nrequest '%r'\nresponse '%r'"\
-                         "\nvalidation '%r'\nmsg '%r'", req, data, validation,
-                         msg)
+            LOGGER.error(\
+                "Sms.census error\n"\
+                "error '%r'\n"\
+                "validation '%r'\n"\
+                "request '%r'\n"\
+                "authevent '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, validation, req, ae, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         if validation:
@@ -304,8 +324,16 @@ class Sms:
                 # the pipeline
                 u = create_user(r, ae, True)
                 give_perms(u, ae)
-        LOGGER.debug("Sms.census\nrequest '%r'\nresponse '%r'\nvalidation "\
-                     "'%r'\nmsg '%r'", req, data, validation, msg)
+
+        LOGGER.debug(\
+            "Sms.census success\n"\
+            "response '%r'\n"\
+            "validation '%r'\n"\
+            "msg '%r'"\
+            "request '%r'\n"\
+            "authevent '%r'\n"\
+            "Stack trace: \n%s",\
+            data, validation, msg, req, ae, stack_trace_str())
         return data
 
     def register(self, ae, request):
@@ -313,8 +341,13 @@ class Sms:
 
         msg = check_pipeline(request, ae)
         if msg:
-            LOGGER.error("Sms.register error\nerror '%r'\nauthevent '%r'"\
-                         "\nrequest '%r'", msg, ae, request)
+            LOGGER.error(\
+                "Sms.register error\n"\
+                "error '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         # create the user as active? Usually yes, but the execute_pipeline call inside
@@ -347,8 +380,13 @@ class Sms:
         msg += check_field_value(self.tlf_definition, tlf)
         msg += check_fields_in_request(req, ae)
         if msg:
-            LOGGER.error("Sms.register error\nerror '%r'\nauthevent '%r'"\
-                         "\nrequest '%r'", msg, ae, request)
+            LOGGER.error(\
+                "Sms.register error\n"\
+                "error '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'"\
+                "Stack trace: \n%s",\
+                msg, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
         # get active from req, this value might have changed in check_fields_in_requests
         active = req.pop('active')
@@ -365,11 +403,17 @@ class Sms:
             # if the tlf is not a match field, and there already is a user
             # with that tlf, reject the registration request
             if not match_tlf and User.objects.filter(userdata__tlf=tlf, userdata__event=ae, is_active=True).count() > 0:
-                LOGGER.error("Sms.register error\ntlf is not a match field and"\
-                    " there already is a user with that tlf\nerror '%r'\nuser "\
-                    "'%r'\nauthevent '%r'\nrequest '%r'", msg, 
-                    User.objects.filter(userdata__tlf=tlf, userdata__event=ae, is_active=True)[0],
-                    ae, request)
+                LOGGER.error(\
+                    "Sms.register error\n"\
+                    "tlf is not a match field and  there already is a user with that tlf\n"\
+                    "error '%r'\n"\
+                    "user '%r'\n"\
+                    "authevent '%r'\n"\
+                    "request '%r'"\
+                    "Stack trace: \n%s",\
+                    msg,\
+                    User.objects.filter(userdata__tlf=tlf, userdata__event=ae, is_active=True)[0],\
+                    ae, req, stack_trace_str())
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
             # lookup in the database if there's any user with the match fields
@@ -383,22 +427,55 @@ class Sms:
             # Check the reg_match_fields
             for reg_match_field in reg_match_fields:
                  # Filter with Django's JSONfield
-                 reg_name = reg_match_field['name']
+                 reg_name = reg_match_field.get('name')
+                 if not reg_name:
+                     LOGGER.error(\
+                         "Sms.register error\n"\
+                         "'name' not in match field '%r'\n"\
+                         "authevent '%r'\n"\
+                         "request '%r'\n"\
+                         "Stack trace: \n%s",\
+                         reg_match_field, ae, req, stack_trace_str())
                  req_field_data = req.get(reg_name)
                  if reg_name and req_field_data:
                      q = q & Q(userdata__metadata__contains={reg_name: req_field_data})
                  else:
+                     LOGGER.error(\
+                         "Sms.register error\n"\
+                         "match field '%r' missing in request '%r'\n"\
+                         "authevent '%r'\n"\
+                         "Stack trace: \n%s",\
+                         reg_name, req, ae, stack_trace_str())
                      return self.error("Incorrect data", error_codename="invalid_credentials")
 
             # Check that the reg_fill_empty_fields are empty, otherwise the user
             # is already registered
             for reg_empty_field in reg_fill_empty_fields:
                  # Filter with Django's JSONfield
-                 reg_name = reg_empty_field['name']
+                 reg_name = reg_empty_field.get('name')
+                 if not reg_name:
+                     LOGGER.error(\
+                         "Sms.register error\n"\
+                         "'name' not in empty field '%r'\n"\
+                         "authevent '%r'\n"\
+                         "request '%r'\n"\
+                         "Stack trace: \n%s",\
+                         reg_empty_field, ae, req, stack_trace_str())
                  # Note: the register query _must_ contain a value for these fields
                  if reg_name and reg_name in req and req[reg_name]:
                      q = q & Q(userdata__metadata__contains={reg_name: ""})
                  else:
+                     LOGGER.error(\
+                         "Sms.register error\n"\
+                         "the register query _must_ contain a value for these fields\n"\
+                         "reg_name '%r'\n"\
+                         "reg_name in req '%r'\n"\
+                         "req[reg_name] '%r'\n"\
+                         "authevent '%r'\n"\
+                         "request '%r'\n"\
+                         "Stack trace: \n%s",\
+                         reg_name, (reg_name in req), req[reg_name], ae,\
+                         req, stack_trace_str())
                      return self.error("Incorrect data", error_codename="invalid_credentials")
 
             user_found = None
@@ -420,10 +497,27 @@ class Sms:
                             uq = base_q & Q(userdata__metadata__contains={reg_name: req_field_data})
                             repeated_list = base_list.filter(uq)
                             if repeated_list.count() > 0:
+                                LOGGER.error(\
+                                    "Sms.register error\n"\
+                                    "unique field named '%r'\n"\
+                                    "with content '%r'\n"\
+                                    "is repeated on '%r'\n"\
+                                    "authevent '%r'\n"\
+                                    "request '%r'\n"\
+                                    "Stack trace: \n%s",\
+                                    reg_name, req_field_data, repeated_list[0],\
+                                    ae, req, stack_trace_str())
                                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
             # user needs to exist
             if user_found is None:
+                LOGGER.error(\
+                    "Sms.register error\n"\
+                    "user not found for query '%r'",\
+                    "authevent '%r'\n"\
+                    "request '%r'\n"\
+                    "Stack trace: \n%s",\
+                    q, ae, req, stack_trace_str())
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
             for reg_empty_field in reg_fill_empty_fields:
@@ -438,6 +532,13 @@ class Sms:
         else:
             msg_exist = exist_user(req, ae, get_repeated=True)
             if msg_exist:
+                LOGGER.error(\
+                    "Sms.register error\n"\
+                    "User already exists '%r'\n"\
+                    "authevent '%r'\n"\
+                    "request '%r'\n"\
+                    "Stack trace: \n%s",\
+                    msg_exist, ae, req, stack_trace_str())
                 return self.error("Incorrect data", error_codename="invalid_credentials")
             else:
                 u = create_user(req, ae, active)
@@ -446,17 +547,49 @@ class Sms:
                 u.userdata.save()
 
         if msg:
+            LOGGER.error(\
+                "Sms.register error\n"\
+                "Probably a permissions error\n"\
+                "Error '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
         elif not active:
             # Note, we are not calling to extend_send_sms because we are not
             # sending the code in here
+           LOGGER.debug(\
+               "Sms.register.\n"\
+               "user id '%r' is not active, message NOT sent\n"\
+               "authevent '%r'\n"\
+               "request '%r'\n"\
+               "Stack trace: \n%s",\
+               u.id, ae, req, stack_trace_str())
             return {'status': 'ok'}
 
         result = plugins.call("extend_send_sms", ae, 1)
         if result:
+            LOGGER.error(\
+                "Sms.register error\n"\
+                "extend_send_sms plugin error\n"\
+                "Error '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                result, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
+        response = {'status': 'ok'}
         send_codes.apply_async(args=[[u.id,], get_client_ip(request),'sms'])
-        return {'status': 'ok'}
+        LOGGER.debug(\
+            "Sms.register.\n"\
+            "Sending (sms) codes to user id '%r'"\
+            "client ip '%r'\n"\
+            "authevent '%r'\n"\
+            "request '%r'\n"\
+            "Stack trace: \n%s",\
+            u.id, get_client_ip(request), ae, req, stack_trace_str())
+        return response
 
     def authenticate(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
@@ -473,28 +606,79 @@ class Sms:
         msg += check_field_value(self.code_definition, req.get('code'), 'authenticate')
         msg += check_fields_in_request(req, ae, 'authenticate')
         if msg:
+            LOGGER.error(\
+                "Sms.authenticate error\n"\
+                "error '%r'"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         try:
             u = User.objects.get(userdata__tlf=tlf, userdata__event=ae, is_active=True)
         except:
+            LOGGER.error(\
+                "Sms.authenticate error\n"\
+                "user not found with these characteristics: tlf '%r'\n"\
+                "authevent '%r'\n"\
+                "is_active True"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                tlf, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         if (ae.num_successful_logins_allowed > 0 and
             u.userdata.successful_logins.filter(is_active=True).count() >= ae.num_successful_logins_allowed):
+            LOGGER.error(\
+                "Sms.authenticate error\n"\
+                "Maximum number of revotes already reached for user '%r'\n"\
+                "revotes for user '%r'\n"\
+                "maximum allowed '%r'"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                u.userdata,\
+                u.userdata.successful_logins.filter(is_active=True).count(),\
+                ae.num_successful_logins_allowed),\
+                ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         code = Code.objects.filter(user=u.userdata,
                 code=req.get('code').upper()).order_by('-created').first()
         if not code:
+            LOGGER.error(\
+                "Sms.authenticate error\n"\
+                "Code not found on db for user '%r'\n"\
+                "and code '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                u.userdata,\
+                req.get('code').upper(),\
+                ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_pipeline(request, ae, 'authenticate')
         if msg:
+            LOGGER.error(\
+                "Sms.authenticate error\n"\
+                "error '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_metadata(req, u)
         if msg:
+            LOGGER.error(\
+                "Sms.authenticate error\n"\
+                "Metadata error '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         u.save()
@@ -508,6 +692,13 @@ class Sms:
         if auth_action['mode'] == 'go-to-url':
             data['redirect-to-url'] = auth_action['mode-config']['url']
 
+        LOGGER.debug(\
+            "Sms.authenticate success\n"\
+            "returns '%r'"\
+            "authevent '%r'\n"\
+            "request '%r'\n"\
+            "Stack trace: \n%s",\
+            data, ae, req, stack_trace_str())
         return data
 
     def resend_auth_code(self, ae, request):
@@ -522,11 +713,26 @@ class Sms:
         msg += check_field_type(self.tlf_definition, tlf, 'authenticate')
         msg += check_field_value(self.tlf_definition, tlf, 'authenticate')
         if msg:
+            LOGGER.error(\
+                "Sms.resend_auth_code error\n"\
+                "error '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         try:
             u = User.objects.get(userdata__tlf=tlf, userdata__event=ae, is_active=True)
         except:
+            LOGGER.error(\
+                "Sms.resend_auth_code error\n"\
+                "user not found with these characteristics: tlf '%r'\n"\
+                "authevent '%r'\n"\
+                "is_active True"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                tlf, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_pipeline(
@@ -536,12 +742,35 @@ class Sms:
           Sms.PIPELINES['resend-auth-pipeline'])
 
         if msg:
+            LOGGER.error(\
+                "Sms.resend_auth_code error\n"\
+                "check_pipeline error '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         result = plugins.call("extend_send_sms", ae, 1)
         if result:
+            LOGGER.error(\
+                "Sms.resend_auth_code error\n"\
+                "extend_send_sms plugin error\n"\
+                "Error '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                result, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
         send_codes.apply_async(args=[[u.id,], get_client_ip(request),'sms'])
+        LOGGER.debug(\
+            "Sms.resend_auth_code.\n"\
+            "Sending (sms) codes to user id '%r'"\
+            "client ip '%r'\n"\
+            "authevent '%r'\n"\
+            "request '%r'\n"\
+            "Stack trace: \n%s",\
+            u.id, get_client_ip(request), ae, req, stack_trace_str())
         return {'status': 'ok'}
 
 register_method('sms', Sms)
