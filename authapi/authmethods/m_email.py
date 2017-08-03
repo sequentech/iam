@@ -15,6 +15,8 @@
 
 import json
 import logging
+import inspect
+import traceback
 from django.conf import settings
 from django.conf.urls import url
 from django.contrib.auth.models import User
@@ -28,6 +30,11 @@ from contracts import CheckException
 from authmethods.models import Code
 
 LOGGER = logging.getLogger('authapi')
+
+def stack_trace_str():
+  frame = inspect.currentframe()
+  stack_trace = traceback.format_stack(frame)
+  return "\n".join(stack_trace[:-1])
 
 class Email:
     DESCRIPTION = 'Register by email. You need to confirm your email.'
@@ -247,7 +254,12 @@ class Email:
             check_contract(self.CONFIG_CONTRACT, config)
             return ''
         except CheckException as e:
-            LOGGER.error("Email.check_config error\nCheckException '%r'", e)
+            LOGGER.error(\
+                "Email.check_config error\n"\
+                "CheckException '%r'\n"\
+                "Stack trace: \n%r",\
+                e,\
+                stack_trace_str())
             return json.dumps(e.data, cls=JsonTypeEncoder)
 
     def census(self, ae, request):
@@ -273,9 +285,14 @@ class Email:
                 current_emails.append(email)
             else:
                 if msg:
-                    LOGGER.debug("Email.census warning\nerror (but validation "\
-                        " disabled) '%r'\nrequest '%r'\nvalidation '%r'\n"\
-                        "authevent '%r' '%s'", msg, req, validation, ae, ae)
+                    LOGGER.debug(\
+                        "Email.census warning\n"\
+                        "error (but validation disabled) '%r'\n"\
+                        "request '%r'\n"\
+                        "validation '%r'\n"\
+                        "authevent '%r'\n"\
+                        "Stack trace: \n%r",\
+                        msg, req, validation, ae, stack_trace_str())
                     msg = ''
                     continue
                 exist = exist_user(r, ae)
@@ -286,9 +303,14 @@ class Email:
                 u = create_user(r, ae, True)
                 give_perms(u, ae)
         if msg and validation:
-            LOGGER.error("Email.census error\nerror '%r'\nrequest '%r'\n"\
-                         "validation '%r'\nauthevent '%r' '%s'",\
-                         msg, req, validation, ae, ae)
+            LOGGER.error(\
+                "Email.census error\n"\
+                "error '%r'\n"\
+                "request '%r'\n"\
+                "validation '%r'\n"\
+                "authevent '%r'\n"\
+                "Stack trace: \n%r",\
+                msg, req, validation, ae, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         if validation:
@@ -299,8 +321,14 @@ class Email:
                 give_perms(u, ae)
         
         ret = {'status': 'ok'}
-        LOGGER.debug("Email.census\nrequest '%r'\nvalidation '%r'\n"\
-            "authevent '%r' '%s'\nreturns '%r'", req, validation, ae, ae, ret)
+        LOGGER.debug(\
+            "Email.census\n"\
+            "request '%r'\n"\
+            "validation '%r'\n"\
+            "authevent '%r'\n"\
+            "returns '%r'\n"\
+            "Stack trace: \n%r",\
+            req, validation, ae, ret, stack_trace_str())
         return ret
 
     def error(self, msg, error_codename):
@@ -309,11 +337,16 @@ class Email:
 
     def register(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
-        LOGGER.debug("register request '%(req)r'" % dict(req=req))
 
         msg = check_pipeline(request, ae)
         if msg:
-            LOGGER.error("register error on pipeline check '%(msg)r'" % dict(msg=msg))
+            LOGGER.error(\
+                "Email.register error\n"\
+                "pipeline check error'%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%r",\
+                msg, ae, request, stack_trace_str())
             return msg
 
         # create the user as active? Usually yes, but the execute_pipeline call inside
@@ -345,7 +378,13 @@ class Email:
         msg += check_field_value(self.email_definition, email)
         msg += check_fields_in_request(req, ae)
         if msg:
-            LOGGER.error("register error. Fields check  failed '%(msg)r'" % dict(msg=msg))
+            LOGGER.error(\
+                "Email.register error\n"\
+                "Fields check error '%r'"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%r",\
+                msg, ae, request, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
         # get active from req, this value might have changed in check_fields_in_requests
         active = req.pop('active')
@@ -362,10 +401,17 @@ class Email:
             # if the email is not a match field, and there already is a user
             # with that email, reject the registration request
             if not match_email and User.objects.filter(email=email, userdata__event=ae, is_active=True).count() > 0:
-                LOGGER.error("register error. email is not a match field, and "\
-                    "there already is a user with email '%(email)r'" %\
-                    dict(email=email,\
-                    already_user=User.objects.filter(email=email, userdata__event=ae, is_active=True)[0]))
+                LOGGER.error(\
+                    "Email.register error\n"\
+                    "email is not a match field, and there already is a user with email '%r'\n"\
+                    "authevent '%r'\n"\
+                    "request '%r'\n"\
+                    "Stack trace: \n%r",\
+                    email,\
+                    already_user=User.objects.filter(email=email, userdata__event=ae, is_active=True)[0],\
+                    ae,\
+                    request,\
+                    stack_trace_str())
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
             # lookup in the database if there's any user with the match fields
@@ -379,25 +425,58 @@ class Email:
             # Check the reg_match_fields
             for reg_match_field in reg_match_fields:
                  # Filter with Django's JSONfield
-                 reg_name = reg_match_field['name']
+                 reg_name = reg_match_field.get('name')
+                 if not reg_name:
+                     LOGGER.error(\
+                         "Email.register error\n"\
+                         "'name' not in match field '%r'\n"\
+                         "authevent '%r'\n"\
+                         "request '%r'\n"\
+                         "Stack trace: \n%r",\
+                         reg_match_field, ae, request, stack_trace_str())
+                     return self.error("Incorrect data", error_codename="invalid_credentials")
                  req_field_data = req.get(reg_name)
                  if reg_name and req_field_data:
                      q = q & Q(userdata__metadata__contains={reg_name: req_field_data})
                  else:
+                     LOGGER.error(\
+                         "Email.register error\n"\
+                         "match field '%r' missing in request '%r'\n"\
+                         "authevent '%r'\n"\
+                         "request '%r'\n"\
+                         "Stack trace: \n%r",\
+                         reg_name, req, ae, request, stack_trace_str())
                      return self.error("Incorrect data", error_codename="invalid_credentials")
 
             # Check that the reg_fill_empty_fields are empty, otherwise the user
             # is already registered
             for reg_empty_field in reg_fill_empty_fields:
                  # Filter with Django's JSONfield
-                 reg_name = reg_empty_field['name']
+                 reg_name = reg_empty_field.get('name')
+                 if not reg_name:
+                     LOGGER.error(\
+                         "Email.register error\n"\
+                         "'name' not in empty field '%r'\n"\
+                         "authevent '%r'\n"\
+                         "request '%r'\n"\
+                         "Stack trace: \n%r",\
+                         reg_empty_field, ae, request, stack_trace_str())
+                     return self.error("Incorrect data", error_codename="invalid_credentials")
                  # Note: the register query _must_ contain a value for these fields
                  if reg_name and reg_name in req and req[reg_name]:
                      q = q & Q(userdata__metadata__contains={reg_name: ""})
                  else:
-                     LOGGER.error("register error. reg_name '%(reg_name)r', "\
-                         "reg_name in req '%(r_in_r)r', req[reg_name] '%(val)r'" %\
-                         dict(reg_name=reg_name, r_in_r=(reg_name in req), val=req[reg_name]))
+                     LOGGER.error(\
+                         "Email.register error\n"\
+                         "the register query _must_ contain a value for these fields\n"\
+                         "reg_name '%r'\n"\
+                         "reg_name in req '%r'\n"\
+                         "req[reg_name] '%r'\n"\
+                         "authevent '%r'\n"\
+                         "request '%r'\n"\
+                         "Stack trace: \n%r",\
+                         reg_name, (reg_name in req), req[reg_name], ae,\
+                         request, stack_trace_str())
                      return self.error("Incorrect data", error_codename="invalid_credentials")
 
 
@@ -420,16 +499,25 @@ class Email:
                             uq = base_q & Q(userdata__metadata__contains={reg_name: req_field_data})
                             repeated_list = base_list.filter(uq)
                             if repeated_list.count() > 0:
-                                LOGGER.error("register error. unique field "\
-                                    "named '%(reg_name)r' with content '%(req_field_data)r'"\
-                                    "is repeated on '%(repeated)r'" %\
-                                    dict(reg_name=reg_name,req_field_data=req_field_data, repeated=repeated_list[0]))
+                                LOGGER.error(\
+                                    "Email.register error\n"\
+                                    "unique field named '%r' with content '%r' is repeated on '%r'\n"\
+                                    "authevent '%r'\n"\
+                                    "request '%r'\n"\
+                                    "Stack trace: \n%r",\
+                                    reg_name, req_field_data, repeated_list[0],\
+                                    ae, request, stack_trace_str())
                                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
             # user needs to exist
             if user_found is None:
-                LOGGER.error("register error. user not found for query "\
-                    "'%(q)r'" % dict(q=q))
+                LOGGER.error(\
+                    "Email.register error\n"\
+                    "user not found for query '%r'",\
+                    "authevent '%r'\n"\
+                    "request '%r'\n"\
+                    "Stack trace: \n%r",\
+                    q, ae, request, stack_trace_str())
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
             for reg_empty_field in reg_fill_empty_fields:
@@ -444,9 +532,13 @@ class Email:
         else:
             msg_exist = exist_user(req, ae, get_repeated=True)
             if msg_exist:
-                LOGGER.error("register error. User already exists. request "\
-                    "'%(req)r', authevent '%(ae)r', error msg '%(error)r'" %\
-                    dict(req=req, ae=ae, error=msg_exist))
+                LOGGER.error(\
+                    "Email.register error\n"\
+                    "User already exists '%r'\n"\
+                    "authevent '%r'\n"\
+                    "request '%r'\n"\
+                    "Stack trace: \n%r",\
+                    msg_exist, ae, request, stack_trace_str())
                 return self.error("Incorrect data", error_codename="invalid_credentials")
             else:
                 u = create_user(req, ae, active)
@@ -461,10 +553,17 @@ class Email:
             # sending the code in here
             return {'status': 'ok'}
 
-        LOGGER.debug("register. Sending (email) codes to user id '%(uid)r', "\
-            "client ip '%(ip)r'" % dict(uid=u.id, ip=get_client_ip(request)))
+        response = {'status': 'ok'}
         send_codes.apply_async(args=[[u.id,], get_client_ip(request),'email'])
-        return {'status': 'ok'}
+        LOGGER.debug(\
+            "Email.register.\n"\
+            "Sent (email) codes to user id '%r'"\
+            "client ip '%r'\n"\
+            "authevent '%r'\n"\
+            "request '%r'\n"\
+            "Stack trace: \n%r",\
+            u.id, get_client_ip(request), ae, request, stack_trace_str())
+        return response
 
     def authenticate_error(self):
         d = {'status': 'nok'}
@@ -472,7 +571,7 @@ class Email:
 
     def authenticate(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
-        LOGGER.debug("authenticate request '%(req)r'" % dict(req=req))
+        LOGGER.debug("Email.authenticate request '%(req)r'" % dict(req=req))
         msg = ''
         email = req.get('email')
         if isinstance(email, str):

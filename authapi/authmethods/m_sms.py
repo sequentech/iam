@@ -14,6 +14,7 @@
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
+import logging
 from django.conf import settings
 from django.conf.urls import url
 from django.db.models import Q
@@ -29,6 +30,7 @@ from contracts.base import check_contract, JsonTypeEncoder
 from contracts import CheckException
 from authmethods.utils import *
 
+LOGGER = logging.getLogger('authapi')
 
 class Sms:
     DESCRIPTION = 'Provides authentication using an SMS code.'
@@ -243,6 +245,7 @@ class Sms:
 
     def error(self, msg, error_codename):
         d = {'status': 'nok', 'msg': msg, 'error_codename': error_codename}
+        LOGGER.error("Sms.error\nerror '%r'", d)
         return d
 
     def check_config(self, config):
@@ -252,6 +255,8 @@ class Sms:
             check_contract(self.CONFIG_CONTRACT, config)
             return ''
         except CheckException as e:
+            LOGGER.error("Sms.check_config error\nerror '%r'\nconfig '%r'",
+                         e, config)
             return json.dumps(e.data, cls=JsonTypeEncoder)
 
     def census(self, ae, request):
@@ -288,6 +293,9 @@ class Sms:
                 u = create_user(r, ae, True)
                 give_perms(u, ae)
         if msg and validation:
+            LOGGER.error("Sms.census error\nrequest '%r'\nresponse '%r'"\
+                         "\nvalidation '%r'\nmsg '%r'", req, data, validation,
+                         msg)
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         if validation:
@@ -296,6 +304,8 @@ class Sms:
                 # the pipeline
                 u = create_user(r, ae, True)
                 give_perms(u, ae)
+        LOGGER.debug("Sms.census\nrequest '%r'\nresponse '%r'\nvalidation "\
+                     "'%r'\nmsg '%r'", req, data, validation, msg)
         return data
 
     def register(self, ae, request):
@@ -303,6 +313,8 @@ class Sms:
 
         msg = check_pipeline(request, ae)
         if msg:
+            LOGGER.error("Sms.register error\nerror '%r'\nauthevent '%r'"\
+                         "\nrequest '%r'", msg, ae, request)
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         # create the user as active? Usually yes, but the execute_pipeline call inside
@@ -335,6 +347,8 @@ class Sms:
         msg += check_field_value(self.tlf_definition, tlf)
         msg += check_fields_in_request(req, ae)
         if msg:
+            LOGGER.error("Sms.register error\nerror '%r'\nauthevent '%r'"\
+                         "\nrequest '%r'", msg, ae, request)
             return self.error("Incorrect data", error_codename="invalid_credentials")
         # get active from req, this value might have changed in check_fields_in_requests
         active = req.pop('active')
@@ -351,6 +365,11 @@ class Sms:
             # if the tlf is not a match field, and there already is a user
             # with that tlf, reject the registration request
             if not match_tlf and User.objects.filter(userdata__tlf=tlf, userdata__event=ae, is_active=True).count() > 0:
+                LOGGER.error("Sms.register error\ntlf is not a match field and"\
+                    " there already is a user with that tlf\nerror '%r'\nuser "\
+                    "'%r'\nauthevent '%r'\nrequest '%r'", msg, 
+                    User.objects.filter(userdata__tlf=tlf, userdata__event=ae, is_active=True)[0],
+                    ae, request)
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
             # lookup in the database if there's any user with the match fields
