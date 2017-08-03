@@ -556,13 +556,13 @@ class Email:
                 msg, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
         elif not active:
-           LOGGER.debug(\
-               "Email.register.\n"\
-               "user id '%r' is not active, message NOT sent\n"\
-               "authevent '%r'\n"\
-               "request '%r'\n"\
-               "Stack trace: \n%s",\
-               u.id, ae, req, stack_trace_str())
+            LOGGER.debug(\
+                "Email.register.\n"\
+                "user id '%r' is not active, message NOT sent\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                u.id, ae, req, stack_trace_str())
             # Note, we are not calling to extend_send_sms because we are not
             # sending the code in here
             return {'status': 'ok'}
@@ -634,8 +634,9 @@ class Email:
                 email, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
+        successful_logins_count = u.userdata.successful_logins.filter(is_active=True).count()
         if (ae.num_successful_logins_allowed > 0 and
-            u.userdata.successful_logins.filter(is_active=True).count() >= ae.num_successful_logins_allowed):
+            successful_logins_count >= ae.num_successful_logins_allowed):
             LOGGER.error(\
                 "Email.authenticate error\n"\
                 "Maximum number of revotes already reached for user '%r'\n"\
@@ -645,8 +646,8 @@ class Email:
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
                 u.userdata,\
-                u.userdata.successful_logins.filter(is_active=True).count(),\
-                ae.num_successful_logins_allowed),\
+                successful_logins_count,\
+                ae.num_successful_logins_allowed,\
                 ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 

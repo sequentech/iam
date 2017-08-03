@@ -559,13 +559,13 @@ class Sms:
         elif not active:
             # Note, we are not calling to extend_send_sms because we are not
             # sending the code in here
-           LOGGER.debug(\
-               "Sms.register.\n"\
-               "user id '%r' is not active, message NOT sent\n"\
-               "authevent '%r'\n"\
-               "request '%r'\n"\
-               "Stack trace: \n%s",\
-               u.id, ae, req, stack_trace_str())
+            LOGGER.debug(\
+                "Sms.register.\n"\
+                "user id '%r' is not active, message NOT sent\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                u.id, ae, req, stack_trace_str())
             return {'status': 'ok'}
 
         result = plugins.call("extend_send_sms", ae, 1)
@@ -628,8 +628,9 @@ class Sms:
                 tlf, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
+        successful_logins_count =  u.userdata.successful_logins.filter(is_active=True).count()
         if (ae.num_successful_logins_allowed > 0 and
-            u.userdata.successful_logins.filter(is_active=True).count() >= ae.num_successful_logins_allowed):
+            successful_logins_count >= ae.num_successful_logins_allowed):
             LOGGER.error(\
                 "Sms.authenticate error\n"\
                 "Maximum number of revotes already reached for user '%r'\n"\
@@ -639,14 +640,14 @@ class Sms:
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
                 u.userdata,\
-                u.userdata.successful_logins.filter(is_active=True).count(),\
-                ae.num_successful_logins_allowed),\
+                successful_logins_count,\
+                ae.num_successful_logins_allowed,\
                 ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         code = Code.objects.filter(user=u.userdata,
                 code=req.get('code').upper()).order_by('-created').first()
-        if not code:
+        if not code:            
             LOGGER.error(\
                 "Sms.authenticate error\n"\
                 "Code not found on db for user '%r'\n"\
