@@ -257,7 +257,7 @@ class Email:
             LOGGER.error(\
                 "Email.check_config error\n"\
                 "CheckException '%r'\n"\
-                "Stack trace: \n%r",\
+                "Stack trace: \n%s",\
                 e,\
                 stack_trace_str())
             return json.dumps(e.data, cls=JsonTypeEncoder)
@@ -291,7 +291,7 @@ class Email:
                         "request '%r'\n"\
                         "validation '%r'\n"\
                         "authevent '%r'\n"\
-                        "Stack trace: \n%r",\
+                        "Stack trace: \n%s",\
                         msg, req, validation, ae, stack_trace_str())
                     msg = ''
                     continue
@@ -309,7 +309,7 @@ class Email:
                 "request '%r'\n"\
                 "validation '%r'\n"\
                 "authevent '%r'\n"\
-                "Stack trace: \n%r",\
+                "Stack trace: \n%s",\
                 msg, req, validation, ae, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
@@ -327,7 +327,7 @@ class Email:
             "validation '%r'\n"\
             "authevent '%r'\n"\
             "returns '%r'\n"\
-            "Stack trace: \n%r",\
+            "Stack trace: \n%s",\
             req, validation, ae, ret, stack_trace_str())
         return ret
 
@@ -345,7 +345,7 @@ class Email:
                 "pipeline check error'%r'\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
-                "Stack trace: \n%r",\
+                "Stack trace: \n%s",\
                 msg, ae, request, stack_trace_str())
             return msg
 
@@ -383,7 +383,7 @@ class Email:
                 "Fields check error '%r'"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
-                "Stack trace: \n%r",\
+                "Stack trace: \n%s",\
                 msg, ae, request, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
         # get active from req, this value might have changed in check_fields_in_requests
@@ -406,9 +406,9 @@ class Email:
                     "email is not a match field, and there already is a user with email '%r'\n"\
                     "authevent '%r'\n"\
                     "request '%r'\n"\
-                    "Stack trace: \n%r",\
+                    "Stack trace: \n%s",\
                     email,\
-                    already_user=User.objects.filter(email=email, userdata__event=ae, is_active=True)[0],\
+                    User.objects.filter(email=email, userdata__event=ae, is_active=True)[0],\
                     ae,\
                     request,\
                     stack_trace_str())
@@ -432,7 +432,7 @@ class Email:
                          "'name' not in match field '%r'\n"\
                          "authevent '%r'\n"\
                          "request '%r'\n"\
-                         "Stack trace: \n%r",\
+                         "Stack trace: \n%s",\
                          reg_match_field, ae, request, stack_trace_str())
                      return self.error("Incorrect data", error_codename="invalid_credentials")
                  req_field_data = req.get(reg_name)
@@ -444,7 +444,7 @@ class Email:
                          "match field '%r' missing in request '%r'\n"\
                          "authevent '%r'\n"\
                          "request '%r'\n"\
-                         "Stack trace: \n%r",\
+                         "Stack trace: \n%s",\
                          reg_name, req, ae, request, stack_trace_str())
                      return self.error("Incorrect data", error_codename="invalid_credentials")
 
@@ -459,7 +459,7 @@ class Email:
                          "'name' not in empty field '%r'\n"\
                          "authevent '%r'\n"\
                          "request '%r'\n"\
-                         "Stack trace: \n%r",\
+                         "Stack trace: \n%s",\
                          reg_empty_field, ae, request, stack_trace_str())
                      return self.error("Incorrect data", error_codename="invalid_credentials")
                  # Note: the register query _must_ contain a value for these fields
@@ -474,7 +474,7 @@ class Email:
                          "req[reg_name] '%r'\n"\
                          "authevent '%r'\n"\
                          "request '%r'\n"\
-                         "Stack trace: \n%r",\
+                         "Stack trace: \n%s",\
                          reg_name, (reg_name in req), req[reg_name], ae,\
                          request, stack_trace_str())
                      return self.error("Incorrect data", error_codename="invalid_credentials")
@@ -504,7 +504,7 @@ class Email:
                                     "unique field named '%r' with content '%r' is repeated on '%r'\n"\
                                     "authevent '%r'\n"\
                                     "request '%r'\n"\
-                                    "Stack trace: \n%r",\
+                                    "Stack trace: \n%s",\
                                     reg_name, req_field_data, repeated_list[0],\
                                     ae, request, stack_trace_str())
                                 return self.error("Incorrect data", error_codename="invalid_credentials")
@@ -516,7 +516,7 @@ class Email:
                     "user not found for query '%r'",\
                     "authevent '%r'\n"\
                     "request '%r'\n"\
-                    "Stack trace: \n%r",\
+                    "Stack trace: \n%s",\
                     q, ae, request, stack_trace_str())
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
@@ -537,7 +537,7 @@ class Email:
                     "User already exists '%r'\n"\
                     "authevent '%r'\n"\
                     "request '%r'\n"\
-                    "Stack trace: \n%r",\
+                    "Stack trace: \n%s",\
                     msg_exist, ae, request, stack_trace_str())
                 return self.error("Incorrect data", error_codename="invalid_credentials")
             else:
@@ -561,7 +561,7 @@ class Email:
             "client ip '%r'\n"\
             "authevent '%r'\n"\
             "request '%r'\n"\
-            "Stack trace: \n%r",\
+            "Stack trace: \n%s",\
             u.id, get_client_ip(request), ae, request, stack_trace_str())
         return response
 
