@@ -15,8 +15,6 @@
 
 import json
 import logging
-import inspect
-import traceback
 from django.conf import settings
 from django.conf.urls import url
 from django.db.models import Q
@@ -31,13 +29,9 @@ from . import register_method
 from contracts.base import check_contract, JsonTypeEncoder
 from contracts import CheckException
 from authmethods.utils import *
+from utils import stack_trace_str
 
 LOGGER = logging.getLogger('authapi')
-
-def stack_trace_str():
-  frame = inspect.currentframe()
-  stack_trace = traceback.format_stack(frame)
-  return "\n".join(stack_trace[:-1])
 
 class Sms:
     DESCRIPTION = 'Provides authentication using an SMS code.'

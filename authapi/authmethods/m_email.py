@@ -15,8 +15,6 @@
 
 import json
 import logging
-import inspect
-import traceback
 from django.conf import settings
 from django.conf.urls import url
 from django.contrib.auth.models import User
@@ -28,13 +26,9 @@ from api.models import AuthEvent
 from contracts.base import check_contract, JsonTypeEncoder
 from contracts import CheckException
 from authmethods.models import Code
+from utils import stack_trace_str
 
 LOGGER = logging.getLogger('authapi')
-
-def stack_trace_str():
-  frame = inspect.currentframe()
-  stack_trace = traceback.format_stack(frame)
-  return "\n".join(stack_trace[:-1])
 
 class Email:
     DESCRIPTION = 'Register by email. You need to confirm your email.'
@@ -258,8 +252,7 @@ class Email:
                 "Email.check_config error\n"\
                 "CheckException '%r'\n"\
                 "Stack trace: \n%s",\
-                e,\
-                stack_trace_str())
+                e, stack_trace_str())
             return json.dumps(e.data, cls=JsonTypeEncoder)
 
     def census(self, ae, request):
