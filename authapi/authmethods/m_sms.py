@@ -575,7 +575,7 @@ class Sms:
             return self.error("Incorrect data", error_codename="invalid_credentials")
         response = {'status': 'ok'}
         send_codes.apply_async(args=[[u.id,], get_client_ip(request),'sms'])
-        LOGGER.debug(\
+        LOGGER.info(\
             "Sms.register.\n"\
             "Sending (sms) codes to user id '%r'"\
             "client ip '%r'\n"\
@@ -758,7 +758,7 @@ class Sms:
                 result, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
         send_codes.apply_async(args=[[u.id,], get_client_ip(request),'sms'])
-        LOGGER.debug(\
+        LOGGER.info(\
             "Sms.resend_auth_code.\n"\
             "Sending (sms) codes to user id '%r'"\
             "client ip '%r'\n"\

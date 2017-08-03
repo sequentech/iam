@@ -562,7 +562,7 @@ class Email:
 
         response = {'status': 'ok'}
         send_codes.apply_async(args=[[u.id,], get_client_ip(request),'email'])
-        LOGGER.debug(\
+        LOGGER.info(\
             "Email.register.\n"\
             "Sending (email) codes to user id '%r'"\
             "client ip '%r'\n"\

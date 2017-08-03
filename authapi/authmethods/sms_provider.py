@@ -104,7 +104,7 @@ class TestSMSProvider(SMSProvider):
             receiver=receiver, 
             is_audio=is_audio
         )
-        LOGGER.debug(\
+        LOGGER.info(\
             "TestSMSProvider.send_sms\n"\
             "sending message '%r'\n"\
             "to '%r'\n"\
@@ -119,7 +119,7 @@ class ConsoleSMSProvider(SMSProvider):
         pass
 
     def send_sms(self, receiver, content, is_audio):
-        LOGGER.debug(\
+        LOGGER.info(\
             "ConsoleSMSProvider.send_sms\n"\
             "sending message '%r'\n"\
             "to '%r'\n"\
@@ -170,7 +170,7 @@ class AltiriaSMSProvider(SMSProvider):
         r = requests.post(self.url, data=data, headers=self.headers)
 
         ret = self.parse_response(r)
-        LOGGER.debug(\
+        LOGGER.info(\
             "AltiriaSMSProvider.send_sms\n"\
             "sending message '%r'\n"\
             "to '%r'\n"\
@@ -193,7 +193,7 @@ class AltiriaSMSProvider(SMSProvider):
         r = requests.post(self.url, data=data, headers=self.headers)
 
         ret = self.parse_response(r)
-        LOGGER.debug(\
+        LOGGER.info(\
             "AltiriaSMSProvider.get_credit\n"\
             "data '%r'\n"\
             "r '%r'\n"\
@@ -324,7 +324,7 @@ class EsendexSMSProvider(SMSProvider):
             raise Exception(
                 'error sending:\n\tdata=%s\t\nret=\t%s' % (str(data), str(ret))
             )
-        LOGGER.debug(\
+        LOGGER.info(\
             "EsendexSMSProvider.send_sms\n"\
             "sending message '%r'\n"\
             "to '%r'\n"\
