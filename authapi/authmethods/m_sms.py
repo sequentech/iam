@@ -515,7 +515,7 @@ class Sms:
             if user_found is None:
                 LOGGER.error(\
                     "Sms.register error\n"\
-                    "user not found for query '%r'",\
+                    "user not found for query '%r'"\
                     "authevent '%r'\n"\
                     "request '%r'\n"\
                     "Stack trace: \n%s",\
