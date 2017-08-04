@@ -20,8 +20,9 @@ import requests
 import logging
 import xmltodict
 from django.conf import settings
+from utils import stack_trace_str
 
-LOGGER = logging.getLogger('authapi.notify')
+LOGGER = logging.getLogger('authapi')
 
 class SMSProvider(object):
     '''
@@ -97,15 +98,19 @@ class TestSMSProvider(SMSProvider):
         pass
 
     def send_sms(self, receiver, content, is_audio):
-        LOGGER.info("sending message '%(msg)s' to '%(dest)s' "
-            "(is_audio=%(is_audio)s)" % dict(
-                msg=content, dest=receiver, is_audio=str(is_audio)))
         TestSMSProvider.sms_count += 1
         TestSMSProvider.last_sms = dict(
             content=content, 
             receiver=receiver, 
             is_audio=is_audio
         )
+        LOGGER.info(\
+            "TestSMSProvider.send_sms\n"\
+            "sending message '%r'\n"\
+            "to '%r'\n"\
+            "is_audio '%r'\n"\
+            "Stack trace: \n%s",\
+            content, receiver, is_audio, stack_trace_str())
             
 class ConsoleSMSProvider(SMSProvider):
     provider_name = "console"
@@ -114,9 +119,13 @@ class ConsoleSMSProvider(SMSProvider):
         pass
 
     def send_sms(self, receiver, content, is_audio):
-        LOGGER.info("sending message '%(msg)s' to '%(dest)s' "
-            "(is_audio=%(is_audio)s)" % dict(
-                msg=content, dest=receiver, is_audio=str(is_audio)))
+        LOGGER.info(\
+            "ConsoleSMSProvider.send_sms\n"\
+            "sending message '%r'\n"\
+            "to '%r'\n"\
+            "is_audio '%r'\n"\
+            "Stack trace: \n%s",\
+            content, receiver, is_audio, stack_trace_str())
 
 
 class AltiriaSMSProvider(SMSProvider):
@@ -158,11 +167,19 @@ class AltiriaSMSProvider(SMSProvider):
             'senderId': self.sender_id
         }
 
-        LOGGER.debug("sending message.." + str(data))
         r = requests.post(self.url, data=data, headers=self.headers)
 
         ret = self.parse_response(r)
-        LOGGER.debug(ret)
+        LOGGER.info(\
+            "AltiriaSMSProvider.send_sms\n"\
+            "sending message '%r'\n"\
+            "to '%r'\n"\
+            "is_audio '%r'\n"\
+            "data '%r'\n"\
+            "r '%r'\n"\
+            "ret '%r'\n"\
+            "Stack trace: \n%s",\
+            content, receiver, is_audio, data, r, ret, stack_trace_str())
         return ret
 
     def get_credit(self):
@@ -176,7 +193,13 @@ class AltiriaSMSProvider(SMSProvider):
         r = requests.post(self.url, data=data, headers=self.headers)
 
         ret = self.parse_response(r)
-        LOGGER.debug(ret)
+        LOGGER.info(\
+            "AltiriaSMSProvider.get_credit\n"\
+            "data '%r'\n"\
+            "r '%r'\n"\
+            "ret '%r'\n"\
+            "Stack trace: \n%s",\
+            data, r, ret, stack_trace_str())
         return ret
 
     def parse_response(self, response):
@@ -211,6 +234,14 @@ class AltiriaSMSProvider(SMSProvider):
         result = {'response': response}
         result['lines'] = lines
 
+        LOGGER.debug(\
+            "AltiriaSMSProvider.parse_response\n"\
+            "data '%r'\n"\
+            "nonEmpty '%r'\n"\
+            "lines '%r'\n"\
+            "result '%r'\n"\
+            "Stack trace: \n%s",\
+            data, nonEmpty, lines, result, stack_trace_str())
         return result
 
 
@@ -275,15 +306,34 @@ class EsendexSMSProvider(SMSProvider):
             body=content,
             sender=self.sender_id,
             extra=extra)
-        LOGGER.debug("sending message.." + str(data))
         r = requests.post(self.url, data=data, headers=self.headers, auth=self.auth)
 
         ret = self.parse_response(r)
-        LOGGER.debug(ret)
         if 'error' in ret:
+            LOGGER.error(\
+                "EsendexSMSProvider.send_sms error\n"\
+                "'error' in ret\n"\
+                "message '%r'\n"\
+                "to '%r'\n"\
+                "is_audio '%r'\n"\
+                "data '%r'\n"\
+                "r '%r'\n"\
+                "ret '%r'\n"\
+                "Stack trace: \n%s",\
+                content, receiver, is_audio, data, r, ret, stack_trace_str())
             raise Exception(
                 'error sending:\n\tdata=%s\t\nret=\t%s' % (str(data), str(ret))
             )
+        LOGGER.info(\
+            "EsendexSMSProvider.send_sms\n"\
+            "sending message '%r'\n"\
+            "to '%r'\n"\
+            "is_audio '%r'\n"\
+            "data '%r'\n"\
+            "r '%r'\n"\
+            "ret '%r'\n"\
+            "Stack trace: \n%s",\
+            content, receiver, is_audio, data, r, ret, stack_trace_str())
         return ret
 
     def parse_response(self, response):
@@ -298,4 +348,10 @@ class EsendexSMSProvider(SMSProvider):
                 'error': response.text
             }
 
+        LOGGER.debug(\
+            "EsendexSMSProvider.parse_response\n"\
+            "response '%r'\n"\
+            "ret '%r'\n"\
+            "Stack trace: \n%s",\
+            response, ret, stack_trace_str())
         return ret

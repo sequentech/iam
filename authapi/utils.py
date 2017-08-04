@@ -24,6 +24,8 @@ import time
 import six
 import re
 from logging import getLogger
+import inspect
+import traceback
 
 from djcelery import celery
 from django.core.validators import URLValidator
@@ -49,6 +51,12 @@ RE_SPLIT_SORT = re.compile('__sort')
 RE_INT = re.compile('^\d+$')
 RE_BOOL = re.compile('^(true|false)$')
 LOGGER = getLogger('authapi.notify')
+
+
+def stack_trace_str():
+  frame = inspect.currentframe()
+  stack_trace = traceback.format_stack(frame)
+  return "\n".join(stack_trace[:-1])
 
 @unique
 class ErrorCodes(IntEnum):
