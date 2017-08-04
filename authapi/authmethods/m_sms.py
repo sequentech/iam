@@ -254,10 +254,16 @@ class Sms:
         return d
 
     def check_config(self, config):
-        """ Check config when create auth-event. """
+        """ Check config when creating auth-event. """
         msg = ''
         try:
             check_contract(self.CONFIG_CONTRACT, config)
+            LOGGER.debug(\
+                "Sms.check_config success\n"\
+                "config '%r'\n"\
+                "returns ''\n"
+                "Stack trace: \n%s",\
+                config, stack_trace_str())
             return ''
         except CheckException as e:
             LOGGER.error(\
@@ -430,6 +436,7 @@ class Sms:
                          "request '%r'\n"\
                          "Stack trace: \n%s",\
                          reg_match_field, ae, req, stack_trace_str())
+                     return self.error("Incorrect data", error_codename="invalid_credentials")
                  req_field_data = req.get(reg_name)
                  if reg_name and req_field_data:
                      q = q & Q(userdata__metadata__contains={reg_name: req_field_data})
@@ -455,6 +462,7 @@ class Sms:
                          "request '%r'\n"\
                          "Stack trace: \n%s",\
                          reg_empty_field, ae, req, stack_trace_str())
+                     return self.error("Incorrect data", error_codename="invalid_credentials")
                  # Note: the register query _must_ contain a value for these fields
                  if reg_name and reg_name in req and req[reg_name]:
                      q = q & Q(userdata__metadata__contains={reg_name: ""})

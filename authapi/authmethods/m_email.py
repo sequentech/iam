@@ -246,13 +246,20 @@ class Email:
         msg = ''
         try:
             check_contract(self.CONFIG_CONTRACT, config)
+            LOGGER.debug(\
+                "Email.check_config success\n"\
+                "config '%r'\n"\
+                "returns ''\n"
+                "Stack trace: \n%s",\
+                config, stack_trace_str())
             return ''
         except CheckException as e:
             LOGGER.error(\
                 "Email.check_config error\n"\
-                "CheckException '%r'\n"\
+                "error '%r'\n"\
+                "config '%r'\n"\
                 "Stack trace: \n%s",\
-                e, stack_trace_str())
+                e, config, stack_trace_str())
             return json.dumps(e.data, cls=JsonTypeEncoder)
 
     def census(self, ae, request):
