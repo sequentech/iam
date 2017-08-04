@@ -248,7 +248,7 @@ class SmsOtp:
         d = {'status': 'nok', 'msg': msg, 'error_codename': error_codename}
         LOGGER.error(\
             "SmsOtp.error\n"\
-            "error '%r'"\
+            "error '%r'\n"\
             "Stack trace: \n%s",\
             d, stack_trace_str())
         return d
@@ -261,7 +261,7 @@ class SmsOtp:
             LOGGER.debug(\
                 "SmsOtp.check_config success\n"\
                 "config '%r'\n"\
-                "returns ''\n"
+                "returns ''\n"\
                 "Stack trace: \n%s",\
                 config, stack_trace_str())
             return ''
@@ -383,7 +383,7 @@ class SmsOtp:
                 "SmsOtp.register error\n"\
                 "error '%r'\n"\
                 "authevent '%r'\n"\
-                "request '%r'"\
+                "request '%r'\n"\
                 "Stack trace: \n%s",\
                 msg, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
@@ -514,7 +514,7 @@ class SmsOtp:
             if user_found is None:
                 LOGGER.error(\
                     "SmsOtp.register error\n"\
-                    "user not found for query '%r'"\
+                    "user not found for query '%r'\n"\
                     "authevent '%r'\n"\
                     "request '%r'\n"\
                     "Stack trace: \n%s",\
@@ -622,7 +622,7 @@ class SmsOtp:
                 "SmsOtp.authenticate error\n"\
                 "user not found with these characteristics: tlf '%r'\n"\
                 "authevent '%r'\n"\
-                "is_active True"\
+                "is_active True\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
                 tlf, ae, req, stack_trace_str())
@@ -635,7 +635,7 @@ class SmsOtp:
                 "SmsOtp.authenticate error\n"\
                 "Maximum number of revotes already reached for user '%r'\n"\
                 "revotes for user '%r'\n"\
-                "maximum allowed '%r'"\
+                "maximum allowed '%r'\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
@@ -710,7 +710,7 @@ class SmsOtp:
 
         LOGGER.debug(\
             "SmsOtp.authenticate success\n"\
-            "returns '%r'"\
+            "returns '%r'\n"\
             "authevent '%r'\n"\
             "request '%r'\n"\
             "Stack trace: \n%s",\
@@ -781,7 +781,7 @@ class SmsOtp:
         send_codes.apply_async(args=[[u.id,], get_client_ip(request),'sms'])
         LOGGER.info(\
             "SmsOtp.resend_auth_code.\n"\
-            "Sending (sms) codes to user id '%r'"\
+            "Sending (sms) codes to user id '%r'\n"\
             "client ip '%r'\n"\
             "authevent '%r'\n"\
             "request '%r'\n"\

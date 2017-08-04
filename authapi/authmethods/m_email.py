@@ -249,7 +249,7 @@ class Email:
             LOGGER.debug(\
                 "Email.check_config success\n"\
                 "config '%r'\n"\
-                "returns ''\n"
+                "returns ''\n"\
                 "Stack trace: \n%s",\
                 config, stack_trace_str())
             return ''
@@ -333,6 +333,11 @@ class Email:
 
     def error(self, msg, error_codename):
         d = {'status': 'nok', 'msg': msg, 'error_codename': error_codename}
+        LOGGER.error(\
+            "Email.error\n"\
+            "error '%r'\n"\
+            "Stack trace: \n%s",\
+            d, stack_trace_str())
         return d
 
     def register(self, ae, request):
@@ -514,7 +519,7 @@ class Email:
             if user_found is None:
                 LOGGER.error(\
                     "Email.register error\n"\
-                    "user not found for query '%r'"\
+                    "user not found for query '%r'\n"\
                     "authevent '%r'\n"\
                     "request '%r'\n"\
                     "Stack trace: \n%s",\
@@ -628,7 +633,7 @@ class Email:
                 "Email.authenticate error\n"\
                 "user not found with these characteristics: email '%r'\n"\
                 "authevent '%r'\n"\
-                "is_active True"\
+                "is_active True\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
                 email, ae, req, stack_trace_str())
@@ -641,7 +646,7 @@ class Email:
                 "Email.authenticate error\n"\
                 "Maximum number of revotes already reached for user '%r'\n"\
                 "revotes for user '%r'\n"\
-                "maximum allowed '%r'"\
+                "maximum allowed '%r'\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
