@@ -32,6 +32,7 @@ from contracts import CheckException
 from authmethods.utils import *
 from utils import stack_trace_str
 
+LOGGER = logging.getLogger('authapi')
 
 class SmsOtp:
     DESCRIPTION = 'Provides authentication using an SMS code.'
