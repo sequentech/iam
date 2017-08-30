@@ -481,6 +481,8 @@ VALID_FIELDS = (
   'required_on_authentication',
   'unique',
   'private',
+  'required_when_registered',
+  'user_editable',
   'register-pipeline',
   'authenticate-pipeline',
   # match_census_on_registration can be True or False. It is used for
