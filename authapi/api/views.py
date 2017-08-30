@@ -856,6 +856,8 @@ class UserView(View):
         if userdata is None:
             userdata = get_object_or_404(UserData, pk=pk)
         data = userdata.serialize()
+        metadata = userdata.serialize_metadata()
+        data['metadata'] = metadata
         extend_info = plugins.call("extend_user_info", userdata.user)
         if extend_info:
             for info in extend_info:
