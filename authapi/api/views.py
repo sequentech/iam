@@ -874,13 +874,12 @@ class UserExtraView(View):
         permission_required(user, 'AuthEvent', 'create')
 
         try:
-            req = parse_json_request(request)
+            new_metadata = parse_json_request(request)
         except:
             return json_response(
                 status=400,
                 error_codename=ErrorCodes.BAD_REQUEST)
 
-        new_metadata = req.get('metadata', '')
         if not new_metadata:
             return json_response(
                 status=400,
