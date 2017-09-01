@@ -1570,7 +1570,7 @@ class TestUserExtra(TestCase):
                 "pipeline": Email.PIPELINES
         }
         self.admin_ae = AuthEvent.objects.get(pk=1)
-        self.admin_ae.extra_fields = extra_fields16
+        self.admin_ae.extra_fields = test_data.extra_fields16
         self.admin_ae.save()
 
         ae = AuthEvent(auth_method=test_data.auth_event12['auth_method'],
