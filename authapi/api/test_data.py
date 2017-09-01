@@ -425,6 +425,11 @@ auth_event15 = {
    ]
 }
 
+userdata_metadata16 = {
+  "dni": "1234567L",
+  "company name": "Agora Voting S.L"
+}
+
 # Users
 admin = {'username': 'john', 'email': 'john@agoravoting.com', 'password': 'smith'}
 
