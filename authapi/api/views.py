@@ -864,6 +864,70 @@ class UserView(View):
 user = login_required(UserView.as_view())
 
 
+class UserExtraView(View):
+    def post(self, request):
+        ''' Edit user. Only can change userdata's metadata. '''
+        pk = request.user.pk
+        user = request.user
+
+        permission_required(user, 'UserData', 'edit', pk)
+        permission_required(user, 'AuthEvent', 'create')
+
+        try:
+            new_metadata = parse_json_request(request)
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        if not new_metadata:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        userdata = request.user.userdata
+        if userdata is None:
+            userdata = get_object_or_404(UserData, pk=pk)
+
+        aeid = settings.ADMIN_AUTH_ID
+        ae = AuthEvent.objects.get(pk=aeid)
+        aes = ae.serialize_restrict()
+
+        editable = set([
+          f.get('name')
+          for f in aes.get('extra_fields', [])
+          if f.get('user_editable', False)
+        ])
+
+        for key, value in new_metadata.items():
+            if key not in editable:
+                return json_response(
+                    status=400,
+                    error_codename=ErrorCodes.BAD_REQUEST)
+            userdata.metadata[key] = value
+
+        userdata.save()
+        data = {'status': 'ok'}
+        return json_response(data)
+
+    def get(self, request):
+        ''' Get user info '''
+        pk = request.user.pk
+        userdata = request.user.userdata
+        permission_required(request.user, 'UserData', 'edit', pk)
+        if userdata is None:
+            userdata = get_object_or_404(UserData, pk=pk)
+        data = userdata.serialize()
+        metadata = userdata.serialize_metadata()
+        data['metadata'] = metadata
+        extend_info = plugins.call("extend_user_info", userdata.user)
+        if extend_info:
+            for info in extend_info:
+                data.update(info.serialize())
+        return json_response(data)
+user_extra = login_required(UserExtraView.as_view())
+
+
 class UserResetPwd(View):
     ''' Reset password. '''
     def post(self, request):

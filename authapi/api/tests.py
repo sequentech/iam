@@ -1558,6 +1558,105 @@ class TestSlugMessages(TestCase):
         self.assertTrue('slug' in r['events']['extra_fields'][0])
         self.assertEqual("NO_DE__SOCIO", r['events']['extra_fields'][0]['slug'])
 
+
+class TestUserExtra(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        from authmethods.m_email import Email
+        auth_method_config = {
+                "config": Email.CONFIG,
+                "pipeline": Email.PIPELINES
+        }
+        self.admin_aeid = settings.ADMIN_AUTH_ID
+        self.admin_ae = AuthEvent.objects.get(pk=self.admin_aeid)
+        self.admin_ae.extra_fields = test_data.extra_fields16
+        self.admin_ae.save()
+
+        ae = AuthEvent(auth_method=test_data.auth_event12['auth_method'],
+                auth_method_config=auth_method_config,
+                extra_fields=test_data.auth_event12['extra_fields'],
+                status='started', census=test_data.auth_event12['census'])
+        ae.save()
+        self.ae = ae
+        self.aeid = ae.pk
+
+        u_admin = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u_admin.set_password(test_data.admin['password'])
+        u_admin.save()
+        u_admin.userdata.event = ae
+        u_admin.userdata.save()
+        self.uid_admin = u_admin.id
+
+        acl = ACL(user=u_admin.userdata, object_type='AuthEvent', perm='edit',
+            object_id=self.aeid)
+        acl.save()
+
+        u = User(username='test', email=test_data.auth_email_default['email'])
+        u.save()
+        u.userdata.event = ae
+        u.userdata.metadata = test_data.userdata_metadata16
+        u.userdata.save()
+        self.u = u.userdata
+        self.uid = u.id
+
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='view',
+            object_id=self.admin_aeid)
+        acl.save()
+
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit',
+            object_id=self.aeid)
+        acl.save()
+        acl = ACL(user=u.userdata, object_type='UserData', perm='edit',
+            object_id=self.uid)
+        acl.save()
+
+        c = Code(user=u.userdata, code=test_data.auth_email_default['code'], auth_event_id=ae.pk)
+        c.save()
+        self.code = c
+
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='create', object_id=0)
+        acl.save()
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_user_extra_get(self):
+        c = JClient()
+        res_auth = c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.census(self.aeid, test_data.census_email12)
+        self.assertEqual(response.status_code, 200)
+        response = c.get('/api/user/extra/', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['metadata'], test_data.userdata_metadata16)
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_user_extra_post(self):
+        c = JClient()
+        res_auth = c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.census(self.aeid, test_data.census_email12)
+        self.assertEqual(response.status_code, 200)
+        meta_changes = {
+           'dni': '123X'
+        }
+        response = c.post('/api/user/extra/', meta_changes)
+        self.assertEqual(response.status_code, 200)
+        meta_changes2 = {
+           'other': '123X'
+        }
+        response = c.post('/api/user/extra/', meta_changes2)
+        self.assertEqual(response.status_code, 400)
+        response = c.get('/api/user/extra/', {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['metadata']['dni'], meta_changes['dni'])
+        self.assertEqual(r['metadata']['company name'], test_data.userdata_metadata16['company name'])
+
+
 class TestCallback(TestCase):
     def setUpTestData():
         flush_db_load_fixture()

@@ -191,6 +191,18 @@ class UserData(models.Model):
             d['tlf'] = self.tlf
         return d
 
+    def serialize_metadata(self):
+        d = {}
+        if self.metadata:
+            if type(self.metadata) == str:
+                metadata = json.loads(self.metadata)
+                if type(metadata) == str:
+                    metadata = json.loads(metadata)
+            else:
+                metadata = self.metadata
+            d.update(metadata)
+        return d
+
     def serialize_data(self):
         d = self.serialize()
         del d['username']

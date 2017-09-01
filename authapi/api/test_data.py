@@ -425,6 +425,40 @@ auth_event15 = {
    ]
 }
 
+userdata_metadata16 = {
+  "dni": "1234567L",
+  "company name": "Agora Voting S.L"
+}
+
+extra_fields16 = [
+  {
+    "name": "dni",
+    "type": "text",
+    "required": False,
+    "min": 1,
+    "required_on_authentication": False,
+    "user_editable": True
+  },
+  {
+    "name": "company name",
+    "type": "text",
+    "required": False,
+    "min": 1,
+    "required_on_authentication": False,
+    "required_when_registered": True,
+    "user_editable": True
+  },
+  {
+    "name": "other",
+    "type": "text",
+    "required": False,
+    "min": 1,
+    "required_on_authentication": False,
+    "required_when_registered": False,
+    "user_editable": False
+  }
+]
+
 # Users
 admin = {'username': 'john', 'email': 'john@agoravoting.com', 'password': 'smith'}
 
