@@ -1569,6 +1569,10 @@ class TestUserExtra(TestCase):
                 "config": Email.CONFIG,
                 "pipeline": Email.PIPELINES
         }
+        self.admin_ae = AuthEvent.objects.get(pk=1)
+        self.admin_ae.extra_fields = extra_fields16
+        self.admin_ae.save()
+
         ae = AuthEvent(auth_method=test_data.auth_event12['auth_method'],
                 auth_method_config=auth_method_config,
                 extra_fields=test_data.auth_event12['extra_fields'],
@@ -1636,6 +1640,11 @@ class TestUserExtra(TestCase):
         }
         response = c.post('/api/user/extra/', meta_changes)
         self.assertEqual(response.status_code, 200)
+        meta_changes2 = {
+           'other': '123X'
+        }
+        response = c.post('/api/user/extra/', meta_changes2)
+        self.assertEqual(response.status_code, 400)
         response = c.get('/api/user/extra/', {})
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
