@@ -889,7 +889,32 @@ class UserExtraView(View):
         if userdata is None:
             userdata = get_object_or_404(UserData, pk=pk)
 
+        aeid = settings.ADMIN_AUTH_ID
+        ae = AuthEvent.objects.get(pk=pk)
+
+        if not (user.is_authenticated() and
+            permission_required(
+                user,
+                'AuthEvent',
+                ['edit', 'view'],
+                ae.id,
+                return_bool=True)):
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        aes = ae.serialize()
+        editable = set([
+          f.get('name')
+          for f in aes.get('extra_fields', [])
+          if f.get('is_editable', False)
+        ])
+
         for key, value in new_metadata.items():
+            if key not in editable:
+                return json_response(
+                    status=400,
+                    error_codename=ErrorCodes.BAD_REQUEST)
             userdata.metadata[key] = value
 
         userdata.save()
