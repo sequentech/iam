@@ -436,7 +436,8 @@ extra_fields16 = [
     "type": "text",
     "required": False,
     "min": 1,
-    "required_on_authentication": False
+    "required_on_authentication": False,
+    "user_editable": True
   },
   {
     "name": "company name",

@@ -890,13 +890,13 @@ class UserExtraView(View):
             userdata = get_object_or_404(UserData, pk=pk)
 
         aeid = settings.ADMIN_AUTH_ID
-        ae = AuthEvent.objects.get(pk=pk)
+        ae = AuthEvent.objects.get(pk=aeid)
 
         if not (user.is_authenticated() and
             permission_required(
                 user,
                 'AuthEvent',
-                ['edit', 'view'],
+                ['view'],
                 ae.id,
                 return_bool=True)):
             return json_response(
@@ -907,7 +907,7 @@ class UserExtraView(View):
         editable = set([
           f.get('name')
           for f in aes.get('extra_fields', [])
-          if f.get('is_editable', False)
+          if f.get('user_editable', False)
         ])
 
         for key, value in new_metadata.items():

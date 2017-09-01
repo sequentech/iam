@@ -1569,7 +1569,8 @@ class TestUserExtra(TestCase):
                 "config": Email.CONFIG,
                 "pipeline": Email.PIPELINES
         }
-        self.admin_ae = AuthEvent.objects.get(pk=1)
+        self.admin_aeid = settings.ADMIN_AUTH_ID
+        self.admin_ae = AuthEvent.objects.get(pk=self.admin_aeid)
         self.admin_ae.extra_fields = test_data.extra_fields16
         self.admin_ae.save()
 
@@ -1599,6 +1600,10 @@ class TestUserExtra(TestCase):
         u.userdata.save()
         self.u = u.userdata
         self.uid = u.id
+
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='view',
+            object_id=self.admin_aeid)
+        acl.save()
 
         acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit',
             object_id=self.aeid)
