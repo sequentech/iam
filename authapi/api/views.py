@@ -891,19 +891,8 @@ class UserExtraView(View):
 
         aeid = settings.ADMIN_AUTH_ID
         ae = AuthEvent.objects.get(pk=aeid)
+        aes = ae.serialize_restrict()
 
-        if not (user.is_authenticated() and
-            permission_required(
-                user,
-                'AuthEvent',
-                ['view'],
-                ae.id,
-                return_bool=True)):
-            return json_response(
-                status=400,
-                error_codename=ErrorCodes.BAD_REQUEST)
-
-        aes = ae.serialize()
         editable = set([
           f.get('name')
           for f in aes.get('extra_fields', [])
