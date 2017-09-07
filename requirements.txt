@@ -29,6 +29,7 @@ setuptools==28.8.0
 simplegeneric==0.8.1
 six==1.10.0
 traitlets==4.2.1
+twilio==6.6.1
 uWSGI==2.0.13.1
 xmltodict==0.10.2
 git+git://github.com/wadobo/suds.git

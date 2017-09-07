@@ -21,6 +21,7 @@ import logging
 import xmltodict
 from django.conf import settings
 from utils import stack_trace_str
+from twilio.rest import Client
 
 LOGGER = logging.getLogger('authapi')
 
@@ -77,6 +78,8 @@ class SMSProvider(object):
         Instance the SMS provider specified in the app config
         '''
         provider = settings.SMS_PROVIDER
+        if provider == "twilio":
+            return TwilioSMSProvider()
         if provider == "altiria":
             return AltiriaSMSProvider()
         if provider == "esendex":
@@ -355,3 +358,86 @@ class EsendexSMSProvider(SMSProvider):
             "Stack trace: \n%s",\
             response, ret, stack_trace_str())
         return ret
+
+class TwilioSMSProvider(SMSProvider):
+    '''
+    Esendex SMS Provider
+    '''
+
+    provider_name = "twilio"
+    HTTP_OK = 200
+
+    # credentials, read from app config
+    # this corresponds to the  <accountreference>
+    domain_id = None
+    login = None
+    password = None
+    url = None
+    # sets the <from> field
+    sender_id = None
+    client = None
+
+    # template xml
+    msg_template = """<?xml version='1.0' encoding='UTF-8'?>
+        <messages>
+        <accountreference>%(accountreference)s</accountreference>
+        <message>
+        <type>%(msg_type)s</type>
+        %(extra)s
+        <to>%(to)s</to>
+        <body>%(body)s</body>
+        <from>%(sender)s</from>
+        </message>
+        </messages>"""
+
+    def __init__(self):
+        self.domain_id = settings.SMS_DOMAIN_ID
+        self.login = settings.SMS_LOGIN
+        self.password = settings.SMS_PASSWORD
+        self.url = settings.SMS_URL
+        self.sender_id = settings.SMS_SENDER_ID
+        self.lang_code = settings.SMS_VOICE_LANG_CODE
+
+        self.auth = (self.login, self.password)
+        self.client = Client(self.login, self.password)
+
+    def send_sms(self, receiver, content, is_audio):
+        try:
+           msg_type = 'SMS'
+           extra = ""
+           data = self.msg_template % dict(
+               accountreference=self.domain_id,
+               msg_type=msg_type,
+               to=receiver,
+               body=content,
+               sender=self.sender_id,
+               extra=extra)
+            p = self.client.messages.create(
+                to=receiver,
+                from_=self.sender_id,
+                body=content)
+          except:
+            q = sys.exc_info()[0]
+            print("Unexpected error:", q.msg)
+            LOGGER.error(\
+                "TwilioSMSProvider.send_sms error\n"\
+                "'error' in ret\n"\
+                "message '%r'\n"\
+                "to '%r'\n"\
+                "is_audio '%r'\n"\
+                "data '%r'\n"\
+                "error '%r'\n"\
+                "Stack trace: \n%s",\
+                content, receiver, is_audio, data, q.__dict__, stack_trace_str())
+            raise Exception(
+                'error sending:\n\tdata=%s\t\nret=\t%s' % (str(data), str(ret))
+            )
+        LOGGER.info(\
+            "TwilioSMSProvider.send_sms\n"\
+            "sending message '%r'\n"\
+            "to '%r'\n"\
+            "is_audio '%r'\n"\
+            "data '%r'\n"\
+            "value '%r'\n"\
+            "Stack trace: \n%s",\
+            content, receiver, is_audio, data, p.__dict__, stack_trace_str())
