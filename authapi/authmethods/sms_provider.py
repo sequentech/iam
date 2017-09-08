@@ -396,7 +396,80 @@ class TwilioSMSProvider(SMSProvider):
         self.password = settings.SMS_PASSWORD
         self.url = settings.SMS_URL
         self.sender_id = settings.SMS_SENDER_ID
+        self.sender_number = settings.SMS_SENDER_NUMBER
         self.lang_code = settings.SMS_VOICE_LANG_CODE
+        self.no_alphanumeric_countrycodes = [
+          '93',   # Afghanistan
+          '213',  # Algeria
+          '54',   # Argentina
+          '994',  # Azerbaijan
+          '880',  # Bangladesh
+          '32',   # Belgium
+          '55',   # Brazil
+          '1',    # Canada
+          '1345', # Cayman Islands
+          '56',   # Chile
+          '86',   # China
+          '54',   # Colombia
+          '242',  # Congo
+          '243',  # Congo D.R.
+          '506',  # Costa Rica
+          '385',  # Croatia
+          '246',  # Diego García
+          '1809', # Dominican Republic
+          '1829', # Dominican Republic
+          '1849', # Dominican Republic
+          '593',  # Ecuador
+          '503',  # El Salvador
+          '594',  # French Guiana
+          '233',  # Ghana
+          '1671', # Guam
+          '502',  # Guatemala
+          '36',   # Hungary
+          '98',   # Iran
+          '964',  # Iraq
+          '76',   # Kazakhstan
+          '77',   # Kazakhstan
+          '254',  # Kenya
+          '965',  # Kuwait
+          '996',  # Kyrgyzstan
+          '856',  # Laos PDR
+          '60',   # Malaysia
+          '223',  # Mali
+          '52',   # Mexico
+          '337',  # Monaco
+          '212',  # Morocco
+          '258',  # Mozambique
+          '95',   # Myanmar
+          '264',  # Namibia
+          '674',  # Nauru
+          '977',  # Nepal
+          '64',   # New Zealand
+          '505',  # Nicaragua
+          '92',   # Pakistan
+          '507',  # Panama
+          '970',  # Palestinian Territory
+          '51',   # Peru
+          '1787', # Puerto Rico
+          '1939', # Puerto Rico
+          '974',  # Qatar
+          '40',   # Romania
+          '27',   # South Africa
+          '94',   # Sri Lanka
+          '963',  # Syria
+          '886',  # Taiwan
+          '216',  # Tunisia
+          '90',   # Turkey
+          '1',    # United States
+          '598',  # Uruguay
+          '58',   # Venezuela
+          '84'    # Vietnam
+        ]
+        # if there is a match bewteen the receiver and this regex, we can't use
+        # alphanumeric sender ids
+        self.regex_blacklist = "^(\+|00)(" + "|".join(self.) + ")[0-9]+$"
+        # regex used to check whether sender id is alphanumeric
+        self.regex_senderid = "^(\+|00)[0-9]+$"
 
         self.auth = (self.login, self.password)
         self.client = Client(self.login, self.password)
@@ -405,16 +478,22 @@ class TwilioSMSProvider(SMSProvider):
         try:
            msg_type = 'SMS'
            extra = ""
+           if (None == re.match(self.regex_blacklist, receiver) or\
+               None != re.match(self.regex_senderid, self.sender_id)):
+               from_ = self.sender_id
+           else:
+               from_ = self.sender_number
+
            data = self.msg_template % dict(
                accountreference=self.domain_id,
                msg_type=msg_type,
                to=receiver,
                body=content,
-               sender=self.sender_id,
+               sender=from_,
                extra=extra)
             p = self.client.messages.create(
                 to=receiver,
-                from_=self.sender_id,
+                from_=from_,
                 body=content)
           except:
             q = sys.exc_info()[0]
@@ -424,11 +503,12 @@ class TwilioSMSProvider(SMSProvider):
                 "'error' in ret\n"\
                 "message '%r'\n"\
                 "to '%r'\n"\
+                "from '%r'\n"\
                 "is_audio '%r'\n"\
                 "data '%r'\n"\
                 "error '%r'\n"\
                 "Stack trace: \n%s",\
-                content, receiver, is_audio, data, q.__dict__, stack_trace_str())
+                content, receiver, from_, is_audio, data, q.__dict__, stack_trace_str())
             raise Exception(
                 'error sending:\n\tdata=%s\t\nret=\t%s' % (str(data), str(ret))
             )
@@ -436,8 +516,9 @@ class TwilioSMSProvider(SMSProvider):
             "TwilioSMSProvider.send_sms\n"\
             "sending message '%r'\n"\
             "to '%r'\n"\
+            "from '%r'\n"\
             "is_audio '%r'\n"\
             "data '%r'\n"\
             "value '%r'\n"\
             "Stack trace: \n%s",\
-            content, receiver, is_audio, data, p.__dict__, stack_trace_str())
+            content, receiver, from_, is_audio, data, p.__dict__, stack_trace_str())
