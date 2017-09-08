@@ -467,7 +467,7 @@ class TwilioSMSProvider(SMSProvider):
         ]
         # if there is a match bewteen the receiver and this regex, we can't use
         # alphanumeric sender ids
-        self.regex_blacklist = "^(\+|00)(" + "|".join(self.) + ")[0-9]+$"
+        self.regex_blacklist = "^(\+|00)(" + "|".join(self.no_alphanumeric_countrycodes) + ")[0-9]+$"
         # regex used to check whether sender id is alphanumeric
         self.regex_senderid = "^(\+|00)[0-9]+$"
 
