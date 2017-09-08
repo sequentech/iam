@@ -495,7 +495,7 @@ class TwilioSMSProvider(SMSProvider):
                     to=receiver,\
                     from_=from_,\
                     body=content)
-          except:
+        except:
             q = sys.exc_info()[0]
             print("Unexpected error:", q.msg)
             LOGGER.error(\
@@ -509,9 +509,9 @@ class TwilioSMSProvider(SMSProvider):
                 "error '%r'\n"\
                 "Stack trace: \n%s",\
                 content, receiver, from_, is_audio, data, q.__dict__, stack_trace_str())
-            raise Exception(
-                'error sending:\n\tdata=%s\t\nret=\t%s' % (str(data), str(ret))
-            )
+            raise Exception(\
+                'error sending:\n\tdata=%s\t\nret=\t%s' % (str(data), str(ret)))
+
         LOGGER.info(\
             "TwilioSMSProvider.send_sms\n"\
             "sending message '%r'\n"\
