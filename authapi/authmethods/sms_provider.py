@@ -476,25 +476,25 @@ class TwilioSMSProvider(SMSProvider):
 
     def send_sms(self, receiver, content, is_audio):
         try:
-           msg_type = 'SMS'
-           extra = ""
-           if (None == re.match(self.regex_blacklist, receiver) or\
-               None != re.match(self.regex_senderid, self.sender_id)):
-               from_ = self.sender_id
-           else:
-               from_ = self.sender_number
+            msg_type = 'SMS'
+            extra = ""
+            if (None == re.match(self.regex_blacklist, receiver) or\
+                None != re.match(self.regex_senderid, self.sender_id)):
+                from_ = self.sender_id
+            else:
+                from_ = self.sender_number
 
-           data = self.msg_template % dict(
-               accountreference=self.domain_id,
-               msg_type=msg_type,
-               to=receiver,
-               body=content,
-               sender=from_,
-               extra=extra)
-            p = self.client.messages.create(
+            data = self.msg_template % dict(
+                accountreference=self.domain_id,
+                msg_type=msg_type,
                 to=receiver,
-                from_=from_,
-                body=content)
+                body=content,
+                sender=from_,
+                extra=extra)
+            p = self.client.messages.create(\
+                    to=receiver,\
+                    from_=from_,\
+                    body=content)
           except:
             q = sys.exc_info()[0]
             print("Unexpected error:", q.msg)
