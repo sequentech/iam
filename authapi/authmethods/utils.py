@@ -119,7 +119,7 @@ def check_ip_whitelisted(data):
 
     ip_addr = data['ip_addr']
     try:
-        item = ColorList.objects.filter(key=ColorList.KEY_IP, value=ip_addr,
+        item = ColorList.objects.filter(key=ColorList.KEY_IP, value=ip_addr[:15],
                                         auth_event_id=data['auth_event'].id)
         for item in items:
             if item.action == ColorList.ACTION_WHITELIST:
@@ -166,7 +166,7 @@ def check_ip_blacklisted(data):
 
     ip_addr = data['ip_addr']
     try:
-        item = ColorList.objects.filter(key=ColorList.KEY_IP, value=ip_addr,
+        item = ColorList.objects.filter(key=ColorList.KEY_IP, value=ip_addr[:15],
                 action=ColorList.ACTION_BLACKLIST,
                 auth_event_id=data['auth_event'].id)[0]
         return error("Blacklisted", error_codename="blacklisted")
@@ -196,7 +196,7 @@ def check_tlf_total_max(data, **kwargs):
 
     if len(item) >= total_max:
         c1 = ColorList(action=ColorList.ACTION_BLACKLIST,
-                       key=ColorList.KEY_IP, value=ip_addr,
+                       key=ColorList.KEY_IP, value=ip_addr[:15],
                        auth_event_id=data['auth_event'].id)
         c1.save()
         c2 = ColorList(action=ColorList.ACTION_BLACKLIST,
@@ -221,17 +221,17 @@ def check_ip_total_max(data, **kwargs):
     if period:
         time_threshold = timezone.now() - timedelta(seconds=period)
         item = Message.objects.filter(
-            ip=ip_addr,
+            ip=ip_addr[:15],
             created__gt=time_threshold,
             auth_event_id=data['auth_event'].id)
     else:
         item = Message.objects.filter(
-            ip=ip_addr,
+            ip=ip_addr[:15],
             auth_event_id=data['auth_event'].id)
 
     if len(item) >= total_max:
         cl = ColorList(action=ColorList.ACTION_BLACKLIST,
-                       key=ColorList.KEY_IP, value=ip_addr,
+                       key=ColorList.KEY_IP, value=ip_addr[:15],
                        auth_event_id=data['auth_event'].id)
         cl.save()
         return error("Blacklisted", error_codename="blacklisted")
