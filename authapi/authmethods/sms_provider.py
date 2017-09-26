@@ -16,6 +16,7 @@
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
 import re
+import sys
 import requests
 import logging
 import xmltodict
@@ -497,7 +498,8 @@ class TwilioSMSProvider(SMSProvider):
                     body=content)
         except:
             q = sys.exc_info()[0]
-            print("Unexpected error:", q.msg)
+            if hasattr(q, "msg"):
+                print("Unexpected error:", q.msg)
             LOGGER.error(\
                 "TwilioSMSProvider.send_sms error\n"\
                 "'error' in ret\n"\

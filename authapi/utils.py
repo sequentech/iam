@@ -289,6 +289,7 @@ def send_sms_code(receiver, msg):
         LOGGER.info('SMS sent: \n%s: %s', receiver, msg)
     except Exception as error:
         LOGGER.error('SMS NOT sent: \n%s: %s, error message %s', receiver, msg, str(error.args))
+        LOGGER.error(error)
 
 def template_replace_data(templ, data):
     '''
@@ -406,7 +407,7 @@ def send_code(user, ip, config=None, auth_method_override=None):
 
     if auth_method in ["sms", "sms-otp"]:
         send_sms_code(receiver, msg)
-        m = Message(tlf=receiver, ip=ip, auth_event_id=event_id)
+        m = Message(tlf=receiver, ip=ip[:15], auth_event_id=event_id)
         m.save()
     else: # email
         # TODO: Allow HTML messages for emails
