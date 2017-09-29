@@ -410,11 +410,13 @@ class TwilioSMSProvider(SMSProvider):
           '1345', # Cayman Islands
           '56',   # Chile
           '86',   # China
-          '54',   # Colombia
+          '57',   # Colombia
           '242',  # Congo
           '243',  # Congo D.R.
           '506',  # Costa Rica
           '385',  # Croatia
+          '53',   # Cuba
+          '420',  # Czech Republic
           '246',  # Diego García
           '1809', # Dominican Republic
           '1829', # Dominican Republic
@@ -426,8 +428,11 @@ class TwilioSMSProvider(SMSProvider):
           '1671', # Guam
           '502',  # Guatemala
           '36',   # Hungary
+          '91',   # India
+          '62',   # Indonesia
           '98',   # Iran
           '964',  # Iraq
+          '962',  # Jordan
           '76',   # Kazakhstan
           '77',   # Kazakhstan
           '254',  # Kenya
@@ -446,20 +451,25 @@ class TwilioSMSProvider(SMSProvider):
           '977',  # Nepal
           '64',   # New Zealand
           '505',  # Nicaragua
+          '968',  # Oman
           '92',   # Pakistan
           '507',  # Panama
           '970',  # Palestinian Territory
           '51',   # Peru
+          '63',   # Philippines
           '1787', # Puerto Rico
           '1939', # Puerto Rico
           '974',  # Qatar
           '40',   # Romania
+          '7',    # Russia
+          '966',  # Saudi Arabia
           '27',   # South Africa
           '94',   # Sri Lanka
           '963',  # Syria
           '886',  # Taiwan
           '216',  # Tunisia
           '90',   # Turkey
+          '971',  # United Arab Emirates
           '1',    # United States
           '598',  # Uruguay
           '58',   # Venezuela
@@ -500,7 +510,6 @@ class TwilioSMSProvider(SMSProvider):
             print("Unexpected error:", q.msg)
             LOGGER.error(\
                 "TwilioSMSProvider.send_sms error\n"\
-                "'error' in ret\n"\
                 "message '%r'\n"\
                 "to '%r'\n"\
                 "from '%r'\n"\
@@ -510,7 +519,7 @@ class TwilioSMSProvider(SMSProvider):
                 "Stack trace: \n%s",\
                 content, receiver, from_, is_audio, data, q.__dict__, stack_trace_str())
             raise Exception(\
-                'error sending:\n\tdata=%s\t\nret=\t%s' % (str(data), str(ret)))
+                'error sending:\n\tdata=%s\t\nerror=\t%s' % (str(data), str(q.__dict__)))
 
         LOGGER.info(\
             "TwilioSMSProvider.send_sms\n"\
