@@ -64,6 +64,7 @@ class AuthEvent(models.Model):
         ]
     )
     based_in = models.IntegerField(null=True) # auth_event_id
+    allow_user_resend = models.BooleanField(default=False)
 
     def serialize(self, restrict=False):
         '''
@@ -84,7 +85,8 @@ class AuthEvent(models.Model):
                         else self.created),
             'real': self.real,
             'based_in': self.based_in,
-            'num_successful_logins_allowed': self.num_successful_logins_allowed
+            'num_successful_logins_allowed': self.num_successful_logins_allowed,
+            'allow_user_resend': self.allow_user_resend
         }
 
         def none_list(e):
@@ -101,8 +103,9 @@ class AuthEvent(models.Model):
                 'admin_fields': [
                     f for f in none_list(self.admin_fields)
                         if not f.get('private', True)
-                ]
+                ],
             })
+             
         else:
             d.update({
                 'extra_fields': self.extra_fields,
