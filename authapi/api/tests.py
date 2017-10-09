@@ -767,7 +767,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.register(self.aeid, test_data.register_email_default)
         self.assertEqual(response.status_code, 200)
 
-        data = test_data.register_email_default.copy()
+        data = test_data.auth_email_default.copy()
         # bad: self.aeid.census = close
         self.ae.census = 'close'
         self.ae.save()
@@ -812,7 +812,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         # good
         self.u.user.is_active = True
         self.u.user.save()
-        response = c.authenticate(self.aeid, test_data.auth_sms_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
         self.assertEqual(response.status_code, 200)
 
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
