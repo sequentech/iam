@@ -761,6 +761,70 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         c.save()
         self.code = c
 
+    @override_settings(CELERY_ALWAYS_EAGER=True)
+    def test_register_and_resend_code(self):
+        c = JClient()
+        response = c.register(self.aeid, test_data.register_email_default)
+        self.assertEqual(response.status_code, 200)
+
+        data = test_data.register_email_default.copy()
+        # bad: self.aeid.census = close
+        self.ae.census = 'close'
+        self.ae.save()
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['error_codename'], 'AUTH_EVENT_NOT_STARTED')
+
+        # good: self.aeid.census = close but allow_user_resend = True
+        self.ae.auth_method_config['config']['allow_user_resend'] = True
+        self.ae.save()
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(response.status_code, 200)
+
+        # bad: self.aeid.census = open and status != started
+        self.ae.auth_method_config['config']['allow_user_resend'] = False
+        self.ae.census = 'open'
+        self.ae.status = 'stopped'
+        self.ae.save()
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['error_codename'], 'AUTH_EVENT_NOT_STARTED')
+
+        # bad: invalid credentials
+        self.ae.status = 'started'
+        self.ae.save()
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, {})
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
+
+        # bad: problem user inactive
+        self.u.user.is_active = False
+        self.u.user.save()
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
+
+        # good
+        self.u.user.is_active = True
+        self.u.user.save()
+        response = c.authenticate(self.aeid, test_data.auth_sms_default)
+        self.assertEqual(response.status_code, 200)
+
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(response.status_code, 200)
+
+        # good
+        self.ae.auth_method_config['config']['allow_user_resend'] = True
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(response.status_code, 200)
+
     def test_add_census_authevent_email_default(self):
         c = JClient()
         c.authenticate(self.aeid, test_data.auth_email_default)
@@ -1165,7 +1229,15 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['error_codename'], 'AUTH_EVENT_NOT_STARTED')
 
+        # good: self.aeid.census = close but allow_user_resend = True
+        self.ae.auth_method_config['config']['allow_user_resend'] = True
+        self.ae.save()
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(response.status_code, 200)
+
         # bad: self.aeid.census = open and status != started
+        self.ae.auth_method_config['config']['allow_user_resend'] = False
         self.ae.census = 'open'
         self.ae.status = 'stopped'
         self.ae.save()
@@ -1196,6 +1268,12 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.authenticate(self.aeid, test_data.auth_sms_default)
         self.assertEqual(response.status_code, 200)
 
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(response.status_code, 200)
+
+        # good
+        self.ae.auth_method_config['config']['allow_user_resend'] = True
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(response.status_code, 200)
