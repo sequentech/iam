@@ -651,8 +651,6 @@ class AuthEventView(View):
             if type(num_successful_logins_allowed) is not int:
                 msg += "num_successful_logins_allowed invalid type"
 
-            allow_user_resend = req.get('allow_user_resend', False)
-
             if msg:
                 return json_response(
                     status=400,
@@ -669,8 +667,7 @@ class AuthEventView(View):
                            census=census,
                            real=real,
                            num_successful_logins_allowed=num_successful_logins_allowed,
-                           based_in=based_in,
-                           allow_user_resend=allow_user_resend)
+                           based_in=based_in)
             # Save before the acl creation to get the ae id
             ae.save()
             acl = ACL(user=request.user.userdata, perm='edit', object_type='AuthEvent',

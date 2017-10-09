@@ -42,7 +42,8 @@ class Email:
         'authentication-action': {
             'mode': 'vote',
             'mode-config': None,
-        }
+        },
+        'allow_user_resend': False
     }
     PIPELINES = {
         'give_perms': [
@@ -70,7 +71,7 @@ class Email:
         'type': dict
       },
       {
-        'check': 'dict-keys-exact',
+        'check': 'dict-keys-exist',
         'keys': ['msg', 'subject', 'registration-action', 'authentication-action']
       },
       {
