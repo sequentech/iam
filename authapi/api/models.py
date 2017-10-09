@@ -67,7 +67,7 @@ class AuthEvent(models.Model):
     
     # will return true if allow_user_resend is defined and it's True,
     # false otherwise
-    def check_allow_user_resend():
+    def check_allow_user_resend(self):
        return isinstance(self.auth_method_config, dict) and\
            isinstance(self.auth_method_config.get('config', None), dict) and\
            True == self.auth_method_config['config'].get('allow_user_resend', None)
