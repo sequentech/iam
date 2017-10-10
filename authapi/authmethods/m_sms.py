@@ -44,7 +44,8 @@ class Sms:
         'authentication-action': {
             'mode': 'vote',
             'mode-config': None,
-        }
+        },
+        'allow_user_resend': False
     }
     PIPELINES = {
         'give_perms': [
@@ -87,7 +88,7 @@ class Sms:
         'type': dict
       },
       {
-        'check': 'dict-keys-exact',
+        'check': 'dict-keys-exist',
         'keys': ['msg', 'registration-action', 'authentication-action']
       },
       {

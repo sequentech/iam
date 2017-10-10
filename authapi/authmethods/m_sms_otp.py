@@ -45,7 +45,8 @@ class SmsOtp:
         'authentication-action': {
             'mode': 'vote',
             'mode-config': None,
-        }
+        },
+        'allow_user_resend': False
     }
     PIPELINES = {
         'give_perms': [
@@ -88,7 +89,7 @@ class SmsOtp:
         'type': dict
       },
       {
-        'check': 'dict-keys-exact',
+        'check': 'dict-keys-exist',
         'keys': ['msg', 'registration-action', 'authentication-action']
       },
       {
