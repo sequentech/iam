@@ -343,6 +343,10 @@ class Email:
     def register(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
 
+        user_exists_codename = ("user_exists" \
+                                if True == settings.SHOW_ALREADY_REGISTERED \
+                                else "invalid_credentials")
+
         msg = check_pipeline(request, ae)
         if msg:
             LOGGER.error(\
@@ -417,7 +421,7 @@ class Email:
                     ae,\
                     req,\
                     stack_trace_str())
-                return self.error("Incorrect data", error_codename="invalid_credentials")
+                return self.error("Incorrect data", error_codename=user_exists_codename)
 
             # lookup in the database if there's any user with the match fields
             # NOTE: we assume reg_match_fields are unique in the DB and required
@@ -545,7 +549,7 @@ class Email:
                     "request '%r'\n"\
                     "Stack trace: \n%s",\
                     msg_exist, ae, req, stack_trace_str())
-                return self.error("Incorrect data", error_codename="invalid_credentials")
+                return self.error("Incorrect data", error_codename=user_exists_codename)
             else:
                 u = create_user(req, ae, active)
                 msg += give_perms(u, ae)
