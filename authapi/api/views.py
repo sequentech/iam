@@ -380,7 +380,8 @@ class Register(View):
             return json_response(
                 status=400,
                 error_codename="REGISTER_IS_DISABLED")
-        if e.census == 'open' and e.status != 'started': # register is closing
+        # registration is closed
+        if e.census == 'open' and e.status != 'started':
             return json_response(
                 status=400,
                 error_codename="AUTH_EVENT_NOT_STARTED")
@@ -400,11 +401,12 @@ class ResendAuthCode(View):
 
     def post(self, request, pk):
         e = get_object_or_404(AuthEvent, pk=pk)
-        if (e.census == 'close'):
+        if (e.census == 'close' and not e.check_allow_user_resend()):
             return json_response(
                 status=400,
                 error_codename="AUTH_EVENT_NOT_STARTED")
-        if e.census == 'open' and e.status != 'started': # register is closing
+        # registration is closed
+        if (e.census == 'open' or e.check_allow_user_resend()) and e.status != 'started': 
             return json_response(
                 status=400,
                 error_codename="AUTH_EVENT_NOT_STARTED")

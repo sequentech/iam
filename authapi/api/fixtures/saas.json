@@ -37,7 +37,7 @@
           }
       ],
       "auth_method": "sms",
-      "auth_method_config": "{\"config\":{\"authentication-action\":{ \"mode\":\"\" },\"msg\":\"Authenticate in __URL__ with code __CODE__\"},\"pipeline\":{\"authenticate-pipeline\":[],\"register-pipeline\":[[\"check_whitelisted\",{\"field\":\"tlf\"}],[\"check_whitelisted\",{\"field\":\"ip\"}],[\"check_blacklisted\",{\"field\":\"ip\"}],[\"check_blacklisted\",{\"field\":\"tlf\"}],[\"check_total_max\",{\"max\":8,\"field\":\"ip\"}],[\"check_total_max\",{\"max\":7,\"field\":\"tlf\"}],[\"check_total_max\",{\"max\":5,\"period\":1440,\"field\":\"tlf\"}]],\"give_perms\":[{\"object_id\":\"UserDataId\",\"perms\":[\"edit\"],\"object_type\":\"UserData\"},{\"object_id\":\"0\",\"perms\":[\"create\"],\"object_type\":\"AuthEvent\"}]}}",
+      "auth_method_config": "{\"config\":{\"allow_user_resend\": true, \"authentication-action\":{ \"mode\":\"\" },\"msg\":\"Authenticate in __URL__ with code __CODE__\"},\"pipeline\":{\"authenticate-pipeline\":[],\"register-pipeline\":[[\"check_whitelisted\",{\"field\":\"tlf\"}],[\"check_whitelisted\",{\"field\":\"ip\"}],[\"check_blacklisted\",{\"field\":\"ip\"}],[\"check_blacklisted\",{\"field\":\"tlf\"}],[\"check_total_max\",{\"max\":8,\"field\":\"ip\"}],[\"check_total_max\",{\"max\":7,\"field\":\"tlf\"}],[\"check_total_max\",{\"max\":5,\"period\":1440,\"field\":\"tlf\"}]],\"give_perms\":[{\"object_id\":\"UserDataId\",\"perms\":[\"edit\"],\"object_type\":\"UserData\"},{\"object_id\":\"0\",\"perms\":[\"create\"],\"object_type\":\"AuthEvent\"}]}}",
       "status": "started",
       "created": "2015-02-16T17:41:28+00:00"
     },
