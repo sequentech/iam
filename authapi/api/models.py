@@ -64,6 +64,13 @@ class AuthEvent(models.Model):
         ]
     )
     based_in = models.IntegerField(null=True) # auth_event_id
+    
+    # will return true if allow_user_resend is defined and it's True,
+    # false otherwise
+    def check_allow_user_resend(self):
+       return isinstance(self.auth_method_config, dict) and\
+           isinstance(self.auth_method_config.get('config', None), dict) and\
+           True == self.auth_method_config['config'].get('allow_user_resend', None)
 
     def serialize(self, restrict=False):
         '''
@@ -84,7 +91,12 @@ class AuthEvent(models.Model):
                         else self.created),
             'real': self.real,
             'based_in': self.based_in,
-            'num_successful_logins_allowed': self.num_successful_logins_allowed
+            'num_successful_logins_allowed': self.num_successful_logins_allowed,
+            'auth_method_config': {
+               'config': {
+                 'allow_user_resend': self.check_allow_user_resend()
+               }
+            }
         }
 
         def none_list(e):
@@ -103,6 +115,7 @@ class AuthEvent(models.Model):
                         if not f.get('private', True)
                 ]
             })
+             
         else:
             d.update({
                 'extra_fields': self.extra_fields,

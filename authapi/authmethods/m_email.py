@@ -42,7 +42,8 @@ class Email:
         'authentication-action': {
             'mode': 'vote',
             'mode-config': None,
-        }
+        },
+        'allow_user_resend': False
     }
     PIPELINES = {
         'give_perms': [
@@ -57,6 +58,12 @@ class Email:
         ],
         "authenticate-pipeline": [
             #['check_total_connection', {'times': 5 }],
+        ],
+        "resend-auth-pipeline": [
+            ["check_whitelisted", {"field": "ip"}],
+            ["check_blacklisted", {"field": "ip"}],
+            ["check_total_max", {"field": "ip", "period": 3600, "max": 10}],
+            ["check_total_max", {"field": "ip", "period": 3600*24, "max": 50}],
         ]
     }
     USED_TYPE_FIELDS = ['email']
@@ -70,7 +77,7 @@ class Email:
         'type': dict
       },
       {
-        'check': 'dict-keys-exact',
+        'check': 'dict-keys-exist',
         'keys': ['msg', 'subject', 'registration-action', 'authentication-action']
       },
       {
@@ -343,6 +350,10 @@ class Email:
     def register(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
 
+        user_exists_codename = ("user_exists" \
+                                if True == settings.SHOW_ALREADY_REGISTERED \
+                                else "invalid_credentials")
+
         msg = check_pipeline(request, ae)
         if msg:
             LOGGER.error(\
@@ -417,7 +428,7 @@ class Email:
                     ae,\
                     req,\
                     stack_trace_str())
-                return self.error("Incorrect data", error_codename="invalid_credentials")
+                return self.error("Incorrect data", error_codename=user_exists_codename)
 
             # lookup in the database if there's any user with the match fields
             # NOTE: we assume reg_match_fields are unique in the DB and required
@@ -545,7 +556,7 @@ class Email:
                     "request '%r'\n"\
                     "Stack trace: \n%s",\
                     msg_exist, ae, req, stack_trace_str())
-                return self.error("Incorrect data", error_codename="invalid_credentials")
+                return self.error("Incorrect data", error_codename=user_exists_codename)
             else:
                 u = create_user(req, ae, active)
                 msg += give_perms(u, ae)
@@ -700,5 +711,65 @@ class Email:
             "Stack trace: \n%s",\
             data, ae, req, stack_trace_str())
         return data
+
+    def resend_auth_code(self, ae, request):
+        req = json.loads(request.body.decode('utf-8'))
+
+        msg = ''
+        email = req.get('email')
+        if isinstance(email, str):
+            email = email.strip()
+            email = email.replace(" ", "")
+        msg += check_field_type(self.email_definition, email)
+        msg += check_field_value(self.email_definition, email)
+        if msg:
+            LOGGER.error(\
+                "Email.resend_auth_code error\n"\
+                "error '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, ae, req, stack_trace_str())
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+        try:
+            u = User.objects.get(email=email, userdata__event=ae, is_active=True)
+        except:
+            LOGGER.error(\
+                "Email.resend_auth_code error\n"\
+                "user not found with these characteristics: email '%r'\n"\
+                "authevent '%r'\n"\
+                "is_active True"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                email, ae, req, stack_trace_str())
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+
+        msg = check_pipeline(
+          request,
+          ae,
+          'resend-auth-pipeline',
+          Email.PIPELINES['resend-auth-pipeline'])
+
+        if msg:
+            LOGGER.error(\
+                "Email.resend_auth_code error\n"\
+                "check_pipeline error '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, ae, req, stack_trace_str())
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+
+        send_codes.apply_async(args=[[u.id,], get_client_ip(request),'email'])
+        LOGGER.info(\
+            "Email.resend_auth_code.\n"\
+            "Sending (email) codes to user id '%r'\n"\
+            "client ip '%r'\n"\
+            "authevent '%r'\n"\
+            "request '%r'\n"\
+            "Stack trace: \n%s",\
+            u.id, get_client_ip(request), ae, req, stack_trace_str())
+        return {'status': 'ok'}
+        
 
 register_method('email', Email)
