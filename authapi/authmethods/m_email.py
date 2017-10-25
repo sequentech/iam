@@ -27,6 +27,7 @@ from contracts.base import check_contract, JsonTypeEncoder
 from contracts import CheckException
 from authmethods.models import Code
 from utils import stack_trace_str
+from django.contrib.auth.signals import user_logged_in
 
 LOGGER = logging.getLogger('authapi')
 
@@ -692,6 +693,8 @@ class Email:
                 "Stack trace: \n%s",\
                 msg, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
+
+        user_logged_in.send(sender=u.__class__, request=request, user=u)
         u.save()
 
         data = {'status': 'ok'}
