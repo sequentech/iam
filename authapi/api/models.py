@@ -181,6 +181,7 @@ class UserData(models.Model):
     tlf = models.CharField(max_length=20, blank=True, null=True)
     metadata = fields.JSONField(default=dict(), blank=True, null=True, db_index=True)
     status = models.CharField(max_length=255, choices=STATUSES, default="act", db_index=True)
+    draft_election = fields.JSONField(default=dict(), blank=True, null=True, db_index=True)
 
     def get_perms(self, obj, permission, object_id=0):
         q = Q(object_type=obj, perm=permission)
@@ -192,6 +193,19 @@ class UserData(models.Model):
 
     def has_perms(self, obj, permission, object_id=0):
         return bool(self.get_perms(obj, permission, object_id).count())
+
+    def serialize_draft(self):
+        d = {}
+        if self.draft_election:
+            if type(self.draft_election) == str:
+                draft_election = json.loads(self.draft_election)
+                if type(draft_election) == str:
+                    draft_election = json.loads(draft_election)
+            else:
+                draft_election = self.draft_election
+            d.update(draft_election)
+        return d
+        
 
     def serialize(self):
         d = {
