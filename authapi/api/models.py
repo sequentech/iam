@@ -181,7 +181,7 @@ class UserData(models.Model):
     tlf = models.CharField(max_length=20, blank=True, null=True)
     metadata = fields.JSONField(default=dict(), blank=True, null=True, db_index=True)
     status = models.CharField(max_length=255, choices=STATUSES, default="act", db_index=True)
-    draft_election = fields.JSONField(default=dict(), blank=True, null=True, db_index=True)
+    draft_election = fields.JSONField(default=dict(), blank=True, null=True, db_index=False)
 
     def get_perms(self, obj, permission, object_id=0):
         q = Q(object_type=obj, perm=permission)

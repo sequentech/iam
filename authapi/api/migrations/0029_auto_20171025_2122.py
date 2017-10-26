@@ -17,16 +17,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='userdata',
             name='draft_election',
-            field=django.contrib.postgres.fields.jsonb.JSONField(blank=True, db_index=True, default={}, null=True),
-        ),
-        migrations.AlterField(
-            model_name='authevent',
-            name='admin_fields',
-            field=jsonfield.fields.JSONField(blank=True, null=True),
-        ),
-        migrations.AlterField(
-            model_name='userdata',
-            name='metadata',
-            field=django.contrib.postgres.fields.jsonb.JSONField(blank=True, db_index=True, default={}, null=True),
+            field=jsonfield.fields.JSONField(blank=True, db_index=False, default=[], null=True),
         ),
     ] 
