@@ -1083,13 +1083,15 @@ class Draft(View):
                 status=400,
                 error_codename=ErrorCodes.BAD_REQUEST)
 
-        pk = request.user.pk
-        if settings.ADMIN_AUTH_ID != pk:
+        user = request.user
+        userdata = request.user.userdata
+        authevent_pk = userdata.event.pk
+
+        if settings.ADMIN_AUTH_ID != authevent_pk:
             return json_response(
                 status=400,
                 error_codename=ErrorCodes.BAD_REQUEST)
-        userdata = request.user.userdata
-        user = request.user
+        pk = user.pk
         
         permission_required(user, 'UserData', 'edit', pk)
 
