@@ -50,7 +50,7 @@ urlpatterns = [
     url(r'^user/auth-event/$', views.user_auth_event, name='user_auth_event'),
     url(r'^user/reset-pwd/$', views.reset_pwd, name='reset_pwd'),
     url(r'^user/extra/$', views.user_extra, name='user_extra'),
-    url(r'^user/draft$', views.draft, name='draft'),
+    url(r'^user/draft/$', views.draft, name='draft'),
 
     url(r'^authmethod/(.*)/', authmethods_views.view),
     
