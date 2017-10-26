@@ -1069,11 +1069,39 @@ class Draft(View):
                 error_codename=ErrorCodes.BAD_REQUEST)
         userdata = request.user.userdata
         user = request.user
-        
+
         permission_required(user, 'UserData', 'edit', pk)
-        
-        draft = userdata.serialize_draft()
-        return json_response(draft)
+
+        draft_election = userdata.serialize_draft()
+        return json_response(draft_election)
 
     def post(self, request):
+        try:
+            req = parse_json_request(request)
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        pk = request.user.pk
+        if settings.ADMIN_AUTH_ID != pk:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+        userdata = request.user.userdata
+        user = request.user
+        
+        permission_required(user, 'UserData', 'edit', pk)
+
+        draft_election = req.get('draft_election', False)
+        if False == draft_election:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        userdata.draft_election = draft_election
+        userdata.save()
+
+        data = {'status': 'ok'}
+        return json_response(data)
 draft = login_required(Draft.as_view())
