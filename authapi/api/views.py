@@ -1071,6 +1071,7 @@ class Draft(View):
                 status=400,
                 error_codename=ErrorCodes.BAD_REQUEST)
 
+        pk = user.pk
         permission_required(user, 'UserData', 'edit', pk)
 
         draft_election = userdata.serialize_draft()
