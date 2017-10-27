@@ -19,4 +19,4 @@ class Migration(migrations.Migration):
             name='draft_election',
             field=jsonfield.fields.JSONField(blank=True, db_index=False, default=[], null=True),
         ),
-    ] 
+    ]
