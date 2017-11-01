@@ -17,6 +17,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='userdata',
             name='draft_election',
-            field=jsonfield.fields.JSONField(blank=True, db_index=False, default=[], null=True),
+            field=jsonfield.fields.JSONField(blank=True, db_index=False, default='{}', null=True),
         ),
     ]
