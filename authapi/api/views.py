@@ -1058,3 +1058,54 @@ class Legal(View):
             data  = extended[0]
         return json_response(data)
 legal = Legal.as_view()
+
+
+class Draft(View):
+    def get(self, request):
+        user = request.user
+        userdata = request.user.userdata
+        authevent_pk = userdata.event.pk
+
+        if settings.ADMIN_AUTH_ID != authevent_pk:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        pk = user.pk
+        permission_required(user, 'UserData', 'edit', pk)
+
+        draft_election = userdata.serialize_draft()
+        return json_response(draft_election)
+
+    def post(self, request):
+        try:
+            req = parse_json_request(request)
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        user = request.user
+        userdata = request.user.userdata
+        authevent_pk = userdata.event.pk
+
+        if settings.ADMIN_AUTH_ID != authevent_pk:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+        pk = user.pk
+        
+        permission_required(user, 'UserData', 'edit', pk)
+
+        draft_election = req.get('draft_election', False)
+        if False == draft_election:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        userdata.draft_election = draft_election
+        userdata.save()
+
+        data = {'status': 'ok'}
+        return json_response(data)
+draft = login_required(Draft.as_view())
