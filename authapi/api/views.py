@@ -577,13 +577,8 @@ class AuthEventView(View):
                 error_codename=ErrorCodes.BAD_REQUEST)
 
         if pk is None: # create
-            real = req.get('real', False)
-            if real:
-                # requires create perm
-                permission_required(request.user, 'AuthEvent', 'create')
-            else:
-                # requires create or create-notreal
-                permission_required(request.user, 'AuthEvent', ['create', 'create-notreal'])
+            # requires create perm
+            permission_required(request.user, 'AuthEvent', 'create')
 
             auth_method = req.get('auth_method', '')
 
@@ -667,7 +662,6 @@ class AuthEventView(View):
                            extra_fields=extra_fields,
                            admin_fields=admin_fields,
                            census=census,
-                           real=real,
                            num_successful_logins_allowed=num_successful_logins_allowed,
                            based_in=based_in)
             # Save before the acl creation to get the ae id

@@ -115,49 +115,41 @@ class ApiTestCreateNotReal(TestCase):
         # test 1
         response = self.create_authevent(test_data.ae_email_default)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AuthEvent.objects.last().real, False)
 
         # real based_in previous: ok
         data = test_data.ae_email_real_based_in.copy()
         data['based_in'] = AuthEvent.objects.last().pk
         response = self.create_authevent(data)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AuthEvent.objects.last().real, True)
         self.assertEqual(AuthEvent.objects.last().based_in, data['based_in'])
 
     def test_create_authevent_test_and_real_create_notreal(self):
-        acl = ACL(user=self.user.userdata, object_type='AuthEvent', perm='create-notreal',
+        acl = ACL(user=self.user.userdata, object_type='AuthEvent', perm='create',
                 object_id=0)
         acl.save()
         # test 1
         response = self.create_authevent(test_data.ae_email_default)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AuthEvent.objects.last().real, False)
 
         # real based_in previous: error create perm missing
         data = test_data.ae_email_real_based_in.copy()
         data['based_in'] = AuthEvent.objects.last().pk
         response = self.create_authevent(data)
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
 
     def test_create_authevent_test_and_real_create_create_notreal(self):
         acl = ACL(user=self.user.userdata, object_type='AuthEvent', perm='create',
                 object_id=0)
         acl.save()
-        acl = ACL(user=self.user.userdata, object_type='AuthEvent', perm='create-notreal',
-                object_id=0)
-        acl.save()
         # test 1
         response = self.create_authevent(test_data.ae_email_default)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AuthEvent.objects.last().real, False)
 
         # real based_in previous: ok
         data = test_data.ae_email_real_based_in.copy()
         data['based_in'] = AuthEvent.objects.last().pk
         response = self.create_authevent(data)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AuthEvent.objects.last().real, True)
         self.assertEqual(AuthEvent.objects.last().based_in, data['based_in'])
 
 class UserDataDraftTestCase(TestCase):
@@ -723,14 +715,12 @@ class TestAuthEvent(TestCase):
         # test 1
         response = self.create_authevent(test_data.ae_email_default)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AuthEvent.objects.last().real, False)
 
         # real based_in previous: ok
         data = test_data.ae_email_real_based_in.copy()
         data['based_in'] = AuthEvent.objects.last().pk
         response = self.create_authevent(data)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AuthEvent.objects.last().real, True)
         self.assertEqual(AuthEvent.objects.last().based_in, data['based_in'])
 
         # real based_in id not exist: error
@@ -748,7 +738,6 @@ class TestAuthEvent(TestCase):
         # real no based_in
         response = self.create_authevent(test_data.ae_email_real)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AuthEvent.objects.last().real, True)
         self.assertEqual(AuthEvent.objects.last().based_in, None)
 
     def test_get_auth_events(self):
