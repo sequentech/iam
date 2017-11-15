@@ -51,6 +51,7 @@ urlpatterns = [
     url(r'^user/reset-pwd/$', views.reset_pwd, name='reset_pwd'),
     url(r'^user/extra/$', views.user_extra, name='user_extra'),
     url(r'^user/draft/$', views.draft, name='draft'),
+    url(r'^user/deregister/$', views.deregister, name='deregister'),
 
     url(r'^authmethod/(.*)/', authmethods_views.view),
     

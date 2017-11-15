@@ -550,14 +550,27 @@ class Email:
         else:
             msg_exist = exist_user(req, ae, get_repeated=True)
             if msg_exist:
-                LOGGER.error(\
-                    "Email.register error\n"\
-                    "User already exists '%r'\n"\
-                    "authevent '%r'\n"\
-                    "request '%r'\n"\
-                    "Stack trace: \n%s",\
-                    msg_exist, ae, req, stack_trace_str())
-                return self.error("Incorrect data", error_codename=user_exists_codename)
+                ret_error = True
+                try:
+                    user = User.objects.get(email=req.get('email'), userdata__event=ae)
+                    # user is  admin and is disabled (deregistered)
+                    # allow him to re-register with new parameters
+                    if settings.ADMIN_AUTH_ID == ae.pk and False == user.is_active:
+                        edit_user(user, req, ae)
+                        user.is_active = True
+                        user.save()
+                        ret_error = False
+                except:
+                    pass
+                if ret_error:
+                    LOGGER.error(\
+                        "Email.register error\n"\
+                        "User already exists '%r'\n"\
+                        "authevent '%r'\n"\
+                        "request '%r'\n"\
+                        "Stack trace: \n%s",\
+                        msg_exist, ae, req, stack_trace_str())
+                    return self.error("Incorrect data", error_codename=user_exists_codename)
             else:
                 u = create_user(req, ae, active)
                 msg += give_perms(u, ae)
