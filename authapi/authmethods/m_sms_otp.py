@@ -543,13 +543,13 @@ class SmsOtp:
                 ret_error = True
                 try:
                     tlf = get_cannonical_tlf(req['tlf'])
-                    user = User.objects.get(userdata__tlf=tlf, userdata__event=ae)
+                    u = User.objects.get(userdata__tlf=tlf, userdata__event=ae)
                     # user is  admin and is disabled (deregistered)
                     # allow him to re-register with new parameters
-                    if settings.ADMIN_AUTH_ID == ae.pk and False == user.is_active:
-                        edit_user(user, req, ae)
-                        user.is_active = True
-                        user.save()
+                    if settings.ADMIN_AUTH_ID == ae.pk and False == u.is_active:
+                        edit_user(u, req, ae)
+                        u.is_active = True
+                        u.save()
                         ret_error = False
                 except:
                     pass
