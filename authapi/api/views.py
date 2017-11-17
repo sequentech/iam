@@ -65,6 +65,9 @@ from utils import send_codes, get_client_ip, parse_json_request
 from pipelines.field_register import *
 from pipelines.field_authenticate import *
 from contracts.base import check_contract
+import logging
+
+LOGGER = logging.getLogger('authapi')
 
 CONTRACTS = dict(
     list_of_ints=[
@@ -1103,3 +1106,36 @@ class Draft(View):
         data = {'status': 'ok'}
         return json_response(data)
 draft = login_required(Draft.as_view())
+
+class Deregister(View):
+    def post(self, request):
+        try:
+            req = parse_json_request(request)
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        user = request.user
+        userdata = request.user.userdata
+        authevent_pk = userdata.event.pk
+
+        if settings.ADMIN_AUTH_ID != authevent_pk:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+        pk = user.pk
+        
+        permission_required(user, 'UserData', 'edit', pk)
+        user.is_active = False
+        user.save()
+
+        LOGGER.debug(\
+          "Deregister user %r\n",\
+          userdata.serialize() )
+
+        data = {'status': 'ok'}
+        return json_response(data)
+
+deregister = login_required(Deregister.as_view())
+

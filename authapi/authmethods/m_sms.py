@@ -540,14 +540,28 @@ class Sms:
         else:
             msg_exist = exist_user(req, ae, get_repeated=True)
             if msg_exist:
-                LOGGER.error(\
-                    "Sms.register error\n"\
-                    "User already exists '%r'\n"\
-                    "authevent '%r'\n"\
-                    "request '%r'\n"\
-                    "Stack trace: \n%s",\
-                    msg_exist, ae, req, stack_trace_str())
-                return self.error("Incorrect data", error_codename=user_exists_codename)
+                ret_error = True
+                try:
+                    tlf = get_cannonical_tlf(req['tlf'])
+                    u = User.objects.get(userdata__tlf=tlf, userdata__event=ae)
+                    # user is  admin and is disabled (deregistered)
+                    # allow him to re-register with new parameters
+                    if settings.ADMIN_AUTH_ID == ae.pk and False == u.is_active:
+                        edit_user(u, req, ae)
+                        u.is_active = True
+                        u.save()
+                        ret_error = False
+                except:
+                    pass
+                if ret_error:
+                    LOGGER.error(\
+                        "Sms.register error\n"\
+                        "User already exists '%r'\n"\
+                        "authevent '%r'\n"\
+                        "request '%r'\n"\
+                        "Stack trace: \n%s",\
+                        msg_exist, ae, req, stack_trace_str())
+                    return self.error("Incorrect data", error_codename=user_exists_codename)
             else:
                 u = create_user(req, ae, active)
                 msg += give_perms(u, ae)
