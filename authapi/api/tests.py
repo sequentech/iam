@@ -2014,10 +2014,69 @@ class TestAdminFields(TestCase):
         # test 1
         response = self.create_authevent(test_data.auth_event15)
         self.assertEqual(response.status_code, 400)
-  
 
+class TestAdminDeregister(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
 
+    def setUp(self):
+        self.aeid_special = 1
 
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_deregister_email(self):
+        data = {"email": "asd@asd.com", "captcha": "asdasd"}
+        c = JClient()
+
+        # Register
+        response = c.register(self.aeid_special, data)
+        self.assertEqual(response.status_code, 200)
+        user = User.objects.get(email=data['email'])
+        self.assertEqual(user.is_active, True)
+
+        # re-registration is not possible
+        response = c.register(self.aeid_special, data)
+        self.assertEqual(response.status_code, 400)
+
+        # authenticate
+        code = Code.objects.get(user=user.userdata)
+        data['code'] = code.code
+        response = c.authenticate(self.aeid_special, data)
+        self.assertEqual(response.status_code, 200)
+
+        # deregister
+        response = c.post('/api/user/deregister/', {})
+        self.assertEqual(response.status_code, 200)
+
+        # check deregistration effects
+
+        # is_active is false
+        user = User.objects.get(email=data['email'])
+        self.assertEqual(user.is_active, False)
+
+        # authentication gives error
+        self.assertEqual(user.is_active, False)
+
+        # authenticate gives error
+        code = Code.objects.get(user=user.userdata)
+        data['code'] = code.code
+        response = c.authenticate(self.aeid_special, data)
+        self.assertEqual(response.status_code, 400)
+
+        # re-registration is enabled
+        code = Code.objects.filter(user=user.userdata).delete()
+        data = {"email": "asd@asd.com", "captcha": "asdasd"}
+        response = c.register(self.aeid_special, data)
+        self.assertEqual(response.status_code, 200)
+        user = User.objects.get(email=data['email'])
+        self.assertEqual(user.is_active, True)
+
+        # authentication works
+        code = Code.objects.get(user=user.userdata)
+        data['code'] = code.code
+        response = c.authenticate(self.aeid_special, data)
+        self.assertEqual(response.status_code, 200)
 
 
 
