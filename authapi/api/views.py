@@ -1110,6 +1110,10 @@ draft = login_required(Draft.as_view())
 class Deregister(View):
     def post(self, request):
         try:
+            if True != settings.ALLOW_DEREGISTER:
+                return json_response(
+                    status=400,
+                    error_codename=ErrorCodes.BAD_REQUEST)
             req = parse_json_request(request)
         except:
             return json_response(
