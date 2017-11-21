@@ -556,7 +556,7 @@ class Email:
                     # user is  admin and is disabled (deregistered)
                     # allow him to re-register with new parameters
                     if settings.ADMIN_AUTH_ID == ae.pk and \
-                        False == u.is_active \
+                        False == u.is_active and \
                         True == settings.ALLOW_DEREGISTER:
                         edit_user(u, req, ae)
                         u.is_active = True
