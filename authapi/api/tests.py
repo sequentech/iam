@@ -115,49 +115,41 @@ class ApiTestCreateNotReal(TestCase):
         # test 1
         response = self.create_authevent(test_data.ae_email_default)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AuthEvent.objects.last().real, False)
 
         # real based_in previous: ok
         data = test_data.ae_email_real_based_in.copy()
         data['based_in'] = AuthEvent.objects.last().pk
         response = self.create_authevent(data)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AuthEvent.objects.last().real, True)
         self.assertEqual(AuthEvent.objects.last().based_in, data['based_in'])
 
     def test_create_authevent_test_and_real_create_notreal(self):
-        acl = ACL(user=self.user.userdata, object_type='AuthEvent', perm='create-notreal',
+        acl = ACL(user=self.user.userdata, object_type='AuthEvent', perm='create',
                 object_id=0)
         acl.save()
         # test 1
         response = self.create_authevent(test_data.ae_email_default)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AuthEvent.objects.last().real, False)
 
         # real based_in previous: error create perm missing
         data = test_data.ae_email_real_based_in.copy()
         data['based_in'] = AuthEvent.objects.last().pk
         response = self.create_authevent(data)
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
 
     def test_create_authevent_test_and_real_create_create_notreal(self):
         acl = ACL(user=self.user.userdata, object_type='AuthEvent', perm='create',
                 object_id=0)
         acl.save()
-        acl = ACL(user=self.user.userdata, object_type='AuthEvent', perm='create-notreal',
-                object_id=0)
-        acl.save()
         # test 1
         response = self.create_authevent(test_data.ae_email_default)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AuthEvent.objects.last().real, False)
 
         # real based_in previous: ok
         data = test_data.ae_email_real_based_in.copy()
         data['based_in'] = AuthEvent.objects.last().pk
         response = self.create_authevent(data)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AuthEvent.objects.last().real, True)
         self.assertEqual(AuthEvent.objects.last().based_in, data['based_in'])
 
 class UserDataDraftTestCase(TestCase):
@@ -723,14 +715,12 @@ class TestAuthEvent(TestCase):
         # test 1
         response = self.create_authevent(test_data.ae_email_default)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AuthEvent.objects.last().real, False)
 
         # real based_in previous: ok
         data = test_data.ae_email_real_based_in.copy()
         data['based_in'] = AuthEvent.objects.last().pk
         response = self.create_authevent(data)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AuthEvent.objects.last().real, True)
         self.assertEqual(AuthEvent.objects.last().based_in, data['based_in'])
 
         # real based_in id not exist: error
@@ -748,7 +738,6 @@ class TestAuthEvent(TestCase):
         # real no based_in
         response = self.create_authevent(test_data.ae_email_real)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AuthEvent.objects.last().real, True)
         self.assertEqual(AuthEvent.objects.last().based_in, None)
 
     def test_get_auth_events(self):
@@ -2025,10 +2014,197 @@ class TestAdminFields(TestCase):
         # test 1
         response = self.create_authevent(test_data.auth_event15)
         self.assertEqual(response.status_code, 400)
-  
 
+class TestAdminDeregister(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
 
+    def setUp(self):
+        self.aeid_special = 1
 
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_deregister_email(self):
+        data = {"email": "asd@asd.com", "captcha": "asdasd"}
+        c = JClient()
+
+        # Register
+        response = c.register(self.aeid_special, data)
+        self.assertEqual(response.status_code, 200)
+        user = User.objects.get(email=data['email'])
+        self.assertEqual(user.is_active, True)
+
+        # re-registration is not possible
+        response = c.register(self.aeid_special, data)
+        self.assertEqual(response.status_code, 400)
+
+        # authenticate
+        code = Code.objects.get(user=user.userdata)
+        data['code'] = code.code
+        response = c.authenticate(self.aeid_special, data)
+        self.assertEqual(response.status_code, 200)
+
+        # deregister
+        response = c.post('/api/user/deregister/', {})
+        self.assertEqual(response.status_code, 200)
+
+        # check deregistration effects
+
+        # is_active is false
+        user = User.objects.get(email=data['email'])
+        self.assertEqual(user.is_active, False)
+
+        # authentication gives error
+        self.assertEqual(user.is_active, False)
+
+        # authenticate gives error
+        code = Code.objects.get(user=user.userdata)
+        data['code'] = code.code
+        response = c.authenticate(self.aeid_special, data)
+        self.assertEqual(response.status_code, 400)
+
+        # re-registration is enabled
+        Code.objects.filter(user=user.userdata).delete()
+        data = {"email": "asd@asd.com", "captcha": "asdasd"}
+        response = c.register(self.aeid_special, data)
+        self.assertEqual(response.status_code, 200)
+        user = User.objects.get(email=data['email'])
+        self.assertEqual(user.is_active, True)
+
+        # authentication works
+        code = Code.objects.get(user=user.userdata)
+        data['code'] = code.code
+        response = c.authenticate(self.aeid_special, data)
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_deregister_sms(self):
+        data = {"tlf": "+34777777777", "captcha": "asdasd"}
+        c = JClient()
+
+        ae = AuthEvent.objects.get(pk=1)
+        ae.auth_method = "sms"
+        ae.save()
+
+        # Register
+        response = c.register(self.aeid_special, data)
+        self.assertEqual(response.status_code, 200)
+        user = User.objects.get(userdata__tlf=data['tlf'], userdata__event=ae)
+        self.assertEqual(user.is_active, True)
+
+        # re-registration is not possible
+        response = c.register(self.aeid_special, data)
+        self.assertEqual(response.status_code, 400)
+
+        # authenticate
+        code = Code.objects.get(user=user.userdata)
+        data['code'] = code.code
+        response = c.authenticate(self.aeid_special, data)
+        self.assertEqual(response.status_code, 200)
+
+        # deregister
+        response = c.post('/api/user/deregister/', {})
+        self.assertEqual(response.status_code, 200)
+
+        # check deregistration effects
+
+        # is_active is false
+        user = User.objects.get(userdata__tlf=data['tlf'], userdata__event=ae)
+        self.assertEqual(user.is_active, False)
+
+        # authentication gives error
+        self.assertEqual(user.is_active, False)
+
+        # authenticate gives error
+        code = Code.objects.get(user=user.userdata)
+        data['code'] = code.code
+        response = c.authenticate(self.aeid_special, data)
+        self.assertEqual(response.status_code, 400)
+
+        # re-registration is enabled
+        Code.objects.filter(user=user.userdata).delete()
+        data = {"tlf": "+34777777777", "captcha": "asdasd"}
+        response = c.register(self.aeid_special, data)
+        self.assertEqual(response.status_code, 200)
+        user = User.objects.get(userdata__tlf=data['tlf'], userdata__event=ae)
+        self.assertEqual(user.is_active, True)
+
+        # authentication works
+        code = Code.objects.get(user=user.userdata)
+        data['code'] = code.code
+        response = c.authenticate(self.aeid_special, data)
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_deregister_sms_otp(self):
+        data = {"tlf": "+34777777777", "captcha": "asdasd"}
+        c = JClient()
+
+        ae = AuthEvent.objects.get(pk=1)
+        ae.auth_method = "sms-otp"
+        ae.save()
+
+        # Register
+        response = c.register(self.aeid_special, data)
+        self.assertEqual(response.status_code, 200)
+        user = User.objects.get(userdata__tlf=data['tlf'], userdata__event=ae)
+        self.assertEqual(user.is_active, True)
+
+        # re-registration is not possible
+        response = c.register(self.aeid_special, data)
+        self.assertEqual(response.status_code, 400)
+
+        # authenticate
+        Code.objects.filter(user=user.userdata).delete()
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid_special, data)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(response.status_code, 200)
+        code = Code.objects.get(user=user.userdata)
+        data['code'] = code.code
+        response = c.authenticate(self.aeid_special, data)
+        self.assertEqual(response.status_code, 200)
+
+        # deregister
+        response = c.post('/api/user/deregister/', {})
+        self.assertEqual(response.status_code, 200)
+
+        # check deregistration effects
+
+        # is_active is false
+        user = User.objects.get(userdata__tlf=data['tlf'], userdata__event=ae)
+        self.assertEqual(user.is_active, False)
+
+        # authentication gives error
+        self.assertEqual(user.is_active, False)
+
+        # authenticate gives error
+        code = Code.objects.get(user=user.userdata)
+        data['code'] = code.code
+        response = c.authenticate(self.aeid_special, data)
+        self.assertEqual(response.status_code, 400)
+
+        # re-registration is enabled
+        Code.objects.filter(user=user.userdata).delete()
+        data = {"tlf": "+34777777777", "captcha": "asdasd"}
+        response = c.register(self.aeid_special, data)
+        self.assertEqual(response.status_code, 200)
+        user = User.objects.get(userdata__tlf=data['tlf'], userdata__event=ae)
+        self.assertEqual(user.is_active, True)
+
+        # authentication works
+        Code.objects.filter(user=user.userdata).delete()
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid_special, data)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(response.status_code, 200)
+        code = Code.objects.get(user=user.userdata)
+        data['code'] = code.code
+        response = c.authenticate(self.aeid_special, data)
+        self.assertEqual(response.status_code, 200)
 
 
 

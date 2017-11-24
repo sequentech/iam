@@ -53,7 +53,6 @@ class AuthEvent(models.Model):
     extra_fields = JSONField(blank=True, null=True)
     status = models.CharField(max_length=15, choices=AE_STATUSES, default="notstarted")
     created = models.DateTimeField(auto_now_add=True)
-    real = models.BooleanField(default=False)
     admin_fields = JSONField(blank=True, null=True)
 
     # 0 means any number of logins is allowed
@@ -89,7 +88,6 @@ class AuthEvent(models.Model):
             'created': (self.created.isoformat()
                         if hasattr(self.created, 'isoformat')
                         else self.created),
-            'real': self.real,
             'based_in': self.based_in,
             'num_successful_logins_allowed': self.num_successful_logins_allowed,
             'auth_method_config': {

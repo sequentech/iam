@@ -65,6 +65,9 @@ from utils import send_codes, get_client_ip, parse_json_request
 from pipelines.field_register import *
 from pipelines.field_authenticate import *
 from contracts.base import check_contract
+import logging
+
+LOGGER = logging.getLogger('authapi')
 
 CONTRACTS = dict(
     list_of_ints=[
@@ -577,13 +580,8 @@ class AuthEventView(View):
                 error_codename=ErrorCodes.BAD_REQUEST)
 
         if pk is None: # create
-            real = req.get('real', False)
-            if real:
-                # requires create perm
-                permission_required(request.user, 'AuthEvent', 'create')
-            else:
-                # requires create or create-notreal
-                permission_required(request.user, 'AuthEvent', ['create', 'create-notreal'])
+            # requires create perm
+            permission_required(request.user, 'AuthEvent', 'create')
 
             auth_method = req.get('auth_method', '')
 
@@ -667,7 +665,6 @@ class AuthEventView(View):
                            extra_fields=extra_fields,
                            admin_fields=admin_fields,
                            census=census,
-                           real=real,
                            num_successful_logins_allowed=num_successful_logins_allowed,
                            based_in=based_in)
             # Save before the acl creation to get the ae id
@@ -1109,3 +1106,40 @@ class Draft(View):
         data = {'status': 'ok'}
         return json_response(data)
 draft = login_required(Draft.as_view())
+
+class Deregister(View):
+    def post(self, request):
+        try:
+            if True != settings.ALLOW_DEREGISTER:
+                return json_response(
+                    status=400,
+                    error_codename=ErrorCodes.BAD_REQUEST)
+            req = parse_json_request(request)
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        user = request.user
+        userdata = request.user.userdata
+        authevent_pk = userdata.event.pk
+
+        if settings.ADMIN_AUTH_ID != authevent_pk:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+        pk = user.pk
+        
+        permission_required(user, 'UserData', 'edit', pk)
+        user.is_active = False
+        user.save()
+
+        LOGGER.debug(\
+          "Deregister user %r\n",\
+          userdata.serialize() )
+
+        data = {'status': 'ok'}
+        return json_response(data)
+
+deregister = login_required(Deregister.as_view())
+

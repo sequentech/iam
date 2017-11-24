@@ -31,6 +31,8 @@ djcelery.setup_loader()
 # Celery config
 BROKER_URL = "amqp://guest:guest@localhost:5672//"
 
+ALLOW_DEREGISTER = True
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.7/howto/deployment/checklist/
 
@@ -164,6 +166,8 @@ SMS_URL = ""
 SMS_SENDER_ID = ""
 SMS_SENDER_NUMBER = ""
 SMS_VOICE_LANG_CODE = ""
+
+SMS_OTP_EXPIRE_SECONDS = 300
 
 MAX_AUTH_MSG_SIZE = {
   "sms": 120,
