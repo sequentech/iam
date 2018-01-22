@@ -54,8 +54,15 @@ from utils import (
     filter_query
 )
 from .decorators import login_required, get_login_user
-from .models import AuthEvent, ACL, SuccessfulLogin
-from .models import User, UserData
+from .models import (
+    Action,
+    ACL,
+    AuthEvent,
+    SuccessfulLogin,
+    ALLOWED_ACTIONS,
+    User,
+    UserData
+)
 from .tasks import census_send_auth_task
 from django.db.models import Q
 from captcha.views import generate_captcha
@@ -108,22 +115,57 @@ census_delete = login_required(CensusDelete.as_view())
 
 class CensusActivate(View):
     '''
-    Activates an user in the auth-event census
+    Activates/deactivates an user in the auth-event census.
+
+    The following input parameters are in the data section in json format:
+    - user-ids: Required, list of ints. It's the list of ids of the affected
+                users.
+    - comment: Optional, string. Maximum 255 characters. It's a comment related
+               to the action that will be logged in the activity.
+
+    A single action will be created per user activated in the activity log.
     '''
 
     activate = True
 
     def post(self, request, pk):
+        # check permissions
         permission_required(request.user, 'AuthEvent', ['edit', 'census-activation'], pk)
+
+        # get input
         ae = get_object_or_404(AuthEvent, pk=pk)
         req = parse_json_request(request)
         user_ids = req.get('user-ids', [])
-        check_contract(CONTRACTS['list_of_ints'], user_ids)
+        comment = req.get('comment', None)
 
+        # parse input
+        try:
+          check_contract(CONTRACTS['list_of_ints'], user_ids)
+          if comment is not None:
+              assert(isinstance(comment, str))
+              assert(len(comment) <= 255)
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        # activate users
         for uid in user_ids:
             u = get_object_or_404(User, pk=uid, userdata__event=ae)
             u.is_active = self.activate
             u.save()
+
+            # register activity, one action per user
+            action_name = 'user:activate' if self.activate else 'user:deactivate'
+            action = Action(
+                executer=request.user,
+                receiver=u,
+                action_name=action_name,
+                event=ae,
+                metadata=dict(comment=comment))
+            action.save()
+
+        # send codes on activation
         if self.activate:
             send_codes.apply_async(
                 args=[
@@ -562,6 +604,73 @@ class ACLMine(View):
         data.update(acls)
         return json_response(data)
 aclmine = login_required(ACLMine.as_view())
+
+
+class Activity(View):
+    '''
+    Returns the list of actions related to an election or filtered by
+    receiver_id, executer_id or a list of actions.
+
+    Returns  the data ordered by creation date, first the most recent.
+
+    Allowed GET params:
+    - executer_id: Int, optional. Number of the executer of the action to filter
+                   by. Example: "56".
+    - receiver_id: Int, optional. Number of the receiver of the action to filter
+                   by. Example: "56".
+    - actions: List, optional. Actions to filter by. The list is pipe ('|')
+                   separated. Example: "election:create|voter:deactivate".
+    '''
+    @login_required
+    def get(request, pk=None):
+        # get allowed filters
+        executer_id = request.GET.get('executer_id', None)
+        receiver_id = request.GET.get('receiver_id', None)
+        actions = request.GET.get('actions', None)
+
+        # the global event activity list requires a different permission
+        if receiver_id is None:
+            permission_required(request.user, 'AuthEvent', ['event-view-activity'], pk)
+        else:
+            permission_required(request.user, 'AuthEvent', ['event-receiver-view-activity'], pk)
+
+        # validate input
+        try:
+            executer_id = int(executer_id) if executer_id is not None else None
+            receiver_id = int(receiver_id) if receiver_id is not None else None
+            if actions is not None:
+                actions = actions.split('|')
+                map(lambda val: (val,val) in ALLOWED_ACTIONS, actions)
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        # apply filters
+        q = Q()
+        if receiver_id:
+            q = Q(receiver__pk=receiver_id)
+        if executer_id:
+            q &= Q(executer__pk=executer_id)
+        if actions:
+            q &= Q(action_name__in=actions)
+        event = get_object_or_404(AuthEvent, pk=pk)
+        query = event.related_actions.filter(q)
+
+        # order by creation date, first most recent
+        query.order_by('-created')
+
+        # paginate query and return
+        data = {'status': 'ok', 'activity': []}
+        activity_paged = paginate(
+            request,
+            query,
+            serialize_method='serialize',
+            elements_name='activity')
+        data.update(activity_paged)
+        return json_response(data)
+
+activity = login_required(Activity.as_view())
 
 
 class AuthEventView(View):

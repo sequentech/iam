@@ -2207,24 +2207,138 @@ class TestAdminDeregister(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
+class ApiTestActivationAndActivity(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
 
+    def genhmac(self, key, msg):
+        import hmac
+        import datetime
+        timestamp = int(datetime.datetime.now().timestamp())
+        msg = "%s:%s" % (msg, str(timestamp))
 
+        h = hmac.new(key, msg.encode('utf-8'), "sha256")
+        return 'khmac:///sha-256;' + h.hexdigest() + '/' + msg
 
+    def setUp(self):
+        ae = AuthEvent(auth_method="email",
+                auth_method_config=test_data.authmethod_config_email_default,
+                status='started',
+                census="open",
+                num_successful_logins_allowed = 1)
+        ae.save()
+        self.ae = ae
+        self.aeid = ae.pk
 
+        u_admin = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u_admin.set_password(test_data.admin['password'])
+        u_admin.save()
+        u_admin.userdata.event = ae
+        u_admin.userdata.save()
+        self.uid_admin = u_admin.id
 
+        self.admin_auth_data = dict(email=test_data.admin['email'], code="ERGERG")
+        c = Code(user=u_admin.userdata, code=self.admin_auth_data['code'], auth_event_id=1)
+        c.save()
 
+        # election edit permission
+        acl = ACL(user=u_admin.userdata, object_type='AuthEvent', perm='edit',
+            object_id=self.aeid)
+        acl.save()
 
+        # election view events permission
+        acl = ACL(user=u_admin.userdata, object_type='AuthEvent',
+            perm='event-view-activity', object_id=self.aeid)
+        acl.save()
+        self.acl_activity1 = acl
 
+        u = User(username='test', email=test_data.auth_email_default['email'])
+        u.save()
+        u.userdata.event = ae
+        u.userdata.save()
+        self.u = u.userdata
+        self.uid = u.id
 
+        c = Code(user=u.userdata, code=test_data.auth_email_default['code'], auth_event_id=ae.pk)
+        c.save()
+        self.code = c
 
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_deactivate(self):
+        c = JClient()
 
+        # voter can authenticate
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
 
+        # voter has no permission to list activity
+        response = c.get('/api/auth-event/%d/activity/' % self.aeid, {})
+        self.assertEqual(response.status_code, 403)
 
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
 
+        # admin can list activity and log is empty
+        response = c.get('/api/auth-event/%d/activity/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['activity']), 0)
 
+        # admin deactivates voter
+        self.assertEqual(response.status_code, 200)
+        data = {'user-ids': [self.uid], 'comment': 'some comment here'}
+        response = c.post('/api/auth-event/%d/census/deactivate/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
 
+        ## check that the deactivation was logged properly
+        response = c.get('/api/auth-event/%d/activity/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['activity']), 1)
+        self.assertEqual(r['activity'][0]['executer_id'], self.uid_admin)
+        self.assertEqual(r['activity'][0]['executer_username'], 'john')
+        self.assertEqual(r['activity'][0]['receiver_id'], self.uid)
+        self.assertEqual(r['activity'][0]['receiver_username'], 'test')
+        self.assertEqual(r['activity'][0]['action_name'], 'user:deactivate')
+        self.assertEqual(r['activity'][0]['metadata']['comment'], data['comment'])
 
+        # voter cannot authenticate
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
 
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
 
+        # admin activates voter
+        self.assertEqual(response.status_code, 200)
+        data = {'user-ids': [self.uid], 'comment': 'comment 2'}
+        response = c.post('/api/auth-event/%d/census/activate/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
 
+        ## check that the deactivation was logged properly
+        response = c.get('/api/auth-event/%d/activity/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['activity']), 2)
+        self.assertEqual(r['activity'][0]['executer_id'], self.uid_admin)
+        self.assertEqual(r['activity'][0]['executer_username'], 'john')
+        self.assertEqual(r['activity'][0]['receiver_id'], self.uid)
+        self.assertEqual(r['activity'][0]['receiver_username'], 'test')
+        self.assertEqual(r['activity'][0]['action_name'], 'user:activate')
+        self.assertEqual(r['activity'][0]['metadata']['comment'], data['comment'])
 
+        # check that removing permission works as expected
+        self.acl_activity1.delete()
+        response = c.get('/api/auth-event/%d/activity/' % self.aeid, {})
+        self.assertEqual(response.status_code, 403)
+
+        # voter can authenticate
+        test_data.auth_email_default['code'] = self.u.codes.last().code
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)

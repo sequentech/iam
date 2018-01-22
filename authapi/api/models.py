@@ -250,6 +250,65 @@ def create_user_data(sender, instance, created, *args, **kwargs):
     ud.save()
 
 
+# List of allowed actions used as only valid values for the Action model
+# action_name column
+ALLOWED_ACTIONS = (
+    ('election:created', 'election:created'),
+    ('user:activate', 'user:activate'),
+    ('user:deactivate', 'user:deactivate'),
+)
+
+
+class Action(models.Model):
+    '''
+    Registers (potentially) any action performed by an user for traceability
+    and transparency.
+    '''
+
+    # user that executed the action
+    executer = models.ForeignKey(User, related_name="executed_actions",
+        db_index=True)
+
+    # date at which the action was executed
+    created = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    # name of the action executed
+    action_name = models.CharField(max_length=255, db_index=True,
+        choices=ALLOWED_ACTIONS)
+
+    # event related to the action
+    event = models.ForeignKey(AuthEvent, related_name="related_actions",
+        null=True, db_index=True)
+
+    # user onto which the action was executed
+    receiver = models.ForeignKey(User, related_name="received_actions",
+        db_index=True, null=True)
+
+    # any other relevant information, which varies depending on the action
+    metadata = fields.JSONField(default=dict(), db_index=True)
+
+    def serialize(self):
+        d = {
+            'executer_id': self.executer.id,
+            'executer_username': self.executer.username,
+            'receiver_id': self.receiver.id if self.receiver else None,
+            'receiver_username': (
+                self.receiver.username if self.receiver else None
+            ),
+            'action_name': self.action_name,
+            'created': (
+                self.created.isoformat()
+                if hasattr(self.created, 'isoformat')
+                else self.created
+            ),
+            'event_id': self.event.id if self.event else None,
+            'metadata': self.metadata
+        }
+        return d
+
+    def __str__(self):
+        return "%s -%s" % (self.user.user.username, self.action_name)
+
 class ACL(models.Model):
     '''
     The permission model is based in Access Control Lists, and this data model
