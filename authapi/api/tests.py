@@ -2236,6 +2236,7 @@ class ApiTestActivationAndActivity(TestCase):
         u_admin.userdata.event = ae
         u_admin.userdata.save()
         self.uid_admin = u_admin.id
+        self.u_admin = u_admin
 
         self.admin_auth_data = dict(email=test_data.admin['email'], code="ERGERG")
         c = Code(user=u_admin.userdata, code=self.admin_auth_data['code'], auth_event_id=1)
@@ -2266,7 +2267,7 @@ class ApiTestActivationAndActivity(TestCase):
     @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
                        CELERY_ALWAYS_EAGER=True,
                        BROKER_BACKEND='memory')
-    def test_deactivate(self):
+    def test_activation(self):
         c = JClient()
 
         # voter can authenticate
@@ -2342,3 +2343,144 @@ class ApiTestActivationAndActivity(TestCase):
         test_data.auth_email_default['code'] = self.u.codes.last().code
         response = c.authenticate(self.aeid, test_data.auth_email_default)
         self.assertEqual(response.status_code, 200)
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_filter_activity(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin deactivates voter
+        self.assertEqual(response.status_code, 200)
+        data = {'user-ids': [self.uid], 'comment': 'some comment here'}
+        response = c.post('/api/auth-event/%d/census/deactivate/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin activates voter
+        self.assertEqual(response.status_code, 200)
+        data = {'user-ids': [self.uid], 'comment': 'some comment here'}
+        response = c.post('/api/auth-event/%d/census/activate/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        def check_activity(response, action='user:activate', l=2, status=200):
+            ## check that the deactivation/activation was logged properly
+            self.assertEqual(response.status_code, status)
+
+            if status == 200:
+                r = json.loads(response.content.decode('utf-8'))
+                self.assertEqual(len(r['activity']), l)
+            else:
+                return
+
+            if l == 0:
+                return
+
+            self.assertEqual(r['activity'][0]['executer_id'], self.uid_admin)
+            self.assertEqual(r['activity'][0]['executer_username'], 'john')
+            self.assertEqual(r['activity'][0]['receiver_id'], self.uid)
+            self.assertEqual(r['activity'][0]['receiver_username'], 'test')
+            self.assertEqual(r['activity'][0]['action_name'], action)
+            self.assertEqual(r['activity'][0]['metadata']['comment'], data['comment'])
+
+        ## check input parameters filtering and validation
+
+        # check filtering by executer_id
+        path = '/api/auth-event/%d/activity/' % self.aeid
+        response = c.get(path + '?executer_id=%d' % self.uid_admin, {})
+        check_activity(response)
+        # check filtering by receiver_id
+        response = c.get(path + '?receiver_id=%d' % self.uid_admin, {})
+        check_activity(response, l=0)
+        response = c.get(path + '?receiver_id=%d' % self.uid, {})
+        check_activity(response)
+
+        # check a receiver_id that doesn't exist
+        response = c.get(path + '?receiver_id=133311', {})
+        check_activity(response, l=0)
+
+        # check a receiver_id with an invalid string
+        response = c.get(path + '?receiver_id=aaaa11e', {})
+        check_activity(response, status=400)
+
+        # check a receiver_id that doesn't exist
+        response = c.get(path + '?executer_id=9314488', {})
+        check_activity(response, l=0)
+
+        # check a receiver_id with an invalid string
+        response = c.get(path + '?executer_id=aaaa11e', {})
+        check_activity(response, status=400)
+
+        # check filtering by action
+        response = c.get(path + '?actions=user:activate', {})
+        check_activity(response, l=1)
+        response = c.get(path + '?actions=user:deactivate', {})
+        check_activity(response, l=1, action='user:deactivate')
+
+        # check filtering with multiple actions
+        response = c.get(path + '?actions=user:activate|user:deactivate', {})
+        check_activity(response)
+
+        # check filtering with multiple actions, with one action not existent
+        response = c.get(path + '?actions=user:activate|user:deactivate|election:created', {})
+        check_activity(response)
+
+        # check filtering with invalid actions
+        response = c.get(path + '?actions=user:activate|INVALID|election:created', {})
+        check_activity(response, status=400)
+        response = c.get(path + '?actions=INVALID_ACTION', {})
+        check_activity(response, status=400)
+
+        # check multiple filters
+        response = c.get(path + '?executer_id=%d&receiver_id=%d' % (self.uid_admin, self.uid), {})
+        check_activity(response)
+        response = c.get(path + '?executer_id=%d&receiver_id=%d' % (self.uid_admin, self.uid_admin), {})
+        check_activity(response, l=0)
+        response = c.get(path + '?receiver_id=%d&executer_id=%d' % (self.uid, self.uid_admin), {})
+        check_activity(response)
+        response = c.get(path + '?actions=user:activate&receiver_id=%d&executer_id=%d' % (self.uid, self.uid_admin), {})
+        check_activity(response, l=1)
+        response = c.get(path + '?receiver_id=%d&actions=user:deactivate&executer_id=%d' % (self.uid, self.uid_admin), {})
+        check_activity(response, l=1, action="user:deactivate")
+
+
+        # check that without permissions no activity listing is allowed
+        self.acl_activity1.delete()
+        response = c.get(path + '?actions=user:activate|INVALID|election:created', {})
+        check_activity(response, status=403)
+        response = c.get(path + '?actions=INVALID_ACTION', {})
+        check_activity(response, status=403)
+        response = c.get(path + '?executer_id=%d' % self.uid_admin, {})
+        check_activity(response, status=403)
+        response = c.get(path + '?receiver_id=%d' % self.uid_admin, {})
+        check_activity(response, status=403)
+
+        # checking that with event-receiver-view-activity permission no activity
+        # listing is allowed without filtering by receiver_id
+        acl = ACL(user=self.u_admin.userdata, object_type='AuthEvent',
+            perm='event-receiver-view-activity', object_id=self.aeid)
+        acl.save()
+        response = c.get(path + '?actions=user:activate|INVALID|election:created', {})
+        check_activity(response, status=403)
+        response = c.get(path + '?actions=INVALID_ACTION', {})
+        check_activity(response, status=403)
+        response = c.get(path + '?executer_id=%d' % self.uid_admin, {})
+        check_activity(response, status=403)
+
+        # checking that with event-receiver-view-activity permission activity
+        # listing is allowed with filtering by receiver_id
+        response = c.get(path + '?receiver_id=%d' % self.uid, {})
+        check_activity(response)
+        response = c.get(path + '?executer_id=%d&receiver_id=%d' % (self.uid_admin, self.uid), {})
+        check_activity(response)
+        response = c.get(path + '?executer_id=%d&receiver_id=%d' % (self.uid_admin, self.uid_admin), {})
+        check_activity(response, l=0)
+        response = c.get(path + '?receiver_id=%d&executer_id=%d' % (self.uid, self.uid_admin), {})
+        check_activity(response)
+        response = c.get(path + '?actions=user:activate&receiver_id=%d&executer_id=%d' % (self.uid, self.uid_admin), {})
+        check_activity(response, l=1)
+        response = c.get(path + '?receiver_id=%d&actions=user:deactivate&executer_id=%d' % (self.uid, self.uid_admin), {})
+        check_activity(response, l=1, action="user:deactivate")

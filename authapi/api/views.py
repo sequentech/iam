@@ -632,7 +632,7 @@ class Activity(View):
         if receiver_id is None:
             permission_required(request.user, 'AuthEvent', ['event-view-activity'], pk)
         else:
-            permission_required(request.user, 'AuthEvent', ['event-receiver-view-activity'], pk)
+            permission_required(request.user, 'AuthEvent', ['event-view-activity', 'event-receiver-view-activity'], pk)
 
         # validate input
         try:
@@ -640,7 +640,8 @@ class Activity(View):
             receiver_id = int(receiver_id) if receiver_id is not None else None
             if actions is not None:
                 actions = actions.split('|')
-                map(lambda val: (val,val) in ALLOWED_ACTIONS, actions)
+                for action in actions:
+                    assert((action, action) in ALLOWED_ACTIONS)
         except:
             return json_response(
                 status=400,
