@@ -861,6 +861,8 @@ def filter_query(filters, query, constraints, prefix, contraints_policy="ignore_
         else:
             sort_str = '-' + sort_el['key']
         ret_query = ret_query.order_by(sort_str)
+    elif 'default_ordery_by' in constraints:
+        ret_query = ret_query.order_by(constraints['default_ordery_by'])
 
     return ret_query
 

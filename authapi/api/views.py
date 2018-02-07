@@ -402,6 +402,12 @@ class CallbackView(View):
         if error_kwargs:
             return json_response(**error_kwargs[0])
 
+        action = Action(
+            receiver=user,
+            action_name="authevent:callback",
+            event=ae)
+        action.save()
+
         return json_response({}, status=200)
 
 callback = CallbackView.as_view()
@@ -615,11 +621,16 @@ class Activity(View):
 
     Allowed GET params:
     - executer_id: Int, optional. Number of the executer of the action to filter
-                   by. Example: "56".
+      by. Example: "56".
+
     - receiver_id: Int, optional. Number of the receiver of the action to filter
-                   by. Example: "56".
+      by. Example: "56".
+
     - actions: List, optional. Actions to filter by. The list is pipe ('|')
-                   separated. Example: "election:create|voter:deactivate".
+      separated. Example: "election:create|voter:deactivate".
+
+    - filter: String, optional. A string to filter in some of the fields of the
+      model.
     '''
     @login_required
     def get(request, pk=None):
@@ -627,6 +638,7 @@ class Activity(View):
         executer_id = request.GET.get('executer_id', None)
         receiver_id = request.GET.get('receiver_id', None)
         actions = request.GET.get('actions', None)
+        filter_str = request.GET.get('filter', None)
 
         # the global event activity list requires a different permission
         if receiver_id is None:
@@ -642,7 +654,7 @@ class Activity(View):
                 actions = actions.split('|')
                 for action in actions:
                     assert((action, action) in ALLOWED_ACTIONS)
-        except:
+        except Exception as e:
             return json_response(
                 status=400,
                 error_codename=ErrorCodes.BAD_REQUEST)
@@ -658,8 +670,50 @@ class Activity(View):
         event = get_object_or_404(AuthEvent, pk=pk)
         query = event.related_actions.filter(q)
 
-        # order by creation date, first most recent
-        query.order_by('-created')
+        if filter_str is not None:
+            q2 = (
+              Q(executer__username__icontains=filter_str) |
+              Q(executer__email__icontains=filter_str) |
+              Q(executer__userdata__tlf__icontains=filter_str) |
+
+              Q(receiver__username__icontains=filter_str) |
+              Q(receiver__email__icontains=filter_str) |
+              Q(receiver__userdata__tlf__icontains=filter_str) |
+
+              Q(action_name__icontains=filter_str) |
+              Q(metadata__icontains=filter_str)
+            )
+            query = query.filter(q2)
+
+        # filter, with constraints
+        query = filter_query(
+            filters=request.GET,
+            query=query,
+            constraints=dict(
+                filters=dict(
+                    executer__id=dict(
+                        lt=int,
+                        gt=int,
+                    ),
+                    receiver__id=dict(
+                        lt=int,
+                        gt=int,
+                    ),
+                    created=dict(
+                        lt=datetime,
+                        gt=datetime
+                    )
+                ),
+                order_by=[
+                    'created',
+                    'executer__id',
+                    'receiver__id'
+                ],
+                default_ordery_by='-created'
+            ),
+            prefix='activity__',
+            contraints_policy='ignore_invalid')
+
 
         # paginate query and return
         data = {'status': 'ok', 'activity': []}
@@ -786,6 +840,22 @@ class AuthEventView(View):
                     object_type='UserData', object_id=ae.id)
             acl.save()
 
+            action = Action(
+                executer=request.user,
+                action_name='authevent:create',
+                event=ae,
+                metadata=dict(
+                    auth_method=auth_method,
+                    auth_method_config=auth_method_config,
+                    extra_fields=extra_fields,
+                    admin_fields=admin_fields,
+                    census=census,
+                    num_successful_logins_allowed=num_successful_logins_allowed,
+                    based_in=based_in
+                )
+            )
+            action.save()
+
             # if necessary, generate captchas
             from authmethods.utils import have_captcha
             if have_captcha(ae):
@@ -831,6 +901,23 @@ class AuthEventView(View):
             # TODO: Problem if object_id is None, change None by 0
             acl = get_object_or_404(ACL, user=request.user.userdata,
                     perm='edit', object_type='AuthEvent', object_id=ae.pk)
+
+            action = Action(
+                executer=request.user,
+                action_name='authevent:edit',
+                event=ae,
+                metadata=dict(
+                    auth_method=auth_method,
+                    auth_method_config=auth_method_config,
+                    extra_fields=extra_fields,
+                    admin_fields=admin_fields,
+                    census=census,
+                    num_successful_logins_allowed=num_successful_logins_allowed,
+                    based_in=based_in
+                )
+            )
+            action.save()
+
 
         data = {'status': 'ok', 'id': ae.pk, 'perm': acl.get_hmac()}
         return json_response(data)
@@ -878,6 +965,11 @@ class AuthEventView(View):
         permission_required(request.user, 'AuthEvent', ['edit', 'delete'], pk)
 
         ae = AuthEvent.objects.get(pk=pk)
+        action = Action(
+            executer=request.user,
+            action_name='authevent:delete',
+            event=ae)
+        action.save()
         ae.delete()
 
         data = {'status': 'ok'}

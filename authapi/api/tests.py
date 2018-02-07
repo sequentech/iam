@@ -2301,8 +2301,10 @@ class ApiTestActivationAndActivity(TestCase):
         self.assertEqual(len(r['activity']), 1)
         self.assertEqual(r['activity'][0]['executer_id'], self.uid_admin)
         self.assertEqual(r['activity'][0]['executer_username'], 'john')
+        self.assertEqual(r['activity'][0]['executer_email'], 'john@agoravoting.com')
         self.assertEqual(r['activity'][0]['receiver_id'], self.uid)
         self.assertEqual(r['activity'][0]['receiver_username'], 'test')
+        self.assertEqual(r['activity'][0]['receiver_email'], 'aaaa@aaa.com')
         self.assertEqual(r['activity'][0]['action_name'], 'user:deactivate')
         self.assertEqual(r['activity'][0]['metadata']['comment'], data['comment'])
 
@@ -2387,9 +2389,9 @@ class ApiTestActivationAndActivity(TestCase):
             self.assertEqual(r['activity'][0]['metadata']['comment'], data['comment'])
 
         ## check input parameters filtering and validation
+        path = '/api/auth-event/%d/activity/' % self.aeid
 
         # check filtering by executer_id
-        path = '/api/auth-event/%d/activity/' % self.aeid
         response = c.get(path + '?executer_id=%d' % self.uid_admin, {})
         check_activity(response)
         # check filtering by receiver_id
@@ -2425,11 +2427,11 @@ class ApiTestActivationAndActivity(TestCase):
         check_activity(response)
 
         # check filtering with multiple actions, with one action not existent
-        response = c.get(path + '?actions=user:activate|user:deactivate|election:created', {})
+        response = c.get(path + '?actions=user:activate|user:deactivate|authevent:create', {})
         check_activity(response)
 
         # check filtering with invalid actions
-        response = c.get(path + '?actions=user:activate|INVALID|election:created', {})
+        response = c.get(path + '?actions=user:activate|INVALID|authevent:create', {})
         check_activity(response, status=400)
         response = c.get(path + '?actions=INVALID_ACTION', {})
         check_activity(response, status=400)
@@ -2449,7 +2451,7 @@ class ApiTestActivationAndActivity(TestCase):
 
         # check that without permissions no activity listing is allowed
         self.acl_activity1.delete()
-        response = c.get(path + '?actions=user:activate|INVALID|election:created', {})
+        response = c.get(path + '?actions=user:activate|INVALID|authevent:create', {})
         check_activity(response, status=403)
         response = c.get(path + '?actions=INVALID_ACTION', {})
         check_activity(response, status=403)
@@ -2463,7 +2465,7 @@ class ApiTestActivationAndActivity(TestCase):
         acl = ACL(user=self.u_admin.userdata, object_type='AuthEvent',
             perm='event-receiver-view-activity', object_id=self.aeid)
         acl.save()
-        response = c.get(path + '?actions=user:activate|INVALID|election:created', {})
+        response = c.get(path + '?actions=user:activate|INVALID|authevent:create', {})
         check_activity(response, status=403)
         response = c.get(path + '?actions=INVALID_ACTION', {})
         check_activity(response, status=403)
@@ -2484,3 +2486,72 @@ class ApiTestActivationAndActivity(TestCase):
         check_activity(response, l=1)
         response = c.get(path + '?receiver_id=%d&actions=user:deactivate&executer_id=%d' % (self.uid, self.uid_admin), {})
         check_activity(response, l=1, action="user:deactivate")
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_filter_activity2(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin deactivates voter
+        self.assertEqual(response.status_code, 200)
+        data = {'user-ids': [self.uid], 'comment': 'some comment here'}
+        response = c.post('/api/auth-event/%d/census/deactivate/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin activates voter
+        self.assertEqual(response.status_code, 200)
+        data = {'user-ids': [self.uid], 'comment': 'some comment here2'}
+        response = c.post('/api/auth-event/%d/census/activate/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        def check_activity(response, action='user:activate', comment='some comment here2', l=2, status=200):
+            ## check that the deactivation/activation was logged properly
+            self.assertEqual(response.status_code, status)
+
+            if status == 200:
+                r = json.loads(response.content.decode('utf-8'))
+                self.assertEqual(len(r['activity']), l)
+            else:
+                return
+
+            if l == 0:
+                return
+
+            self.assertEqual(r['activity'][0]['executer_id'], self.uid_admin)
+            self.assertEqual(r['activity'][0]['executer_username'], 'john')
+            self.assertEqual(r['activity'][0]['receiver_id'], self.uid)
+            self.assertEqual(r['activity'][0]['receiver_username'], 'test')
+            self.assertEqual(r['activity'][0]['action_name'], action)
+            self.assertEqual(r['activity'][0]['metadata']['comment'], comment)
+
+        # check filtering by string query on action
+        path = '/api/auth-event/%d/activity/' % self.aeid
+
+        response = c.get(path, {})
+        check_activity(response, l=2)
+
+        # both actions are prefixed with "user:"
+        response = c.get(path + '?filter=user:', {})
+        check_activity(response, l=2)
+
+        # only one action has a comment with the word "here2"
+        response = c.get(path + '?filter=here2', {})
+        check_activity(response, l=1)
+
+
+        # only first action has the action_name "user:activate"
+        response = c.get(path + '?filter=here2', {})
+        check_activity(response, l=1)
+
+        # only one action has the action_name "user:deactivate"
+        response = c.get(path + '?filter=deactivate', {})
+        check_activity(response, l=1, action="user:deactivate", comment='some comment here')
+
+        # both actions have the executer "john"
+        response = c.get(path + '?filter=john', {})
+        check_activity(response, l=2)

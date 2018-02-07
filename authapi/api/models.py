@@ -253,7 +253,10 @@ def create_user_data(sender, instance, created, *args, **kwargs):
 # List of allowed actions used as only valid values for the Action model
 # action_name column
 ALLOWED_ACTIONS = (
-    ('election:created', 'election:created'),
+    ('authevent:create', 'authevent:create'),
+    ('authevent:callback', 'authevent:callback'),
+    ('authevent:edit', 'authevent:edit'),
+    ('authevent:delete', 'authevent:delete'),
     ('user:activate', 'user:activate'),
     ('user:deactivate', 'user:deactivate'),
 )
@@ -267,7 +270,7 @@ class Action(models.Model):
 
     # user that executed the action
     executer = models.ForeignKey(User, related_name="executed_actions",
-        db_index=True)
+        db_index=True, null=True)
 
     # date at which the action was executed
     created = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -289,11 +292,16 @@ class Action(models.Model):
 
     def serialize(self):
         d = {
+            'id': self.id,
             'executer_id': self.executer.id,
             'executer_username': self.executer.username,
+            'executer_email': self.executer.email,
             'receiver_id': self.receiver.id if self.receiver else None,
             'receiver_username': (
                 self.receiver.username if self.receiver else None
+            ),
+            'receiver_email': (
+                self.receiver.email if self.receiver else None
             ),
             'action_name': self.action_name,
             'created': (
