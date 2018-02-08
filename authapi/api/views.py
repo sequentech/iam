@@ -691,6 +691,10 @@ class Activity(View):
             query=query,
             constraints=dict(
                 filters=dict(
+                    id=dict(
+                        lt=int,
+                        gt=int,
+                    ),
                     executer__id=dict(
                         lt=int,
                         gt=int,
