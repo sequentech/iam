@@ -26,6 +26,7 @@ from django.db.models.signals import post_save
 from django.db.models import Q
 from django.conf import settings
 from utils import genhmac
+from django.utils import timezone
 
 CENSUS = (
     ('close', 'Close census'),
@@ -63,7 +64,7 @@ class AuthEvent(models.Model):
         ]
     )
     based_in = models.IntegerField(null=True) # auth_event_id
-    
+
     # will return true if allow_user_resend is defined and it's True,
     # false otherwise
     def check_allow_user_resend(self):
@@ -113,7 +114,7 @@ class AuthEvent(models.Model):
                         if not f.get('private', True)
                 ]
             })
-             
+
         else:
             d.update({
                 'extra_fields': self.extra_fields,
@@ -141,7 +142,7 @@ class AuthEvent(models.Model):
             object_type='AuthEvent',
             perm='vote',
             object_id=self.id)
-     
+
     def get_owners(self):
         '''
         Returns the list of people that can edit this event
@@ -203,7 +204,7 @@ class UserData(models.Model):
                 draft_election = self.draft_election
             d.update(draft_election)
         return d
-        
+
 
     def serialize(self):
         d = {
@@ -279,7 +280,7 @@ class Action(models.Model):
         db_index=True, null=True)
 
     # date at which the action was executed
-    created = models.DateTimeField(auto_now_add=True, db_index=True)
+    created = models.DateTimeField(default=timezone.now, db_index=True)
 
     # name of the action executed
     action_name = models.CharField(max_length=255, db_index=True,
@@ -321,7 +322,7 @@ class Action(models.Model):
         return d
 
     def __str__(self):
-        return "%s -%s" % (self.user.user.username, self.action_name)
+        return "%s - %s - %s" % (self.receiver.username, self.action_name, self.created)
 
 class ACL(models.Model):
     '''

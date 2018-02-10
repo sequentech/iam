@@ -23,7 +23,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 
 from . import test_data
-from .models import ACL, AuthEvent
+from .models import ACL, AuthEvent, Action
 from authmethods.models import Code, MsgLog
 from utils import verifyhmac
 from authmethods.utils import get_cannonical_tlf
@@ -1040,7 +1040,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.assertEqual(response.status_code, 200)
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(len(r['object_list']), 1)
-        
+
         correct_tpl = {
           "msg" : "Vote in __URL2__ with home page __HOME_URL__",
           "subject" : "Vote now with nVotes",
@@ -1785,31 +1785,12 @@ class TestCallback(TestCase):
         self.ae = ae
         self.aeid = ae.pk
 
-        u_admin = User(username=test_data.admin['username'], email=test_data.admin['email'])
-        u_admin.set_password(test_data.admin['password'])
-        u_admin.save()
-        u_admin.userdata.event = ae
-        u_admin.userdata.save()
-        self.uid_admin = u_admin.id
-
-        acl = ACL(user=u_admin.userdata, object_type='AuthEvent', perm='edit',
-            object_id=self.aeid)
-        acl.save()
-
         u = User(username='test', email=test_data.auth_email_default['email'])
         u.save()
         u.userdata.event = ae
         u.userdata.save()
         self.u = u.userdata
         self.uid = u.id
-
-        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit',
-            object_id=self.aeid)
-        acl.save()
-
-        c = Code(user=u.userdata, code=test_data.auth_email_default['code'], auth_event_id=ae.pk)
-        c.save()
-        self.code = c
 
     def genhmac(self, key, msg):
         import hmac
@@ -1829,15 +1810,123 @@ class TestCallback(TestCase):
                        BROKER_BACKEND='memory')
     def test_callback(self):
         c = JClient()
-        timed_auth = "admin:AuthEvent:%d:Callback" % self.aeid
+        timed_auth = "test:AuthEvent:%d:Callback" % self.aeid
         hmac = self.genhmac(settings.SHARED_SECRET, timed_auth)
         c.set_auth_token(hmac)
         response = c.post('/api/auth-event/%d/callback/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
+        # check the action was created
+        action = Action.objects.get(executer__id=self.uid)
+        self.assertEqual(action.action_name, "authevent:callback")
+
         c.authenticate(self.aeid, test_data.auth_email_default)
         response = c.post('/api/auth-event/%d/callback/' % self.aeid, {})
         self.assertEqual(response.status_code, 403)
-   
+
+
+class TestCsvStats(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        from datetime import datetime, timedelta
+
+        ae = AuthEvent(auth_method="email",
+                auth_method_config=test_data.authmethod_config_email_default,
+                status='started',
+                census="open")
+        ae.save()
+        self.ae = ae
+        self.aeid = ae.pk
+
+        # convenience methods to create users and vote data
+
+        def newUser(name):
+            u = User(username=name, email=test_data.auth_email_default['email'])
+            u.save()
+            u.userdata.event = ae
+            u.userdata.save()
+            return u
+
+        def newAction(user, date):
+            action = Action(
+                created=date,
+                executer=user,
+                receiver=user,
+                action_name="authevent:callback",
+                event=ae)
+            action.save()
+            return action
+
+        # Create the data from which to run the query
+        # the expected result is defined below the data, then used in an
+        # assert in the test_csv_stats function
+
+        # use a fixed date to get a fixed result
+        date = datetime(2010, 10, 10, 0, 30, 30, 0, None)
+
+        # some of the users will cast two votes, so we save these users here
+        # we will also use the first user for hmac authorization
+        self.users=[]
+
+        # these votes will be overwritten later
+        # the first hour slice will therefore have 0 votes
+        for i in range(0, 4):
+            user = newUser("user%s" % i)
+            newAction(user, date)
+            self.users.append(user)
+
+        # in the second hour we have 3 votes
+        date = date + timedelta(hours=1)
+        for i in range(4, 7):
+            user = newUser("user%s" % i)
+            newAction(user, date)
+
+        # here we cast votes for the same users as in the first hour,
+        # effectively invalidating them
+        # the third hour slice will therefore have 4 votes
+        date = date + timedelta(hours=1)
+        for i in range(0, 4):
+            newAction(self.users[i], date)
+
+        # in the third hour we have 5 votes
+        date = date + timedelta(hours=1)
+        for i in range(7, 12):
+            user = newUser("user%s" % i)
+            newAction(user, date)
+
+        # the expected result as a csv string
+        # corresponds to 0 votes in first hour (no data)
+        # 3 votes in second hour
+        # 4 votes in third hour
+        # 5 votes in fourth hour
+        self.expected = b"2010-10-10 01:00:00+00:00,3\n2010-10-10 02:00:00+00:00,4\n2010-10-10 03:00:00+00:00,5"
+
+    def genhmac(self, key, msg):
+        import hmac
+        import datetime
+
+        if not key or not msg:
+           return
+
+        timestamp = int(datetime.datetime.now().timestamp())
+        msg = "%s:%s" % (msg, str(timestamp))
+
+        h = hmac.new(key, msg.encode('utf-8'), "sha256")
+        return 'khmac:///sha-256;' + h.hexdigest() + '/' + msg
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_csv_stats(self):
+        c = JClient()
+        timed_auth = "%s:AuthEvent:%d:CsvStats" % (self.users[0].username, self.aeid)
+        hmac = self.genhmac(settings.SHARED_SECRET, timed_auth)
+        c.set_auth_token(hmac)
+
+        response = c.get('/api/auth-event/%d/csv-stats/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, self.expected)
 
 # Check the allowed number of revotes, using AuthEvent's
 # num_successful_logins_allowed field and calls to successful_login
