@@ -455,16 +455,30 @@ def get_client_ip(request):
 
 
 @celery.task
-def send_codes(users, ip, auth_method, config=None):
+def send_codes(users, ip, auth_method, config=None, sender_uid=None, eid=None):
+    from api.models import Action, AuthEvent
+
     # delay between send code calls
     delay = 0
     extend_info = plugins.call("extend_send_codes")
     if extend_info:
         for info in extend_info:
              delay = info
+
+
+    sender = User.objects.get(pk=sender_uid) if sender_uid else None
+    auth_event = AuthEvent.objects.get(pk=eid) if eid else None
+
     ''' Massive send_code with celery task.  '''
     user_objs = User.objects.filter(id__in=users)
     for user in user_objs:
+        action = Action(
+                executer=sender,
+                receiver=user,
+                action_name='user:send-auth',
+                event=auth_event,
+                metadata=dict())
+        action.save()
         send_code(user, ip, config, auth_method)
         if delay > 0:
             sleep(delay)

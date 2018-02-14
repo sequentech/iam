@@ -375,6 +375,15 @@ class SuccessfulLoginView(View):
 
         sl = SuccessfulLogin(user=user.userdata, is_active = user.is_active)
         sl.save()
+
+        action = Action(
+            executer=user,
+            receiver=user,
+            action_name='user:successful-login',
+            event=user.userdata.event,
+            metadata=dict())
+        action.save()
+
         return json_response({}, status=200)
 
 successful_login = SuccessfulLoginView.as_view()
@@ -439,6 +448,17 @@ class Register(View):
 
         data = auth_register(e, request)
         if data['status'] == 'ok':
+
+            if "user" in data:
+                action = Action(
+                    executer=data['user'],
+                    receiver=data['user'],
+                    action_name='user:register',
+                    event=e,
+                    metadata=dict())
+                action.save()
+                del data['user']
+
             return json_response(data)
         else:
             return json_response(
@@ -464,6 +484,16 @@ class ResendAuthCode(View):
 
         data = auth_resend_auth_code(e, request)
         if data['status'] == 'ok':
+            if 'user' in data:
+                action = Action(
+                    executer=data['user'],
+                    receiver=data['user'],
+                    action_name='user:resend-authcode',
+                    event=e,
+                    metadata=dict())
+                action.save()
+                del data['user']
+
             return json_response(data)
         else:
             return json_response(
@@ -488,6 +518,13 @@ class AuthEventStatus(View):
             e.status = status
             e.save()
             st = 200
+            action = Action(
+                executer=request.user,
+                receiver=None,
+                action_name='authevent:' + status,
+                event=e,
+                metadata=dict())
+            action.save()
         else:
             st = 400
         return json_response(status=st, message='Authevent status:  %s' % status)
@@ -912,12 +949,8 @@ class AuthEventView(View):
                 event=ae,
                 metadata=dict(
                     auth_method=auth_method,
-                    auth_method_config=auth_method_config,
-                    extra_fields=extra_fields,
-                    admin_fields=admin_fields,
-                    census=census,
-                    num_successful_logins_allowed=num_successful_logins_allowed,
-                    based_in=based_in
+                    auth_method_config=ae.auth_method_config.get('config'),
+                    extra_fields=extra_fields
                 )
             )
             action.save()

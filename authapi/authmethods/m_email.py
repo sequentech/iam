@@ -597,9 +597,9 @@ class Email:
                 u.id, ae, req, stack_trace_str())
             # Note, we are not calling to extend_send_sms because we are not
             # sending the code in here
-            return {'status': 'ok'}
+            return {'status': 'ok', 'user': u}
 
-        response = {'status': 'ok'}
+        response = {'status': 'ok', 'user': u}
         send_codes.apply_async(args=[[u.id,], get_client_ip(request),'email'])
         LOGGER.info(\
             "Email.register.\n"\
@@ -787,7 +787,7 @@ class Email:
             "request '%r'\n"\
             "Stack trace: \n%s",\
             u.id, get_client_ip(request), ae, req, stack_trace_str())
-        return {'status': 'ok'}
+        return {'status': 'ok', 'user': u}
         
 
 register_method('email', Email)

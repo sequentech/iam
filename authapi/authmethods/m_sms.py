@@ -590,7 +590,7 @@ class Sms:
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
                 u.id, ae, req, stack_trace_str())
-            return {'status': 'ok'}
+            return {'status': 'ok', 'user': u}
 
         result = plugins.call("extend_send_sms", ae, 1)
         if result:
@@ -613,6 +613,7 @@ class Sms:
             "request '%r'\n"\
             "Stack trace: \n%s",\
             u.id, get_client_ip(request), ae, req, stack_trace_str())
+        response['user'] = u
         return response
 
     def authenticate(self, ae, request):
@@ -797,6 +798,6 @@ class Sms:
             "request '%r'\n"\
             "Stack trace: \n%s",\
             u.id, get_client_ip(request), ae, req, stack_trace_str())
-        return {'status': 'ok'}
+        return {'status': 'ok', 'user': u}
 
 register_method('sms', Sms)

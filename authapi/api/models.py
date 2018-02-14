@@ -256,9 +256,15 @@ ALLOWED_ACTIONS = (
     ('authevent:create', 'authevent:create'),
     ('authevent:callback', 'authevent:callback'),
     ('authevent:edit', 'authevent:edit'),
+    ('authevent:start', 'authevent:start'),
+    ('authevent:stop', 'authevent:stop'),
     ('authevent:delete', 'authevent:delete'),
     ('user:activate', 'user:activate'),
+    ('user:successful-login', 'user:successful-login'),
+    ('user:send-auth', 'user:send-auth'),
     ('user:deactivate', 'user:deactivate'),
+    ('user:register', 'user:register'),
+    ('user:resend-authcode', 'user:resend-authcode'),
 )
 
 
