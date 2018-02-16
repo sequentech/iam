@@ -258,7 +258,6 @@ ALLOWED_ACTIONS = (
     ('authevent:edit', 'authevent:edit'),
     ('authevent:start', 'authevent:start'),
     ('authevent:stop', 'authevent:stop'),
-    ('authevent:delete', 'authevent:delete'),
     ('user:activate', 'user:activate'),
     ('user:successful-login', 'user:successful-login'),
     ('user:send-auth', 'user:send-auth'),

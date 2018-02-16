@@ -1002,11 +1002,6 @@ class AuthEventView(View):
         permission_required(request.user, 'AuthEvent', ['edit', 'delete'], pk)
 
         ae = AuthEvent.objects.get(pk=pk)
-        action = Action(
-            executer=request.user,
-            action_name='authevent:delete',
-            event=ae)
-        action.save()
         ae.delete()
 
         data = {'status': 'ok'}
