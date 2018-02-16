@@ -521,7 +521,7 @@ class AuthEventStatus(View):
             action = Action(
                 executer=request.user,
                 receiver=None,
-                action_name='authevent:' + status,
+                action_name='authevent:' + alt,
                 event=e,
                 metadata=dict())
             action.save()
