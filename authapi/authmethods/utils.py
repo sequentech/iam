@@ -538,7 +538,7 @@ def create_user(req, ae, active, creator):
     u.userdata.save()
 
     action = Action(
-        executer=creator if creator is None else u,
+        executer=u if creator is None else creator,
         receiver=u,
         action_name='user:register' if creator is None else 'user:added-to-census',
         event=ae,
