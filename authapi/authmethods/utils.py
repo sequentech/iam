@@ -526,13 +526,25 @@ def edit_user(user, req, ae):
     return user
 
 
-def create_user(req, ae, active=False):
+def create_user(req, ae, active, creator):
+    from api.models import Action
     user = random_username()
+
     u = User(username=user)
     u.is_active = active
     u.save()
+
     u.userdata.event = ae
     u.userdata.save()
+
+    action = Action(
+        executer=creator if creator is None else u,
+        receiver=u,
+        action_name='user:register' if creator is None else 'user:added-to-census',
+        event=ae,
+        metadata=dict())
+    action.save()
+
     return edit_user(u, req, ae)
 
 

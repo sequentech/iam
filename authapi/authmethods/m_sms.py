@@ -307,7 +307,7 @@ class Sms:
                     continue
                 # By default we creates the user as active we don't check
                 # the pipeline
-                u = create_user(r, ae, True)
+                u = create_user(r, ae, True, request.user)
                 give_perms(u, ae)
         if msg and validation:
             LOGGER.error(\
@@ -324,7 +324,7 @@ class Sms:
             for r in req.get('census'):
                 # By default we creates the user as active we don't check
                 # the pipeline
-                u = create_user(r, ae, True)
+                u = create_user(r, ae, True, request.user)
                 give_perms(u, ae)
 
         LOGGER.debug(\
@@ -565,7 +565,7 @@ class Sms:
                         msg_exist, ae, req, stack_trace_str())
                     return self.error("Incorrect data", error_codename=user_exists_codename)
             else:
-                u = create_user(req, ae, active)
+                u = create_user(req, ae, active, request.user)
                 msg += give_perms(u, ae)
                 u.userdata.tlf = tlf
                 u.userdata.save()

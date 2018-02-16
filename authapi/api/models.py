@@ -263,6 +263,7 @@ ALLOWED_ACTIONS = (
     ('user:send-auth', 'user:send-auth'),
     ('user:deactivate', 'user:deactivate'),
     ('user:register', 'user:register'),
+    ('user:added-to-census', 'user:added-to-census'),
     ('user:resend-authcode', 'user:resend-authcode'),
 )
 

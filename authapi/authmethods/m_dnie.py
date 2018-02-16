@@ -80,7 +80,7 @@ def dnie_auth(request, authid):
     #dni = X
     #ud = UserData.objects.filter(metadata__icontains=dni, event=ae)
     #if not ud:
-    #    u = create_user(r, ae, True)
+    #    u = create_user(r, ae, True, request.user)
     #    u.userdata.metadata['dni'] = dni
     #    give_perms(u, ae)
     #else:
@@ -153,7 +153,7 @@ class DNIE:
                 if exist and not exist.count('None'):
                     continue
                 used = r.get('status', 'registered') == 'used'
-                u = create_user(r, ae, used)
+                u = create_user(r, ae, used, request.user)
                 give_perms(u, ae)
         if msg and validation:
             data = {'status': 'nok', 'msg': msg}
@@ -162,7 +162,7 @@ class DNIE:
         if validation:
             for r in req.get('census'):
                 used = r.get('status', 'registered') == 'used'
-                u = create_user(r, ae, used)
+                u = create_user(r, ae, used, request.user)
                 give_perms(u, ae)
         return {'status': 'ok'}
 
