@@ -219,22 +219,22 @@ class Census(View):
             if len(e.extra_fields):
                 filter_str = "%" + filter_str + "%"
                 raw_sql = '''
-                             SELECT "api_acl"."id", "api_acl"."user_id", "api_acl"."perm", 
-                                    "api_acl"."object_type", "api_acl"."object_id", "api_acl"."created", 
+                             SELECT "api_acl"."id", "api_acl"."user_id", "api_acl"."perm",
+                                    "api_acl"."object_type", "api_acl"."object_id", "api_acl"."created",
                                     "api_userdata"."id", "api_userdata"."user_id",
                                     "api_userdata"."event_id", "api_userdata"."tlf",
                                     "api_userdata"."metadata", "api_userdata"."status"
-                            FROM "api_acl" 
-                            INNER JOIN "api_userdata" 
-                            ON ("api_acl"."user_id" = "api_userdata"."id") 
-                            INNER JOIN "auth_user" 
-                            ON ("api_userdata"."user_id" = "auth_user"."id") 
-                            WHERE 
+                            FROM "api_acl"
+                            INNER JOIN "api_userdata"
+                            ON ("api_acl"."user_id" = "api_userdata"."id")
+                            INNER JOIN "auth_user"
+                            ON ("api_userdata"."user_id" = "auth_user"."id")
+                            WHERE
                                 ("api_acl"."object_id"::int = %s
                                 AND "api_acl"."perm" = 'vote'
                                 AND "api_acl"."object_type" = 'AuthEvent'
-                                AND (UPPER("auth_user"."username"::text) LIKE UPPER(%s) 
-                                OR UPPER("auth_user"."email"::text) LIKE UPPER(%s) 
+                                AND (UPPER("auth_user"."username"::text) LIKE UPPER(%s)
+                                OR UPPER("auth_user"."email"::text) LIKE UPPER(%s)
                                 OR UPPER("api_userdata"."tlf"::text) LIKE UPPER(%s)'''
                 params_array = [pk, filter_str, filter_str, filter_str]
                 for field in e.extra_fields:
@@ -405,11 +405,13 @@ class CallbackView(View):
             khmac_obj.get_other_values() != valid_data):
             return json_response({}, status=403)
         ae = get_object_or_404(AuthEvent, pk=pk)
-        client_ip = get_client_ip(request)
 
-        error_kwargs = plugins.call("extend_callback", request, ae, client_ip)
-        if error_kwargs:
-            return json_response(**error_kwargs[0])
+        action = Action(
+            executer=user,
+            receiver=user,
+            action_name="authevent:callback",
+            event=ae)
+        action.save()
 
         action = Action(
             receiver=user,
@@ -420,6 +422,65 @@ class CallbackView(View):
         return json_response({}, status=200)
 
 callback = CallbackView.as_view()
+
+class CsvStatsView(View):
+    '''
+    Returns statistical data about votes in text/plain csv format
+
+    This code uses raw sql and is dependent on a postgresql backend
+    '''
+    def get(self, request, pk):
+        from django.db import connection
+
+        # userid is not used, but recorded in the log
+        user, error, khmac_obj = get_login_user(request)
+
+        valid_data = ["AuthEvent", pk, "CsvStats"]
+
+        # check everything is ok
+        if (not user or
+            error is not None or
+            type(khmac_obj) != HMACToken or
+            khmac_obj.get_other_values() != valid_data):
+            return json_response({}, status=403)
+
+        # the auth event for which we are querying
+        ae = get_object_or_404(AuthEvent, pk=pk)
+
+        # returns the number of votes per hour slice, disregarding overwrites
+        cursor = connection.cursor()
+
+        # first we must obtain the last date vote for every user
+        # then we join on this data to discard overwritten votes
+        # finally the data is aggregated per hour slice
+        # hour slices are obtained by truncating with DATE_TRUNC
+        query = '''
+            SELECT DATE_TRUNC('hour', created) as created_date, COUNT(id)
+            FROM api_action AS a
+            JOIN (
+                SELECT receiver_id, MAX(created)
+                FROM api_action
+                WHERE action_name='authevent:callback'
+                GROUP BY receiver_id
+            )
+            AS b ON a.receiver_id = b.receiver_id AND a.created = b.max
+            WHERE a.action_name='authevent:callback'
+            AND a.event_id = %s
+            GROUP BY created_date
+            ORDER by created_date
+        '''
+        cursor.execute(query, [ae.pk])
+
+        # convert data to csv format
+        data = ["%s,%s" % (row[0], row[1]) for row in cursor.fetchall()]
+
+        # return as csv attachment
+        response = HttpResponse('\n'.join(data), status=200, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="data.csv"'
+
+        return response
+
+csv_stats = CsvStatsView.as_view()
 
 
 class Register(View):
@@ -477,7 +538,7 @@ class ResendAuthCode(View):
                 status=400,
                 error_codename="AUTH_EVENT_NOT_STARTED")
         # registration is closed
-        if (e.census == 'open' or e.check_allow_user_resend()) and e.status != 'started': 
+        if (e.census == 'open' or e.check_allow_user_resend()) and e.status != 'started':
             return json_response(
                 status=400,
                 error_codename="AUTH_EVENT_NOT_STARTED")
@@ -790,7 +851,7 @@ class AuthEventView(View):
 
             auth_method = req.get('auth_method', '')
 
-            # check if send code method is authorized 
+            # check if send code method is authorized
             disable_auth_method = False
             extend_info = plugins.call("extend_disable_auth_method", auth_method, None)
             if extend_info:
@@ -909,7 +970,7 @@ class AuthEventView(View):
             if msg:
                 return json_response(status=400, message=msg)
 
-            # check if send code method is authorized 
+            # check if send code method is authorized
             disable_auth_method = False
             extend_info = plugins.call("extend_disable_auth_method", auth_method, pk)
             if extend_info:
@@ -1220,7 +1281,7 @@ class CensusSendAuth(View):
                 status=400,
                 error_codename=ErrorCodes.BAD_REQUEST)
 
-        # check if send code method is authorized 
+        # check if send code method is authorized
         disable_auth_method = False
         extend_info = plugins.call("extend_disable_auth_method", auth_method, pk)
         if extend_info:
@@ -1325,7 +1386,7 @@ class Draft(View):
                 status=400,
                 error_codename=ErrorCodes.BAD_REQUEST)
         pk = user.pk
-        
+
         permission_required(user, 'UserData', 'edit', pk)
 
         draft_election = req.get('draft_election', False)
@@ -1363,7 +1424,7 @@ class Deregister(View):
                 status=400,
                 error_codename=ErrorCodes.BAD_REQUEST)
         pk = user.pk
-        
+
         permission_required(user, 'UserData', 'edit', pk)
         user.is_active = False
         user.save()
