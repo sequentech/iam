@@ -307,7 +307,7 @@ class Sms:
                     continue
                 # By default we creates the user as active we don't check
                 # the pipeline
-                u = create_user(r, ae, True)
+                u = create_user(r, ae, True, request.user)
                 give_perms(u, ae)
         if msg and validation:
             LOGGER.error(\
@@ -324,7 +324,7 @@ class Sms:
             for r in req.get('census'):
                 # By default we creates the user as active we don't check
                 # the pipeline
-                u = create_user(r, ae, True)
+                u = create_user(r, ae, True, request.user)
                 give_perms(u, ae)
 
         LOGGER.debug(\
@@ -565,7 +565,7 @@ class Sms:
                         msg_exist, ae, req, stack_trace_str())
                     return self.error("Incorrect data", error_codename=user_exists_codename)
             else:
-                u = create_user(req, ae, active)
+                u = create_user(req, ae, active, request.user)
                 msg += give_perms(u, ae)
                 u.userdata.tlf = tlf
                 u.userdata.save()
@@ -590,7 +590,7 @@ class Sms:
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
                 u.id, ae, req, stack_trace_str())
-            return {'status': 'ok'}
+            return {'status': 'ok', 'user': u}
 
         result = plugins.call("extend_send_sms", ae, 1)
         if result:
@@ -613,6 +613,7 @@ class Sms:
             "request '%r'\n"\
             "Stack trace: \n%s",\
             u.id, get_client_ip(request), ae, req, stack_trace_str())
+        response['user'] = u
         return response
 
     def authenticate(self, ae, request):
@@ -797,6 +798,6 @@ class Sms:
             "request '%r'\n"\
             "Stack trace: \n%s",\
             u.id, get_client_ip(request), ae, req, stack_trace_str())
-        return {'status': 'ok'}
+        return {'status': 'ok', 'user': u}
 
 register_method('sms', Sms)

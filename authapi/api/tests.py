@@ -994,6 +994,9 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         c = JClient()
         self.u.metadata = {"name": test_data.auth_email_fields['name']}
         self.u.save()
+        code = self.u.codes.last()
+        code.code = test_data.auth_email_fields['code'].upper()
+        code.save()
         response = c.authenticate(self.aeid, test_data.auth_email_fields)
         self.assertEqual(response.status_code, 200)
 
@@ -2207,24 +2210,351 @@ class TestAdminDeregister(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
+class ApiTestActivationAndActivity(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def genhmac(self, key, msg):
+        import hmac
+        import datetime
+        timestamp = int(datetime.datetime.now().timestamp())
+        msg = "%s:%s" % (msg, str(timestamp))
+
+        h = hmac.new(key, msg.encode('utf-8'), "sha256")
+        return 'khmac:///sha-256;' + h.hexdigest() + '/' + msg
+
+    def setUp(self):
+        ae = AuthEvent(auth_method="email",
+                auth_method_config=test_data.authmethod_config_email_default,
+                status='started',
+                census="open",
+                num_successful_logins_allowed = 1)
+        ae.save()
+        self.ae = ae
+        self.aeid = ae.pk
+
+        u_admin = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u_admin.set_password(test_data.admin['password'])
+        u_admin.save()
+        u_admin.userdata.event = ae
+        u_admin.userdata.save()
+        self.uid_admin = u_admin.id
+        self.u_admin = u_admin
+
+        self.admin_auth_data = dict(email=test_data.admin['email'], code="ERGERG")
+        c = Code(user=u_admin.userdata, code=self.admin_auth_data['code'], auth_event_id=1)
+        c.save()
+
+        # election edit permission
+        acl = ACL(user=u_admin.userdata, object_type='AuthEvent', perm='edit',
+            object_id=self.aeid)
+        acl.save()
+
+        # election view events permission
+        acl = ACL(user=u_admin.userdata, object_type='AuthEvent',
+            perm='event-view-activity', object_id=self.aeid)
+        acl.save()
+        self.acl_activity1 = acl
+
+        u = User(username='test', email=test_data.auth_email_default['email'])
+        u.save()
+        u.userdata.event = ae
+        u.userdata.save()
+        self.u = u.userdata
+        self.uid = u.id
+
+        c = Code(user=u.userdata, code=test_data.auth_email_default['code'], auth_event_id=ae.pk)
+        c.save()
+        self.code = c
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_activation(self):
+        c = JClient()
+
+        # voter can authenticate
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
+        # voter has no permission to list activity
+        response = c.get('/api/auth-event/%d/activity/' % self.aeid, {})
+        self.assertEqual(response.status_code, 403)
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin can list activity and log is empty
+        response = c.get('/api/auth-event/%d/activity/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['activity']), 0)
+
+        # admin deactivates voter
+        self.assertEqual(response.status_code, 200)
+        data = {'user-ids': [self.uid], 'comment': 'some comment here'}
+        response = c.post('/api/auth-event/%d/census/deactivate/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        ## check that the deactivation was logged properly
+        response = c.get('/api/auth-event/%d/activity/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['activity']), 1)
+        self.assertEqual(r['activity'][0]['executer_id'], self.uid_admin)
+        self.assertEqual(r['activity'][0]['executer_username'], 'john')
+        self.assertEqual(r['activity'][0]['executer_email'], 'john@agoravoting.com')
+        self.assertEqual(r['activity'][0]['receiver_id'], self.uid)
+        self.assertEqual(r['activity'][0]['receiver_username'], 'test')
+        self.assertEqual(r['activity'][0]['receiver_email'], 'aaaa@aaa.com')
+        self.assertEqual(r['activity'][0]['action_name'], 'user:deactivate')
+        self.assertEqual(r['activity'][0]['metadata']['comment'], data['comment'])
+
+        # voter cannot authenticate
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin activates voter
+        self.assertEqual(response.status_code, 200)
+        data = {'user-ids': [self.uid], 'comment': 'comment 2'}
+        response = c.post('/api/auth-event/%d/census/activate/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        ## check that the deactivation was logged properly
+        response = c.get('/api/auth-event/%d/activity/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['activity']), 2)
+        self.assertEqual(r['activity'][0]['executer_id'], self.uid_admin)
+        self.assertEqual(r['activity'][0]['executer_username'], 'john')
+        self.assertEqual(r['activity'][0]['receiver_id'], self.uid)
+        self.assertEqual(r['activity'][0]['receiver_username'], 'test')
+        self.assertEqual(r['activity'][0]['action_name'], 'user:activate')
+        self.assertEqual(r['activity'][0]['metadata']['comment'], data['comment'])
+
+        # check that removing permission works as expected
+        self.acl_activity1.delete()
+        response = c.get('/api/auth-event/%d/activity/' % self.aeid, {})
+        self.assertEqual(response.status_code, 403)
+
+        # voter can authenticate
+        test_data.auth_email_default['code'] = self.u.codes.last().code
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_filter_activity(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin deactivates voter
+        self.assertEqual(response.status_code, 200)
+        data = {'user-ids': [self.uid], 'comment': 'some comment here'}
+        response = c.post('/api/auth-event/%d/census/deactivate/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin activates voter
+        self.assertEqual(response.status_code, 200)
+        data = {'user-ids': [self.uid], 'comment': 'some comment here'}
+        response = c.post('/api/auth-event/%d/census/activate/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        def check_activity(response, action='user:activate', l=2, status=200):
+            ## check that the deactivation/activation was logged properly
+            self.assertEqual(response.status_code, status)
+
+            if status == 200:
+                r = json.loads(response.content.decode('utf-8'))
+                self.assertEqual(len(r['activity']), l)
+            else:
+                return
+
+            if l == 0:
+                return
+
+            self.assertEqual(r['activity'][0]['executer_id'], self.uid_admin)
+            self.assertEqual(r['activity'][0]['executer_username'], 'john')
+            self.assertEqual(r['activity'][0]['receiver_id'], self.uid)
+            self.assertEqual(r['activity'][0]['receiver_username'], 'test')
+            self.assertEqual(r['activity'][0]['action_name'], action)
+            self.assertEqual(r['activity'][0]['metadata']['comment'], data['comment'])
+
+        ## check input parameters filtering and validation
+        path = '/api/auth-event/%d/activity/' % self.aeid
+
+        # check filtering by executer_id
+        response = c.get(path + '?executer_id=%d' % self.uid_admin, {})
+        check_activity(response)
+        # check filtering by receiver_id
+        response = c.get(path + '?receiver_id=%d' % self.uid_admin, {})
+        check_activity(response, l=0)
+        response = c.get(path + '?receiver_id=%d' % self.uid, {})
+        check_activity(response)
+
+        # check a receiver_id that doesn't exist
+        response = c.get(path + '?receiver_id=133311', {})
+        check_activity(response, l=0)
+
+        # check a receiver_id with an invalid string
+        response = c.get(path + '?receiver_id=aaaa11e', {})
+        check_activity(response, status=400)
+
+        # check a receiver_id that doesn't exist
+        response = c.get(path + '?executer_id=9314488', {})
+        check_activity(response, l=0)
+
+        # check a receiver_id with an invalid string
+        response = c.get(path + '?executer_id=aaaa11e', {})
+        check_activity(response, status=400)
+
+        # check filtering by action
+        response = c.get(path + '?actions=user:activate', {})
+        check_activity(response, l=1)
+        response = c.get(path + '?actions=user:deactivate', {})
+        check_activity(response, l=1, action='user:deactivate')
+
+        # check filtering with multiple actions
+        response = c.get(path + '?actions=user:activate|user:deactivate', {})
+        check_activity(response)
+
+        # check filtering with multiple actions, with one action not existent
+        response = c.get(path + '?actions=user:activate|user:deactivate|authevent:create', {})
+        check_activity(response)
+
+        # check filtering with invalid actions
+        response = c.get(path + '?actions=user:activate|INVALID|authevent:create', {})
+        check_activity(response, status=400)
+        response = c.get(path + '?actions=INVALID_ACTION', {})
+        check_activity(response, status=400)
+
+        # check multiple filters
+        response = c.get(path + '?executer_id=%d&receiver_id=%d' % (self.uid_admin, self.uid), {})
+        check_activity(response)
+        response = c.get(path + '?executer_id=%d&receiver_id=%d' % (self.uid_admin, self.uid_admin), {})
+        check_activity(response, l=0)
+        response = c.get(path + '?receiver_id=%d&executer_id=%d' % (self.uid, self.uid_admin), {})
+        check_activity(response)
+        response = c.get(path + '?actions=user:activate&receiver_id=%d&executer_id=%d' % (self.uid, self.uid_admin), {})
+        check_activity(response, l=1)
+        response = c.get(path + '?receiver_id=%d&actions=user:deactivate&executer_id=%d' % (self.uid, self.uid_admin), {})
+        check_activity(response, l=1, action="user:deactivate")
 
 
+        # check that without permissions no activity listing is allowed
+        self.acl_activity1.delete()
+        response = c.get(path + '?actions=user:activate|INVALID|authevent:create', {})
+        check_activity(response, status=403)
+        response = c.get(path + '?actions=INVALID_ACTION', {})
+        check_activity(response, status=403)
+        response = c.get(path + '?executer_id=%d' % self.uid_admin, {})
+        check_activity(response, status=403)
+        response = c.get(path + '?receiver_id=%d' % self.uid_admin, {})
+        check_activity(response, status=403)
+
+        # checking that with event-receiver-view-activity permission no activity
+        # listing is allowed without filtering by receiver_id
+        acl = ACL(user=self.u_admin.userdata, object_type='AuthEvent',
+            perm='event-receiver-view-activity', object_id=self.aeid)
+        acl.save()
+        response = c.get(path + '?actions=user:activate|INVALID|authevent:create', {})
+        check_activity(response, status=403)
+        response = c.get(path + '?actions=INVALID_ACTION', {})
+        check_activity(response, status=403)
+        response = c.get(path + '?executer_id=%d' % self.uid_admin, {})
+        check_activity(response, status=403)
+
+        # checking that with event-receiver-view-activity permission activity
+        # listing is allowed with filtering by receiver_id
+        response = c.get(path + '?receiver_id=%d' % self.uid, {})
+        check_activity(response)
+        response = c.get(path + '?executer_id=%d&receiver_id=%d' % (self.uid_admin, self.uid), {})
+        check_activity(response)
+        response = c.get(path + '?executer_id=%d&receiver_id=%d' % (self.uid_admin, self.uid_admin), {})
+        check_activity(response, l=0)
+        response = c.get(path + '?receiver_id=%d&executer_id=%d' % (self.uid, self.uid_admin), {})
+        check_activity(response)
+        response = c.get(path + '?actions=user:activate&receiver_id=%d&executer_id=%d' % (self.uid, self.uid_admin), {})
+        check_activity(response, l=1)
+        response = c.get(path + '?receiver_id=%d&actions=user:deactivate&executer_id=%d' % (self.uid, self.uid_admin), {})
+        check_activity(response, l=1, action="user:deactivate")
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_filter_activity2(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin deactivates voter
+        self.assertEqual(response.status_code, 200)
+        data = {'user-ids': [self.uid], 'comment': 'some comment here'}
+        response = c.post('/api/auth-event/%d/census/deactivate/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin activates voter
+        self.assertEqual(response.status_code, 200)
+        data = {'user-ids': [self.uid], 'comment': 'some comment here2'}
+        response = c.post('/api/auth-event/%d/census/activate/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        def check_activity(response, action='user:activate', comment='some comment here2', l=2, status=200):
+            ## check that the deactivation/activation was logged properly
+            self.assertEqual(response.status_code, status)
+
+            if status == 200:
+                r = json.loads(response.content.decode('utf-8'))
+                self.assertEqual(len(r['activity']), l)
+            else:
+                return
+
+            if l == 0:
+                return
+
+            self.assertEqual(r['activity'][0]['executer_id'], self.uid_admin)
+            self.assertEqual(r['activity'][0]['executer_username'], 'john')
+            self.assertEqual(r['activity'][0]['receiver_id'], self.uid)
+            self.assertEqual(r['activity'][0]['receiver_username'], 'test')
+            self.assertEqual(r['activity'][0]['action_name'], action)
+            self.assertEqual(r['activity'][0]['metadata']['comment'], comment)
+
+        # check filtering by string query on action
+        path = '/api/auth-event/%d/activity/' % self.aeid
+
+        response = c.get(path, {})
+        check_activity(response, l=2)
+
+        # both actions are prefixed with "user:"
+        response = c.get(path + '?filter=user:', {})
+        check_activity(response, l=2)
+
+        # only one action has a comment with the word "here2"
+        response = c.get(path + '?filter=here2', {})
+        check_activity(response, l=1)
 
 
+        # only first action has the action_name "user:activate"
+        response = c.get(path + '?filter=here2', {})
+        check_activity(response, l=1)
 
+        # only one action has the action_name "user:deactivate"
+        response = c.get(path + '?filter=deactivate', {})
+        check_activity(response, l=1, action="user:deactivate", comment='some comment here')
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        # both actions have the executer "john"
+        response = c.get(path + '?filter=john', {})
+        check_activity(response, l=2)

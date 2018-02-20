@@ -54,8 +54,15 @@ from utils import (
     filter_query
 )
 from .decorators import login_required, get_login_user
-from .models import AuthEvent, ACL, SuccessfulLogin
-from .models import User, UserData
+from .models import (
+    Action,
+    ACL,
+    AuthEvent,
+    SuccessfulLogin,
+    ALLOWED_ACTIONS,
+    User,
+    UserData
+)
 from .tasks import census_send_auth_task
 from django.db.models import Q
 from captcha.views import generate_captcha
@@ -108,22 +115,57 @@ census_delete = login_required(CensusDelete.as_view())
 
 class CensusActivate(View):
     '''
-    Activates an user in the auth-event census
+    Activates/deactivates an user in the auth-event census.
+
+    The following input parameters are in the data section in json format:
+    - user-ids: Required, list of ints. It's the list of ids of the affected
+                users.
+    - comment: Optional, string. Maximum 255 characters. It's a comment related
+               to the action that will be logged in the activity.
+
+    A single action will be created per user activated in the activity log.
     '''
 
     activate = True
 
     def post(self, request, pk):
+        # check permissions
         permission_required(request.user, 'AuthEvent', ['edit', 'census-activation'], pk)
+
+        # get input
         ae = get_object_or_404(AuthEvent, pk=pk)
         req = parse_json_request(request)
         user_ids = req.get('user-ids', [])
-        check_contract(CONTRACTS['list_of_ints'], user_ids)
+        comment = req.get('comment', None)
 
+        # parse input
+        try:
+          check_contract(CONTRACTS['list_of_ints'], user_ids)
+          if comment is not None:
+              assert(isinstance(comment, str))
+              assert(len(comment) <= 255)
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        # activate users
         for uid in user_ids:
             u = get_object_or_404(User, pk=uid, userdata__event=ae)
             u.is_active = self.activate
             u.save()
+
+            # register activity, one action per user
+            action_name = 'user:activate' if self.activate else 'user:deactivate'
+            action = Action(
+                executer=request.user,
+                receiver=u,
+                action_name=action_name,
+                event=ae,
+                metadata=dict(comment=comment))
+            action.save()
+
+        # send codes on activation
         if self.activate:
             send_codes.apply_async(
                 args=[
@@ -333,6 +375,15 @@ class SuccessfulLoginView(View):
 
         sl = SuccessfulLogin(user=user.userdata, is_active = user.is_active)
         sl.save()
+
+        action = Action(
+            executer=user,
+            receiver=user,
+            action_name='user:successful-login',
+            event=user.userdata.event,
+            metadata=dict())
+        action.save()
+
         return json_response({}, status=200)
 
 successful_login = SuccessfulLoginView.as_view()
@@ -359,6 +410,12 @@ class CallbackView(View):
         error_kwargs = plugins.call("extend_callback", request, ae, client_ip)
         if error_kwargs:
             return json_response(**error_kwargs[0])
+
+        action = Action(
+            receiver=user,
+            action_name="authevent:callback",
+            event=ae)
+        action.save()
 
         return json_response({}, status=200)
 
@@ -391,6 +448,17 @@ class Register(View):
 
         data = auth_register(e, request)
         if data['status'] == 'ok':
+
+            if "user" in data:
+                action = Action(
+                    executer=data['user'],
+                    receiver=data['user'],
+                    action_name='user:register',
+                    event=e,
+                    metadata=dict())
+                action.save()
+                del data['user']
+
             return json_response(data)
         else:
             return json_response(
@@ -416,6 +484,16 @@ class ResendAuthCode(View):
 
         data = auth_resend_auth_code(e, request)
         if data['status'] == 'ok':
+            if 'user' in data:
+                action = Action(
+                    executer=data['user'],
+                    receiver=data['user'],
+                    action_name='user:resend-authcode',
+                    event=e,
+                    metadata=dict())
+                action.save()
+                del data['user']
+
             return json_response(data)
         else:
             return json_response(
@@ -440,6 +518,13 @@ class AuthEventStatus(View):
             e.status = status
             e.save()
             st = 200
+            action = Action(
+                executer=request.user,
+                receiver=None,
+                action_name='authevent:' + alt,
+                event=e,
+                metadata=dict())
+            action.save()
         else:
             st = 400
         return json_response(status=st, message='Authevent status:  %s' % status)
@@ -564,6 +649,126 @@ class ACLMine(View):
 aclmine = login_required(ACLMine.as_view())
 
 
+class Activity(View):
+    '''
+    Returns the list of actions related to an election or filtered by
+    receiver_id, executer_id or a list of actions.
+
+    Returns  the data ordered by creation date, first the most recent.
+
+    Allowed GET params:
+    - executer_id: Int, optional. Number of the executer of the action to filter
+      by. Example: "56".
+
+    - receiver_id: Int, optional. Number of the receiver of the action to filter
+      by. Example: "56".
+
+    - actions: List, optional. Actions to filter by. The list is pipe ('|')
+      separated. Example: "election:create|voter:deactivate".
+
+    - filter: String, optional. A string to filter in some of the fields of the
+      model.
+    '''
+    @login_required
+    def get(request, pk=None):
+        # get allowed filters
+        executer_id = request.GET.get('executer_id', None)
+        receiver_id = request.GET.get('receiver_id', None)
+        actions = request.GET.get('actions', None)
+        filter_str = request.GET.get('filter', None)
+
+        # the global event activity list requires a different permission
+        if receiver_id is None:
+            permission_required(request.user, 'AuthEvent', ['event-view-activity'], pk)
+        else:
+            permission_required(request.user, 'AuthEvent', ['event-view-activity', 'event-receiver-view-activity'], pk)
+
+        # validate input
+        try:
+            executer_id = int(executer_id) if executer_id is not None else None
+            receiver_id = int(receiver_id) if receiver_id is not None else None
+            if actions is not None:
+                actions = actions.split('|')
+                for action in actions:
+                    assert((action, action) in ALLOWED_ACTIONS)
+        except Exception as e:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        # apply filters
+        q = Q()
+        if receiver_id:
+            q = Q(receiver__pk=receiver_id)
+        if executer_id:
+            q &= Q(executer__pk=executer_id)
+        if actions:
+            q &= Q(action_name__in=actions)
+        event = get_object_or_404(AuthEvent, pk=pk)
+        query = event.related_actions.filter(q)
+
+        if filter_str is not None:
+            q2 = (
+              Q(executer__username__icontains=filter_str) |
+              Q(executer__email__icontains=filter_str) |
+              Q(executer__userdata__tlf__icontains=filter_str) |
+
+              Q(receiver__username__icontains=filter_str) |
+              Q(receiver__email__icontains=filter_str) |
+              Q(receiver__userdata__tlf__icontains=filter_str) |
+
+              Q(action_name__icontains=filter_str) |
+              Q(metadata__icontains=filter_str)
+            )
+            query = query.filter(q2)
+
+        # filter, with constraints
+        query = filter_query(
+            filters=request.GET,
+            query=query,
+            constraints=dict(
+                filters=dict(
+                    id=dict(
+                        lt=int,
+                        gt=int,
+                    ),
+                    executer__id=dict(
+                        lt=int,
+                        gt=int,
+                    ),
+                    receiver__id=dict(
+                        lt=int,
+                        gt=int,
+                    ),
+                    created=dict(
+                        lt=datetime,
+                        gt=datetime
+                    )
+                ),
+                order_by=[
+                    'created',
+                    'executer__id',
+                    'receiver__id'
+                ],
+                default_ordery_by='-created'
+            ),
+            prefix='activity__',
+            contraints_policy='ignore_invalid')
+
+
+        # paginate query and return
+        data = {'status': 'ok', 'activity': []}
+        activity_paged = paginate(
+            request,
+            query,
+            serialize_method='serialize',
+            elements_name='activity')
+        data.update(activity_paged)
+        return json_response(data)
+
+activity = login_required(Activity.as_view())
+
+
 class AuthEventView(View):
     @login_required
     def post(request, pk=None):
@@ -676,6 +881,22 @@ class AuthEventView(View):
                     object_type='UserData', object_id=ae.id)
             acl.save()
 
+            action = Action(
+                executer=request.user,
+                action_name='authevent:create',
+                event=ae,
+                metadata=dict(
+                    auth_method=auth_method,
+                    auth_method_config=auth_method_config,
+                    extra_fields=extra_fields,
+                    admin_fields=admin_fields,
+                    census=census,
+                    num_successful_logins_allowed=num_successful_logins_allowed,
+                    based_in=based_in
+                )
+            )
+            action.save()
+
             # if necessary, generate captchas
             from authmethods.utils import have_captcha
             if have_captcha(ae):
@@ -721,6 +942,19 @@ class AuthEventView(View):
             # TODO: Problem if object_id is None, change None by 0
             acl = get_object_or_404(ACL, user=request.user.userdata,
                     perm='edit', object_type='AuthEvent', object_id=ae.pk)
+
+            action = Action(
+                executer=request.user,
+                action_name='authevent:edit',
+                event=ae,
+                metadata=dict(
+                    auth_method=auth_method,
+                    auth_method_config=ae.auth_method_config.get('config'),
+                    extra_fields=extra_fields
+                )
+            )
+            action.save()
+
 
         data = {'status': 'ok', 'id': ae.pk, 'perm': acl.get_hmac()}
         return json_response(data)
