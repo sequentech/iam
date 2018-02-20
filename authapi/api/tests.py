@@ -994,6 +994,9 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         c = JClient()
         self.u.metadata = {"name": test_data.auth_email_fields['name']}
         self.u.save()
+        code = self.u.codes.last()
+        code.code = test_data.auth_email_fields['code'].upper()
+        code.save()
         response = c.authenticate(self.aeid, test_data.auth_email_fields)
         self.assertEqual(response.status_code, 200)
 
