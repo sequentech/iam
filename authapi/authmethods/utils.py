@@ -20,7 +20,7 @@ import binascii
 from base64 import decodestring
 from datetime import timedelta
 from django.conf import settings
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, AnonymousUser
 from django.utils import timezone
 from django.db.models import Q
 
@@ -537,10 +537,12 @@ def create_user(req, ae, active, creator):
     u.userdata.event = ae
     u.userdata.save()
 
+    is_anon = creator is None or isinstance(creator, AnonymousUser)
+
     action = Action(
-        executer=u if creator is None else creator,
+        executer=u if is_anon else creator,
         receiver=u,
-        action_name='user:register' if creator is None else 'user:added-to-census',
+        action_name='user:register' if is_anon else 'user:added-to-census',
         event=ae,
         metadata=dict())
     action.save()
