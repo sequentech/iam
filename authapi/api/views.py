@@ -18,6 +18,7 @@ import os
 import json
 import mimetypes
 from datetime import datetime
+from django import forms
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.views.generic import View
@@ -61,7 +62,8 @@ from .models import (
     SuccessfulLogin,
     ALLOWED_ACTIONS,
     User,
-    UserData
+    UserData,
+    BallotBox
 )
 from .tasks import census_send_auth_task
 from django.db.models import Q
@@ -895,8 +897,8 @@ class AuthEventView(View):
                     admin_fields,
                     METHODS.get(auth_method).USED_TYPE_FIELDS)
 
-            census = req.get('census', '')
             # check census mode
+            census = req.get('census', '')
             if not census in ('open', 'close'):
                 return json_response(
                     status=400,
@@ -904,6 +906,13 @@ class AuthEventView(View):
             error_kwargs = plugins.call("extend_type_census", census)
             if error_kwargs:
                 return json_response(**error_kwargs[0])
+
+            # check if it has ballot boxes
+            has_ballot_boxes = req.get('has_ballot_boxes', 'false')
+            if not has_ballot_boxes in ('true', 'false'):
+                return json_response(
+                    status=400,
+                    error_codename="INVALID_BALLOT_BOXES")
 
             based_in = req.get('based_in', None)
             if based_in and not ACL.objects.filter(user=request.user.userdata, perm='edit',
@@ -926,13 +935,17 @@ class AuthEventView(View):
             if config:
                 auth_method_config.get('config').update(config)
 
-            ae = AuthEvent(auth_method=auth_method,
-                           auth_method_config=auth_method_config,
-                           extra_fields=extra_fields,
-                           admin_fields=admin_fields,
-                           census=census,
-                           num_successful_logins_allowed=num_successful_logins_allowed,
-                           based_in=based_in)
+            ae = AuthEvent(
+                auth_method=auth_method,
+                auth_method_config=auth_method_config,
+                extra_fields=extra_fields,
+                admin_fields=admin_fields,
+                census=census,
+                num_successful_logins_allowed=num_successful_logins_allowed,
+                based_in=based_in,
+                has_ballot_boxes=has_ballot_boxes
+            )
+
             # Save before the acl creation to get the ae id
             ae.save()
             acl = ACL(user=request.user.userdata, perm='edit', object_type='AuthEvent',
@@ -1438,3 +1451,91 @@ class Deregister(View):
 
 deregister = login_required(Deregister.as_view())
 
+
+
+class NewBallotBoxForm(forms.Form):
+    name = forms.CharField(max_length=255)
+
+class BallotBoxView(View):
+    '''
+    Manages ballot boxes related to an election
+    '''
+
+    def post(self, request, pk):
+        permission_required(request.user, 'AuthEvent', ['edit', 'add-ballot-boxes'], pk)
+
+        # parse input
+        try:
+            req = parse_json_request(request)
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        # validate event exists and get it
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+
+        # validate input
+        new_ballot_box = NewBallotBoxForm(req)
+        if not new_ballot_box.is_valid() or not auth_event.has_ballot_boxes:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+
+        # try to create new object in the db. might fail if bb already exists
+        try:
+            bb_obj = BallotBox(name=req['name'], auth_event=auth_event)
+            bb_obj.save()
+        except Exception as e:
+            return json_response(
+                status=400,
+                error_codename=str(e))
+
+        # success!
+        data = {'status': 'ok', 'id': bb_obj.pk}
+        return json_response(data)
+
+
+    def get(self, request, pk):
+        permission_required(request.user, 'AuthEvent', ['edit', 'list-ballot-boxes'], pk)
+        e = get_object_or_404(AuthEvent, pk=pk)
+
+        filter_str = request.GET.get('filter', None)
+        query = e.ballot_boxes.filter()
+        if filter_str:
+            query = query.filter(name__icontains=filter_str)
+
+        query = filter_query(
+            filters=request.GET,
+            query=query,
+            constraints=dict(
+                filters={
+                    "id": dict(
+                        lt=int,
+                        gt=int,
+                    )
+                },
+                order_by=['name']
+            ),
+            prefix='ballot_box__',
+            contraints_policy='ignore_invalid'
+        )
+
+        def serializer(obj):
+          return {
+            "id": obj.pk,
+            "event_id": obj.auth_event.pk,
+            "name": obj.name,
+            "created": obj.created.isoformat(),
+            "num_tally_sheets": obj.tally_sheets.count()
+          }
+
+        objs = paginate(
+          request,
+          query,
+          serialize_method=serializer,
+          elements_name='object_list')
+        return json_response(objs)
+
+ballot_box = login_required(BallotBoxView.as_view())

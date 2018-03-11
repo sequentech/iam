@@ -34,6 +34,7 @@ urlpatterns = [
     url(r'^auth-event/(?P<pk>\d+)/census/activate/$', views.census_activate, name='census_activate'),
     url(r'^auth-event/(?P<pk>\d+)/census/deactivate/$', views.census_deactivate, name='census_deactivate'),
     url(r'^auth-event/(?P<pk>\d+)/ping/$', views.ping, name='ping'),
+    url(r'^auth-event/(?P<pk>\d+)/ballot-box/$', views.ballot_box, name='census'),
     url(r'^auth-event/(?P<pk>\d+)/register/$', views.register, name='register'),
     url(r'^auth-event/(?P<pk>\d+)/authenticate/$', views.authenticate, name='authenticate'),
     url(r'^auth-event/(?P<pk>\d+)/successful_login/(?P<uid>\w+)$', views.successful_login, name='successful_login'),

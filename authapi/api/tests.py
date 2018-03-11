@@ -33,6 +33,9 @@ def flush_db_load_fixture(ffile="initial.json"):
     management.call_command("flush", verbosity=0, interactive=False)
     management.call_command("loaddata", ffile, verbosity=0)
 
+override_celery_data = dict(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
 
 class JClient(Client):
     def __init__(self, *args, **kwargs):
@@ -987,9 +990,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['error_codename'], 'invalid_credentials')
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def test_authenticate_authevent_email_fields(self):
         c = JClient()
         self.u.metadata = {"name": test_data.auth_email_fields['name']}
@@ -1000,9 +1001,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.authenticate(self.aeid, test_data.auth_email_fields)
         self.assertEqual(response.status_code, 200)
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def test_send_auth_email(self):
         self.test_add_census_authevent_email_default() # Add census
         correct_tpl = {"subject": "Vote", "msg": "this is an example __CODE__ and __URL__"}
@@ -1027,9 +1026,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, incorrect_tpl)
         self.assertEqual(response.status_code, 400)
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def test_send_auth_email_url2_home_url(self):
         # Add census
         c = JClient()
@@ -1059,9 +1056,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         home_url =  settings.HOME_URL.replace("__EVENT_ID__", str(self.aeid))
         self.assertEqual(1, msg_log.get('msg').count(home_url))
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def test_send_auth_email_specific(self):
         tpl_specific = {"user-ids": [self.uid, self.uid_admin]}
         c = JClient()
@@ -1069,9 +1064,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, tpl_specific)
         self.assertEqual(response.status_code, 200)
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def test_send_auth_email_change_authevent_status(self):
         tpl_specific = {"user-ids": [self.uid, self.uid_admin]}
         c = JClient()
@@ -1116,9 +1109,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.assertTrue(r['message'].count("dni %s repeat." % user['dni']))
 
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def _test_add_census_no_validation(self):
         self.ae.extra_fields = test_data.extra_field_unique
         self.ae.save()
@@ -1400,9 +1391,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def test_send_auth_sms(self):
         self.test_add_census_authevent_sms_default() # Add census
 
@@ -1426,9 +1415,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, incorrect_tpl)
         self.assertEqual(response.status_code, 400)
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def test_send_auth_sms_specific(self):
         tpl_specific = {"user-ids": [self.uid, self.uid_admin]}
         c = JClient()
@@ -1466,9 +1453,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertTrue(r['message'].count("Maximun number of codes sent"))
 
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def _test_add_census_no_validation(self):
         self.ae.extra_fields = test_data.extra_field_unique
         self.ae.save()
@@ -1636,9 +1621,7 @@ class TestSlugMessages(TestCase):
         acl = ACL(user=u.userdata, object_type='AuthEvent', perm='create', object_id=0)
         acl.save()
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def test_send_auth_email_slug(self):
         c = JClient()
         res_auth = c.authenticate(self.aeid, test_data.auth_email_default)
@@ -1734,9 +1717,7 @@ class TestUserExtra(TestCase):
         acl = ACL(user=u.userdata, object_type='AuthEvent', perm='create', object_id=0)
         acl.save()
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def test_user_extra_get(self):
         c = JClient()
         res_auth = c.authenticate(self.aeid, test_data.auth_email_default)
@@ -1747,9 +1728,7 @@ class TestUserExtra(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['metadata'], test_data.userdata_metadata16)
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def test_user_extra_post(self):
         c = JClient()
         res_auth = c.authenticate(self.aeid, test_data.auth_email_default)
@@ -1805,9 +1784,7 @@ class TestCallback(TestCase):
         h = hmac.new(key, msg.encode('utf-8'), "sha256")
         return 'khmac:///sha-256;' + h.hexdigest() + '/' + msg
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def test_callback(self):
         c = JClient()
         timed_auth = "test:AuthEvent:%d:Callback" % self.aeid
@@ -1915,9 +1892,7 @@ class TestCsvStats(TestCase):
         h = hmac.new(key, msg.encode('utf-8'), "sha256")
         return 'khmac:///sha-256;' + h.hexdigest() + '/' + msg
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def test_csv_stats(self):
         c = JClient()
         timed_auth = "%s:AuthEvent:%d:CsvStats" % (self.users[0].username, self.aeid)
@@ -2077,17 +2052,13 @@ class TestAdminFields(TestCase):
         self.aeid_special = 1
 
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def create_authevent(self, authevent):
         c = JClient()
         c.authenticate(self.ae.pk, test_data.admin)
         return c.post('/api/auth-event/', authevent)
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def test_create_authevent_admin_and_extra_fields(self):
         acl = ACL(user=self.user.userdata, object_type='AuthEvent', perm='create',
                 object_id=0)
@@ -2096,9 +2067,7 @@ class TestAdminFields(TestCase):
         response = self.create_authevent(test_data.auth_event14)
         self.assertEqual(response.status_code, 200)
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def test_create_authevent_repeated_admin_fields(self):
         acl = ACL(user=self.user.userdata, object_type='AuthEvent', perm='create',
                 object_id=0)
@@ -2114,9 +2083,7 @@ class TestAdminDeregister(TestCase):
     def setUp(self):
         self.aeid_special = 1
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def test_deregister_email(self):
         data = {"email": "asd@asd.com", "captcha": "asdasd"}
         c = JClient()
@@ -2170,9 +2137,7 @@ class TestAdminDeregister(TestCase):
         response = c.authenticate(self.aeid_special, data)
         self.assertEqual(response.status_code, 200)
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def test_deregister_sms(self):
         data = {"tlf": "+34777777777", "captcha": "asdasd"}
         c = JClient()
@@ -2230,9 +2195,7 @@ class TestAdminDeregister(TestCase):
         response = c.authenticate(self.aeid_special, data)
         self.assertEqual(response.status_code, 200)
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def test_deregister_sms_otp(self):
         data = {"tlf": "+34777777777", "captcha": "asdasd"}
         c = JClient()
@@ -2356,9 +2319,7 @@ class ApiTestActivationAndActivity(TestCase):
         c.save()
         self.code = c
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def test_activation(self):
         c = JClient()
 
@@ -2438,9 +2399,7 @@ class ApiTestActivationAndActivity(TestCase):
         response = c.authenticate(self.aeid, test_data.auth_email_default)
         self.assertEqual(response.status_code, 200)
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def test_filter_activity(self):
         c = JClient()
 
@@ -2579,9 +2538,7 @@ class ApiTestActivationAndActivity(TestCase):
         response = c.get(path + '?receiver_id=%d&actions=user:deactivate&executer_id=%d' % (self.uid, self.uid_admin), {})
         check_activity(response, l=1, action="user:deactivate")
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+    @override_settings(**override_celery_data)
     def test_filter_activity2(self):
         c = JClient()
 
@@ -2647,3 +2604,202 @@ class ApiTestActivationAndActivity(TestCase):
         # both actions have the executer "john"
         response = c.get(path + '?filter=john', {})
         check_activity(response, l=2)
+
+
+class ApiTestBallotBoxes(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def genhmac(self, key, msg):
+        import hmac
+        import datetime
+        timestamp = int(datetime.datetime.now().timestamp())
+        msg = "%s:%s" % (msg, str(timestamp))
+
+        h = hmac.new(key, msg.encode('utf-8'), "sha256")
+        return 'khmac:///sha-256;' + h.hexdigest() + '/' + msg
+
+    def setUp(self):
+        ae = AuthEvent(
+            auth_method="email",
+            auth_method_config=test_data.authmethod_config_email_default,
+            status='started',
+            census="open",
+            num_successful_logins_allowed = 1,
+            has_ballot_boxes=True)
+        ae.save()
+        self.ae = ae
+        self.aeid = ae.pk
+
+        u_admin = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u_admin.set_password(test_data.admin['password'])
+        u_admin.save()
+        u_admin.userdata.event = ae
+        u_admin.userdata.save()
+        self.uid_admin = u_admin.id
+        self.u_admin = u_admin
+
+        self.admin_auth_data = dict(email=test_data.admin['email'], code="ERGERG")
+        c = Code(user=u_admin.userdata, code=self.admin_auth_data['code'], auth_event_id=1)
+        c.save()
+
+        # election edit permission
+        acl = ACL(user=u_admin.userdata, object_type='AuthEvent', perm='edit',
+            object_id=self.aeid)
+        acl.save()
+        self.acl_edit_event = acl
+
+        # election view events permission
+        acl = ACL(user=u_admin.userdata, object_type='AuthEvent',
+            perm='event-view-activity', object_id=self.aeid)
+        acl.save()
+        self.acl_activity1 = acl
+
+        u = User(username='test', email=test_data.auth_email_default['email'])
+        u.save()
+        u.userdata.event = ae
+        u.userdata.save()
+        self.u = u.userdata
+        self.uid = u.id
+
+    @override_settings(**override_celery_data)
+    def test_create_ballot_box(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin create ballot box
+        data = {'name': 'A2C'}
+        response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(**override_celery_data)
+    def test_create_ballot_box_twice(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin create ballot box
+        data = {'name': 'A2C'}
+        response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin create ballot box - fails, can't do it again
+        data = {'name': 'A2C'}
+        response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+
+    @override_settings(**override_celery_data)
+    def test_create_ballot_box_multiple(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin create ballot box
+        for name in ['WHAT', 'EVER', 'NAME']:
+            data = {'name': name}
+            response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
+            self.assertEqual(response.status_code, 200)
+
+    @override_settings(**override_celery_data)
+    def test_create_alt_permissions(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        self.acl_edit_event.perm = 'add-ballot-boxes'
+        self.acl_edit_event.save()
+
+        # admin create ballot box
+        data = {'name': 'A2C'}
+        response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(**override_celery_data)
+    def test_create_bad_permissions(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        self.acl_edit_event.perm = 'bad-permissions'
+        self.acl_edit_event.save()
+
+        # admin create ballot box
+        data = {'name': 'A2C'}
+        response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
+        self.assertEqual(response.status_code, 403)
+
+
+    def check_ballot_box(self, response):
+        self.assertEqual(response.status_code, 200)
+
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['object_list']), 1)
+        assert(isinstance(r['object_list'][0]['id'], int))
+        self.assertEqual(r['object_list'][0]['event_id'], self.aeid)
+        self.assertEqual(r['object_list'][0]['name'], "A2C")
+        self.assertEqual(r['object_list'][0]['num_tally_sheets'], 0)
+
+    @override_settings(**override_celery_data)
+    def test_list_ballot_box(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin create ballot box
+        data = {'name': 'A2C'}
+        response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin list ballot box
+        response = c.get('/api/auth-event/%d/ballot-box/' % self.aeid, {})
+        self.check_ballot_box(response)
+
+    @override_settings(**override_celery_data)
+    def test_list_ballot_box_filter_find(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin create ballot box
+        data = {'name': 'A2C'}
+        response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin list ballot box
+        response = c.get('/api/auth-event/%d/ballot-box/?filter=A2' % self.aeid, {})
+        self.check_ballot_box(response)
+
+    @override_settings(**override_celery_data)
+    def test_list_ballot_box_filter_zero(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin create ballot box
+        data = {'name': 'A2C'}
+        response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin list ballot box
+        response = c.get('/api/auth-event/%d/ballot-box/?filter=A3' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['object_list']), 0)

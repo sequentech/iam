@@ -55,6 +55,7 @@ class AuthEvent(models.Model):
     status = models.CharField(max_length=15, choices=AE_STATUSES, default="notstarted")
     created = models.DateTimeField(auto_now_add=True)
     admin_fields = JSONField(blank=True, null=True)
+    has_ballot_boxes = models.BooleanField(default=True)
 
     # 0 means any number of logins is allowed
     num_successful_logins_allowed = models.IntegerField(
@@ -370,3 +371,51 @@ class SuccessfulLogin(models.Model):
 
     def __str__(self):
         return "%d: %s - %s" % (self.id, self.user.user.username, str(self.created))
+
+class BallotBox(models.Model):
+    '''
+    Registers the list of ballot boxes related to a ballot box auth_event
+    '''
+    auth_event = models.ForeignKey(AuthEvent, related_name="ballot_boxes")
+    name = models.CharField(max_length=255, db_index=True)
+    created = models.DateTimeField(auto_now_add=True, db_index=True)
+    last_modified = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    def __str__(self):
+        return "%d: %s - %d - %s" % (
+            self.id,
+            self.name,
+            self.auth_event.id,
+            str(self.created)
+        )
+
+    class Meta:
+        unique_together = (
+            ("auth_event", "name"),
+        )
+
+
+class TallySheet(models.Model):
+    '''
+    Each tally sheet related to a ballot box can be registered here
+    '''
+    ballot_box = models.ForeignKey(BallotBox, related_name="tally_sheets")
+    created = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    # version number for each ballot_box
+    version_number = models.IntegerField(
+        default=True,
+        validators=[
+            MinValueValidator(0)
+        ]
+    )
+    data = JSONField()
+
+    def __str__(self):
+        return "%d: %s - %d - %d - %s" % (
+            self.id,
+            self.ballot_box.name,
+            self.version_number,
+            self.auth_event.id,
+            str(self.created)
+        )
