@@ -1514,11 +1514,12 @@ class BallotBoxView(View):
                     "id": dict(
                         lt=int,
                         gt=int,
+                        equals=int
                     )
                 },
                 order_by=['name']
             ),
-            prefix='ballot_box__',
+            prefix='ballotbox__',
             contraints_policy='ignore_invalid'
         )
 
@@ -1537,5 +1538,17 @@ class BallotBoxView(View):
           serialize_method=serializer,
           elements_name='object_list')
         return json_response(objs)
+
+    def delete(self, request, pk, ballot_box_pk):
+        permission_required(request.user, 'ACL', ['edit', 'delete-ballot-boxes'])
+        ballot_box_obj = get_object_or_404(
+            BallotBox,
+            pk=ballot_box_pk,
+            auth_event__pk=pk
+        )
+        ballot_box_obj.delete()
+        data = {'status': 'ok'}
+        return json_response(data)
+
 
 ballot_box = login_required(BallotBoxView.as_view())

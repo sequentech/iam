@@ -37,6 +37,9 @@ override_celery_data = dict(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
                        CELERY_ALWAYS_EAGER=True,
                        BROKER_BACKEND='memory')
 
+def parse_json_response(response):
+    return json.loads(response.content.decode('utf-8'))
+
 class JClient(Client):
     def __init__(self, *args, **kwargs):
         self.auth_token = ''
@@ -44,18 +47,18 @@ class JClient(Client):
 
     def census(self, authevent, data):
         response = self.post('/api/auth-event/%d/census/' % authevent, data)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         return response
 
     def register(self, authevent, data):
         response = self.post('/api/auth-event/%d/register/' % authevent, data)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.set_auth_token(r.get('auth-token'))
         return response
 
     def authenticate(self, authevent, data):
         response = self.post('/api/auth-event/%d/authenticate/' % authevent, data)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.set_auth_token(r.get('auth-token'))
         return response
 
@@ -187,7 +190,7 @@ class UserDataDraftTestCase(TestCase):
 
         response = c.get('/api/user/draft/', {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r, no_draft)
 
         response = c.post('/api/user/draft/', {"draft_election": test_data.auth_event1})
@@ -195,7 +198,7 @@ class UserDataDraftTestCase(TestCase):
 
         response = c.get('/api/user/draft/', {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r, test_data.auth_event1)
 
 class ApiTestCase(TestCase):
@@ -259,7 +262,7 @@ class ApiTestCase(TestCase):
         response = c.authenticate(self.aeid, data)
 
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['status'], 'ok')
         self.assertEqual(verifyhmac(settings.SHARED_SECRET,
             r['auth-token']), True)
@@ -302,7 +305,7 @@ class ApiTestCase(TestCase):
         response = c.post('/api/get-perms/', data)
 
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['status'], 'ok')
         self.assertEqual(verifyhmac(settings.SHARED_SECRET,
             r['permission-token']), True)
@@ -321,7 +324,7 @@ class ApiTestCase(TestCase):
         data = test_data.auth_event1
         response = c.post('/api/auth-event/', data)
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertTrue('id' in  r and isinstance(r['id'], int))
 
     @override_settings(CELERY_ALWAYS_EAGER=True)
@@ -332,7 +335,7 @@ class ApiTestCase(TestCase):
         data = test_data.auth_event3
         response = c.post('/api/auth-event/', data)
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['id'], self.aeid + 1)
         # try register in stopped auth-event
         data = {'email': 'test@test.com', 'password': '123456'}
@@ -353,7 +356,7 @@ class ApiTestCase(TestCase):
 
         response = c.get('/api/auth-event/', {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['events']), 3)
 
     def test_edit_event_success(self):
@@ -362,12 +365,12 @@ class ApiTestCase(TestCase):
 
         response = c.post('/api/auth-event/%d/' % self.aeid, test_data.auth_event5)
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['status'], 'ok')
 
         response = c.get('/api/auth-event/', {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['events']), 2)
 
     def test_delete_event_success(self):
@@ -377,7 +380,7 @@ class ApiTestCase(TestCase):
 
         response = c.delete('/api/auth-event/%d/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['status'], 'ok')
 
     def test_create_acl(self):
@@ -406,12 +409,12 @@ class ApiTestCase(TestCase):
         c.authenticate(self.aeid, test_data.pwd_auth)
         response = c.get('/api/acl/%s/%s/%s/' % (self.testuser.username, 'User', 'create'), {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['perm'], True)
 
         response = c.get('/api/acl/%s/%s/%s/' % (self.testuser.username, 'Vote', 'create'), {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['perm'], False)
 
     def test_acl_mine(self):
@@ -419,17 +422,17 @@ class ApiTestCase(TestCase):
         c.authenticate(self.aeid, test_data.pwd_auth)
         response = c.get('/api/acl/mine/', {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['perms']), 7)
 
         response = c.get('/api/acl/mine/?object_type=ACL', {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['perms']), 3)
 
         response = c.get('/api/acl/mine/?object_type=AuthEvent&?perm=edit&?object_id=%d' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['perms']), 3)
 
     def test_pagination(self):
@@ -437,32 +440,32 @@ class ApiTestCase(TestCase):
         c.authenticate(self.aeid, test_data.pwd_auth)
         response = c.get('/api/acl/mine/?page=1&n=10', {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['perms']), 7)
 
         response = c.get('/api/acl/mine/?page=1&n=31', {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['perms']), 7)
 
         response = c.get('/api/acl/mine/?page=x&n=x', {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['perms']), 7)
 
         response = c.get('/api/acl/mine/?page=1&n=5', {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['perms']), 5)
 
         response = c.get('/api/acl/mine/?page=2&n=5', {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['perms']), 2)
 
         response = c.get('/api/acl/mine/?object_type=ACL&?page=1&n=2', {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['perms']), 2)
 
     def test_get_user_info(self):
@@ -475,7 +478,7 @@ class ApiTestCase(TestCase):
         acl.save()
         response = c.get('/api/user/' + str(self.userid) + '/', {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['email'], test_data.pwd_auth['email'])
 
     def test_edit_user_info(self):
@@ -504,7 +507,7 @@ class ApiTestCase(TestCase):
         # data invalid
         response = c.post('/api/user/', data_invalid)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'INVALID_OLD_PASSWORD')
 
         # data ok
@@ -622,73 +625,73 @@ class TestAuthEvent(TestCase):
     def test_create_incorrect_authevent(self):
         response = self.create_authevent(test_data.ae_incorrect_authmethod)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['message'], 'Invalid authmethod\n')
 
         response = self.create_authevent(test_data.ae_incorrect_census)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'INVALID_CENSUS_TYPE')
 
         response = self.create_authevent(test_data.ae_without_authmethod)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['message'], 'Invalid authmethod\n')
 
         response = self.create_authevent(test_data.ae_without_census)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'INVALID_CENSUS_TYPE')
 
     def test_create_authevent_email_incorrect(self):
         response = self.create_authevent(test_data.ae_email_fields_incorrect)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         #TODO: receive the information in structured data
         self.assertEqual(r['message'], 'Invalid extra_field: boo not possible.\n')
         response = self.create_authevent(test_data.ae_email_fields_incorrect_empty)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['message'], 'Invalid extra_fields: bad name.\n')
         response = self.create_authevent(test_data.ae_email_fields_incorrect_len1)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['message'], 'Invalid extra_fields: bad name.\n')
         response = self.create_authevent(test_data.ae_email_fields_incorrect_len2)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['message'], 'Invalid extra_fields: bad max.\n')
         response = self.create_authevent(test_data.ae_email_fields_incorrect_type)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['message'], 'Invalid extra_fields: bad type.\n')
         response = self.create_authevent(test_data.ae_email_fields_incorrect_value_int)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['message'], 'Invalid extra_fields: bad min.\n')
         response = self.create_authevent(test_data.ae_email_fields_incorrect_value_bool)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['message'], 'Invalid extra_fields: bad required_on_authentication.\n')
         response = self.create_authevent(test_data.ae_email_fields_incorrect_max_fields)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertTrue('Maximum number of fields reached\n' in r['message'])
         response = self.create_authevent(test_data.ae_email_fields_incorrect_repeat)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertTrue('Two fields with same name: surname.\n' in r['message'])
         response = self.create_authevent(test_data.ae_email_fields_incorrect_email)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['message'], 'Type email not allowed.\n')
         response = self.create_authevent(test_data.ae_email_fields_incorrect_status)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['message'], 'Two fields with same name: status.\n')
         response = self.create_authevent(test_data.ae_sms_fields_incorrect_tlf)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['message'], 'Type tlf not allowed.\n')
 
         #response = self.create_authevent(test_data.ae_email_config_incorrect1)
@@ -750,13 +753,13 @@ class TestAuthEvent(TestCase):
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/user/auth-event/', {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['ids-auth-event']), 1)
         response = c.post('/api/auth-event/', test_data.ae_sms_default)
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/user/auth-event/', {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['ids-auth-event']), 2)
 
 class TestRegisterAndAuthenticateEmail(TestCase):
@@ -810,14 +813,14 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.ae.save()
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'AUTH_EVENT_NOT_STARTED')
 
         # good: self.aeid.census = close but allow_user_resend = True
         self.ae.auth_method_config['config']['allow_user_resend'] = True
         self.ae.save()
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(response.status_code, 200)
 
         # bad: self.aeid.census = open and status != started
@@ -827,7 +830,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.ae.save()
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'AUTH_EVENT_NOT_STARTED')
 
         # bad: invalid credentials
@@ -835,7 +838,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.ae.save()
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, {})
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'invalid_credentials')
 
         # bad: problem user inactive
@@ -843,7 +846,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.u.user.save()
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'invalid_credentials')
 
         # good
@@ -853,13 +856,13 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.assertEqual(response.status_code, 200)
 
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(response.status_code, 200)
 
         # good
         self.ae.auth_method_config['config']['allow_user_resend'] = True
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(response.status_code, 200)
 
     def test_add_census_authevent_email_default(self):
@@ -869,7 +872,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 4)
 
     def test_add_census_authevent_email_fields(self):
@@ -899,7 +902,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         c.authenticate(self.aeid, test_data.auth_email_default)
         response = c.census(self.aeid, test_data.census_email_repeat)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'invalid_credentials')
 
     def test_add_census_authevent_email_with_spaces(self):
@@ -924,7 +927,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
 
         response = c.register(self.aeid, test_data.census_email_default_used['census'][1])
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'invalid_credentials')
         census = ACL.objects.filter(perm="vote", object_type="AuthEvent",
                 object_id=str(self.aeid))
@@ -948,7 +951,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         c = JClient()
         response = c.register(self.aeid, test_data.register_email_fields)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'REGISTER_IS_DISABLED')
 
     def test_add_register_authevent_email_fields_incorrect(self):
@@ -971,7 +974,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
 
         response = c.register(self.aeid, test_data.auth_email_default)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertTrue(r['message'].count("Maximun number of codes sent"))
         self.assertTrue(r['message'].count("Email %s repeat" % test_data.auth_email_default['email']))
         self.assertEqual(Code.objects.count() - ini_codes, settings.SEND_CODES_EMAIL_MAX)
@@ -987,7 +990,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         c = JClient()
         response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'invalid_credentials')
 
     @override_settings(**override_celery_data)
@@ -1035,7 +1038,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 1)
 
         correct_tpl = {
@@ -1091,7 +1094,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 2)
 
         ini_codes = Code.objects.count()
@@ -1104,7 +1107,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
 
         response = c.register(self.aeid, user)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertTrue(r['message'].count("Maximun number of codes sent"))
         self.assertTrue(r['message'].count("dni %s repeat." % user['dni']))
 
@@ -1119,7 +1122,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         c.authenticate(self.aeid, test_data.auth_email_default)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 0)
 
         test_data.census_email_repeat['field-validation'] = 'disabled'
@@ -1127,14 +1130,14 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 1)
 
         response = c.census(self.aeid, test_data.census_email_no_validate)
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 1 + 6)
 
         self.assertEqual(Code.objects.count(), 1)
@@ -1200,7 +1203,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         c.authenticate(self.aeid, test_data.auth_sms_default)
         response = c.census(self.aeid, test_data.census_sms_repeat)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'invalid_credentials')
 
     def _test_add_used_census(self):
@@ -1211,12 +1214,12 @@ class TestRegisterAndAuthenticateSMS(TestCase):
 
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 4)
 
         response = c.register(self.aeid, test_data.census_sms_default_used['census'][1])
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['message'], 'Incorrect data')
 
         c = JClient()
@@ -1254,14 +1257,14 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.ae.save()
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'AUTH_EVENT_NOT_STARTED')
 
         # good: self.aeid.census = close but allow_user_resend = True
         self.ae.auth_method_config['config']['allow_user_resend'] = True
         self.ae.save()
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(response.status_code, 200)
 
         # bad: self.aeid.census = open and status != started
@@ -1271,7 +1274,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.ae.save()
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'AUTH_EVENT_NOT_STARTED')
 
         # bad: invalid credentials
@@ -1279,7 +1282,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.ae.save()
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, {})
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'invalid_credentials')
 
         # bad: problem user inactive
@@ -1287,7 +1290,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.u.user.save()
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'invalid_credentials')
 
         # good
@@ -1297,13 +1300,13 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertEqual(response.status_code, 200)
 
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(response.status_code, 200)
 
         # good
         self.ae.auth_method_config['config']['allow_user_resend'] = True
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(response.status_code, 200)
 
 
@@ -1337,7 +1340,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
 
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertTrue(r['message'].count("Maximun number of codes sent"))
         self.assertEqual(Code.objects.count() - ini_codes, settings.SEND_CODES_SMS_MAX)
 
@@ -1355,20 +1358,20 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         data['tlf'] = "0034666666667"
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'invalid_credentials')
 
         data['tlf'] = "+34666666667"
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'invalid_credentials')
 
     def test_authenticate_authevent_sms_default(self):
         c = JClient()
         response = c.authenticate(self.aeid, test_data.auth_sms_default)
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
 
     def test_authenticate_authevent_sms_invalid_code(self):
@@ -1377,7 +1380,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         c = JClient()
         response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'invalid_credentials')
 
     def _test_authenticate_authevent_sms_fields(self):
@@ -1388,7 +1391,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.u.save()
         response = c.authenticate(self.aeid, test_data.auth_sms_fields)
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
 
     @override_settings(**override_celery_data)
@@ -1434,7 +1437,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/?validate' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 2)
 
         ini_codes = Code.objects.count()
@@ -1449,7 +1452,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
 
         response = c.register(self.aeid, user)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertTrue(r['message'].count("Maximun number of codes sent"))
 
 
@@ -1462,7 +1465,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         c.authenticate(0, test_data.admin)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 0)
 
         test_data.census_sms_repeat['field-validation'] = 'disabled'
@@ -1470,14 +1473,14 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 1)
 
         response = c.census(self.aeid, test_data.census_sms_no_validate)
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 1 + 4)
 
         self.assertEqual(Code.objects.count(), 1)
@@ -1541,23 +1544,23 @@ class TestSmallCensusSearch(TestCase):
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {"filter": "ma1"})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 1)
         self.assertEqual(r['object_list'][0]["metadata"]["email"], "baaa@aaa.com")
 
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {"filter": "aaa@aaa.com"})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 4)
 
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {"filter": "aaa@aaa.com"})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 4)
 
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {"filter": "mc"})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 2)
         remaillist = [ r['object_list'][0]["metadata"]["email"],
                        r['object_list'][1]["metadata"]["email"] ]
@@ -1565,7 +1568,7 @@ class TestSmallCensusSearch(TestCase):
 
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {"filter": "md"})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 0)
 
 # Check that the extra field data registers can be included in the messages
@@ -1629,7 +1632,7 @@ class TestSlugMessages(TestCase):
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 1)
 
         template_email = {"subject": "Vote", "msg": "Vote in __URL__ with code __CODE__ extra __NO_DE__SOCIO__"}
@@ -1646,11 +1649,11 @@ class TestSlugMessages(TestCase):
         data = test_data.auth_event13
         response = c.post('/api/auth-event/', data)
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertTrue('id' in  r and isinstance(r['id'], int))
         auth_id = r['id']
         response = c.get('/api/auth-event/%d/' % auth_id, data)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertTrue('events' in r and 'extra_fields' in r['events'])
         self.assertEqual(1, len(r['events']['extra_fields']))
         self.assertTrue('slug' in r['events']['extra_fields'][0])
@@ -1725,7 +1728,7 @@ class TestUserExtra(TestCase):
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/user/extra/', {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['metadata'], test_data.userdata_metadata16)
 
     @override_settings(**override_celery_data)
@@ -1746,7 +1749,7 @@ class TestUserExtra(TestCase):
         self.assertEqual(response.status_code, 400)
         response = c.get('/api/user/extra/', {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['metadata']['dni'], meta_changes['dni'])
         self.assertEqual(r['metadata']['company name'], test_data.userdata_metadata16['company name'])
 
@@ -1961,7 +1964,7 @@ class TestRevotes(TestCase):
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 1)
         cuid = r['object_list'][0]['id']
         cuser = User.objects.get(id=cuid)
@@ -2007,7 +2010,7 @@ class TestRevotes(TestCase):
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 1)
         cuid = r['object_list'][0]['id']
         cuser = User.objects.get(id=cuid)
@@ -2217,7 +2220,7 @@ class TestAdminDeregister(TestCase):
         # authenticate
         Code.objects.filter(user=user.userdata).delete()
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid_special, data)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(response.status_code, 200)
         code = Code.objects.get(user=user.userdata)
         data['code'] = code.code
@@ -2254,7 +2257,7 @@ class TestAdminDeregister(TestCase):
         # authentication works
         Code.objects.filter(user=user.userdata).delete()
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid_special, data)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(response.status_code, 200)
         code = Code.objects.get(user=user.userdata)
         data['code'] = code.code
@@ -2338,7 +2341,7 @@ class ApiTestActivationAndActivity(TestCase):
         # admin can list activity and log is empty
         response = c.get('/api/auth-event/%d/activity/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['activity']), 0)
 
         # admin deactivates voter
@@ -2350,7 +2353,7 @@ class ApiTestActivationAndActivity(TestCase):
         ## check that the deactivation was logged properly
         response = c.get('/api/auth-event/%d/activity/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['activity']), 1)
         self.assertEqual(r['activity'][0]['executer_id'], self.uid_admin)
         self.assertEqual(r['activity'][0]['executer_username'], 'john')
@@ -2364,7 +2367,7 @@ class ApiTestActivationAndActivity(TestCase):
         # voter cannot authenticate
         response = c.authenticate(self.aeid, test_data.auth_email_default)
         self.assertEqual(response.status_code, 400)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'invalid_credentials')
 
         # admin login
@@ -2380,7 +2383,7 @@ class ApiTestActivationAndActivity(TestCase):
         ## check that the deactivation was logged properly
         response = c.get('/api/auth-event/%d/activity/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['activity']), 2)
         self.assertEqual(r['activity'][0]['executer_id'], self.uid_admin)
         self.assertEqual(r['activity'][0]['executer_username'], 'john')
@@ -2424,7 +2427,7 @@ class ApiTestActivationAndActivity(TestCase):
             self.assertEqual(response.status_code, status)
 
             if status == 200:
-                r = json.loads(response.content.decode('utf-8'))
+                r = parse_json_response(response)
                 self.assertEqual(len(r['activity']), l)
             else:
                 return
@@ -2563,7 +2566,7 @@ class ApiTestActivationAndActivity(TestCase):
             self.assertEqual(response.status_code, status)
 
             if status == 200:
-                r = json.loads(response.content.decode('utf-8'))
+                r = parse_json_response(response)
                 self.assertEqual(len(r['activity']), l)
             else:
                 return
@@ -2743,7 +2746,7 @@ class ApiTestBallotBoxes(TestCase):
     def check_ballot_box(self, response):
         self.assertEqual(response.status_code, 200)
 
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 1)
         assert(isinstance(r['object_list'][0]['id'], int))
         self.assertEqual(r['object_list'][0]['event_id'], self.aeid)
@@ -2785,7 +2788,7 @@ class ApiTestBallotBoxes(TestCase):
         self.check_ballot_box(response)
 
     @override_settings(**override_celery_data)
-    def test_list_ballot_box_filter_zero(self):
+    def test_list_ballot_box_filter_not_found(self):
         c = JClient()
 
         # admin login
@@ -2801,5 +2804,43 @@ class ApiTestBallotBoxes(TestCase):
         response = c.get('/api/auth-event/%d/ballot-box/?filter=A3' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
 
-        r = json.loads(response.content.decode('utf-8'))
+        r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 0)
+
+    @override_settings(**override_celery_data)
+    def test_list_ballot_box_filter_by_id(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin create ballot box
+        data = {'name': 'A2C'}
+        response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+
+        # admin list ballot box
+        response = c.get('/api/auth-event/%d/ballot-box/' % self.aeid, {"ballotbox__id__equals": r['id']})
+        self.check_ballot_box(response)
+
+        # filter by non existant id
+        response = c.get('/api/auth-event/%d/ballot-box/' % self.aeid, {"ballotbox__id__equals": 9999999})
+        self.assertEqual(response.status_code, 200)
+
+        r2 = parse_json_response(response)
+        self.assertEqual(len(r2['object_list']), 0)
+
+        # filter by id less than
+        response = c.get('/api/auth-event/%d/ballot-box/' % self.aeid, {"ballotbox__id__lt": r['id']+1})
+        self.check_ballot_box(response)
+
+        # filter by id greater than
+        response = c.get('/api/auth-event/%d/ballot-box/' % self.aeid, {"ballotbox__id__gt": r['id']-1})
+        self.check_ballot_box(response)
+
+        # filter by id less than & greater than
+        d = {"ballotbox__id__gt": r['id']-1, "ballotbox__id__lt": r['id']+1}
+        response = c.get('/api/auth-event/%d/ballot-box/' % self.aeid, d)
+        self.check_ballot_box(response)
