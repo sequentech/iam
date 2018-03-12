@@ -1485,15 +1485,27 @@ class BallotBoxView(View):
 
         # try to create new object in the db. might fail if bb already exists
         try:
-            bb_obj = BallotBox(name=req['name'], auth_event=auth_event)
-            bb_obj.save()
+            ballot_box_obj = BallotBox(name=req['name'], auth_event=auth_event)
+            ballot_box_obj.save()
+
+            action = Action(
+                executer=request.user,
+                receiver=None,
+                action_name="ballot-box:create",
+                event=auth_event,
+                metadata=dict(
+                    ballot_box_id=ballot_box_obj.id,
+                    ballot_box_name=ballot_box_obj.name)
+            )
+            action.save()
+
         except Exception as e:
             return json_response(
                 status=400,
                 error_codename=str(e))
 
         # success!
-        data = {'status': 'ok', 'id': bb_obj.pk}
+        data = {'status': 'ok', 'id': ballot_box_obj.pk}
         return json_response(data)
 
 
@@ -1540,13 +1552,28 @@ class BallotBoxView(View):
         return json_response(objs)
 
     def delete(self, request, pk, ballot_box_pk):
-        permission_required(request.user, 'ACL', ['edit', 'delete-ballot-boxes'])
+        permission_required(request.user, 'AuthEvent', ['edit', 'delete-ballot-boxes'], pk)
+
         ballot_box_obj = get_object_or_404(
             BallotBox,
             pk=ballot_box_pk,
             auth_event__pk=pk
         )
+
+        action = Action(
+            executer=request.user,
+            receiver=None,
+            action_name="ballot-box:delete",
+            event=ballot_box_obj.auth_event,
+            metadata=dict(
+                ballot_box_id=ballot_box_obj.id,
+                ballot_box_name=ballot_box_obj.name
+            )
+        )
+
+        action.save()
         ballot_box_obj.delete()
+
         data = {'status': 'ok'}
         return json_response(data)
 

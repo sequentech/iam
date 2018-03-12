@@ -2742,7 +2742,6 @@ class ApiTestBallotBoxes(TestCase):
         response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
         self.assertEqual(response.status_code, 403)
 
-
     def check_ballot_box(self, response):
         self.assertEqual(response.status_code, 200)
 
@@ -2844,3 +2843,32 @@ class ApiTestBallotBoxes(TestCase):
         d = {"ballotbox__id__gt": r['id']-1, "ballotbox__id__lt": r['id']+1}
         response = c.get('/api/auth-event/%d/ballot-box/' % self.aeid, d)
         self.check_ballot_box(response)
+
+    @override_settings(**override_celery_data)
+    def test_list_ballot_box_delete(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin create ballot box
+        data = {'name': 'A2C'}
+        response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+
+        # admin list ballot box
+        response = c.get('/api/auth-event/%d/ballot-box/' % self.aeid, {"ballotbox__id__equals": r['id']})
+        self.check_ballot_box(response)
+
+        # admin delete ballot box
+        response = c.delete('/api/auth-event/%d/ballot-box/%d/delete/' % (self.aeid, r['id']), {})
+        self.assertEqual(response.status_code, 200)
+
+        # filter by non existant id
+        response = c.get('/api/auth-event/%d/ballot-box/' % self.aeid, {"ballotbox__id__equals": r['id']})
+        self.assertEqual(response.status_code, 200)
+
+        r2 = parse_json_response(response)
+        self.assertEqual(len(r2['object_list']), 0)
