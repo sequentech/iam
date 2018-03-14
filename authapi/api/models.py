@@ -339,7 +339,7 @@ class ACL(models.Model):
     perm = models.CharField(max_length=255)
     object_type = models.CharField(max_length=255, blank=True, null=True)
     object_id = models.CharField(max_length=255, default=0)
-    created = models.DateTimeField(auto_now_add=True)
+    created = models.DateTimeField(default=timezone.now)
 
     def serialize(self):
         d = {
@@ -365,7 +365,7 @@ class SuccessfulLogin(models.Model):
     usually triggered by a explicit call to /authevent/<ID>/successful_login
     '''
     user = models.ForeignKey(UserData, related_name="successful_logins")
-    created = models.DateTimeField(auto_now_add=True)
+    created = models.DateTimeField(default=timezone.now)
     # when counting the number of successful logins, only active ones count
     is_active = models.BooleanField(default=True)
 
@@ -378,8 +378,7 @@ class BallotBox(models.Model):
     '''
     auth_event = models.ForeignKey(AuthEvent, related_name="ballot_boxes")
     name = models.CharField(max_length=255, db_index=True)
-    created = models.DateTimeField(auto_now_add=True, db_index=True)
-    last_modified = models.DateTimeField(auto_now_add=True, db_index=True)
+    created = models.DateTimeField(default=timezone.now, db_index=True)
 
     def __str__(self):
         return "%d: %s - %d - %s" % (
@@ -399,16 +398,30 @@ class TallySheet(models.Model):
     '''
     Each tally sheet related to a ballot box can be registered here
     '''
+    # related ballot box
     ballot_box = models.ForeignKey(BallotBox, related_name="tally_sheets")
-    created = models.DateTimeField(auto_now_add=True, db_index=True)
 
-    # version number for each ballot_box
-    version_number = models.IntegerField(
-        default=True,
-        validators=[
-            MinValueValidator(0)
-        ]
-    )
+    # date at which the tally sheet was created
+    created = models.DateTimeField(default=timezone.now, db_index=True)
+
+    # json data of the tally sheet. for now it only supports simple plurality
+    # elections. The format is like in this example:
+    #
+    # data = dict(
+    #     num_votes=222,
+    #     questions=[
+    #         dict(
+    #             title="Do you want Foo Bar to be president?",
+    #             blank_votes=1,
+    #             null_votes=1,
+    #             tally_type="plurality-at-large",
+    #             answers=[
+    #               dict(text="Yes", num_votes=200),
+    #               dict(text="No", num_votes=120)
+    #             ]
+    #         )
+    #     ]
+    # )
     data = JSONField()
 
     def __str__(self):

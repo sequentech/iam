@@ -20,6 +20,7 @@ import mimetypes
 from datetime import datetime
 from django import forms
 from django.conf import settings
+from django.http import Http404
 from django.contrib.auth.models import User
 from django.views.generic import View
 from django.shortcuts import get_object_or_404
@@ -52,7 +53,8 @@ from utils import (
     ErrorCodes,
     VALID_FIELDS,
     VALID_PIPELINES,
-    filter_query
+    filter_query,
+    stack_trace_str
 )
 from .decorators import login_required, get_login_user
 from .models import (
@@ -63,7 +65,8 @@ from .models import (
     ALLOWED_ACTIONS,
     User,
     UserData,
-    BallotBox
+    BallotBox,
+    TallySheet
 )
 from .tasks import census_send_auth_task
 from django.db.models import Q
@@ -74,6 +77,7 @@ from utils import send_codes, get_client_ip, parse_json_request
 from pipelines.field_register import *
 from pipelines.field_authenticate import *
 from contracts.base import check_contract
+from contracts import CheckException
 import logging
 
 LOGGER = logging.getLogger('authapi')
@@ -93,7 +97,170 @@ CONTRACTS = dict(
           }
         ]
       }
-    ])
+    ],
+    tally_sheet=[
+      {
+        'check': 'isinstance',
+        'type': dict
+      },
+      {
+        'check': 'dict-keys-exist',
+        'keys': ['num_votes', 'questions']
+      },
+      {
+        'check': 'index-check-list',
+        'index': 'num_votes',
+        'check-list': [
+          {
+            'check': 'isinstance',
+            'type': int
+          },
+          {
+            'check': 'lambda',
+            'lambda': lambda d: d >= 0
+          }
+        ]
+      },
+      {
+        'check': 'index-check-list',
+        'index': 'questions',
+        'check-list': [
+          {
+            'check': 'isinstance',
+            'type': list
+          },
+          {
+            'check': 'length',
+            'range': [1,255]
+          },
+          {
+            'check': "iterate-list",
+            'check-list': [
+              {
+                'check': 'isinstance',
+                'type': dict
+              },
+              {
+                'check': 'dict-keys-exist',
+                'keys': [
+                    'title', 'blank_votes', 'null_votes', 'tally_type',
+                    'answers'
+                ]
+              },
+              {
+                'check': 'index-check-list',
+                'index': 'title',
+                'check-list': [
+                  {
+                    'check': 'isinstance',
+                    'type': str
+                  },
+                  {
+                    'check': 'length',
+                    'range': [1, 255]
+                  }
+                ]
+              },
+              {
+                'check': 'index-check-list',
+                'index': 'blank_votes',
+                'check-list': [
+                  {
+                    'check': 'isinstance',
+                    'type': int
+                  },
+                  {
+                    'check': 'lambda',
+                    'lambda': lambda d: d >= 0
+                  }
+                ]
+              },
+              {
+                'check': 'index-check-list',
+                'index': 'tally_type',
+                'check-list': [
+                  {
+                    'check': 'isinstance',
+                    'type': str
+                  },
+                  {
+                    'check': 'lambda',
+                    'lambda': lambda d: d in ['plurality-at-large']
+                  }
+                ]
+              },
+              {
+                'check': 'index-check-list',
+                'index': 'answers',
+                'check-list': [
+                  {
+                    'check': 'isinstance',
+                    'type': list
+                  },
+                  {
+                    'check': 'length',
+                    'range': [1,1024]
+                  },
+                  {
+                    'check': "iterate-list",
+                    'check-list': [
+                      {
+                        'check': 'isinstance',
+                        'type': dict
+                      },
+                      {
+                        'check': 'dict-keys-exist',
+                        'keys': ['text', 'num_votes']
+                      },
+                      {
+                        'check': 'index-check-list',
+                        'index': 'text',
+                        'check-list': [
+                          {
+                            'check': 'isinstance',
+                            'type': str
+                          },
+                          {
+                            'check': 'length',
+                            'range': [1,1024]
+                          }
+                        ]
+                      },
+                      {
+                        'check': 'index-check-list',
+                        'index': 'num_votes',
+                        'check-list': [
+                          {
+                            'check': 'isinstance',
+                            'type': int
+                          },
+                          {
+                            'check': 'lambda',
+                            'lambda': lambda d: d >= 0
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        'check': 'lambda',
+        'lambda': lambda d: all([
+          sum([
+              sum([i['num_votes']  for i in q['answers']]),
+              q['blank_votes'],
+              q['null_votes']
+          ]) == d['num_votes']
+          for q in d['questions']
+        ])
+      },
+    ]
+)
 
 class CensusDelete(View):
     '''
@@ -1502,12 +1669,11 @@ class BallotBoxView(View):
         except Exception as e:
             return json_response(
                 status=400,
-                error_codename=str(e))
+                error_codename=ErrorCodes.BAD_REQUEST)
 
         # success!
         data = {'status': 'ok', 'id': ballot_box_obj.pk}
         return json_response(data)
-
 
     def get(self, request, pk):
         permission_required(request.user, 'AuthEvent', ['edit', 'list-ballot-boxes'], pk)
@@ -1577,5 +1743,142 @@ class BallotBoxView(View):
         data = {'status': 'ok'}
         return json_response(data)
 
-
 ballot_box = login_required(BallotBoxView.as_view())
+
+
+class TallySheetView(View):
+    '''
+    Registers and lists tally sheets
+    '''
+
+    def post(self, request, pk, ballot_box_pk):
+        permission_required(request.user, 'AuthEvent', ['edit', 'add-tally-sheets'], pk)
+
+        # parse input
+        try:
+            req = parse_json_request(request)
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        # validate event exists and get it
+        ballot_box_obj = get_object_or_404(
+            BallotBox,
+            pk=ballot_box_pk,
+            auth_event__pk=pk,
+            auth_event__status="stopped"
+        )
+
+        # require extra permissions to override tally sheet
+        num_versions = ballot_box_obj.tally_sheets.count()
+        if num_versions > 0:
+            permission_required(request.user, 'AuthEvent', ['edit', 'override-tally-sheets'], pk)
+
+        # validate input
+
+        try:
+            check_contract(CONTRACTS['tally_sheet'], req)
+        except CheckException as error:
+            LOGGER.error(\
+                "TallySheetView.post\n"\
+                "req '%r'\n"\
+                "error '%r'\n"\
+                "Stack trace: \n%s",\
+                req, error, stack_trace_str())
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        # try to create new object in the db
+        try:
+            tally_sheet_obj = TallySheet(
+                ballot_box=ballot_box_obj,
+                data=req)
+            tally_sheet_obj.save()
+
+            action = Action(
+                executer=request.user,
+                receiver=None,
+                action_name="tally-sheet:create",
+                event=ballot_box_obj.auth_event,
+                metadata=dict(
+                    ballot_box_id=ballot_box_obj.id,
+                    ballot_box_name=ballot_box_obj.name,
+                    num_versions=num_versions,
+                    tally_sheet_id=tally_sheet_obj.id,
+                    data=req)
+            )
+            action.save()
+
+        except Exception as e:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        # success!
+        data = {'status': 'ok', 'id': tally_sheet_obj.pk}
+        return json_response(data)
+
+    def get(self, request, pk, ballot_box_pk, tally_sheet_pk=None):
+        permission_required(request.user, 'AuthEvent', ['edit', 'list-tally-sheets'], pk)
+
+        if tally_sheet_pk is None:
+            # try to get last tally sheet of the related ballot box, if any
+            ballot_box_obj = get_object_or_404(
+              BallotBox,
+              pk=ballot_box_pk,
+              auth_event__pk=pk
+            )
+            try:
+                tally_sheet_obj = ballot_box_obj.tally_sheets.order_by('-created')[0]
+            except IndexError:
+                return json_response(status=404)
+        else:
+          # get the tally sheet
+          tally_sheet_obj = get_object_or_404(
+              TallySheet,
+              pk=tally_sheet_pk,
+              ballot_box__pk=ballot_box_pk,
+              ballot_box__auth_event__pk=pk
+          )
+
+        return json_response(dict(
+            id=tally_sheet_obj.id,
+            created=tally_sheet_obj.created.isoformat(),
+            ballot_box_id=tally_sheet_obj.ballot_box.id,
+            data=tally_sheet_obj.data,
+        ))
+
+    def delete(self, request, pk, ballot_box_pk, tally_sheet_pk):
+        permission_required(request.user, 'AuthEvent', ['edit', 'delete-tally-sheets'], pk)
+
+        # get the tally sheet
+        tally_sheet_obj = get_object_or_404(
+            TallySheet,
+            pk=tally_sheet_pk,
+            ballot_box__pk=ballot_box_pk,
+            ballot_box__auth_event__pk=pk
+        )
+
+        action = Action(
+            executer=request.user,
+            receiver=None,
+            action_name="tally-sheet:delete",
+            event=tally_sheet_obj.ballot_box.auth_event,
+            metadata=dict(
+                id=tally_sheet_obj.id,
+                created=tally_sheet_obj.created.isoformat(),
+                ballot_box_id=tally_sheet_obj.ballot_box.id,
+                data=tally_sheet_obj.data
+            )
+        )
+
+        action.save()
+        tally_sheet_obj.delete()
+
+        data = {'status': 'ok'}
+        return json_response(data)
+
+tally_sheet = login_required(TallySheetView.as_view())
+

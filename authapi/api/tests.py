@@ -23,9 +23,9 @@ from django.conf import settings
 from django.contrib.auth.models import User
 
 from . import test_data
-from .models import ACL, AuthEvent, Action
+from .models import ACL, AuthEvent, Action, BallotBox
 from authmethods.models import Code, MsgLog
-from utils import verifyhmac
+from utils import verifyhmac, reproducible_json_dumps
 from authmethods.utils import get_cannonical_tlf
 
 def flush_db_load_fixture(ffile="initial.json"):
@@ -2269,15 +2269,6 @@ class ApiTestActivationAndActivity(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
 
-    def genhmac(self, key, msg):
-        import hmac
-        import datetime
-        timestamp = int(datetime.datetime.now().timestamp())
-        msg = "%s:%s" % (msg, str(timestamp))
-
-        h = hmac.new(key, msg.encode('utf-8'), "sha256")
-        return 'khmac:///sha-256;' + h.hexdigest() + '/' + msg
-
     def setUp(self):
         ae = AuthEvent(auth_method="email",
                 auth_method_config=test_data.authmethod_config_email_default,
@@ -2609,24 +2600,15 @@ class ApiTestActivationAndActivity(TestCase):
         check_activity(response, l=2)
 
 
-class ApiTestBallotBoxes(TestCase):
+class ApiTestTallySheets(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
-
-    def genhmac(self, key, msg):
-        import hmac
-        import datetime
-        timestamp = int(datetime.datetime.now().timestamp())
-        msg = "%s:%s" % (msg, str(timestamp))
-
-        h = hmac.new(key, msg.encode('utf-8'), "sha256")
-        return 'khmac:///sha-256;' + h.hexdigest() + '/' + msg
 
     def setUp(self):
         ae = AuthEvent(
             auth_method="email",
             auth_method_config=test_data.authmethod_config_email_default,
-            status='started',
+            status='stopped',
             census="open",
             num_successful_logins_allowed = 1,
             has_ballot_boxes=True)
@@ -2665,210 +2647,264 @@ class ApiTestBallotBoxes(TestCase):
         self.u = u.userdata
         self.uid = u.id
 
+        self.tally_data = dict(
+            num_votes=322,
+            questions=[
+                dict(
+                    title="Do you want Foo Bar to be president?",
+                    blank_votes=1,
+                    null_votes=1,
+                    tally_type="plurality-at-large",
+                    answers=[
+                      dict(text="Yes", num_votes=200),
+                      dict(text="No", num_votes=120)
+                    ]
+                )
+            ]
+        )
+
+        ballot_box = BallotBox(auth_event=ae, name="WHAT")
+        ballot_box.save()
+        self.ballot_box = ballot_box
+
     @override_settings(**override_celery_data)
-    def test_create_ballot_box(self):
+    def test_create_tally_sheet(self):
         c = JClient()
 
         # admin login
         response = c.authenticate(self.aeid, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
-        # admin create ballot box
-        data = {'name': 'A2C'}
-        response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
+        # admin create tally sheet
+        url = '/api/auth-event/%d/ballot-box/%d/tally-sheet/' % (
+            self.aeid,
+            self.ballot_box.id
+        )
+        response = c.post(url, self.tally_data)
         self.assertEqual(response.status_code, 200)
 
     @override_settings(**override_celery_data)
-    def test_create_ballot_box_twice(self):
+    def test_create_tally_sheet_invalid(self):
         c = JClient()
 
         # admin login
         response = c.authenticate(self.aeid, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
-        # admin create ballot box
-        data = {'name': 'A2C'}
-        response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
-        self.assertEqual(response.status_code, 200)
-
-        # admin create ballot box - fails, can't do it again
-        data = {'name': 'A2C'}
-        response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
+        # admin create tally sheet with invalid data should fail
+        url = '/api/auth-event/%d/ballot-box/%d/tally-sheet/' % (
+            self.aeid,
+            self.ballot_box.id
+        )
+        self.tally_data['num_votes'] = 101
+        response = c.post(url, self.tally_data)
         self.assertEqual(response.status_code, 400)
 
     @override_settings(**override_celery_data)
-    def test_create_ballot_box_multiple(self):
+    def test_create_tally_sheet_check_perms(self):
         c = JClient()
 
         # admin login
         response = c.authenticate(self.aeid, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
-        # admin create ballot box
-        for name in ['WHAT', 'EVER', 'NAME']:
-            data = {'name': name}
-            response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
-            self.assertEqual(response.status_code, 200)
-
-    @override_settings(**override_celery_data)
-    def test_create_alt_permissions(self):
-        c = JClient()
-
-        # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
-        self.assertEqual(response.status_code, 200)
-
-        self.acl_edit_event.perm = 'add-ballot-boxes'
+        # admin create tally sheet with alternative valid permissions
+        self.acl_edit_event.perm = 'add-tally-sheets'
         self.acl_edit_event.save()
-
-        # admin create ballot box
-        data = {'name': 'A2C'}
-        response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
+        url = '/api/auth-event/%d/ballot-box/%d/tally-sheet/' % (
+            self.aeid,
+            self.ballot_box.id
+        )
+        response = c.post(url, self.tally_data)
         self.assertEqual(response.status_code, 200)
 
-    @override_settings(**override_celery_data)
-    def test_create_bad_permissions(self):
-        c = JClient()
-
-        # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
-        self.assertEqual(response.status_code, 200)
-
-        self.acl_edit_event.perm = 'bad-permissions'
-        self.acl_edit_event.save()
-
-        # admin create ballot box
-        data = {'name': 'A2C'}
-        response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
+        # try override and it should not work because user has no permissions
+        response = c.post(url, self.tally_data)
         self.assertEqual(response.status_code, 403)
 
-    def check_ballot_box(self, response):
+        # try override and it should work when user has edit permissions
+        self.acl_edit_event.perm = 'edit'
+        self.acl_edit_event.save()
+        response = c.post(url, self.tally_data)
         self.assertEqual(response.status_code, 200)
 
+        # try override and it should work when user has permissions
+        self.acl_edit_event.perm = 'add-tally-sheets'
+        self.acl_edit_event.save()
+
+        override_acl = ACL(
+            user=self.u_admin.userdata,
+            object_type='AuthEvent',
+            perm='override-tally-sheets',
+            object_id=self.aeid
+        )
+        override_acl.save()
+
+        response = c.post(url, self.tally_data)
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(**override_celery_data)
+    def test_list_tally_sheet(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin create tally sheet
+        url = '/api/auth-event/%d/ballot-box/%d/tally-sheet/' % (
+            self.aeid,
+            self.ballot_box.id
+        )
+        response = c.post(url, self.tally_data)
+        self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
-        self.assertEqual(len(r['object_list']), 1)
-        assert(isinstance(r['object_list'][0]['id'], int))
-        self.assertEqual(r['object_list'][0]['event_id'], self.aeid)
-        self.assertEqual(r['object_list'][0]['name'], "A2C")
-        self.assertEqual(r['object_list'][0]['num_tally_sheets'], 0)
+        tally_sheet_id = r['id']
 
-    @override_settings(**override_celery_data)
-    def test_list_ballot_box(self):
-        c = JClient()
-
-        # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
-        self.assertEqual(response.status_code, 200)
-
-        # admin create ballot box
-        data = {'name': 'A2C'}
-        response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
-        self.assertEqual(response.status_code, 200)
-
-        # admin list ballot box
-        response = c.get('/api/auth-event/%d/ballot-box/' % self.aeid, {})
-        self.check_ballot_box(response)
-
-    @override_settings(**override_celery_data)
-    def test_list_ballot_box_filter_find(self):
-        c = JClient()
-
-        # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
-        self.assertEqual(response.status_code, 200)
-
-        # admin create ballot box
-        data = {'name': 'A2C'}
-        response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
-        self.assertEqual(response.status_code, 200)
-
-        # admin list ballot box
-        response = c.get('/api/auth-event/%d/ballot-box/?filter=A2' % self.aeid, {})
-        self.check_ballot_box(response)
-
-    @override_settings(**override_celery_data)
-    def test_list_ballot_box_filter_not_found(self):
-        c = JClient()
-
-        # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
-        self.assertEqual(response.status_code, 200)
-
-        # admin create ballot box
-        data = {'name': 'A2C'}
-        response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
-        self.assertEqual(response.status_code, 200)
-
-        # admin list ballot box
-        response = c.get('/api/auth-event/%d/ballot-box/?filter=A3' % self.aeid, {})
-        self.assertEqual(response.status_code, 200)
-
-        r = parse_json_response(response)
-        self.assertEqual(len(r['object_list']), 0)
-
-    @override_settings(**override_celery_data)
-    def test_list_ballot_box_filter_by_id(self):
-        c = JClient()
-
-        # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
-        self.assertEqual(response.status_code, 200)
-
-        # admin create ballot box
-        data = {'name': 'A2C'}
-        response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
+        # get the tally sheet
+        response = c.get(url, {})
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
 
-        # admin list ballot box
-        response = c.get('/api/auth-event/%d/ballot-box/' % self.aeid, {"ballotbox__id__equals": r['id']})
-        self.check_ballot_box(response)
-
-        # filter by non existant id
-        response = c.get('/api/auth-event/%d/ballot-box/' % self.aeid, {"ballotbox__id__equals": 9999999})
-        self.assertEqual(response.status_code, 200)
-
-        r2 = parse_json_response(response)
-        self.assertEqual(len(r2['object_list']), 0)
-
-        # filter by id less than
-        response = c.get('/api/auth-event/%d/ballot-box/' % self.aeid, {"ballotbox__id__lt": r['id']+1})
-        self.check_ballot_box(response)
-
-        # filter by id greater than
-        response = c.get('/api/auth-event/%d/ballot-box/' % self.aeid, {"ballotbox__id__gt": r['id']-1})
-        self.check_ballot_box(response)
-
-        # filter by id less than & greater than
-        d = {"ballotbox__id__gt": r['id']-1, "ballotbox__id__lt": r['id']+1}
-        response = c.get('/api/auth-event/%d/ballot-box/' % self.aeid, d)
-        self.check_ballot_box(response)
+        # check data is alright, corresponding with the tally sheet
+        assert(r['id'] == tally_sheet_id)
+        assert(r['ballot_box_id'] == self.ballot_box.id)
+        assert(reproducible_json_dumps(r['data']) == reproducible_json_dumps(self.tally_data))
 
     @override_settings(**override_celery_data)
-    def test_list_ballot_box_delete(self):
+    def test_list_tally_sheet_override(self):
         c = JClient()
 
         # admin login
         response = c.authenticate(self.aeid, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
-        # admin create ballot box
-        data = {'name': 'A2C'}
-        response = c.post('/api/auth-event/%d/ballot-box/' % self.aeid, data)
+        # admin create tally sheet
+        url = '/api/auth-event/%d/ballot-box/%d/tally-sheet/' % (
+            self.aeid,
+            self.ballot_box.id
+        )
+        response = c.post(url, self.tally_data)
+        self.assertEqual(response.status_code, 200)
+
+        # create second tally sheet, overriding the previous one with different
+        # data
+        self.tally_data['num_votes'] = 323
+        self.tally_data['questions'][0]['null_votes'] = 2
+        response = c.post(url, self.tally_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        tally_sheet_id = r['id']
+
+        # get the tally sheet
+        response = c.get(url, {})
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
 
-        # admin list ballot box
-        response = c.get('/api/auth-event/%d/ballot-box/' % self.aeid, {"ballotbox__id__equals": r['id']})
-        self.check_ballot_box(response)
+        # check data is alright, corresponding with the second tally sheet
+        assert(r['id'] == tally_sheet_id)
+        assert(r['ballot_box_id'] == self.ballot_box.id)
+        assert(reproducible_json_dumps(r['data']) == reproducible_json_dumps(self.tally_data))
 
-        # admin delete ballot box
-        response = c.delete('/api/auth-event/%d/ballot-box/%d/delete/' % (self.aeid, r['id']), {})
+    @override_settings(**override_celery_data)
+    def test_get_tally_sheet(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
-        # filter by non existant id
-        response = c.get('/api/auth-event/%d/ballot-box/' % self.aeid, {"ballotbox__id__equals": r['id']})
+        # admin create tally sheet
+        url = '/api/auth-event/%d/ballot-box/%d/tally-sheet/' % (
+            self.aeid,
+            self.ballot_box.id
+        )
+        tally_sheet1_data_str = reproducible_json_dumps(self.tally_data)
+        response = c.post(url, self.tally_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        tally_sheet1_id = r['id']
+
+        # create second tally sheet, overriding the previous one with different
+        # data
+        self.tally_data['num_votes'] = 323
+        self.tally_data['questions'][0]['null_votes'] = 2
+        tally_sheet2_data_str = reproducible_json_dumps(self.tally_data)
+        response = c.post(url, self.tally_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        tally_sheet2_id = r['id']
+
+        # get the tally sheet 1
+        response = c.get("%s%d/" % (url, tally_sheet1_id), {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+
+        # check data of the tally sheet 1
+        assert(r['id'] == tally_sheet1_id)
+        assert(r['ballot_box_id'] == self.ballot_box.id)
+        assert(reproducible_json_dumps(r['data']) == tally_sheet1_data_str)
+
+        # get the tally sheet 2
+        response = c.get("%s%d/" % (url, tally_sheet2_id), {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+
+        # check data of the tally sheet 2
+        assert(r['id'] == tally_sheet2_id)
+        assert(r['ballot_box_id'] == self.ballot_box.id)
+        assert(reproducible_json_dumps(r['data']) == tally_sheet2_data_str)
+
+    @override_settings(**override_celery_data)
+    def test_list_tally_sheet_perms(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
-        r2 = parse_json_response(response)
-        self.assertEqual(len(r2['object_list']), 0)
+        # admin create tally sheet
+        url = '/api/auth-event/%d/ballot-box/%d/tally-sheet/' % (
+            self.aeid,
+            self.ballot_box.id
+        )
+        response = c.post(url, self.tally_data)
+        self.assertEqual(response.status_code, 200)
+
+        # get the tally sheet should work with alternative perms
+        self.acl_edit_event.perm = 'list-tally-sheets'
+        self.acl_edit_event.save()
+        response = c.get(url, {})
+        self.assertEqual(response.status_code, 200)
+
+        # get the tally sheet should fail with invalid
+        self.acl_edit_event.perm = 'foo-bar'
+        self.acl_edit_event.save()
+        response = c.get(url, {})
+        self.assertEqual(response.status_code, 403)
+
+    @override_settings(**override_celery_data)
+    def test_delete_tally_sheet(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin create tally sheet
+        url = '/api/auth-event/%d/ballot-box/%d/tally-sheet/' % (
+            self.aeid,
+            self.ballot_box.id
+        )
+        response = c.post(url, self.tally_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        tally_sheet_id = r['id']
+
+        # get the tally sheet should work with alternative perms
+        response = c.delete("%s%d/" % (url, tally_sheet_id), {})
+        self.assertEqual(response.status_code, 200)
+
+        # get the tally sheet should fail with 404 not found
+        response = c.get(url, {})
+        self.assertEqual(response.status_code, 404)

@@ -68,6 +68,9 @@ class ErrorCodes(IntEnum):
     MAX_CONNECTION = 6
     BLACKLIST = 7
 
+def reproducible_json_dumps(s):
+    return json.dumps(s, indent=4, ensure_ascii=False, sort_keys=True, separators=(',', ': '))
+
 def parse_json_request(request):
     '''
     Returns the request body as a parsed json object
