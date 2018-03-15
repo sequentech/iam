@@ -490,6 +490,7 @@ VALID_FIELDS = (
   'help',
   'type',
   'required',
+  'autofill',
   'regex',
   'min',
   'max',
