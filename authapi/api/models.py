@@ -159,7 +159,8 @@ class AuthEvent(models.Model):
         if not from_user or not to_user:
             return
 
-        fields = [i for i in self.extra_fields if i.get("autofill", False)]
+        extra_fields = self.extra_fields or []
+        fields = [i for i in extra_fields if i.get("autofill", False)]
         for afield in fields:
             name = afield["name"]
             value = from_user.userdata.metadata.get(name, "NOT SET")
