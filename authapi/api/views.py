@@ -1681,9 +1681,11 @@ class BallotBoxView(View):
 
         filter_str = request.GET.get('filter', None)
         query = e.ballot_boxes.annotate(
-            last_updated=TallySheet.objects
-                .filter(ballot_box=OuterRef('pk'))
-                .order_by('-created').values('created')[:1]
+            last_updated=Subquery(
+                TallySheet.objects
+                    .filter(ballot_box=OuterRef('pk'))
+                    .order_by('-created').values('created')[:1]
+            )
         )
         if filter_str:
             query = query.filter(name__icontains=filter_str)
