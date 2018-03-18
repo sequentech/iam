@@ -404,6 +404,10 @@ class TallySheet(models.Model):
     # date at which the tally sheet was created
     created = models.DateTimeField(default=timezone.now, db_index=True)
 
+    # person who registered this tally sheet
+    creator = models.ForeignKey(User, related_name="created_tally_sheets",
+        db_index=True, null=False)
+
     # json data of the tally sheet. for now it only supports simple plurality
     # elections. The format is like in this example:
     #

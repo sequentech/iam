@@ -1702,11 +1702,15 @@ class BallotBoxView(View):
         )
 
         def serializer(obj):
+          tally_sheet = obj.tally_sheets.order_by('-created').first()
           return {
             "id": obj.pk,
             "event_id": obj.auth_event.pk,
             "name": obj.name,
             "created": obj.created.isoformat(),
+            "last_updated": tally_sheet.created if creator is not None else None,
+            "creator_id": tally_sheet.creator.id if creator is not None else None,
+            "creator_username": tally_sheet.creator.username if creator is not None else None,
             "num_tally_sheets": obj.tally_sheets.count()
           }
 
@@ -1794,7 +1798,8 @@ class TallySheetView(View):
         try:
             tally_sheet_obj = TallySheet(
                 ballot_box=ballot_box_obj,
-                data=req)
+                data=req,
+                creator=request.user)
             tally_sheet_obj.save()
 
             action = Action(
@@ -1846,6 +1851,8 @@ class TallySheetView(View):
         return json_response(dict(
             id=tally_sheet_obj.id,
             created=tally_sheet_obj.created.isoformat(),
+            creator_id=tally_sheet_obj.creator.id,
+            creator_username=tally_sheet_obj.creator.username,
             ballot_box_id=tally_sheet_obj.ballot_box.id,
             data=tally_sheet_obj.data,
         ))
@@ -1870,7 +1877,9 @@ class TallySheetView(View):
                 id=tally_sheet_obj.id,
                 created=tally_sheet_obj.created.isoformat(),
                 ballot_box_id=tally_sheet_obj.ballot_box.id,
-                data=tally_sheet_obj.data
+                data=tally_sheet_obj.data,
+                creator_id=tally_sheet_obj.creator.id,
+                creator_username=tally_sheet_obj.creator.username
             )
         )
 
