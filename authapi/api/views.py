@@ -1680,12 +1680,14 @@ class BallotBoxView(View):
         e = get_object_or_404(AuthEvent, pk=pk)
 
         filter_str = request.GET.get('filter', None)
+        subq = TallySheet.objects
+            .filter(ballot_box=OuterRef('pk'))
+            .order_by('-created')
         query = e.ballot_boxes.annotate(
-            last_updated=Subquery(
-                TallySheet.objects
-                    .filter(ballot_box=OuterRef('pk'))
-                    .order_by('-created').values('created')[:1]
-            )
+            created=Subquery(subq.values('created')[:1]),
+            last_updated=Subquery(subq.values('last_updated')[:1]),
+            creator_id=Subquery(subq.values('creator_id')[:1]),
+            creator_username=Subquery(subq.values('creator_username')[:1])
         )
         if filter_str:
             query = query.filter(name__icontains=filter_str)
@@ -1724,9 +1726,9 @@ class BallotBoxView(View):
             "event_id": obj.auth_event.pk,
             "name": obj.name,
             "created": obj.created.isoformat(),
-            "last_updated": tally_sheet.created if creator is not None else None,
-            "creator_id": tally_sheet.creator.id if creator is not None else None,
-            "creator_username": tally_sheet.creator.username if creator is not None else None,
+            "last_updated": obj.last_updated,
+            "creator_id": obj.creator_id,
+            "creator_username": obj.creator_username,
             "num_tally_sheets": obj.tally_sheets.count()
           }
 
