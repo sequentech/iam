@@ -1686,7 +1686,7 @@ class BallotBoxView(View):
         query = e.ballot_boxes.annotate(
             last_updated=Subquery(subq.values('created')[:1]),
             creator_id=Subquery(subq.values('creator_id')[:1]),
-            creator__username=Subquery(subq.values('creator_username')[:1])
+            creator_username=Subquery(subq.values('creator__username')[:1])
         )
         if filter_str:
             query = query.filter(name__icontains=filter_str)
