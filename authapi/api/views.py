@@ -1684,8 +1684,7 @@ class BallotBoxView(View):
             .filter(ballot_box=OuterRef('pk'))\
             .order_by('-created')
         query = e.ballot_boxes.annotate(
-            created=Subquery(subq.values('created')[:1]),
-            last_updated=Subquery(subq.values('last_updated')[:1]),
+            last_updated=Subquery(subq.values('created')[:1]),
             creator_id=Subquery(subq.values('creator_id')[:1]),
             creator_username=Subquery(subq.values('creator_username')[:1])
         )
@@ -1726,7 +1725,7 @@ class BallotBoxView(View):
             "event_id": obj.auth_event.pk,
             "name": obj.name,
             "created": obj.created.isoformat(),
-            "last_updated": obj.last_updated,
+            "last_updated": obj.last_updated.isoformat(),
             "creator_id": obj.creator_id,
             "creator_username": obj.creator_username,
             "num_tally_sheets": obj.tally_sheets.count()
