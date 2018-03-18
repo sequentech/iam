@@ -1712,7 +1712,8 @@ class BallotBoxView(View):
                         equals=int
                     )
                 },
-                order_by=['name']
+                order_by=['name', 'created'],
+                default_ordery_by='name'
             ),
             prefix='ballotbox__',
             contraints_policy='ignore_invalid'
