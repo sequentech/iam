@@ -27,7 +27,7 @@ from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from base64 import encodestring
 from django.utils.text import slugify
-from django.db.models import Count
+from django.db.models import Count, OuterRef, Subquery
 
 import plugins
 from authmethods import (
@@ -1680,7 +1680,11 @@ class BallotBoxView(View):
         e = get_object_or_404(AuthEvent, pk=pk)
 
         filter_str = request.GET.get('filter', None)
-        query = e.ballot_boxes.filter()
+        query = e.ballot_boxes.annotate(
+            last_updated=TallySheet.objects
+                .filter(ballot_box=OuterRef('pk'))
+                .order_by('-created').values('created')[:1]
+        )
         if filter_str:
             query = query.filter(name__icontains=filter_str)
 
@@ -1690,6 +1694,16 @@ class BallotBoxView(View):
             constraints=dict(
                 filters={
                     "id": dict(
+                        lt=int,
+                        gt=int,
+                        equals=int
+                    ),
+                    "last_updated": dict(
+                        lt=int,
+                        gt=int,
+                        equals=int
+                    ),
+                    "tally_sheets__count": dict(
                         lt=int,
                         gt=int,
                         equals=int
