@@ -878,3 +878,14 @@ extra_field_unique = [
             "required_on_authentication": True
         }
 ]
+
+extra_field_autofill = [
+        {
+            "name": "mesa",
+            "type": "text",
+            "required": False,
+            "unique": False,
+            "required_on_authentication": False,
+            "autofill": True,
+        }
+]
