@@ -2873,6 +2873,39 @@ class ApiTestBallotBoxes(TestCase):
         )
 
     @override_settings(**override_celery_data)
+    def test_list_ballot_boxes_perms(self):
+        c = JClient()
+
+        # list tally sheets without login ,fails
+        url = '/api/auth-event/%d/ballot-box/' % self.aeid
+        response = c.get(url, {})
+        self.assertEqual(response.status_code, 403)
+        r = parse_json_response(response)
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin lists tally sheets, works
+        url = '/api/auth-event/%d/ballot-box/' % self.aeid
+        response = c.get(url, {})
+        self.assertEqual(response.status_code, 200)
+
+        # alt permission to list tally sheets, works
+        self.acl_edit_event.perm = 'list-ballot-boxes'
+        self.acl_edit_event.save()
+        url = '/api/auth-event/%d/ballot-box/' % self.aeid
+        response = c.get(url, {})
+        self.assertEqual(response.status_code, 200)
+
+        # invalid permission to list tally sheets fails
+        self.acl_edit_event.perm = 'whatever'
+        self.acl_edit_event.save()
+        url = '/api/auth-event/%d/ballot-box/' % self.aeid
+        response = c.get(url, {})
+        self.assertEqual(response.status_code, 403)
+
+    @override_settings(**override_celery_data)
     def test_list_ballot_boxes_with_tally_sheet(self):
         c = JClient()
 
@@ -3005,7 +3038,98 @@ class ApiTestBallotBoxes(TestCase):
             reproducible_json_dumps(static_isodates(list_bb))
         )
 
-    # TODO: test remove ballot box
+    @override_settings(**override_celery_data)
+    def test_delete_ballot_boxes(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # delete ballot box
+        delete_url = '/api/auth-event/%d/ballot-box/%d/delete/' % (
+            self.aeid,
+            self.ballot_box.id
+        )
+        response = c.delete(delete_url, {})
+        self.assertEqual(response.status_code, 200)
+
+        # list ballot box, not found
+        url = '/api/auth-event/%d/ballot-box/' % self.aeid
+        response = c.get(url, {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        list_bb = {
+            'page_range': [1],
+            'has_previous': False,
+            'has_next': False,
+            'object_list': [],
+            'start_index': 0,
+            'page': 1,
+            'end_index': 0,
+            'total_count': 0
+        }
+        self.assertEqual(
+            reproducible_json_dumps(r),
+            reproducible_json_dumps(list_bb)
+        )
+
+    @override_settings(**override_celery_data)
+    def test_delete_ballot_box_not_found(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # delete ballot box
+        delete_url = '/api/auth-event/%d/ballot-box/%d/delete/' % (
+            self.aeid,
+            self.ballot_box.id+10000
+        )
+        response = c.delete(delete_url, {})
+        self.assertEqual(response.status_code, 404)
+
+    @override_settings(**override_celery_data)
+    def test_delete_ballot_box_check_perms(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # delete ballot box with alt permissions
+        delete_url = '/api/auth-event/%d/ballot-box/%d/delete/' % (
+            self.aeid,
+            self.ballot_box.id
+        )
+        self.acl_edit_event.perm = 'delete-ballot-boxes'
+        self.acl_edit_event.save()
+        response = c.delete(delete_url, {})
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(**override_celery_data)
+    def test_delete_ballot_box_check_perms_invalid(self):
+        c = JClient()
+
+        delete_url = '/api/auth-event/%d/ballot-box/%d/delete/' % (
+            self.aeid,
+            self.ballot_box.id+10000
+        )
+
+        # delete ballot box with anon user, fails
+        response = c.delete(delete_url, {})
+        self.assertEqual(response.status_code, 403)
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # delete ballot box with invalid permissions, fails
+        self.acl_edit_event.perm = 'invalid'
+        self.acl_edit_event.save()
+        response = c.delete(delete_url, {})
+        self.assertEqual(response.status_code, 403)
 
 class ApiTestTallySheets(TestCase):
     def setUpTestData():
