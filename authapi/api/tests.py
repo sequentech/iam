@@ -802,6 +802,9 @@ class TestExtraFields(TestCase):
         c.save()
         self.code = c
 
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
     def test_autofill_activate_field(self):
         self.ae.extra_fields = test_data.extra_field_autofill
         self.ae.save()
@@ -824,6 +827,9 @@ class TestExtraFields(TestCase):
         u = User.objects.get(id=self.uid)
         self.assertEqual(u.userdata.metadata.get("mesa"), "mesa 42")
 
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
     def test_autofill_deactivate_field(self):
         self.ae.extra_fields = test_data.extra_field_autofill
         self.ae.save()
