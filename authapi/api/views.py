@@ -1682,7 +1682,7 @@ class BallotBoxView(View):
         filter_str = request.GET.get('filter', None)
         subq = TallySheet.objects\
             .filter(ballot_box=OuterRef('pk'))\
-            .order_by('-created')
+            .order_by('-created', '-id')
         query = e.ballot_boxes.annotate(
             last_updated=Subquery(subq.values('created')[:1]),
             creator_id=Subquery(subq.values('creator_id')[:1]),
