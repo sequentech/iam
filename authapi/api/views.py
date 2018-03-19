@@ -154,6 +154,8 @@ class CensusActivate(View):
             u = get_object_or_404(User, pk=uid, userdata__event=ae)
             u.is_active = self.activate
             u.save()
+            # autofilling autofill fields with admin data
+            ae.autofill_fields(from_user=request.user, to_user=u)
 
             # register activity, one action per user
             action_name = 'user:activate' if self.activate else 'user:deactivate'

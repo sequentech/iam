@@ -155,6 +155,18 @@ class AuthEvent(models.Model):
     def len_census(self):
         return self.get_census_query().count()
 
+    def autofill_fields(self, from_user=None, to_user=None):
+        if not from_user or not to_user:
+            return
+
+        extra_fields = self.extra_fields or []
+        fields = [i for i in extra_fields if i.get("autofill", False)]
+        for afield in fields:
+            name = afield["name"]
+            value = from_user.userdata.metadata.get(name, "NOT SET")
+            to_user.userdata.metadata[name] = value
+        to_user.userdata.save()
+
     def __str__(self):
         return "%s - %s" % (self.id, self.census)
 
