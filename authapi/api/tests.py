@@ -756,6 +756,103 @@ class TestAuthEvent(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(len(r['ids-auth-event']), 2)
 
+class TestExtraFields(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        ae = AuthEvent(auth_method="email",
+                auth_method_config=test_data.authmethod_config_email_default,
+                status='started',
+                census="open")
+        ae.save()
+        self.ae = ae
+        self.aeid = ae.pk
+
+        u_admin = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u_admin.set_password(test_data.admin['password'])
+        u_admin.save()
+        u_admin.userdata.event = ae
+        u_admin.userdata.save()
+        self.uid_admin = u_admin.id
+
+        self.admin_auth_data = dict(email=test_data.admin['email'], code="ERGERG")
+        c = Code(user=u_admin.userdata, code=self.admin_auth_data['code'], auth_event_id=1)
+        c.save()
+
+        acl = ACL(user=u_admin.userdata, object_type='AuthEvent', perm='edit',
+            object_id=self.aeid)
+        acl.save()
+        acl = ACL(user=u_admin.userdata, object_type='AuthEvent', perm='create',
+            object_id=self.aeid)
+        acl.save()
+
+        u = User(username='test', email=test_data.auth_email_default['email'])
+        u.save()
+        u.userdata.event = ae
+        u.userdata.save()
+        self.u = u.userdata
+        self.uid = u.id
+
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='vote',
+            object_id=self.aeid)
+        acl.save()
+
+        c = Code(user=u.userdata, code=test_data.auth_email_default['code'], auth_event_id=ae.pk)
+        c.save()
+        self.code = c
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_autofill_activate_field(self):
+        self.ae.extra_fields = test_data.extra_field_autofill
+        self.ae.save()
+
+        u = User.objects.get(id=self.uid_admin)
+        u.save()
+        u.userdata.metadata = {"mesa": "mesa 42"}
+        u.userdata.save()
+
+        c = JClient()
+        c.authenticate(self.ae.pk, self.admin_auth_data)
+
+        u = User.objects.get(id=self.uid)
+        self.assertEqual(u.userdata.metadata.get("mesa"), None)
+
+        data = {'user-ids': [self.uid], 'comment': 'some comment here'}
+        response = c.post('/api/auth-event/%d/census/activate/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        u = User.objects.get(id=self.uid)
+        self.assertEqual(u.userdata.metadata.get("mesa"), "mesa 42")
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_autofill_deactivate_field(self):
+        self.ae.extra_fields = test_data.extra_field_autofill
+        self.ae.save()
+
+        u = User.objects.get(id=self.uid_admin)
+        u.save()
+        u.userdata.metadata = {"mesa": "mesa 42"}
+        u.userdata.save()
+
+        c = JClient()
+        c.authenticate(self.ae.pk, self.admin_auth_data)
+
+        u = User.objects.get(id=self.uid)
+        self.assertEqual(u.userdata.metadata.get("mesa"), None)
+
+        data = {'user-ids': [self.uid], 'comment': 'some comment here'}
+        response = c.post('/api/auth-event/%d/census/deactivate/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+
+        u = User.objects.get(id=self.uid)
+        self.assertEqual(u.userdata.metadata.get("mesa"), "mesa 42")
+
+
 class TestRegisterAndAuthenticateEmail(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
