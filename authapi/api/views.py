@@ -1710,7 +1710,13 @@ class BallotBoxView(View):
                         lt=int,
                         gt=int,
                         equals=int
-                    )
+                    ),
+                    "name": {
+                        "lt": int,
+                        "gt": int,
+                        "equals": int,
+                        "in": "StringList"
+                    }
                 },
                 order_by=['name', 'created'],
                 default_ordery_by='name'

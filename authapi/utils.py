@@ -133,6 +133,8 @@ def paginate(request, queryset, serialize_method=None, elements_name='elements')
 
     try:
         pageindex = int(index)
+        if pageindex < 1:
+            pageindex = 1
     except:
         pageindex = 1
 
@@ -819,6 +821,13 @@ def filter_query(filters, query, constraints, prefix, contraints_policy="ignore_
         elif filter_key[val_key] == datetime.datetime:
             try:
                 filter_val['value'] = datetime_from_iso8601(filter_val['value'])
+            except ValueError as e:
+                return apply_contraint_policy('invalid_filter')
+
+        elif filter_key[val_key] == "StringList":
+            try:
+                assert(isinstance(filter_val['value'], str))
+                filter_val['value'] = filter_val['value'].split("|")
             except ValueError as e:
                 return apply_contraint_policy('invalid_filter')
 
