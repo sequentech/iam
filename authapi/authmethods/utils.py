@@ -18,7 +18,7 @@ import re
 import os
 import binascii
 from base64 import decodestring
-from datetime import timedelta
+from datetime import timedelta, datetime
 from django.conf import settings
 from django.contrib.auth.models import User, AnonymousUser
 from django.utils import timezone
@@ -91,6 +91,16 @@ def dni_constraint(val):
     expected = mod_letters[int(digits) % 23]
 
     return letter == expected
+
+def date_constraint(val):
+    ''' check that the input is a valid date YYYY-MM-DD '''
+
+    try:
+        datetime.strptime(val, '%Y-%m-%d')
+    except:
+        return False
+
+    return True
 
 # Pipeline
 def check_tlf_whitelisted(data):
@@ -380,6 +390,9 @@ def check_field_value(definition, field, req=None, ae=None, step='register'):
             a = re.compile(definition.get('regex'))
             if not a.match(str(field)):
                 msg += "Field %s regex incorrect, value %s" % (definition.get('name'), field)
+        if definition.get('type') == 'date':
+            if not date_constraint(field):
+                msg += "Field date incorrect, value %s" % field
         if definition.get(step + '-pipeline'):
             pipedata = dict(request=req)
             name = step + '-pipeline'

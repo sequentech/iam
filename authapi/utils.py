@@ -519,7 +519,7 @@ VALID_PIPELINES = (
     'check_total_connection',
     )
 VALID_TYPE_FIELDS = ('text', 'password', 'int', 'bool', 'regex', 'email', 'tlf',
-        'captcha', 'textarea', 'dni', 'dict', 'image')
+        'captcha', 'textarea', 'dni', 'dict', 'image', 'date')
 REQUIRED_ADMIN_FIELDS = ('name', 'type')
 VALID_ADMIN_FIELDS = VALID_FIELDS + ('description', 'label', 'step', 'value', 'placeholder')
 

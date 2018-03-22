@@ -889,3 +889,29 @@ extra_field_autofill = [
             "autofill": True,
         }
 ]
+
+extra_field_date = [
+        {
+            "name": "date of birth",
+            "type": "date",
+            "required": False,
+            "unique": False,
+            "required_on_authentication": False,
+            "autofill": False,
+        }
+]
+
+census_date_field_ok = {
+    "census": [
+        {"email": "a1@aaa.com", "date of birth": "2018-01-31"},
+        {"email": "a2@aaa.com", "date of birth": "2018-02-20"},
+        {"email": "a3@aaa.com", "date of birth": "2018-03-14"},
+        {"email": "a4@aaa.com", "date of birth": "2018-04-21"},
+    ]
+}
+
+census_date_field_nok = {
+    "census": [
+        {"email": "a5@aaa.com", "date of birth": "2018-02-31"},
+    ]
+}
