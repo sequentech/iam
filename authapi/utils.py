@@ -46,7 +46,7 @@ from contracts import CheckException, JSONContractEncoder
 from time import sleep
 import plugins
 
-RE_SPLIT_FILTER = re.compile('(__lt|__gt|__equals)')
+RE_SPLIT_FILTER = re.compile('(__lt|__gt|__equals|__in)')
 RE_SPLIT_SORT = re.compile('__sort')
 RE_INT = re.compile('^\d+$')
 RE_BOOL = re.compile('^(true|false)$')
@@ -827,7 +827,6 @@ def filter_query(filters, query, constraints, prefix, contraints_policy="ignore_
         elif filter_key[val_key] == "StringList":
             try:
                 assert(isinstance(filter_val['value'], str))
-                filter_val['value'] = filter_val['value'].split("|")
             except ValueError as e:
                 return apply_contraint_policy('invalid_filter')
 
@@ -851,7 +850,9 @@ def filter_query(filters, query, constraints, prefix, contraints_policy="ignore_
         given a filter value, gets the pair of (key, value) needed to create
         the dict that will be used for filtering the query
         '''
-        if filter_val['full'].endswith('__equals'):
+        if filter_val['full'].endswith('__in'):
+            filter_val['value'] = filter_val['value'].split("|")
+        elif filter_val['full'].endswith('__equals'):
             filter_val['full'] = filter_val['full'][:-len('__equals')]
 
         return (filter_val['full'],filter_val['value'])

@@ -2773,7 +2773,7 @@ class ApiTestBallotBoxes(TestCase):
         self.assertEqual(response.status_code, 403)
 
     @override_settings(**override_celery_data)
-    def test_list_ballot_boxes(self):
+    def _test_list_ballot_boxes(self):
         c = JClient()
 
         # admin login
@@ -2815,7 +2815,7 @@ class ApiTestBallotBoxes(TestCase):
         )
 
     @override_settings(**override_celery_data)
-    def test_list_ballot_boxes(self):
+    def _test_list_ballot_boxes_two(self):
         c = JClient()
 
         # admin login
@@ -2873,7 +2873,7 @@ class ApiTestBallotBoxes(TestCase):
         )
 
     @override_settings(**override_celery_data)
-    def test_list_ballot_boxes_perms(self):
+    def _test_list_ballot_boxes_perms(self):
         c = JClient()
 
         # list tally sheets without login ,fails
@@ -2906,7 +2906,7 @@ class ApiTestBallotBoxes(TestCase):
         self.assertEqual(response.status_code, 403)
 
     @override_settings(**override_celery_data)
-    def test_list_ballot_boxes_with_tally_sheet(self):
+    def _test_list_ballot_boxes_with_tally_sheet(self):
         c = JClient()
 
         # admin login
@@ -2971,7 +2971,7 @@ class ApiTestBallotBoxes(TestCase):
         )
 
     @override_settings(**override_celery_data)
-    def test_list_ballot_boxes_with_2tally_sheet(self):
+    def _test_list_ballot_boxes_with_2tally_sheet(self):
         c = JClient()
 
         # admin login
@@ -3039,7 +3039,34 @@ class ApiTestBallotBoxes(TestCase):
         )
 
     @override_settings(**override_celery_data)
-    def test_delete_ballot_boxes(self):
+    def test_list_ballot_boxes_filtering(self):
+        c = JClient()
+
+        # admin login
+        response = c.authenticate(self.aeid, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # list ballot box
+        url = '/api/auth-event/%d/ballot-box/?ballotbox__name__in=FOOO' % self.aeid
+        response = c.get(url, {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(r["total_count"], 0)
+
+        url = '/api/auth-event/%d/ballot-box/?ballotbox__name__in=WHAT' % self.aeid
+        response = c.get(url, {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(r["total_count"], 1)
+
+        url = '/api/auth-event/%d/ballot-box/?ballotbox__name__in=FOOO|WHAT' % self.aeid
+        response = c.get(url, {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(r["total_count"], 1)
+
+    @override_settings(**override_celery_data)
+    def _test_delete_ballot_boxes(self):
         c = JClient()
 
         # admin login
