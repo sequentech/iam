@@ -14,6 +14,7 @@
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
+import logging
 from . import register_method
 from utils import genhmac
 from django.conf import settings
@@ -22,6 +23,11 @@ from django.conf.urls import url
 from django.db.models import Q
 
 from utils import json_response
+from utils import stack_trace_str
+from authmethods.utils import *
+
+
+LOGGER = logging.getLogger('authapi')
 
 
 def testview(request, param):
@@ -34,8 +40,76 @@ class PWD:
     CONFIG = {}
     PIPELINES = {
         "register-pipeline": [],
-        "authenticate-pipeline": []
+        "authenticate-pipeline": [],
+        'give_perms': [
+            {'object_type': 'UserData', 'perms': ['edit',], 'object_id': 'UserDataId' },
+            {'object_type': 'AuthEvent', 'perms': ['vote',], 'object_id': 'AuthEventId' }
+        ],
     }
+    USED_TYPE_FIELDS = []
+
+    def check_config(self, config):
+        return ''
+
+    def resend_auth_code(self, config):
+        return {'status': 'ok'}
+
+    def census(self, ae, request):
+        req = json.loads(request.body.decode('utf-8'))
+        validation = req.get('field-validation', 'enabled') == 'enabled'
+
+        msg = ''
+        for r in req.get('census'):
+            msg += check_fields_in_request(r, ae, 'census', validation=validation)
+            if validation:
+                msg += exist_user(r, ae)
+            else:
+                if msg:
+                    LOGGER.debug(\
+                        "PWD.census warning\n"\
+                        "error (but validation disabled) '%r'\n"\
+                        "request '%r'\n"\
+                        "validation '%r'\n"\
+                        "authevent '%r'\n"\
+                        "Stack trace: \n%s",\
+                        msg, req, validation, ae, stack_trace_str())
+                    msg = ''
+                    continue
+                exist = exist_user(r, ae)
+                if exist and not exist.count('None'):
+                    continue
+                # By default we creates the user as active we don't check
+                # the pipeline
+                u = create_user(r, ae, True, request.user)
+                give_perms(u, ae)
+        if msg and validation:
+            LOGGER.error(\
+                "PWD.census error\n"\
+                "error '%r'\n"\
+                "request '%r'\n"\
+                "validation '%r'\n"\
+                "authevent '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, req, validation, ae, stack_trace_str())
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+
+        if validation:
+            for r in req.get('census'):
+                # By default we creates the user as active we don't check
+                # the pipeline
+                u = create_user(r, ae, True, request.user)
+                give_perms(u, ae)
+        
+        ret = {'status': 'ok'}
+        LOGGER.debug(\
+            "PWD.census\n"\
+            "request '%r'\n"\
+            "validation '%r'\n"\
+            "authevent '%r'\n"\
+            "returns '%r'\n"\
+            "Stack trace: \n%s",\
+            req, validation, ae, ret, stack_trace_str())
+        return ret
 
     def authenticate_error(self):
         d = {'status': 'nok'}
