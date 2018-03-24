@@ -131,7 +131,7 @@ CONTRACTS = dict(
           },
           {
             'check': 'length',
-            'range': [1,2048]
+            'range': [0,2048]
           }
         ]
       },
