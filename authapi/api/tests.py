@@ -745,7 +745,7 @@ class TestAuthEvent(TestCase):
         #response = self.create_authevent(test_data.ae_email_config_incorrect2)
         #self.assertEqual(response.status_code, 400)
 
-    def _test_create_authevent_sms_incorrect(self):
+    def test_create_authevent_sms_incorrect(self):
         response = self.create_authevent(test_data.ae_sms_config_incorrect)
         self.assertEqual(response.status_code, 400)
         response = self.create_authevent(test_data.ae_sms_fields_incorrect)
@@ -1005,7 +1005,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.register(self.aeid, test_data.register_sms_default)
         self.assertEqual(response.status_code, 400)
 
-    def _test_add_register_authevent_email_repeat(self):
+    def test_add_register_authevent_email_repeat(self):
         user = User.objects.get(email=test_data.auth_email_default['email'])
         Code.objects.filter(user=user.userdata).delete()
         user.delete()
@@ -1130,7 +1130,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, tpl_specific)
         self.assertEqual(response.status_code, 200)
 
-    def _test_unique_field(self):
+    def test_unique_field(self):
         self.ae.extra_fields = test_data.extra_field_unique
         self.ae.save()
 
@@ -1159,7 +1159,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
 
 
     @override_settings(**override_celery_data)
-    def _test_add_census_no_validation(self):
+    def test_add_census_no_validation(self):
         self.ae.extra_fields = test_data.extra_field_unique
         self.ae.save()
 
@@ -1252,7 +1252,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'invalid_credentials')
 
-    def _test_add_used_census(self):
+    def test_add_used_census(self):
         c = JClient()
         c.authenticate(0, test_data.admin)
         response = c.census(self.aeid, test_data.census_sms_default_used)
@@ -1371,7 +1371,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.register(self.aeid, test_data.sms_fields_incorrect_len2)
         self.assertEqual(response.status_code, 400)
 
-    def _test_add_register_authevent_sms_resend(self):
+    def test_add_register_authevent_sms_resend(self):
         c = JClient()
         c.authenticate(0, test_data.admin)
         ini_codes = Code.objects.count()
@@ -1429,7 +1429,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'invalid_credentials')
 
-    def _test_authenticate_authevent_sms_fields(self):
+    def test_authenticate_authevent_sms_fields(self):
         c = JClient()
         self.ae.extra_fields = test_data.ae_sms_fields['extra_fields']
         self.ae.save()
@@ -1473,7 +1473,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
-    def _test_unique_field(self):
+    def test_unique_field(self):
         self.ae.extra_fields = test_data.extra_field_unique
         self.ae.save()
 
@@ -1503,7 +1503,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
 
 
     @override_settings(**override_celery_data)
-    def _test_add_census_no_validation(self):
+    def test_add_census_no_validation(self):
         self.ae.extra_fields = test_data.extra_field_unique
         self.ae.save()
 
@@ -2773,7 +2773,7 @@ class ApiTestBallotBoxes(TestCase):
         self.assertEqual(response.status_code, 403)
 
     @override_settings(**override_celery_data)
-    def _test_list_ballot_boxes(self):
+    def test_list_ballot_boxes(self):
         c = JClient()
 
         # admin login
@@ -2815,7 +2815,7 @@ class ApiTestBallotBoxes(TestCase):
         )
 
     @override_settings(**override_celery_data)
-    def _test_list_ballot_boxes_two(self):
+    def test_list_ballot_boxes_two(self):
         c = JClient()
 
         # admin login
@@ -2873,7 +2873,7 @@ class ApiTestBallotBoxes(TestCase):
         )
 
     @override_settings(**override_celery_data)
-    def _test_list_ballot_boxes_perms(self):
+    def test_list_ballot_boxes_perms(self):
         c = JClient()
 
         # list tally sheets without login ,fails
@@ -2906,7 +2906,7 @@ class ApiTestBallotBoxes(TestCase):
         self.assertEqual(response.status_code, 403)
 
     @override_settings(**override_celery_data)
-    def _test_list_ballot_boxes_with_tally_sheet(self):
+    def test_list_ballot_boxes_with_tally_sheet(self):
         c = JClient()
 
         # admin login
@@ -2971,7 +2971,7 @@ class ApiTestBallotBoxes(TestCase):
         )
 
     @override_settings(**override_celery_data)
-    def _test_list_ballot_boxes_with_2tally_sheet(self):
+    def test_list_ballot_boxes_with_2tally_sheet(self):
         c = JClient()
 
         # admin login
@@ -3066,7 +3066,7 @@ class ApiTestBallotBoxes(TestCase):
         self.assertEqual(r["total_count"], 1)
 
     @override_settings(**override_celery_data)
-    def _test_delete_ballot_boxes(self):
+    def test_delete_ballot_boxes(self):
         c = JClient()
 
         # admin login
@@ -3207,6 +3207,7 @@ class ApiTestTallySheets(TestCase):
 
         self.tally_data = dict(
             num_votes=322,
+            observations="some observation",
             questions=[
                 dict(
                     title="Do you want Foo Bar to be president?",

@@ -105,7 +105,7 @@ CONTRACTS = dict(
       },
       {
         'check': 'dict-keys-exist',
-        'keys': ['num_votes', 'questions']
+        'keys': ['num_votes', 'questions', 'observations']
       },
       {
         'check': 'index-check-list',
@@ -118,6 +118,20 @@ CONTRACTS = dict(
           {
             'check': 'lambda',
             'lambda': lambda d: d >= 0
+          }
+        ]
+      },
+      {
+        'check': 'index-check-list',
+        'index': 'observations',
+        'check-list': [
+          {
+            'check': 'isinstance',
+            'type': str
+          },
+          {
+            'check': 'length',
+            'range': [1,2048]
           }
         ]
       },
@@ -1835,6 +1849,7 @@ class TallySheetView(View):
                     ballot_box_id=ballot_box_obj.id,
                     ballot_box_name=ballot_box_obj.name,
                     num_versions=num_versions,
+                    comment=tally_sheet_obj.data['observations'],
                     tally_sheet_id=tally_sheet_obj.id,
                     data=req)
             )
