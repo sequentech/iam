@@ -1700,7 +1700,8 @@ class BallotBoxView(View):
         query = e.ballot_boxes.annotate(
             last_updated=Subquery(subq.values('created')[:1]),
             creator_id=Subquery(subq.values('creator_id')[:1]),
-            creator_username=Subquery(subq.values('creator__username')[:1])
+            creator_username=Subquery(subq.values('creator__username')[:1]),
+            num_tally_sheets=Count('tally_sheets')
         )
         if filter_str:
             query = query.filter(name__icontains=filter_str)
@@ -1716,11 +1717,11 @@ class BallotBoxView(View):
                         equals=int
                     ),
                     "last_updated": dict(
-                        lt=int,
-                        gt=int,
-                        equals=int
+                        lt=datetime,
+                        gt=datetime,
+                        equals=datetime
                     ),
-                    "tally_sheets__count": dict(
+                    "num_tally_sheets": dict(
                         lt=int,
                         gt=int,
                         equals=int
@@ -1732,7 +1733,7 @@ class BallotBoxView(View):
                         "in": "StringList"
                     }
                 },
-                order_by=['name', 'created'],
+                order_by=['name', 'created', 'last_updated', 'num_tally_sheets'],
                 default_ordery_by='name'
             ),
             prefix='ballotbox__',
