@@ -975,6 +975,7 @@ class Activity(View):
                     id=dict(
                         lt=int,
                         gt=int,
+                        equals=int
                     ),
                     executer__id=dict(
                         lt=int,
@@ -1917,6 +1918,7 @@ class TallySheetView(View):
                 id=tally_sheet_obj.id,
                 created=tally_sheet_obj.created.isoformat(),
                 ballot_box_id=tally_sheet_obj.ballot_box.id,
+                ballot_box_name=tally_sheet_obj.ballot_box.name,
                 data=tally_sheet_obj.data,
                 creator_id=tally_sheet_obj.creator.id,
                 creator_username=tally_sheet_obj.creator.username
