@@ -1095,6 +1095,7 @@ class AuthEventView(View):
                 return json_response(
                     status=400,
                     error_codename="INVALID_BALLOT_BOXES")
+            has_ballot_boxes = has_ballot_boxes == 'true'
 
             based_in = req.get('based_in', None)
             if based_in and not ACL.objects.filter(user=request.user.userdata, perm='edit',
