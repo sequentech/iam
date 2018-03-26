@@ -852,6 +852,26 @@ class TestExtraFields(TestCase):
         u = User.objects.get(id=self.uid)
         self.assertEqual(u.userdata.metadata.get("mesa"), "mesa 42")
 
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_date_field(self):
+        self.ae.extra_fields = test_data.extra_field_date
+        self.ae.save()
+
+        c = JClient()
+        c.authenticate(self.ae.pk, self.admin_auth_data)
+        response = c.census(self.ae.pk, test_data.census_date_field_ok)
+        self.assertEqual(response.status_code, 200)
+
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(len(r['object_list']), 5)
+
+        response = c.census(self.ae.pk, test_data.census_date_field_nok)
+        self.assertEqual(response.status_code, 400)
+
 
 class TestRegisterAndAuthenticateEmail(TestCase):
     def setUpTestData():
