@@ -35,8 +35,8 @@ def testview(request, param):
     return json_response(data)
 
 
-class PWD:
-    DESCRIPTION = 'Register using user and password. '
+class EmailPWD:
+    DESCRIPTION = 'Register using email and password. '
     CONFIG = {}
     PIPELINES = {
         "register-pipeline": [],
@@ -46,8 +46,8 @@ class PWD:
             {'object_type': 'AuthEvent', 'perms': ['vote',], 'object_id': 'AuthEventId' }
         ],
     }
-    USED_TYPE_FIELDS = ['username', 'password']
-    username_definition = { "name": "username", "type": "text", "required": True, "min": 3, "max": 200, "required_on_authentication": True }
+    USED_TYPE_FIELDS = ['email', 'password']
+    email_definition = { "name": "email", "type": "email", "required": True, "min": 4, "max": 255, "required_on_authentication": True }
     password_definition = { "name": "password", "type": "password", "required": True, "min": 3, "max": 200, "required_on_authentication": True }
 
     def check_config(self, config):
@@ -61,28 +61,28 @@ class PWD:
         validation = req.get('field-validation', 'enabled') == 'enabled'
 
         msg = ''
-        usernames = []
+        emails = []
         for r in req.get('census'):
-            username = r.get('username')
+            email = r.get('email')
             password = r.get('password')
-            msg += check_field_type(self.username_definition, username)
+            msg += check_field_type(self.email_definition, email)
             msg += check_field_type(self.password_definition, password)
             if validation:
-                msg += check_field_type(self.username_definition, username)
-                msg += check_field_value(self.username_definition, username)
+                msg += check_field_type(self.email_definition, email)
+                msg += check_field_value(self.email_definition, email)
                 msg += check_field_type(self.password_definition, password)
                 msg += check_field_value(self.password_definition, password)
 
             msg += check_fields_in_request(r, ae, 'census', validation=validation)
             if validation:
                 msg += exist_user(r, ae)
-                if username in usernames:
-                    msg += "Username %s repeat in this census." % username
-                usernames.append(username)
+                if email in emails:
+                    msg += "Email %s repeat in this census." % email
+                emails.append(email)
             else:
                 if msg:
                     LOGGER.debug(\
-                        "PWD.census warning\n"\
+                        "EmailPWD.census warning\n"\
                         "error (but validation disabled) '%r'\n"\
                         "request '%r'\n"\
                         "validation '%r'\n"\
@@ -96,11 +96,11 @@ class PWD:
                     continue
                 # By default we creates the user as active we don't check
                 # the pipeline
-                u = create_user(r, ae, True, request.user, user=username, password=password)
+                u = create_user(r, ae, True, request.user, password=password)
                 give_perms(u, ae)
         if msg and validation:
             LOGGER.error(\
-                "PWD.census error\n"\
+                "EmailPWD.census error\n"\
                 "error '%r'\n"\
                 "request '%r'\n"\
                 "validation '%r'\n"\
@@ -113,12 +113,12 @@ class PWD:
             for r in req.get('census'):
                 # By default we creates the user as active we don't check
                 # the pipeline
-                u = create_user(r, ae, True, request.user, user=username, password=password)
+                u = create_user(r, ae, True, request.user, password=password)
                 give_perms(u, ae)
         
         ret = {'status': 'ok'}
         LOGGER.debug(\
-            "PWD.census\n"\
+            "EmailPWD.census\n"\
             "request '%r'\n"\
             "validation '%r'\n"\
             "authevent '%r'\n"\
@@ -134,11 +134,11 @@ class PWD:
     def authenticate(self, ae, request):
         d = {'status': 'ok'}
         req = json.loads(request.body.decode('utf-8'))
-        username = req.get('username', '')
+        email = req.get('email', '')
         pwd = req.get('password', '')
 
         try:
-            u = User.objects.get(userdata__event=ae, is_active=True, username=username)
+            u = User.objects.get(userdata__event=ae, is_active=True, email=email)
         except:
             return self.authenticate_error()
 
@@ -163,4 +163,4 @@ class PWD:
     ]
 
 
-register_method('user-and-password', PWD)
+register_method('email-and-password', EmailPWD)
