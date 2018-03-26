@@ -243,7 +243,8 @@ class UserData(models.Model):
 
     def serialize_data(self):
         d = self.serialize()
-        del d['username']
+        if not self.event.auth_method == 'user-and-password':
+            del d['username']
         if self.metadata:
             if type(self.metadata) == str:
                 metadata = json.loads(self.metadata)
