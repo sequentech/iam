@@ -1878,33 +1878,34 @@ class TallySheetView(View):
             tally_sheet.data for tally_sheet in tally_sheets
         ])
         # A.2 call to agora-elections
-        callback_url = "%s/api/election/%d/update-ballot-boxes-config" % (
+        callback_url = "%s/api/election/%s/update-ballot-boxes-config" % (
             settings.AGORA_ELECTIONS_BASE,
             pk
         )
-        r = requests.post(
-            callback_url,
-            data=data,
-            headers={
-                'authorization': genhmac(
-                    settings.SHARED_SECRET,
-                    "1:AuthEvent:%d:update-ballot-boxes-results-config" % pk
-                )
-            }
-        )
-        if r.status_code != 200:
-            LOGGER.error(\
-                "TallySheetView.post\n"\
-                "agora_elections.callback_url '%r'\n"\
-                "agora_elections.data '%r'\n"\
-                "agora_elections.status_code '%r'\n"\
-                "agora_elections.text '%r'\n"\
-                callback_url, data, r.status_code, r.text
+        if not settings.SIMULATE_AGORA_ELECTIONS_CALLBACKS:
+            r = requests.post(
+                callback_url,
+                data=data,
+                headers={
+                    'authorization': genhmac(
+                        settings.SHARED_SECRET,
+                        "1:AuthEvent:%s:update-ballot-boxes-results-config" % pk
+                    )
+                }
             )
+            if r.status_code != 200:
+                LOGGER.error(\
+                    "TallySheetView.post\n"\
+                    "agora_elections.callback_url '%r'\n"\
+                    "agora_elections.data '%r'\n"\
+                    "agora_elections.status_code '%r'\n"\
+                    "agora_elections.text '%r'\n",\
+                    callback_url, data, r.status_code, r.text
+                )
 
-            return json_response(
-                status=500,
-                error_codename=ErrorCodes.GENERAL_ERROR)
+                return json_response(
+                    status=500,
+                    error_codename=ErrorCodes.GENERAL_ERROR)
 
         # success!
         data = {'status': 'ok', 'id': tally_sheet_obj.pk}
