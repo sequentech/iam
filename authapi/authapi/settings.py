@@ -177,9 +177,11 @@ EMAIL_BASE_TEMPLATE = "__MESSAGE__\n\n -- nVotes https://nvotes.com"
 
 EMAIL_BASE_TITLE_TEMPLATE = "__TITLE__ - nVotes"
 
-HOME_URL = "https://agoravoting.example.com/#/election/__EVENT_ID__/public/home"
+HOME_URL = "https://agoravoting.example.com/#/election¡/__EVENT_ID__/public/home"
 SMS_AUTH_CODE_URL = "https://agoravoting.example.com/#/election/__EVENT_ID__/public/login/__RECEIVER__"
 EMAIL_AUTH_CODE_URL = "https://agoravoting.example.com/#/election/__EVENT_ID__/public/login/__RECEIVER__"
+
+AGORA_ELECTIONS_BASE = "http://127.0.0.1:14443/"
 
 SIZE_CODE = 8
 MAX_GLOBAL_STR = 512

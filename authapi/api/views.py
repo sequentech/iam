@@ -54,7 +54,8 @@ from utils import (
     VALID_FIELDS,
     VALID_PIPELINES,
     filter_query,
-    stack_trace_str
+    stack_trace_str,
+    reproducible_json_dumps
 )
 from .decorators import login_required, get_login_user
 from .models import (
@@ -1862,6 +1863,48 @@ class TallySheetView(View):
             return json_response(
                 status=400,
                 error_codename=ErrorCodes.BAD_REQUEST)
+
+        # A. try to do a call to agora_elections to update the election results
+        # A.1 get all the tally sheets for this election, last per ballot box
+        subq = TallySheet.objects\
+          .filter(ballot_box=OuterRef('pk'))\
+          .order_by('-created', '-id')
+
+        tally_sheets = AuthEvent.objects.get(pk=pk).ballot_boxes.annotate(
+            data=Subquery(subq.values('data')[:1]), num_tally_sheets=Count('tally_sheets')
+        ).filter(num_tally_sheets__gt=0)
+
+        data = reproducible_json_dumps([
+            tally_sheet.data for tally_sheet in tally_sheets
+        ])
+        # A.2 call to agora-elections
+        callback_url = "%s/api/election/%d/update-ballot-boxes-config" % (
+            settings.AGORA_ELECTIONS_BASE,
+            pk
+        )
+        r = requests.post(
+            callback_url,
+            data=data,
+            headers={
+                'authorization': genhmac(
+                    settings.SHARED_SECRET,
+                    "1:AuthEvent:%d:update-ballot-boxes-results-config" % pk
+                )
+            }
+        )
+        if r.status_code != 200:
+            LOGGER.error(\
+                "TallySheetView.post\n"\
+                "agora_elections.callback_url '%r'\n"\
+                "agora_elections.data '%r'\n"\
+                "agora_elections.status_code '%r'\n"\
+                "agora_elections.text '%r'\n"\
+                callback_url, data, r.status_code, r.text
+            )
+
+            return json_response(
+                status=500,
+                error_codename=ErrorCodes.GENERAL_ERROR)
 
         # success!
         data = {'status': 'ok', 'id': tally_sheet_obj.pk}

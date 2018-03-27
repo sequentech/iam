@@ -429,10 +429,9 @@ class TallySheet(models.Model):
     data = JSONField()
 
     def __str__(self):
-        return "%d: %s - %d - %d - %s" % (
+        return "%d: %s - %d - %s" % (
             self.id,
             self.ballot_box.name,
-            self.version_number,
-            self.auth_event.id,
+            self.ballot_box.auth_event.id,
             str(self.created)
         )
