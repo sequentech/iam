@@ -1091,12 +1091,11 @@ class AuthEventView(View):
                 return json_response(**error_kwargs[0])
 
             # check if it has ballot boxes
-            has_ballot_boxes = req.get('has_ballot_boxes', 'false')
-            if not has_ballot_boxes in ('true', 'false'):
+            has_ballot_boxes = req.get('has_ballot_boxes', False)
+            if not isinstance(has_ballot_boxes, bool):
                 return json_response(
                     status=400,
                     error_codename="INVALID_BALLOT_BOXES")
-            has_ballot_boxes = has_ballot_boxes == 'true'
 
             based_in = req.get('based_in', None)
             if based_in and not ACL.objects.filter(user=request.user.userdata, perm='edit',
