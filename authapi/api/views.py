@@ -16,6 +16,7 @@
 # This file contains all the API views
 import os
 import json
+import requests
 import mimetypes
 from datetime import datetime
 from django import forms
