@@ -1887,10 +1887,11 @@ class TallySheetView(View):
                 callback_url,
                 data=data,
                 headers={
-                    'authorization': genhmac(
+                    'Authorization': genhmac(
                         settings.SHARED_SECRET,
                         "1:AuthEvent:%s:update-ballot-boxes-results-config" % pk
-                    )
+                    ),
+                    'Content-type': 'application/json'
                 }
             )
             if r.status_code != 200:
