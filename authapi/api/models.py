@@ -87,6 +87,7 @@ class AuthEvent(models.Model):
             'auth_method': self.auth_method,
             'census': self.census,
             'users': self.len_census(),
+            'has_ballot_boxes': self.has_ballot_boxes,
             'created': (self.created.isoformat()
                         if hasattr(self.created, 'isoformat')
                         else self.created),
