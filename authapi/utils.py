@@ -46,7 +46,7 @@ from contracts import CheckException, JSONContractEncoder
 from time import sleep
 import plugins
 
-RE_SPLIT_FILTER = re.compile('(__lt|__gt|__equals)')
+RE_SPLIT_FILTER = re.compile('(__lt|__gt|__equals|__in)')
 RE_SPLIT_SORT = re.compile('__sort')
 RE_INT = re.compile('^\d+$')
 RE_BOOL = re.compile('^(true|false)$')
@@ -67,6 +67,9 @@ class ErrorCodes(IntEnum):
     GENERAL_ERROR = 5
     MAX_CONNECTION = 6
     BLACKLIST = 7
+
+def reproducible_json_dumps(s):
+    return json.dumps(s, indent=4, ensure_ascii=False, sort_keys=True, separators=(',', ': '))
 
 def parse_json_request(request):
     '''
@@ -130,6 +133,8 @@ def paginate(request, queryset, serialize_method=None, elements_name='elements')
 
     try:
         pageindex = int(index)
+        if pageindex < 1:
+            pageindex = 1
     except:
         pageindex = 1
 
@@ -820,6 +825,12 @@ def filter_query(filters, query, constraints, prefix, contraints_policy="ignore_
             except ValueError as e:
                 return apply_contraint_policy('invalid_filter')
 
+        elif filter_key[val_key] == "StringList":
+            try:
+                assert(isinstance(filter_val['value'], str))
+            except ValueError as e:
+                return apply_contraint_policy('invalid_filter')
+
         return True
 
     def check_sort(sort_val):
@@ -840,7 +851,9 @@ def filter_query(filters, query, constraints, prefix, contraints_policy="ignore_
         given a filter value, gets the pair of (key, value) needed to create
         the dict that will be used for filtering the query
         '''
-        if filter_val['full'].endswith('__equals'):
+        if filter_val['full'].endswith('__in'):
+            filter_val['value'] = filter_val['value'].split("|")
+        elif filter_val['full'].endswith('__equals'):
             filter_val['full'] = filter_val['full'][:-len('__equals')]
 
         return (filter_val['full'],filter_val['value'])

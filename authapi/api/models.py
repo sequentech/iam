@@ -55,6 +55,7 @@ class AuthEvent(models.Model):
     status = models.CharField(max_length=15, choices=AE_STATUSES, default="notstarted")
     created = models.DateTimeField(auto_now_add=True)
     admin_fields = JSONField(blank=True, null=True)
+    has_ballot_boxes = models.BooleanField(default=True)
 
     # 0 means any number of logins is allowed
     num_successful_logins_allowed = models.IntegerField(
@@ -190,7 +191,7 @@ class UserData(models.Model):
     user = models.OneToOneField(User, related_name="userdata")
     event = models.ForeignKey(AuthEvent, related_name="userdata", null=True)
     tlf = models.CharField(max_length=20, blank=True, null=True)
-    metadata = fields.JSONField(default=dict(), blank=True, null=True, db_index=True)
+    metadata = fields.JSONField(default=dict(), blank=True, null=True)
     status = models.CharField(max_length=255, choices=STATUSES, default="act", db_index=True)
     draft_election = fields.JSONField(default=dict(), blank=True, null=True, db_index=False)
 
@@ -307,7 +308,7 @@ class Action(models.Model):
         db_index=True, null=True)
 
     # any other relevant information, which varies depending on the action
-    metadata = fields.JSONField(default=dict(), db_index=True)
+    metadata = fields.JSONField(default=dict())
 
     def serialize(self):
         d = {
@@ -350,7 +351,7 @@ class ACL(models.Model):
     perm = models.CharField(max_length=255)
     object_type = models.CharField(max_length=255, blank=True, null=True)
     object_id = models.CharField(max_length=255, default=0)
-    created = models.DateTimeField(auto_now_add=True)
+    created = models.DateTimeField(default=timezone.now)
 
     def serialize(self):
         d = {
@@ -376,9 +377,73 @@ class SuccessfulLogin(models.Model):
     usually triggered by a explicit call to /authevent/<ID>/successful_login
     '''
     user = models.ForeignKey(UserData, related_name="successful_logins")
-    created = models.DateTimeField(auto_now_add=True)
+    created = models.DateTimeField(default=timezone.now)
     # when counting the number of successful logins, only active ones count
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return "%d: %s - %s" % (self.id, self.user.user.username, str(self.created))
+
+class BallotBox(models.Model):
+    '''
+    Registers the list of ballot boxes related to a ballot box auth_event
+    '''
+    auth_event = models.ForeignKey(AuthEvent, related_name="ballot_boxes")
+    name = models.CharField(max_length=255, db_index=True)
+    created = models.DateTimeField(default=timezone.now, db_index=True)
+
+    def __str__(self):
+        return "%d: %s - %d - %s" % (
+            self.id,
+            self.name,
+            self.auth_event.id,
+            str(self.created)
+        )
+
+    class Meta:
+        unique_together = (
+            ("auth_event", "name"),
+        )
+
+
+class TallySheet(models.Model):
+    '''
+    Each tally sheet related to a ballot box can be registered here
+    '''
+    # related ballot box
+    ballot_box = models.ForeignKey(BallotBox, related_name="tally_sheets")
+
+    # date at which the tally sheet was created
+    created = models.DateTimeField(default=timezone.now, db_index=True)
+
+    # person who registered this tally sheet
+    creator = models.ForeignKey(User, related_name="created_tally_sheets",
+        db_index=True, null=False)
+
+    # json data of the tally sheet. for now it only supports simple plurality
+    # elections. The format is like in this example:
+    #
+    # data = dict(
+    #     num_votes=222,
+    #     questions=[
+    #         dict(
+    #             title="Do you want Foo Bar to be president?",
+    #             blank_votes=1,
+    #             null_votes=1,
+    #             tally_type="plurality-at-large",
+    #             answers=[
+    #               dict(text="Yes", num_votes=200),
+    #               dict(text="No", num_votes=120)
+    #             ]
+    #         )
+    #     ]
+    # )
+    data = JSONField()
+
+    def __str__(self):
+        return "%d: %s - %d - %s" % (
+            self.id,
+            self.ballot_box.name,
+            self.ballot_box.auth_event.id,
+            str(self.created)
+        )

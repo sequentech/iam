@@ -16,16 +16,19 @@
 # This file contains all the API views
 import os
 import json
+import requests
 import mimetypes
 from datetime import datetime
+from django import forms
 from django.conf import settings
+from django.http import Http404
 from django.contrib.auth.models import User
 from django.views.generic import View
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from base64 import encodestring
 from django.utils.text import slugify
-from django.db.models import Count
+from django.db.models import Count, OuterRef, Subquery
 
 import plugins
 from authmethods import (
@@ -51,7 +54,9 @@ from utils import (
     ErrorCodes,
     VALID_FIELDS,
     VALID_PIPELINES,
-    filter_query
+    filter_query,
+    stack_trace_str,
+    reproducible_json_dumps
 )
 from .decorators import login_required, get_login_user
 from .models import (
@@ -61,7 +66,9 @@ from .models import (
     SuccessfulLogin,
     ALLOWED_ACTIONS,
     User,
-    UserData
+    UserData,
+    BallotBox,
+    TallySheet
 )
 from .tasks import census_send_auth_task
 from django.db.models import Q
@@ -72,6 +79,7 @@ from utils import send_codes, get_client_ip, parse_json_request
 from pipelines.field_register import *
 from pipelines.field_authenticate import *
 from contracts.base import check_contract
+from contracts import CheckException
 import logging
 
 LOGGER = logging.getLogger('authapi')
@@ -91,7 +99,184 @@ CONTRACTS = dict(
           }
         ]
       }
-    ])
+    ],
+    tally_sheet=[
+      {
+        'check': 'isinstance',
+        'type': dict
+      },
+      {
+        'check': 'dict-keys-exist',
+        'keys': ['num_votes', 'questions', 'observations']
+      },
+      {
+        'check': 'index-check-list',
+        'index': 'num_votes',
+        'check-list': [
+          {
+            'check': 'isinstance',
+            'type': int
+          },
+          {
+            'check': 'lambda',
+            'lambda': lambda d: d >= 0
+          }
+        ]
+      },
+      {
+        'check': 'index-check-list',
+        'index': 'observations',
+        'check-list': [
+          {
+            'check': 'isinstance',
+            'type': str
+          },
+          {
+            'check': 'length',
+            'range': [0,2048]
+          }
+        ]
+      },
+      {
+        'check': 'index-check-list',
+        'index': 'questions',
+        'check-list': [
+          {
+            'check': 'isinstance',
+            'type': list
+          },
+          {
+            'check': 'length',
+            'range': [1,255]
+          },
+          {
+            'check': "iterate-list",
+            'check-list': [
+              {
+                'check': 'isinstance',
+                'type': dict
+              },
+              {
+                'check': 'dict-keys-exist',
+                'keys': [
+                    'title', 'blank_votes', 'null_votes', 'tally_type',
+                    'answers'
+                ]
+              },
+              {
+                'check': 'index-check-list',
+                'index': 'title',
+                'check-list': [
+                  {
+                    'check': 'isinstance',
+                    'type': str
+                  },
+                  {
+                    'check': 'length',
+                    'range': [1, 255]
+                  }
+                ]
+              },
+              {
+                'check': 'index-check-list',
+                'index': 'blank_votes',
+                'check-list': [
+                  {
+                    'check': 'isinstance',
+                    'type': int
+                  },
+                  {
+                    'check': 'lambda',
+                    'lambda': lambda d: d >= 0
+                  }
+                ]
+              },
+              {
+                'check': 'index-check-list',
+                'index': 'tally_type',
+                'check-list': [
+                  {
+                    'check': 'isinstance',
+                    'type': str
+                  },
+                  {
+                    'check': 'lambda',
+                    'lambda': lambda d: d in ['plurality-at-large']
+                  }
+                ]
+              },
+              {
+                'check': 'index-check-list',
+                'index': 'answers',
+                'check-list': [
+                  {
+                    'check': 'isinstance',
+                    'type': list
+                  },
+                  {
+                    'check': 'length',
+                    'range': [1,1024]
+                  },
+                  {
+                    'check': "iterate-list",
+                    'check-list': [
+                      {
+                        'check': 'isinstance',
+                        'type': dict
+                      },
+                      {
+                        'check': 'dict-keys-exist',
+                        'keys': ['text', 'num_votes']
+                      },
+                      {
+                        'check': 'index-check-list',
+                        'index': 'text',
+                        'check-list': [
+                          {
+                            'check': 'isinstance',
+                            'type': str
+                          },
+                          {
+                            'check': 'length',
+                            'range': [1,1024]
+                          }
+                        ]
+                      },
+                      {
+                        'check': 'index-check-list',
+                        'index': 'num_votes',
+                        'check-list': [
+                          {
+                            'check': 'isinstance',
+                            'type': int
+                          },
+                          {
+                            'check': 'lambda',
+                            'lambda': lambda d: d >= 0
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        'check': 'lambda',
+        'lambda': lambda d: all([
+          sum([
+              sum([i['num_votes']  for i in q['answers']]),
+              q['blank_votes'],
+              q['null_votes']
+          ]) == d['num_votes']
+          for q in d['questions']
+        ])
+      },
+    ]
+)
 
 class CensusDelete(View):
     '''
@@ -794,6 +979,7 @@ class Activity(View):
                     id=dict(
                         lt=int,
                         gt=int,
+                        equals=int
                     ),
                     executer__id=dict(
                         lt=int,
@@ -897,8 +1083,8 @@ class AuthEventView(View):
                     admin_fields,
                     METHODS.get(auth_method).USED_TYPE_FIELDS)
 
-            census = req.get('census', '')
             # check census mode
+            census = req.get('census', '')
             if not census in ('open', 'close'):
                 return json_response(
                     status=400,
@@ -906,6 +1092,13 @@ class AuthEventView(View):
             error_kwargs = plugins.call("extend_type_census", census)
             if error_kwargs:
                 return json_response(**error_kwargs[0])
+
+            # check if it has ballot boxes
+            has_ballot_boxes = req.get('has_ballot_boxes', False)
+            if not isinstance(has_ballot_boxes, bool):
+                return json_response(
+                    status=400,
+                    error_codename="INVALID_BALLOT_BOXES")
 
             based_in = req.get('based_in', None)
             if based_in and not ACL.objects.filter(user=request.user.userdata, perm='edit',
@@ -928,13 +1121,17 @@ class AuthEventView(View):
             if config:
                 auth_method_config.get('config').update(config)
 
-            ae = AuthEvent(auth_method=auth_method,
-                           auth_method_config=auth_method_config,
-                           extra_fields=extra_fields,
-                           admin_fields=admin_fields,
-                           census=census,
-                           num_successful_logins_allowed=num_successful_logins_allowed,
-                           based_in=based_in)
+            ae = AuthEvent(
+                auth_method=auth_method,
+                auth_method_config=auth_method_config,
+                extra_fields=extra_fields,
+                admin_fields=admin_fields,
+                census=census,
+                num_successful_logins_allowed=num_successful_logins_allowed,
+                based_in=based_in,
+                has_ballot_boxes=has_ballot_boxes
+            )
+
             # Save before the acl creation to get the ae id
             ae.save()
             acl = ACL(user=request.user.userdata, perm='edit', object_type='AuthEvent',
@@ -1439,4 +1636,348 @@ class Deregister(View):
         return json_response(data)
 
 deregister = login_required(Deregister.as_view())
+
+
+
+class NewBallotBoxForm(forms.Form):
+    name = forms.CharField(max_length=255)
+
+class BallotBoxView(View):
+    '''
+    Manages ballot boxes related to an election
+    '''
+
+    def post(self, request, pk):
+        permission_required(request.user, 'AuthEvent', ['edit', 'add-ballot-boxes'], pk)
+
+        # parse input
+        try:
+            req = parse_json_request(request)
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        # validate event exists and get it
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+
+        # validate input
+        new_ballot_box = NewBallotBoxForm(req)
+        if not new_ballot_box.is_valid() or not auth_event.has_ballot_boxes:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+
+        # try to create new object in the db. might fail if bb already exists
+        try:
+            ballot_box_obj = BallotBox(name=req['name'], auth_event=auth_event)
+            ballot_box_obj.save()
+
+            action = Action(
+                executer=request.user,
+                receiver=None,
+                action_name="ballot-box:create",
+                event=auth_event,
+                metadata=dict(
+                    ballot_box_id=ballot_box_obj.id,
+                    ballot_box_name=ballot_box_obj.name)
+            )
+            action.save()
+
+        except Exception as e:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        # success!
+        data = {'status': 'ok', 'id': ballot_box_obj.pk}
+        return json_response(data)
+
+    def get(self, request, pk):
+        permission_required(request.user, 'AuthEvent', ['edit', 'list-ballot-boxes'], pk)
+        e = get_object_or_404(AuthEvent, pk=pk)
+
+        filter_str = request.GET.get('filter', None)
+        subq = TallySheet.objects\
+            .filter(ballot_box=OuterRef('pk'))\
+            .order_by('-created', '-id')
+        query = e.ballot_boxes.annotate(
+            last_updated=Subquery(subq.values('created')[:1]),
+            creator_id=Subquery(subq.values('creator_id')[:1]),
+            creator_username=Subquery(subq.values('creator__username')[:1]),
+            num_tally_sheets=Count('tally_sheets')
+        )
+        if filter_str:
+            query = query.filter(name__icontains=filter_str)
+
+        query = filter_query(
+            filters=request.GET,
+            query=query,
+            constraints=dict(
+                filters={
+                    "id": dict(
+                        lt=int,
+                        gt=int,
+                        equals=int
+                    ),
+                    "last_updated": dict(
+                        lt=datetime,
+                        gt=datetime,
+                        equals=datetime
+                    ),
+                    "num_tally_sheets": dict(
+                        lt=int,
+                        gt=int,
+                        equals=int
+                    ),
+                    "name": {
+                        "lt": int,
+                        "gt": int,
+                        "equals": int,
+                        "in": "StringList"
+                    }
+                },
+                order_by=['name', 'created', 'last_updated', 'num_tally_sheets'],
+                default_ordery_by='name'
+            ),
+            prefix='ballotbox__',
+            contraints_policy='ignore_invalid'
+        )
+
+        def serializer(obj):
+          tally_sheet = obj.tally_sheets.order_by('-created').first()
+          return {
+            "id": obj.pk,
+            "event_id": obj.auth_event.pk,
+            "name": obj.name,
+            "created": obj.created.isoformat(),
+            "last_updated": obj.last_updated.isoformat() if obj.last_updated else None,
+            "creator_id": obj.creator_id,
+            "creator_username": obj.creator_username,
+            "num_tally_sheets": obj.tally_sheets.count()
+          }
+
+        objs = paginate(
+          request,
+          query,
+          serialize_method=serializer,
+          elements_name='object_list')
+        return json_response(objs)
+
+    def delete(self, request, pk, ballot_box_pk):
+        permission_required(request.user, 'AuthEvent', ['edit', 'delete-ballot-boxes'], pk)
+
+        ballot_box_obj = get_object_or_404(
+            BallotBox,
+            pk=ballot_box_pk,
+            auth_event__pk=pk
+        )
+
+        action = Action(
+            executer=request.user,
+            receiver=None,
+            action_name="ballot-box:delete",
+            event=ballot_box_obj.auth_event,
+            metadata=dict(
+                ballot_box_id=ballot_box_obj.id,
+                ballot_box_name=ballot_box_obj.name
+            )
+        )
+
+        action.save()
+        ballot_box_obj.delete()
+
+        data = {'status': 'ok'}
+        return json_response(data)
+
+ballot_box = login_required(BallotBoxView.as_view())
+
+
+class TallySheetView(View):
+    '''
+    Registers and lists tally sheets
+    '''
+
+    def post(self, request, pk, ballot_box_pk):
+        permission_required(request.user, 'AuthEvent', ['edit', 'add-tally-sheets'], pk)
+
+        # parse input
+        try:
+            req = parse_json_request(request)
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        # validate event exists and get it
+        ballot_box_obj = get_object_or_404(
+            BallotBox,
+            pk=ballot_box_pk,
+            auth_event__pk=pk,
+            auth_event__status="stopped"
+        )
+
+        # require extra permissions to override tally sheet
+        num_versions = ballot_box_obj.tally_sheets.count()
+        if num_versions > 0:
+            permission_required(request.user, 'AuthEvent', ['edit', 'override-tally-sheets'], pk)
+
+        # validate input
+
+        try:
+            check_contract(CONTRACTS['tally_sheet'], req)
+        except CheckException as error:
+            LOGGER.error(\
+                "TallySheetView.post\n"\
+                "req '%r'\n"\
+                "error '%r'\n"\
+                "Stack trace: \n%s",\
+                req, error, stack_trace_str())
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        # try to create new object in the db
+        try:
+            tally_sheet_obj = TallySheet(
+                ballot_box=ballot_box_obj,
+                data=req,
+                creator=request.user)
+            tally_sheet_obj.save()
+
+            action = Action(
+                executer=request.user,
+                receiver=None,
+                action_name="tally-sheet:create",
+                event=ballot_box_obj.auth_event,
+                metadata=dict(
+                    ballot_box_id=ballot_box_obj.id,
+                    ballot_box_name=ballot_box_obj.name,
+                    num_versions=num_versions,
+                    comment=tally_sheet_obj.data['observations'],
+                    tally_sheet_id=tally_sheet_obj.id,
+                    data=req)
+            )
+            action.save()
+
+        except Exception as e:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        # A. try to do a call to agora_elections to update the election results
+        # A.1 get all the tally sheets for this election, last per ballot box
+        subq = TallySheet.objects\
+          .filter(ballot_box=OuterRef('pk'))\
+          .order_by('-created', '-id')
+
+        tally_sheets = AuthEvent.objects.get(pk=pk).ballot_boxes.annotate(
+            data=Subquery(subq.values('data')[:1]), num_tally_sheets=Count('tally_sheets')
+        ).filter(num_tally_sheets__gt=0)
+
+        data = reproducible_json_dumps([
+            tally_sheet.data for tally_sheet in tally_sheets
+        ])
+        # A.2 call to agora-elections
+        callback_url = "%s/api/election/%s/update-ballot-boxes-config" % (
+            settings.AGORA_ELECTIONS_BASE,
+            pk
+        )
+        if not settings.SIMULATE_AGORA_ELECTIONS_CALLBACKS:
+            r = requests.post(
+                callback_url,
+                data=data,
+                headers={
+                    'Authorization': genhmac(
+                        settings.SHARED_SECRET,
+                        "1:AuthEvent:%s:update-ballot-boxes-results-config" % pk
+                    ),
+                    'Content-type': 'application/json'
+                }
+            )
+            if r.status_code != 200:
+                LOGGER.error(\
+                    "TallySheetView.post\n"\
+                    "agora_elections.callback_url '%r'\n"\
+                    "agora_elections.data '%r'\n"\
+                    "agora_elections.status_code '%r'\n"\
+                    "agora_elections.text '%r'\n",\
+                    callback_url, data, r.status_code, r.text
+                )
+
+                return json_response(
+                    status=500,
+                    error_codename=ErrorCodes.GENERAL_ERROR)
+
+        # success!
+        data = {'status': 'ok', 'id': tally_sheet_obj.pk}
+        return json_response(data)
+
+    def get(self, request, pk, ballot_box_pk, tally_sheet_pk=None):
+        permission_required(request.user, 'AuthEvent', ['edit', 'list-tally-sheets'], pk)
+
+        if tally_sheet_pk is None:
+            # try to get last tally sheet of the related ballot box, if any
+            ballot_box_obj = get_object_or_404(
+              BallotBox,
+              pk=ballot_box_pk,
+              auth_event__pk=pk
+            )
+            try:
+                tally_sheet_obj = ballot_box_obj.tally_sheets.order_by('-created')[0]
+            except IndexError:
+                return json_response(status=404)
+        else:
+          # get the tally sheet
+          tally_sheet_obj = get_object_or_404(
+              TallySheet,
+              pk=tally_sheet_pk,
+              ballot_box__pk=ballot_box_pk,
+              ballot_box__auth_event__pk=pk
+          )
+
+        return json_response(dict(
+            id=tally_sheet_obj.id,
+            created=tally_sheet_obj.created.isoformat(),
+            creator_id=tally_sheet_obj.creator.id,
+            creator_username=tally_sheet_obj.creator.username,
+            ballot_box_id=tally_sheet_obj.ballot_box.id,
+            data=tally_sheet_obj.data,
+        ))
+
+    def delete(self, request, pk, ballot_box_pk, tally_sheet_pk):
+        permission_required(request.user, 'AuthEvent', ['edit', 'delete-tally-sheets'], pk)
+
+        # get the tally sheet
+        tally_sheet_obj = get_object_or_404(
+            TallySheet,
+            pk=tally_sheet_pk,
+            ballot_box__pk=ballot_box_pk,
+            ballot_box__auth_event__pk=pk
+        )
+
+        action = Action(
+            executer=request.user,
+            receiver=None,
+            action_name="tally-sheet:delete",
+            event=tally_sheet_obj.ballot_box.auth_event,
+            metadata=dict(
+                id=tally_sheet_obj.id,
+                created=tally_sheet_obj.created.isoformat(),
+                ballot_box_id=tally_sheet_obj.ballot_box.id,
+                ballot_box_name=tally_sheet_obj.ballot_box.name,
+                data=tally_sheet_obj.data,
+                creator_id=tally_sheet_obj.creator.id,
+                creator_username=tally_sheet_obj.creator.username
+            )
+        )
+
+        action.save()
+        tally_sheet_obj.delete()
+
+        data = {'status': 'ok'}
+        return json_response(data)
+
+tally_sheet = login_required(TallySheetView.as_view())
 
