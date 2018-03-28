@@ -1877,7 +1877,8 @@ class TallySheetView(View):
         ).filter(num_tally_sheets__gt=0)
 
         data = reproducible_json_dumps([
-            tally_sheet.data for tally_sheet in tally_sheets
+            json.loads(tally_sheet.data, encoding='utf-8')
+            for tally_sheet in tally_sheets
         ])
         # A.2 call to agora-elections
         callback_url = "%s/api/election/%s/update-ballot-boxes-config" % (
@@ -1887,7 +1888,7 @@ class TallySheetView(View):
         if not settings.SIMULATE_AGORA_ELECTIONS_CALLBACKS:
             r = requests.post(
                 callback_url,
-                data=data,
+                json=data,
                 headers={
                     'Authorization': genhmac(
                         settings.SHARED_SECRET,
@@ -1910,6 +1911,14 @@ class TallySheetView(View):
                     status=500,
                     error_codename=ErrorCodes.GENERAL_ERROR)
 
+            LOGGER.info(\
+                "TallySheetView.post\n"\
+                "agora_elections.callback_url '%r'\n"\
+                "agora_elections.data '%r'\n"\
+                "agora_elections.status_code '%r'\n"\
+                "agora_elections.text '%r'\n",\
+                callback_url, data, r.status_code, r.text
+            )
         # success!
         data = {'status': 'ok', 'id': tally_sheet_obj.pk}
         return json_response(data)
