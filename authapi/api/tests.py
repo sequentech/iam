@@ -525,7 +525,7 @@ class ApiTestCase(TestCase):
         response = c.get('/api/user/' + str(self.userid) + '/', {})
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
-        self.assertEqual(r['email'], test_data.pwd_auth['email'])
+        self.assertEqual(r['email'], test_data.admin['email'])
 
     def test_edit_user_info(self):
         data_bad = {'new_pwd': 'test00'}

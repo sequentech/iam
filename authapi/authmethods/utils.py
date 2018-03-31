@@ -469,6 +469,12 @@ def exist_user(req, ae, get_repeated=False):
             msg += "Tel %s repeat." % req.get('tlf')
         except:
             pass
+    if req.get('username'):
+        try:
+            user = User.objects.get(username=r.get('username'), userdata__event=ae)
+            msg += "Username %s repeat." % req.get('username')
+        except:
+            pass
 
     if not msg:
         if not ae.extra_fields:
@@ -501,7 +507,13 @@ def get_cannonical_tlf(tlf):
 
 
 def edit_user(user, req, ae):
-    if ae.auth_method == 'email':
+    if ae.auth_method == 'user-and-password':
+        req.pop('username')
+        req.pop('password')
+    elif ae.auth_method == 'email-and-password':
+        req.pop('email')
+        req.pop('password')
+    elif ae.auth_method == 'email':
         user.email = req.get('email')
         req.pop('email')
     elif ae.auth_method == 'sms':
@@ -539,12 +551,15 @@ def edit_user(user, req, ae):
     return user
 
 
-def create_user(req, ae, active, creator):
+def create_user(req, ae, active, creator, user=None, password=None):
     from api.models import Action
-    user = random_username()
+    if not user:
+        user = random_username()
 
     u = User(username=user)
     u.is_active = active
+    if password:
+        u.set_password(password)
     u.save()
 
     u.userdata.event = ae
