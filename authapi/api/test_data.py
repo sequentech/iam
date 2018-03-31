@@ -17,7 +17,7 @@ import copy
 from django.conf import settings
 
 
-pwd_auth = {'email': 'john@agoravoting.com', 'password': 'smith'}
+pwd_auth = {'username': 'john', 'password': 'smith'}
 
 pwd_auth_email = {'email': 'john2@agoravoting.com', 'password': 'smith'}
 

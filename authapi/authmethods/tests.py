@@ -39,7 +39,7 @@ class AuthMethodTestCase(TestCase):
         ae.save()
         self.aeid = ae.pk
 
-        u = User(email=test_data.pwd_auth['email'])
+        u = User(username=test_data.admin['username'], email=test_data.admin['email'])
         u.set_password(test_data.pwd_auth['password'])
         u.save()
         u.userdata.event = ae
