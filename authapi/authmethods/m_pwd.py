@@ -158,6 +158,9 @@ class PWD:
             data['redirect-to-url'] = auth_action['mode-config']['url']
         return d
 
+    def public_census_query(self, ae, request):
+        # whatever
+
     views = [
         url(r'^test/(\w+)$', testview),
     ]

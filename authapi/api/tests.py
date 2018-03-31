@@ -792,17 +792,58 @@ class TestAuthEvent(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(AuthEvent.objects.last().based_in, None)
 
+    def test_get_authevent(self):
+        c = JClient()
+        c.authenticate(self.ae.pk, test_data.admin)
+
+        response = c.post('/api/auth-event/', test_data.ae_email_default)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        rid = r['id']
+
+        response = c.get('/api/auth-event/%d/' % rid, {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        auth_event = {
+            'events': {
+                'allow_public_census_query': True,
+                'auth_method': 'email',
+                'created': '2018-03-29T11:20:30.656486+00:00',
+                'auth_method_config': test_data.ae_email_default__method_config,
+                'admin_fields': None,
+                'has_ballot_boxes': False,
+                'extra_fields': None,
+                'based_in': None,
+                'census': 'open',
+                'auth_method_stats': {
+                  'email': 0
+                },
+                'id': rid,
+                'users': 0,
+                'num_successful_logins_allowed': 0
+            },
+            'status': 'ok'
+        }
+        self.assertEqual(
+            reproducible_json_dumps(static_isodates(r)),
+            reproducible_json_dumps(static_isodates(auth_event))
+        )
+
     def test_get_auth_events(self):
         c = JClient()
         c.authenticate(self.ae.pk, test_data.admin)
+
         response = c.post('/api/auth-event/', test_data.ae_email_default)
         self.assertEqual(response.status_code, 200)
+
         response = c.get('/api/user/auth-event/', {})
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
         self.assertEqual(len(r['ids-auth-event']), 1)
+
         response = c.post('/api/auth-event/', test_data.ae_sms_default)
         self.assertEqual(response.status_code, 200)
+
         response = c.get('/api/user/auth-event/', {})
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)

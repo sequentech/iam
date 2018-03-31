@@ -56,6 +56,7 @@ class AuthEvent(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     admin_fields = JSONField(blank=True, null=True)
     has_ballot_boxes = models.BooleanField(default=True)
+    allow_public_census_query = models.BooleanField(default=True)
 
     # 0 means any number of logins is allowed
     num_successful_logins_allowed = models.IntegerField(
@@ -88,6 +89,7 @@ class AuthEvent(models.Model):
             'census': self.census,
             'users': self.len_census(),
             'has_ballot_boxes': self.has_ballot_boxes,
+            'allow_public_census_query': self.allow_public_census_query,
             'created': (self.created.isoformat()
                         if hasattr(self.created, 'isoformat')
                         else self.created),
