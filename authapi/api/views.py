@@ -499,7 +499,10 @@ class Authenticate(View):
         if int(pk) == 0:
             e = 0
         else:
-            e = get_object_or_404(AuthEvent, pk=pk)
+            try:
+                e = get_object_or_404(AuthEvent, pk=pk, status="started")
+            except:
+                return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
         if not hasattr(request.user, 'account'):
             error_kwargs = plugins.call("extend_auth", e)
@@ -530,7 +533,8 @@ class PublicCensusQueryView(View):
             e = get_object_or_404(
                 AuthEvent,
                 pk=pk,
-                status_in=['notstarted', 'started'])
+                status__in=['notstarted', 'started'],
+                allow_public_census_query=True)
 
         try:
             data = auth_public_census_query(e, request)
