@@ -425,7 +425,6 @@ def check_captcha(code, answer):
         return 'Invalid captcha'
     return ''
 
-
 def check_fields_in_request(req, ae, step='register', validation=True):
     """ Checked fields in extra_fields are correct, checked the type of field and the value if
     validation is True. """
@@ -577,11 +576,8 @@ def create_user(req, ae, active, creator, user=None, password=None):
 
     return edit_user(u, req, ae)
 
-
 def check_metadata(req, user):
     meta = user.userdata.metadata
-    if type(meta) == str:
-        meta = json.loads(meta)
     extra = user.userdata.event.extra_fields
     if not extra:
         return ""
@@ -590,17 +586,37 @@ def check_metadata(req, user):
         if field.get('required_on_authentication'):
             name = field.get('name')
             typee = field.get('type')
+
+            user_value = meta.get(name)
             if (typee == 'email'):
-                if user.email != req.get(name):
-                    return "Incorrect authentication."
+                user_value = user.email
             elif (typee == 'tlf'):
-                if user.userdata.tlf != req.get(name):
-                    return "Incorrect authentication."
-            else:
-                if meta.get(name) != req.get(name):
-                    return "Incorrect authentication."
+                user_value = user.userdata.tlf
+
+            if not constant_time_compare(user.email, req.get(name)):
+                return "Incorrect authentication."
     return ""
 
+def get_required_fields_on_auth(req, ae, q):
+    '''
+    Modifies a Q query adding required_on_authentication fields with the values
+    from the http request, used to filter users
+    '''
+    if ae.extra_fields:
+        for field in ae.extra_fields:
+            if not field.get('required_on_authentication'):
+                continue
+
+            value = req.get(field.get('name'), '')
+            typee = field.get('type')
+            if typee == 'email':
+                q = q & Q(email=value)
+            elif typee == 'tlf':
+                q = q & Q(userdata__tlf=value)
+            else:
+                q = q & Q(userdata__metadata__contains={field.get('name'): value})
+
+    return q
 
 def give_perms(u, ae):
     pipe = ae.auth_method_config.get('pipeline')
