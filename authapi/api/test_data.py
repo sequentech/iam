@@ -730,6 +730,103 @@ ae_email_default = {
     "census": "open",
 }
 
+ae_email_default__method_config = {
+  'pipeline':{
+    'give_perms':[
+        {
+          'perms':[
+              'edit'
+          ],
+          'object_id':'UserDataId',
+          'object_type':'UserData'
+        },
+        {
+          'perms':[
+              'vote'
+          ],
+          'object_id':'AuthEventId',
+          'object_type':'AuthEvent'
+        }
+    ],
+    'register-pipeline':[
+        [
+          'check_whitelisted',
+          {
+              'field':'ip'
+          }
+        ],
+        [
+          'check_blacklisted',
+          {
+              'field':'ip'
+          }
+        ],
+        [
+          'check_total_max',
+          {
+              'max':10,
+              'field':'ip',
+              'period':3600
+          }
+        ],
+        [
+          'check_total_max',
+          {
+              'max':50,
+              'field':'ip',
+              'period':86400
+          }
+        ]
+    ],
+    'authenticate-pipeline':[
+
+    ],
+    'resend-auth-pipeline':[
+        [
+          'check_whitelisted',
+          {
+              'field':'ip'
+          }
+        ],
+        [
+          'check_blacklisted',
+          {
+              'field':'ip'
+          }
+        ],
+        [
+          'check_total_max',
+          {
+              'max':10,
+              'field':'ip',
+              'period':3600
+          }
+        ],
+        [
+          'check_total_max',
+          {
+              'max':50,
+              'field':'ip',
+              'period':86400
+          }
+        ]
+    ]
+  },
+  'config':{
+    'authentication-action':{
+        'mode-config':None,
+        'mode':'vote'
+    },
+    'subject':'Confirm your email',
+    'allow_user_resend':False,
+    'msg':'Click __URL__ and put this code __CODE__',
+    'registration-action':{
+        'mode-config':None,
+        'mode':'vote'
+    }
+  }
+}
+
 ae_email_real = ae_email_default.copy()
 ae_email_real.update({"real": True})
 

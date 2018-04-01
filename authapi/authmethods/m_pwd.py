@@ -24,6 +24,7 @@ from django.db.models import Q
 
 from utils import json_response
 from utils import stack_trace_str
+from django.contrib.auth.signals import user_logged_in
 from authmethods.utils import *
 
 
@@ -127,36 +128,72 @@ class PWD:
             req, validation, ae, ret, stack_trace_str())
         return ret
 
-    def authenticate_error(self):
+    def authenticate_error(self, error, req, ae):
         d = {'status': 'nok'}
+        LOGGER.error(\
+            "PWD.census error\n"\
+            "error '%r'\n"\
+            "request '%r'\n"\
+            "authevent '%r'\n"\
+            "Stack trace: \n%s",\
+            error, req, ae, stack_trace_str())
         return d
 
-    def authenticate(self, ae, request):
+    def authenticate(self, ae, request, mode="authenticate"):
         d = {'status': 'ok'}
         req = json.loads(request.body.decode('utf-8'))
         username = req.get('username', '')
         pwd = req.get('password', '')
 
+        msg = ""
+        msg += check_fields_in_request(req, ae, 'authenticate')
+        if msg:
+            LOGGER.error(\
+                "PWD.authenticate error\n"\
+                "error '%r'"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, ae, req, stack_trace_str())
+            return self.authenticate_error("invalid-fields-check", req, ae)
+
         try:
             u = User.objects.get(userdata__event=ae, is_active=True, username=username)
         except:
-            return self.authenticate_error()
+            return self.authenticate_error("user-not-found", req, ae)
 
-        if not u.check_password(pwd):
-            return self.authenticate_error()
+        if mode == "authenticate":
+            if not u.check_password(pwd):
+                return self.authenticate_error("invalid-password", req, ae)
 
-        if (ae.num_successful_logins_allowed > 0 and
-            u.userdata.successful_logins.filter(is_active=True).count() >= ae.num_successful_logins_allowed):
-            return self.authenticate_error()
+            if (ae.num_successful_logins_allowed > 0 and
+                u.userdata.successful_logins.filter(is_active=True).count() >= ae.num_successful_logins_allowed):
+                return self.authenticate_error(
+                    "invalid_num_successful_logins_allowed", req, ae)
 
-        d['username'] = u.username
-        d['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
+            user_logged_in.send(sender=u.__class__, request=request, user=u)
+            u.save()
 
-        # add redirection
-        auth_action = ae.auth_method_config['config']['authentication-action']
-        if auth_action['mode'] == 'go-to-url':
-            data['redirect-to-url'] = auth_action['mode-config']['url']
+            d['username'] = u.username
+            d['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
+
+            # add redirection
+            auth_action = ae.auth_method_config['config']['authentication-action']
+            if auth_action['mode'] == 'go-to-url':
+                data['redirect-to-url'] = auth_action['mode-config']['url']
+
+        LOGGER.debug(\
+            "PWD.authenticate success\n"\
+            "returns '%r'\n"\
+            "authevent '%r'\n"\
+            "request '%r'\n"\
+            "Stack trace: \n%s",\
+            d, ae, req, stack_trace_str())
         return d
+
+    def public_census_query(self, ae, request):
+        # whatever
+        return self.authenticate(ae, request, "census-query")
 
     views = [
         url(r'^test/(\w+)$', testview),

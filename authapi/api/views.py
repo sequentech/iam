@@ -36,6 +36,7 @@ from authmethods import (
     auth_census,
     auth_register,
     auth_resend_auth_code,
+    auth_public_census_query,
     check_config,
     METHODS,
 )
@@ -498,7 +499,10 @@ class Authenticate(View):
         if int(pk) == 0:
             e = 0
         else:
-            e = get_object_or_404(AuthEvent, pk=pk)
+            try:
+                e = get_object_or_404(AuthEvent, pk=pk, status="started")
+            except:
+                return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
         if not hasattr(request.user, 'account'):
             error_kwargs = plugins.call("extend_auth", e)
@@ -517,6 +521,37 @@ class Authenticate(View):
               error_codename=data.get('error_codename'),
               message=data.get('msg', '-'))
 authenticate = Authenticate.as_view()
+
+
+class PublicCensusQueryView(View):
+    ''' Allow users to publicly query the census'''
+
+    def post(self, request, pk):
+        if int(pk) == 0:
+            e = 0
+        else:
+            e = get_object_or_404(
+                AuthEvent,
+                pk=pk,
+                status__in=['notstarted', 'started'],
+                allow_public_census_query=True)
+
+        try:
+            data = auth_public_census_query(e, request)
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        if data and 'status' in data and data['status'] == 'ok':
+            return json_response(data)
+        else:
+            return json_response(
+              status=400,
+              error_codename=data.get('error_codename'),
+              message=data.get('msg', '-'))
+
+public_census_query = PublicCensusQueryView.as_view()
 
 
 class Ping(View):
@@ -1099,6 +1134,13 @@ class AuthEventView(View):
                 return json_response(
                     status=400,
                     error_codename="INVALID_BALLOT_BOXES")
+
+            # check if census public can query the census
+            allow_public_census_query = req.get('allow_public_census_query', False)
+            if not isinstance(allow_public_census_query, bool):
+                return json_response(
+                    status=400,
+                    error_codename="INVALID_PUBLIC_CENSUS_QUERY")
 
             based_in = req.get('based_in', None)
             if based_in and not ACL.objects.filter(user=request.user.userdata, perm='edit',

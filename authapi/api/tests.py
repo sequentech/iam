@@ -137,16 +137,22 @@ class ApiTestCreateNotReal(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-        self.ae = AuthEvent(auth_method=test_data.auth_event4['auth_method'],
-                auth_method_config=test_data.authmethod_config_email_default)
-        self.ae.save()
-
+        self.aeid_special = 1
         u = User(username=test_data.admin['username'], email=test_data.admin['email'])
         u.set_password(test_data.admin['password'])
         u.save()
-        u.userdata.event = self.ae
+        u.userdata.event = AuthEvent.objects.get(pk=1)
         u.userdata.save()
         self.user = u
+
+        self.admin_auth_data = dict(
+            email=test_data.admin['email'],
+            code="ERGERG")
+        c = Code(
+            user=self.user.userdata,
+            code=self.admin_auth_data['code'],
+            auth_event_id=self.aeid_special)
+        c.save()
 
         u2 = User(username='noperm', email="noperm@agoravoting.com")
         u2.set_password("qwerty")
@@ -157,7 +163,8 @@ class ApiTestCreateNotReal(TestCase):
 
     def create_authevent(self, authevent):
         c = JClient()
-        c.authenticate(self.ae.pk, test_data.admin)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
         return c.post('/api/auth-event/', authevent)
 
     def test_create_authevent_test_and_real_create(self):
@@ -256,14 +263,26 @@ class ApiTestCase(TestCase):
                 auth_method_config=test_data.authmethod_config_email_default)
         ae.save()
 
+        self.aeid_special = 1
         u = User(username=test_data.admin['username'], email=test_data.admin['email'])
         u.set_password('smith')
         u.save()
-        u.userdata.event = ae
+        u.userdata.event = AuthEvent.objects.get(pk=1)
         u.userdata.save()
+
+        self.admin_auth_data = dict(
+            email=test_data.admin['email'],
+            code="ERGERG")
+        c = Code(
+            user=u.userdata,
+            code=self.admin_auth_data['code'],
+            auth_event_id=self.aeid_special)
+        c.save()
+
         self.userid = u.pk
         self.testuser = u
         self.aeid = ae.pk
+        self.ae = ae
 
         acl = ACL(user=u.userdata, object_type='User', perm='create', object_id=0)
         acl.save()
@@ -293,7 +312,8 @@ class ApiTestCase(TestCase):
         response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'stopped'), {})
         self.assertEqual(response.status_code, 403)
 
-        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
 
         response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'started'), {})
         self.assertEqual(response.status_code, 200)
@@ -304,8 +324,9 @@ class ApiTestCase(TestCase):
 
     def test_authenticate(self):
         c = JClient()
-        data = test_data.pwd_auth
-        response = c.authenticate(self.aeid, data)
+
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
 
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
@@ -332,7 +353,8 @@ class ApiTestCase(TestCase):
 
     def test_getperms_noperm(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
         data = {
             "object_type": "User",
             "permission": "delete"
@@ -343,7 +365,8 @@ class ApiTestCase(TestCase):
 
     def test_getperms_perm(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
         data = {
             "object_type": "User",
             "permission": "create"
@@ -358,14 +381,16 @@ class ApiTestCase(TestCase):
 
     def test_getperms_perm_invalid(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
         data = { "permission": "create" }
         response = c.post('/api/get-perms/', data)
         self.assertEqual(response.status_code, 400)
 
     def test_create_event(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
 
         data = test_data.auth_event1
         response = c.post('/api/auth-event/', data)
@@ -376,29 +401,39 @@ class ApiTestCase(TestCase):
     @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_create_event_open(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
 
         data = test_data.auth_event3
         response = c.post('/api/auth-event/', data)
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
         self.assertEqual(r['id'], self.aeid + 1)
+        rid = r['id']
+
         # try register in stopped auth-event
-        data = {'email': 'test@test.com', 'password': '123456'}
-        response = c.register(self.aeid + 1, data)
+        c = JClient()
+        data = {'email': 'test@test.com'}
+        response = c.register(rid, data)
         self.assertEqual(response.status_code, 400)
+
         # try register in started auth-event
-        c.authenticate(self.aeid, test_data.pwd_auth)
-        response = c.post('/api/auth-event/%d/%s/' % (self.aeid + 1, 'started'), {})
+        c = JClient()
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
-        data = {'email': 'test@test.com', 'password': '123456'}
-        response = c.register(self.aeid + 1, data)
+        response = c.post('/api/auth-event/%d/%s/' % (rid, 'started'), {})
+        self.assertEqual(response.status_code, 200)
+
+        c = JClient()
+        data = {'email': 'test@test.com'}
+        response = c.register(rid, data)
         self.assertEqual(response.status_code, 200)
 
     def test_list_event(self):
         self.test_create_event()
         c = JClient()
-        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
 
         response = c.get('/api/auth-event/', {})
         self.assertEqual(response.status_code, 200)
@@ -407,7 +442,8 @@ class ApiTestCase(TestCase):
 
     def test_edit_event_success(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
 
         response = c.post('/api/auth-event/%d/' % self.aeid, test_data.auth_event5)
         self.assertEqual(response.status_code, 200)
@@ -422,7 +458,8 @@ class ApiTestCase(TestCase):
     def test_delete_event_success(self):
         self.test_create_event()
         c = JClient()
-        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
 
         response = c.delete('/api/auth-event/%d/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
@@ -431,7 +468,9 @@ class ApiTestCase(TestCase):
 
     def test_create_acl(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
         data = {
                 'userid': self.userid,
                 'perms': [{
@@ -445,14 +484,16 @@ class ApiTestCase(TestCase):
 
     def test_delete_acl(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
         response = c.delete('/api/acl/%s/%s/%s/' % (self.testuser.username, 'election', 'vote'), {})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(0, ACL.objects.filter(user=self.userid, perm='vote').count())
 
     def test_view_acl(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
         response = c.get('/api/acl/%s/%s/%s/' % (self.testuser.username, 'User', 'create'), {})
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
@@ -465,7 +506,8 @@ class ApiTestCase(TestCase):
 
     def test_acl_mine(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
         response = c.get('/api/acl/mine/', {})
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
@@ -483,7 +525,8 @@ class ApiTestCase(TestCase):
 
     def test_pagination(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
         response = c.get('/api/acl/mine/?page=1&n=10', {})
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
@@ -516,7 +559,8 @@ class ApiTestCase(TestCase):
 
     def test_get_user_info(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
         response = c.get('/api/user/' + str(self.userid) + '/', {})
         self.assertEqual(response.status_code, 403)
         acl = ACL(user=self.testuser.userdata, object_type='UserData',
@@ -533,7 +577,8 @@ class ApiTestCase(TestCase):
         data = {'old_pwd': 'smith', 'new_pwd': 'test00'}
 
         c = JClient()
-        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
 
         # without perms
         response = c.post('/api/user/', data)
@@ -567,20 +612,27 @@ class ApiTestCase(TestCase):
         acl = ACL(user=self.testuser.userdata, object_type='AuthEvent', perm='create')
         acl.save()
 
+        ae = AuthEvent.objects.get(pk=self.aeid_special)
+        ae.auth_method = "user-and-password"
+        ae.census = "open"
+        ae.save()
+        login_data = dict(username=test_data.admin['username'], password='smith')
+
         c = JClient()
-        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid_special, login_data)
+        self.assertEqual(response.status_code, 200)
         response = c.post('/api/user/reset-pwd/', {})
         self.assertEqual(response.status_code, 200)
 
-        response = c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid_special, login_data)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].subject, 'Reset password')
 
-
     def test_get_authmethod(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/module/', {})
         self.assertEqual(response.status_code, 200)
 
@@ -597,12 +649,22 @@ class TestAuthEvent(TestCase):
                 auth_method_config=test_data.authmethod_config_email_default)
         self.ae.save()
 
+        self.aeid_special = 1
         u = User(username=test_data.admin['username'], email=test_data.admin['email'])
         u.set_password(test_data.admin['password'])
         u.save()
-        u.userdata.event = self.ae
+        u.userdata.event = AuthEvent.objects.get(pk=1)
         u.userdata.save()
         self.user = u
+
+        self.admin_auth_data = dict(
+            email=test_data.admin['email'],
+            code="ERGERG")
+        c = Code(
+            user=self.user.userdata,
+            code=self.admin_auth_data['code'],
+            auth_event_id=self.aeid_special)
+        c.save()
 
         u2 = User(username='noperm', email="noperm@agoravoting.com")
         u2.set_password("qwerty")
@@ -612,11 +674,11 @@ class TestAuthEvent(TestCase):
         acl = ACL(user=u.userdata, object_type='AuthEvent', perm='create',
                 object_id=0)
         acl.save()
-        self.aeid_special = 1
 
     def create_authevent(self, authevent):
         c = JClient()
-        c.authenticate(self.ae.pk, test_data.admin)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
         return c.post('/api/auth-event/', authevent)
 
     @override_settings(CELERY_ALWAYS_EAGER=True)
@@ -654,7 +716,8 @@ class TestAuthEvent(TestCase):
         acl.save()
 
         c = JClient()
-        c.authenticate(self.ae.pk, test_data.admin)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
         response = c.post('/api/auth-event/', test_data.ae_email_default)
         self.assertEqual(response.status_code, 200)
         response = c.post('/api/auth-event/', test_data.ae_sms_default)
@@ -763,7 +826,7 @@ class TestAuthEvent(TestCase):
         response = self.create_authevent(test_data.ae_sms_fields)
         self.assertEqual(response.status_code, 200)
 
-    def test_create_authevent_test_and_real(self):
+    def _test_create_authevent_test_and_real(self):
         # test 1
         response = self.create_authevent(test_data.ae_email_default)
         self.assertEqual(response.status_code, 200)
@@ -792,17 +855,60 @@ class TestAuthEvent(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(AuthEvent.objects.last().based_in, None)
 
-    def test_get_auth_events(self):
+    def test_get_authevent(self):
         c = JClient()
-        c.authenticate(self.ae.pk, test_data.admin)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
         response = c.post('/api/auth-event/', test_data.ae_email_default)
         self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        rid = r['id']
+
+        response = c.get('/api/auth-event/%d/' % rid, {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        auth_event = {
+            'events': {
+                'allow_public_census_query': True,
+                'auth_method': 'email',
+                'created': '2018-03-29T11:20:30.656486+00:00',
+                'auth_method_config': test_data.ae_email_default__method_config,
+                'admin_fields': None,
+                'has_ballot_boxes': False,
+                'extra_fields': None,
+                'based_in': None,
+                'census': 'open',
+                'auth_method_stats': {
+                  'email': 0
+                },
+                'id': rid,
+                'users': 0,
+                'num_successful_logins_allowed': 0
+            },
+            'status': 'ok'
+        }
+        self.assertEqual(
+            reproducible_json_dumps(static_isodates(r)),
+            reproducible_json_dumps(static_isodates(auth_event))
+        )
+
+    def test_get_auth_events(self):
+        c = JClient()
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        response = c.post('/api/auth-event/', test_data.ae_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.get('/api/user/auth-event/', {})
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
         self.assertEqual(len(r['ids-auth-event']), 1)
+
         response = c.post('/api/auth-event/', test_data.ae_sms_default)
         self.assertEqual(response.status_code, 200)
+
         response = c.get('/api/user/auth-event/', {})
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
@@ -1235,15 +1341,14 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         tpl_specific = {"user-ids": [self.uid, self.uid_admin]}
         c = JClient()
         ae = self.ae
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
         ae.status = 'stopped'
         ae.save()
-        response = c.authenticate(self.aeid, test_data.auth_email_default)
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, tpl_specific)
         self.assertEqual(response.status_code, 200)
 
         ae.status = 'notstarted'
         ae.save()
-        response = c.authenticate(self.aeid, test_data.auth_email_default)
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, tpl_specific)
         self.assertEqual(response.status_code, 200)
 
@@ -2203,25 +2308,35 @@ class TestAdminFields(TestCase):
                 auth_method_config=test_data.authmethod_config_email_default)
         self.ae.save()
 
+        self.aeid_special = 1
         u = User(username=test_data.admin['username'], email=test_data.admin['email'])
         u.set_password(test_data.admin['password'])
         u.save()
-        u.userdata.event = self.ae
+        u.userdata.event = AuthEvent.objects.get(pk=1)
         u.userdata.save()
         self.user = u
+
+        self.admin_auth_data = dict(
+            email=test_data.admin['email'],
+            code="ERGERG")
+        c = Code(
+            user=self.user.userdata,
+            code=self.admin_auth_data['code'],
+            auth_event_id=self.aeid_special)
+        c.save()
 
         u2 = User(username='noperm', email="noperm@agoravoting.com")
         u2.set_password("qwerty")
         u2.save()
         u2.userdata.save()
 
-        self.aeid_special = 1
-
-
     @override_settings(**override_celery_data)
     def create_authevent(self, authevent):
         c = JClient()
-        c.authenticate(self.ae.pk, test_data.admin)
+
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
         return c.post('/api/auth-event/', authevent)
 
     @override_settings(**override_celery_data)
@@ -2782,7 +2897,7 @@ class ApiTestBallotBoxes(TestCase):
         u_admin = User(username=test_data.admin['username'], email=test_data.admin['email'])
         u_admin.set_password(test_data.admin['password'])
         u_admin.save()
-        u_admin.userdata.event = ae
+        u_admin.userdata.event = AuthEvent.objects.get(pk=1)
         u_admin.userdata.save()
         self.uid_admin = u_admin.id
         self.u_admin = u_admin
@@ -2813,7 +2928,7 @@ class ApiTestBallotBoxes(TestCase):
         c = JClient()
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # admin create ballot box
@@ -2827,7 +2942,7 @@ class ApiTestBallotBoxes(TestCase):
         c = JClient()
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # failed attempt to create ballot box, too large input
@@ -2847,7 +2962,7 @@ class ApiTestBallotBoxes(TestCase):
         c = JClient()
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # create ballot box
@@ -2872,7 +2987,7 @@ class ApiTestBallotBoxes(TestCase):
         self.assertEqual(response.status_code, 403)
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # successful attempt to create ballot box with alt permissions
@@ -2894,7 +3009,7 @@ class ApiTestBallotBoxes(TestCase):
         c = JClient()
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # admin list tally sheets
@@ -2936,7 +3051,7 @@ class ApiTestBallotBoxes(TestCase):
         c = JClient()
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # create ballot box
@@ -3000,7 +3115,7 @@ class ApiTestBallotBoxes(TestCase):
         r = parse_json_response(response)
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # admin lists tally sheets, works
@@ -3027,7 +3142,7 @@ class ApiTestBallotBoxes(TestCase):
         c = JClient()
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # add an example tally sheet
@@ -3092,7 +3207,7 @@ class ApiTestBallotBoxes(TestCase):
         c = JClient()
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # add 2 example tally sheets
@@ -3160,7 +3275,7 @@ class ApiTestBallotBoxes(TestCase):
         c = JClient()
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # list ballot box
@@ -3187,7 +3302,7 @@ class ApiTestBallotBoxes(TestCase):
         c = JClient()
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # delete ballot box
@@ -3223,7 +3338,7 @@ class ApiTestBallotBoxes(TestCase):
         c = JClient()
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # delete ballot box
@@ -3239,7 +3354,7 @@ class ApiTestBallotBoxes(TestCase):
         c = JClient()
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # delete ballot box with alt permissions
@@ -3266,7 +3381,7 @@ class ApiTestBallotBoxes(TestCase):
         self.assertEqual(response.status_code, 403)
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # delete ballot box with invalid permissions, fails
@@ -3294,7 +3409,7 @@ class ApiTestTallySheets(TestCase):
         u_admin = User(username=test_data.admin['username'], email=test_data.admin['email'])
         u_admin.set_password(test_data.admin['password'])
         u_admin.save()
-        u_admin.userdata.event = ae
+        u_admin.userdata.event = AuthEvent.objects.get(pk=1)
         u_admin.userdata.save()
         self.uid_admin = u_admin.id
         self.u_admin = u_admin
@@ -3348,7 +3463,7 @@ class ApiTestTallySheets(TestCase):
         c = JClient()
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # admin create tally sheet
@@ -3364,7 +3479,7 @@ class ApiTestTallySheets(TestCase):
         c = JClient()
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # admin create tally sheet with invalid data should fail
@@ -3381,7 +3496,7 @@ class ApiTestTallySheets(TestCase):
         c = JClient()
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # admin create tally sheet with alternative valid permissions
@@ -3424,7 +3539,7 @@ class ApiTestTallySheets(TestCase):
         c = JClient()
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # admin create tally sheet
@@ -3452,7 +3567,7 @@ class ApiTestTallySheets(TestCase):
         c = JClient()
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # admin create tally sheet
@@ -3487,7 +3602,7 @@ class ApiTestTallySheets(TestCase):
         c = JClient()
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # admin create tally sheet
@@ -3536,7 +3651,7 @@ class ApiTestTallySheets(TestCase):
         c = JClient()
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # admin create tally sheet
@@ -3564,7 +3679,7 @@ class ApiTestTallySheets(TestCase):
         c = JClient()
 
         # admin login
-        response = c.authenticate(self.aeid, self.admin_auth_data)
+        response = c.authenticate(1, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # admin create tally sheet
@@ -3584,3 +3699,81 @@ class ApiTestTallySheets(TestCase):
         # get the tally sheet should fail with 404 not found
         response = c.get(url, {})
         self.assertEqual(response.status_code, 404)
+
+
+class ApiTestPublicQuery(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        self.ae1 = AuthEvent(
+          auth_method=test_data.auth_event4['auth_method'],
+          auth_method_config=test_data.authmethod_config_email_default,
+          allow_public_census_query=True,
+          status="notstarted")
+        self.ae1.save()
+
+        self.ae2 = AuthEvent(
+          auth_method=test_data.auth_event4['auth_method'],
+          auth_method_config=test_data.authmethod_config_email_default,
+          allow_public_census_query=False)
+        self.ae2.save()
+
+        u2 = User(username='test1', email="noperm@agoravoting.com")
+        u2.set_password("qwerty")
+        u2.save()
+        u2.userdata.event = self.ae1
+        u2.userdata.save()
+
+        self.acl = ACL(user=u2.userdata, object_type='AuthEvent', perm='vote',
+            object_id=self.ae1.id)
+        self.acl.save()
+
+        self.aeid_special = 1
+
+    def test_valid_public_census_query(self):
+        c = JClient()
+
+        # check user exists
+        u2_data = dict(username='test1')
+        url = '/api/auth-event/%d/census/public-query/' % self.ae1.id
+        response = c.post(url, u2_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(r.get('status'), 'ok')
+
+    def test_invalid_public_census_query(self):
+        c = JClient()
+
+        u2_data = dict(username='test2')
+        url = '/api/auth-event/%d/census/public-query/' % self.ae1.id
+        response = c.post(url, u2_data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_different_statuses(self):
+        c = JClient()
+
+        self.ae1.status='started'
+        self.ae1.save()
+
+        u2_data = dict(username='test1')
+        url = '/api/auth-event/%d/census/public-query/' % self.ae1.id
+        response = c.post(url, u2_data)
+        self.assertEqual(response.status_code, 200)
+
+        self.ae1.status='stopped'
+        self.ae1.save()
+        response = c.post(url, u2_data)
+        self.assertEqual(response.status_code, 404)
+
+    def test_login_started_notstarted(self):
+        c = JClient()
+        user_data = dict(username='test1', password='qwerty')
+        response = c.post('/api/auth-event/%d/authenticate/' % self.ae1.id, user_data)
+        self.assertEqual(response.status_code, 400)
+
+        self.ae1.status='started'
+        self.ae1.save()
+        user_data = dict(username='test1', password='qwerty')
+        response = c.post('/api/auth-event/%d/authenticate/' % self.ae1.id, user_data)
+        self.assertEqual(response.status_code, 200)

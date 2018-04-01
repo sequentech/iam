@@ -25,6 +25,7 @@ from django.db.models import Q
 from utils import json_response
 from utils import stack_trace_str
 from authmethods.utils import *
+from django.contrib.auth.signals import user_logged_in
 
 
 LOGGER = logging.getLogger('authapi')
@@ -127,8 +128,15 @@ class EmailPWD:
             req, validation, ae, ret, stack_trace_str())
         return ret
 
-    def authenticate_error(self):
+    def authenticate_error(self, error, req, ae):
         d = {'status': 'nok'}
+        LOGGER.error(\
+            "EmailPWD.census error\n"\
+            "error '%r'\n"\
+            "request '%r'\n"\
+            "authevent '%r'\n"\
+            "Stack trace: \n%s",\
+            error, req, ae, stack_trace_str())
         return d
 
     def authenticate(self, ae, request):
@@ -137,17 +145,41 @@ class EmailPWD:
         email = req.get('email', '')
         pwd = req.get('password', '')
 
+        msg = ""
+        msg += check_fields_in_request(req, ae, 'authenticate')
+        if msg:
+            LOGGER.error(\
+                "EmailPWD.authenticate error\n"\
+                "error '%r'"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, ae, req, stack_trace_str())
+            return self.authenticate_error("invalid-fields-check", req, ae)
+
         try:
             u = User.objects.get(userdata__event=ae, is_active=True, email=email)
         except:
-            return self.authenticate_error()
+            return self.authenticate_error("user-not-found", req, ae)
 
         if not u.check_password(pwd):
-            return self.authenticate_error()
+            return self.authenticate_error("invalid-password", req, ae)
 
         if (ae.num_successful_logins_allowed > 0 and
             u.userdata.successful_logins.filter(is_active=True).count() >= ae.num_successful_logins_allowed):
-            return self.authenticate_error()
+            return self.authenticate_error(
+                "invalid_num_successful_logins_allowed", req, ae)
+
+        msg = check_pipeline(request, ae, 'authenticate')
+        if msg:
+            LOGGER.error(\
+                "EmailPWD.authenticate error\n"\
+                "error '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, ae, req, stack_trace_str())
+            return self.authenticate_error("invalid-pipeline", req, ae)
 
         d['username'] = u.username
         d['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
@@ -156,6 +188,14 @@ class EmailPWD:
         auth_action = ae.auth_method_config['config']['authentication-action']
         if auth_action['mode'] == 'go-to-url':
             data['redirect-to-url'] = auth_action['mode-config']['url']
+
+        LOGGER.debug(\
+            "EmailPWD.authenticate success\n"\
+            "returns '%r'\n"\
+            "authevent '%r'\n"\
+            "request '%r'\n"\
+            "Stack trace: \n%s",\
+            d, ae, req, stack_trace_str())
         return d
 
     views = [
