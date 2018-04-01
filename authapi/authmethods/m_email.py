@@ -70,6 +70,7 @@ class Email:
     USED_TYPE_FIELDS = ['email']
 
     email_definition = { "name": "email", "type": "email", "required": True, "min": 4, "max": 255, "required_on_authentication": True }
+    email_opt_definition = { "name": "email", "type": "email", "required": False, "min": 0, "max": 255, "required_on_authentication": False }
     code_definition = { "name": "code", "type": "text", "required": True, "min": 6, "max": 255, "required_on_authentication": True }
 
     CONFIG_CONTRACT = [
@@ -627,8 +628,10 @@ class Email:
         if isinstance(email, str):
             email = email.strip()
             email = email.replace(" ", "")
-        msg += check_field_type(self.email_definition, email, 'authenticate')
-        msg += check_field_value(self.email_definition, email, 'authenticate')
+
+        email_def = self.email_definition if not settings.MAKE_LOGIN_KEY_PRIVATE else self.email_opt_definition
+        msg += check_field_type(email_def, email, 'authenticate')
+        msg += check_field_value(email_def, email, 'authenticate')
         msg += check_field_type(self.code_definition, req.get('code'), 'authenticate')
         msg += check_field_value(self.code_definition, req.get('code'), 'authenticate')
         msg += check_fields_in_request(req, ae, 'authenticate')
@@ -654,7 +657,14 @@ class Email:
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         try:
-            u = User.objects.get(email=email, userdata__event=ae, is_active=True)
+            q = Q(userdata__event=ae, is_active=True)
+            if 'email' in req:
+                q = q & Q(email=email)
+            elif not settings.MAKE_LOGIN_KEY_PRIVATE:
+                return self.error("Incorrect data", error_codename="invalid_credentials")
+
+            q = get_required_fields_on_auth(req, ae, q)
+            u = User.objects.get(q)
         except:
             LOGGER.error(\
                 "Email.authenticate error\n"\
@@ -696,17 +706,6 @@ class Email:
                 u.userdata,\
                 req.get('code').upper(),\
                 ae, req, stack_trace_str())
-            return self.error("Incorrect data", error_codename="invalid_credentials")
-
-        msg = check_metadata(req, u)
-        if msg:
-            LOGGER.error(\
-                "Email.authenticate error\n"\
-                "Metadata error '%r'\n"\
-                "authevent '%r'\n"\
-                "request '%r'\n"\
-                "Stack trace: \n%s",\
-                msg, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         user_logged_in.send(sender=u.__class__, request=request, user=u)

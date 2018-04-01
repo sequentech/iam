@@ -3777,3 +3777,82 @@ class ApiTestPublicQuery(TestCase):
         user_data = dict(username='test1', password='qwerty')
         response = c.post('/api/auth-event/%d/authenticate/' % self.ae1.id, user_data)
         self.assertEqual(response.status_code, 200)
+
+
+class ApiTestRequiredOnAuthentication(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+
+        self.ae = AuthEvent(
+            auth_method='email',
+            auth_method_config=test_data.authmethod_config_email_default,
+            extra_fields=test_data.auth_event6['extra_fields'],
+            status='started',
+            census='open')
+        self.ae.save()
+
+        self.user = User(
+            username='foo',
+            email='foo@bar.com')
+        self.user.set_password('qwerty')
+        self.user.save()
+        self.user.userdata.event = self.ae
+        self.user.userdata.metadata = {'dni':'01234567L'}
+        self.user.userdata.save()
+
+        c = Code(
+            user=self.user.userdata,
+            code='ERGERG',
+            auth_event_id=self.ae.id)
+        c.save()
+
+        acl = ACL(
+            user=self.user.userdata,
+            object_type='AuthEvent',
+            perm='vote',
+            object_id=self.ae.id)
+        acl.save()
+
+    def test_required_on_authentication(self):
+        c = JClient()
+        user_data = dict(
+            email='foo@bar.com',
+            code='ERGERG',
+            dni='01234567L')
+        url_auth = '/api/auth-event/%d/authenticate/' % self.ae.id
+        response = c.post(url_auth, user_data)
+        self.assertEqual(response.status_code, 200)
+
+        c = JClient()
+        user_data = dict(
+            email='foo@bar.com',
+            code='ERGERG',
+            dni='76543210S')
+        response = c.post(url_auth, user_data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_required_on_authentication(self):
+        c = JClient()
+        user_data = dict(
+            email='foo@bar.com',
+            code='ERGERG',
+            dni='01234567L')
+        url_auth = '/api/auth-event/%d/authenticate/' % self.ae.id
+
+        # login with DNI works
+        response = c.post(url_auth, user_data)
+        self.assertEqual(response.status_code, 200)
+
+        # login without DNI doesn't work, it's required on authentication
+        c = JClient()
+        del user_data['email']
+        response = c.post(url_auth, user_data)
+        self.assertEqual(response.status_code, 400)
+
+        settings.MAKE_LOGIN_KEY_PRIVATE = True
+
+        c = JClient()
+        response = c.post(url_auth, user_data)
+        self.assertEqual(response.status_code, 200)

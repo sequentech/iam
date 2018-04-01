@@ -81,6 +81,7 @@ class Sms:
     USED_TYPE_FIELDS = ['tlf']
 
     tlf_definition = { "name": "tlf", "type": "text", "required": True, "min": 4, "max": 20, "required_on_authentication": True }
+    tlf_opt_definition = { "name": "tlf", "type": "text", "required": False, "min": 0, "max": 20, "required_on_authentication": False }
     code_definition = { "name": "code", "type": "text", "required": True, "min": 6, "max": 255, "required_on_authentication": True }
 
     CONFIG_CONTRACT = [
@@ -625,8 +626,10 @@ class Sms:
         tlf = req.get('tlf')
         if isinstance(tlf, str):
             tlf = tlf.strip()
-        msg += check_field_type(self.tlf_definition, tlf, 'authenticate')
-        msg += check_field_value(self.tlf_definition, tlf, 'authenticate')
+
+        tlf_def = self.tlf_definition if not settings.MAKE_LOGIN_KEY_PRIVATE else self.tlf_opt_definition
+        msg += check_field_type(tlf_def, tlf, 'authenticate')
+        msg += check_field_value(tlf_def, tlf, 'authenticate')
         msg += check_field_type(self.code_definition, req.get('code'), 'authenticate')
         msg += check_field_value(self.code_definition, req.get('code'), 'authenticate')
         msg += check_fields_in_request(req, ae, 'authenticate')
@@ -641,11 +644,18 @@ class Sms:
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         try:
-            u = User.objects.get(userdata__tlf=tlf, userdata__event=ae, is_active=True)
+            q = Q(userdata__event=ae, is_active=True)
+            if 'tlf' in req:
+                q = q & Q(userdata__tlf=tlf)
+            elif not settings.MAKE_LOGIN_KEY_PRIVATE:
+                return self.error("Incorrect data", error_codename="invalid_credentials")
+
+            q = get_required_fields_on_auth(req, ae, q)
+            u = User.objects.get(q)
         except:
             LOGGER.error(\
                 "Sms.authenticate error\n"\
-                "user not found with these characteristics: tlf '%r'\n"\
+                "user not found with these characteristics:\n tlf '%r'\n"\
                 "authevent '%r'\n"\
                 "is_active True\n"\
                 "request '%r'\n"\
@@ -690,17 +700,6 @@ class Sms:
             LOGGER.error(\
                 "Sms.authenticate error\n"\
                 "error '%r'\n"\
-                "authevent '%r'\n"\
-                "request '%r'\n"\
-                "Stack trace: \n%s",\
-                msg, ae, req, stack_trace_str())
-            return self.error("Incorrect data", error_codename="invalid_credentials")
-
-        msg = check_metadata(req, u)
-        if msg:
-            LOGGER.error(\
-                "Sms.authenticate error\n"\
-                "Metadata error '%r'\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\

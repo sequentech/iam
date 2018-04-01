@@ -158,9 +158,21 @@ class PWD:
             return self.authenticate_error("invalid-fields-check", req, ae)
 
         try:
-            u = User.objects.get(userdata__event=ae, is_active=True, username=username)
+            q = Q(userdata__event=ae, is_active=True)
+
+            if 'username' in req:
+                q = q & Q(username=username)
+            elif not settings.MAKE_LOGIN_KEY_PRIVATE:
+                return self.authenticate_error("no-username-provided", req, ae)
+
+            q = get_required_fields_on_auth(req, ae, q)
+            u = User.objects.get(q)
         except:
             return self.authenticate_error("user-not-found", req, ae)
+
+        msg = check_pipeline(request, ae, 'authenticate')
+        if msg:
+            return self.authenticate_error("invalid-pipeline", req, ae)
 
         if mode == "authenticate":
             if not u.check_password(pwd):
