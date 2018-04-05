@@ -1923,11 +1923,12 @@ class TallySheetView(View):
             for tally_sheet in tally_sheets
         ])
         # A.2 call to agora-elections
-        callback_url = "%s/api/election/%s/update-ballot-boxes-config" % (
-            settings.AGORA_ELECTIONS_BASE,
-            pk
-        )
-        if not settings.SIMULATE_AGORA_ELECTIONS_CALLBACKS:
+        for callback_base in settings.AGORA_ELECTIONS_BASE:
+            callback_url = "%s/api/election/%s/update-ballot-boxes-config" % (
+                callback_base,
+                pk
+            )
+
             r = requests.post(
                 callback_url,
                 json=data,
