@@ -611,12 +611,12 @@ def generate_username(req, ae):
             val = req.get(extra.get('name', ""))
             if not isinstance(val, str):
               val = ""
-            userid_field.append(val)
+            userid_fields.append(val)
 
     if len(userid_fields) == 0:
         return random_username()
 
-    userid_fields.append(settings.SHARED_SECRET)
+    userid_fields.append(str(settings.SHARED_SECRET))
     return hashlib.sha256(":".join(userid_fields).encode('utf-8')).hexdigest()
 
 def create_user(req, ae, active, creator, user=None, password=None):

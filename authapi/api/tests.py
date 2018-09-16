@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
+import re
 import time
 import json
 import copy
@@ -331,6 +332,12 @@ class ApiTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
         self.assertEqual(r['status'], 'ok')
+
+        # verify format of the hmac, including username
+        self.assertTrue(re.match(
+            "^khmac:\/\/\/sha-256;[a-f0-9]{64}\/john:[0-9]+$",
+            r['auth-token']
+        ))
         self.assertEqual(verifyhmac(settings.SHARED_SECRET,
             r['auth-token']), True)
         time.sleep(3)
@@ -3833,7 +3840,7 @@ class ApiTestRequiredOnAuthentication(TestCase):
         response = c.post(url_auth, user_data)
         self.assertEqual(response.status_code, 400)
 
-    def test_required_on_authentication(self):
+    def test_required_on_authentication2(self):
         c = JClient()
         user_data = dict(
             email='foo@bar.com',
@@ -3856,3 +3863,34 @@ class ApiTestRequiredOnAuthentication(TestCase):
         c = JClient()
         response = c.post(url_auth, user_data)
         self.assertEqual(response.status_code, 200)
+
+
+class ApiTestUserIdField(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        pass
+
+    @override_settings(CELERY_ALWAYS_EAGER=True, SHARED_SECRET="whatever")
+    def test_dni(self):
+        self.ae = AuthEvent(
+            auth_method='email',
+            auth_method_config=test_data.authmethod_config_email_default,
+            extra_fields=test_data.auth_event17['extra_fields'],
+            status='started',
+            census='open')
+        self.ae.save()
+
+        c = JClient()
+        user_data = dict(
+            email='foo@bar.com',
+            dni='01234567L')
+        response = c.register(self.ae.id, user_data)
+        self.assertEqual(response.status_code, 200)
+
+        u = User.objects.get(email=user_data['email'])
+        self.assertEqual(
+            u.username,
+            "d17812eb2cde88dc090477abe9d2dcd8b3fe1b37fa742222ddf40ef89b9a6cc0"
+        )

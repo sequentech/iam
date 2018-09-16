@@ -201,6 +201,9 @@ class AuthMethodSmsTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
 
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
     def test_method_sms_register_valid_dni(self):
         data = {'tlf': '+34666666666', 'code': 'AAAAAAAA', 'dni': '11111111H'}
         response = self.c.register(self.aeid, data)

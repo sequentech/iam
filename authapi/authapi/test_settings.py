@@ -176,6 +176,8 @@ MAX_AUTH_MSG_SIZE = {
   "email": 10000
 }
 
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
 SMS_BASE_TEMPLATE = "__MESSAGE__ -- nVotes"
 
 EMAIL_BASE_TEMPLATE = "__MESSAGE__\n\n -- nVotes https://nvotes.com"
