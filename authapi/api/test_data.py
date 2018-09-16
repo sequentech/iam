@@ -48,8 +48,8 @@ auth_event1 = {
             "help": "put the dni without dash",
             "type": "dni",
             "required": True,
-            "min": 9,
-            "max": 9,
+            "min": 5,
+            "max": 12,
             "required_on_authentication": True
             }
     ]
@@ -91,8 +91,8 @@ auth_event2 = {
             "help": "put the dni without dash",
             "type": "dni",
             "required": True,
-            "min": 9,
-            "max": 9,
+            "min": 5,
+            "max": 12,
             "required_on_authentication": True
             }
     ]
@@ -147,8 +147,8 @@ auth_event6 = {
             "help": "put the dni without dash",
             "type": "dni",
             "required": True,
-            "min": 9,
-            "max": 9,
+            "min": 5,
+            "max": 12,
             "required_on_authentication": True,
             "register-pipeline": [
                 ["CanonizeDni", {}],

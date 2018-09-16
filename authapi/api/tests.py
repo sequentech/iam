@@ -3799,7 +3799,7 @@ class ApiTestRequiredOnAuthentication(TestCase):
         self.user.set_password('qwerty')
         self.user.save()
         self.user.userdata.event = self.ae
-        self.user.userdata.metadata = {'dni':'01234567L'}
+        self.user.userdata.metadata = {'dni':'DNI1234567L'}
         self.user.userdata.save()
 
         c = Code(

@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
+import hashlib
 import json
 import re
 import os
@@ -40,8 +41,11 @@ EMAIL_RX = re.compile(
     r')@((?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)$)'  # domain
     r'|\[(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}\]$', re.IGNORECASE)  # literal form, ipv4 address (SMTP 4.1.3)
 
-DNI_RX = re.compile("[A-Z]?[0-9]{7,8}[A-Z]", re.IGNORECASE)
 LETTER_RX = re.compile("[A-Z]", re.IGNORECASE)
+
+DNI_ALLOWED_CHARS = "1234567890QWERTYUIOPASDFGHJKLZXCVBNM"
+DNI_RE = re.compile(r"^([0-9]{1,8}[A-Z]|[LMXYZ][0-9]{1,7}[A-Z])$")
+
 RET_PIPE_CONTINUE = 0
 
 
@@ -65,32 +69,6 @@ def email_constraint(val):
     if not isinstance(val, str):
         return False
     return EMAIL_RX.match(val)
-
-
-def dni_constraint(val):
-    ''' check that the input is a valid dni '''
-    if not isinstance(val, str):
-        return False
-
-    val2 = val.upper()
-    if not DNI_RX.match(val2):
-        return False
-
-    if LETTER_RX.match(val2[0]):
-        nie_letter = val2[0]
-        val2 = val2[1:]
-        if nie_letter == 'Y':
-            val2 = "1" + val2
-        elif nie_letter == 'Z':
-            val2 = "2" + val2
-
-    mod_letters = 'TRWAGMYFPDXBNJZSQVHLCKE'
-    digits = val2[:-1]
-    letter = val2[-1].upper()
-
-    expected = mod_letters[int(digits) % 23]
-
-    return letter == expected
 
 def date_constraint(val):
     ''' check that the input is a valid date YYYY-MM-DD '''
@@ -300,11 +278,76 @@ def check_total_connection(data, **kwargs):
     conn.save()
     return RET_PIPE_CONTINUE
 
+def normalize_dni(dni):
+    '''
+    Normalizes dnis, using uppercase, removing characters not allowed and
+    left-side zeros
+    '''
+    dni2 = ''.join([i for i in dni.upper() if i in DNI_ALLOWED_CHARS])
+    last_char = ""
+    dni3 = ""
+    for c in dni2:
+      if (last_char is "" or last_char not in '1234567890') and c == '0':
+        continue
+      dni3 += c
+      last_char = c
+    return dni3
+
+def encode_dni(dni):
+    '''
+    Mark dnis with DNI prefix, and passports with PASS prefix.
+    '''
+    if DNI_RE.match(dni):
+      return "DNI" + dni
+    else:
+      return "PASS" + dni
+
+def dni_constraint(val):
+    ''' check that the input is a valid dni '''
+    if not isinstance(val, str):
+        return False
+
+    # Allow Passports
+    if val.startswith("PASS") and len(val) < 30:
+        return True
+
+    # remove the "DNI" prefix
+    val = val[3:]
+
+    if LETTER_RX.match(val[0]):
+        nie_letter = val[0]
+        val = val[1:]
+        if nie_letter == 'Y':
+            val2 = "1" + val2
+        elif nie_letter == 'Z':
+            val2 = "2" + val2
+
+    mod_letters = 'TRWAGMYFPDXBNJZSQVHLCKE'
+    digits = val[:-1]
+    letter = val[-1].upper()
+    expected = mod_letters[int(digits) % 23]
+    return letter == expected
+
+
+
+def canonize_extra_field(extra, req):
+    field_name = extra.get('name')
+    field_value = req.get(field_name)
+    field_type = extra.get('type')
+
+    if field_type == 'tlf':
+        req[field_name] = get_cannonical_tlf(field_value)
+    elif field_type == 'dni':
+        if isinstance(field_value, str):
+            req[field_name] = encode_dni(normalize_dni(field_value))
 
 def check_pipeline(request, ae, step='register', default_pipeline=None):
     req = json.loads(request.body.decode('utf-8'))
-    if req.get('tlf'):
-        req['tlf'] = get_cannonical_tlf(req['tlf'])
+
+    if ae.extra_fields:
+        for extra_field in ae.extra_fields:
+            canonize_extra_field(extra_field, req)
+
     data = {
         'ip_addr': get_client_ip(request),
         'tlf': req.get('tlf', None),
@@ -429,11 +472,13 @@ def check_fields_in_request(req, ae, step='register', validation=True):
     """ Checked fields in extra_fields are correct, checked the type of field and the value if
     validation is True. """
     msg = ''
+
     if ae.extra_fields:
         if len(req) > settings.MAX_EXTRA_FIELDS * 2:
             return "Number of fields is bigger than allowed fields."
         for extra in ae.extra_fields:
             msg += check_field_type(extra, req.get(extra.get('name')), step)
+            canonize_extra_field(extra, req)
             if validation:
                 msg += check_field_value(extra, req.get(extra.get('name')), req, ae, step)
                 if not msg and extra.get('type') == 'captcha' and step != 'census':
@@ -550,10 +595,34 @@ def edit_user(user, req, ae):
     return user
 
 
+def generate_username(req, ae):
+    '''
+    Generates username by:
+    a) if any user field is marked as userid_field, then concatenate them,
+    add the shared_key, hash it and use that as the username
+    b) in any other case, use a random username
+    '''
+    userid_fields = []
+    if not ae.extra_fields:
+        return random_username()
+
+    for extra in ae.extra_fields:
+        if 'userid_field' in extra.keys() and extra.get('userid_field'):
+            val = req.get(extra.get('name', ""))
+            if not isinstance(val, str):
+              val = ""
+            userid_field.append(val)
+
+    if len(userid_fields) == 0:
+        return random_username()
+
+    userid_fields.append(settings.SHARED_SECRET)
+    return hashlib.sha256(":".join(userid_fields).encode('utf-8')).hexdigest()
+
 def create_user(req, ae, active, creator, user=None, password=None):
     from api.models import Action
     if not user:
-        user = random_username()
+        user = generate_username(req, ae)
 
     u = User(username=user)
     u.is_active = active
