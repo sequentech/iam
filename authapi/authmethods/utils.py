@@ -616,7 +616,7 @@ def generate_username(req, ae):
     if len(userid_fields) == 0:
         return random_username()
 
-    userid_fields.append(str(settings.SHARED_SECRET))
+    userid_fields.append(settings.SHARED_SECRET.decode("utf-8"))
     return hashlib.sha256(":".join(userid_fields).encode('utf-8')).hexdigest()
 
 def create_user(req, ae, active, creator, user=None, password=None):
