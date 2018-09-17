@@ -598,8 +598,8 @@ def edit_user(user, req, ae):
 def generate_username(req, ae):
     '''
     Generates username by:
-    a) if any user field is marked as userid_field, then concatenate them,
-    add the shared_key, hash it and use that as the username
+    a) if any user field is marked as userid_field, then the username will be:
+      sha256(userid_field1:userid_field2:..:auth_event_id:shared_secret)
     b) in any other case, use a random username
     '''
     userid_fields = []
@@ -616,6 +616,7 @@ def generate_username(req, ae):
     if len(userid_fields) == 0:
         return random_username()
 
+    userid_fields.append(str(ae.id))
     userid_fields.append(settings.SHARED_SECRET.decode("utf-8"))
     return hashlib.sha256(":".join(userid_fields).encode('utf-8')).hexdigest()
 

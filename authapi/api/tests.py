@@ -3872,7 +3872,7 @@ class ApiTestUserIdField(TestCase):
     def setUp(self):
         pass
 
-    @override_settings(CELERY_ALWAYS_EAGER=True, SHARED_SECRET="whatever")
+    @override_settings(CELERY_ALWAYS_EAGER=True, SHARED_SECRET=b"whatever")
     def test_dni(self):
         self.ae = AuthEvent(
             auth_method='email',
@@ -3880,6 +3880,7 @@ class ApiTestUserIdField(TestCase):
             extra_fields=test_data.auth_event17['extra_fields'],
             status='started',
             census='open')
+        self.ae.id = 10000
         self.ae.save()
 
         c = JClient()
@@ -3892,5 +3893,5 @@ class ApiTestUserIdField(TestCase):
         u = User.objects.get(email=user_data['email'])
         self.assertEqual(
             u.username,
-            "d17812eb2cde88dc090477abe9d2dcd8b3fe1b37fa742222ddf40ef89b9a6cc0"
+            "65d208b58bed19558591967ea937799b5a7f266310e27d31f5209bf7e788bfdf"
         )
