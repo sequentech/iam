@@ -30,7 +30,7 @@ from api.models import ACL
 from captcha.models import Captcha
 from captcha.decorators import valid_captcha
 from contracts import CheckException, JSONContractEncoder
-from utils import json_response, get_client_ip, is_valid_url
+from utils import json_response, get_client_ip, is_valid_url, constant_time_compare
 from pipelines.base import execute_pipeline, PipeReturnvalue
 
 
@@ -663,7 +663,7 @@ def check_metadata(req, user):
             elif (typee == 'tlf'):
                 user_value = user.userdata.tlf
 
-            if not constant_time_compare(user.email, req.get(name)):
+            if not constant_time_compare(user_value, req.get(name)):
                 return "Incorrect authentication."
     return ""
 
