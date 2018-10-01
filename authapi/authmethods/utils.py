@@ -580,7 +580,11 @@ def edit_user(user, req, ae):
             elif extra.get('type') == 'password':
                 user.set_password(req.get(extra.get('name')))
                 req.pop(extra.get('name'))
-            if extra.get('type') == 'image':
+            elif extra.get('type') == 'bool':
+                val = req.get(extra.get('name'))
+                if isinstance(val, str):
+                    req[extra.get('name')] = val.lower() not in ["", "false"]
+            elif extra.get('type') == 'image':
                 img = req.get(extra.get('name'))
                 fname = user.username.decode()
                 path = os.path.join(settings.IMAGE_STORE_PATH, fname)
