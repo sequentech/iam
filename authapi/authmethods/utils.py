@@ -480,8 +480,8 @@ def check_fields_in_request(req, ae, step='register', validation=True):
         if len(req) > settings.MAX_EXTRA_FIELDS * 2:
             return "Number of fields is bigger than allowed fields."
         for extra in ae.extra_fields:
-            msg += check_field_type(extra, req.get(extra.get('name')), step)
             canonize_extra_field(extra, req)
+            msg += check_field_type(extra, req.get(extra.get('name')), step)
             if validation:
                 msg += check_field_value(extra, req.get(extra.get('name')), req, ae, step)
                 if not msg and extra.get('type') == 'captcha' and step != 'census':
