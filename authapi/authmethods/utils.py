@@ -340,6 +340,9 @@ def canonize_extra_field(extra, req):
     elif field_type == 'dni':
         if isinstance(field_value, str):
             req[field_name] = encode_dni(normalize_dni(field_value))
+    elif field_type == 'bool':
+        if isinstance(field_value, str):
+            req[field_name] = field_value.lower().strip() not in ["", "false"]
 
 def check_pipeline(request, ae, step='register', default_pipeline=None):
     req = json.loads(request.body.decode('utf-8'))
@@ -580,10 +583,6 @@ def edit_user(user, req, ae):
             elif extra.get('type') == 'password':
                 user.set_password(req.get(extra.get('name')))
                 req.pop(extra.get('name'))
-            elif extra.get('type') == 'bool':
-                val = req.get(extra.get('name'))
-                if isinstance(val, str):
-                    req[extra.get('name')] = val.lower() not in ["", "false"]
             elif extra.get('type') == 'image':
                 img = req.get(extra.get('name'))
                 fname = user.username.decode()
