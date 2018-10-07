@@ -169,6 +169,7 @@ SMS_VOICE_LANG_CODE = ""
 
 MAX_AUTH_MSG_SIZE = {
   "sms": 120,
+  "sms-otp": 120,
   "email": 10000
 }
 

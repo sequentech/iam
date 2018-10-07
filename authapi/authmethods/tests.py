@@ -171,7 +171,7 @@ class AuthMethodSmsTestCase(TestCase):
         u.save()
         u.userdata.event = ae
         u.userdata.tlf = '+34666666666'
-        u.userdata.metadata = { 'dni': '11111111H' }
+        u.userdata.metadata = { 'dni': 'DNI11111111H' }
         u.userdata.save()
         self.u = u.userdata
         code = Code(user=u.userdata, code='AAAAAAAA', auth_event_id=ae.pk)
@@ -184,7 +184,7 @@ class AuthMethodSmsTestCase(TestCase):
         u2.save()
         u2.userdata.tlf = '+34766666666'
         u2.userdata.event = ae
-        u2.userdata.metadata = { 'dni': '11111111H' }
+        u2.userdata.metadata = { 'dni': 'DNI11111111H' }
         u2.userdata.save()
         code = Code(user=u2.userdata, code='AAAAAAAA', auth_event_id=ae.pk)
         code.save()
@@ -201,6 +201,9 @@ class AuthMethodSmsTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
 
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
     def test_method_sms_register_valid_dni(self):
         data = {'tlf': '+34666666666', 'code': 'AAAAAAAA', 'dni': '11111111H'}
         response = self.c.register(self.aeid, data)
@@ -360,14 +363,14 @@ class ExtraFieldPipelineTestCase(TestCase):
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 200)
         user = UserData.objects.get(user__email=data['email'])
-        self.assertEqual(user.metadata.get('dni'), '39873625C')
+        self.assertEqual(user.metadata.get('dni'), 'DNI39873625C')
 
         data = {'email': 'test1@test.com', 'user': 'test',
                 'dni': '39873625c'}
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 200)
         user = UserData.objects.get(user__email=data['email'])
-        self.assertEqual(user.metadata.get('dni'), '39873625C')
+        self.assertEqual(user.metadata.get('dni'), 'DNI39873625C')
 
         data = {'email': 'test2@test.com', 'user': 'test',
                 'dni': '39873625X'}

@@ -48,8 +48,8 @@ auth_event1 = {
             "help": "put the dni without dash",
             "type": "dni",
             "required": True,
-            "min": 9,
-            "max": 9,
+            "min": 5,
+            "max": 12,
             "required_on_authentication": True
             }
     ]
@@ -91,8 +91,8 @@ auth_event2 = {
             "help": "put the dni without dash",
             "type": "dni",
             "required": True,
-            "min": 9,
-            "max": 9,
+            "min": 5,
+            "max": 12,
             "required_on_authentication": True
             }
     ]
@@ -147,8 +147,8 @@ auth_event6 = {
             "help": "put the dni without dash",
             "type": "dni",
             "required": True,
-            "min": 9,
-            "max": 9,
+            "min": 5,
+            "max": 12,
             "required_on_authentication": True,
             "register-pipeline": [
                 ["CanonizeDni", {}],
@@ -458,6 +458,36 @@ extra_fields16 = [
     "user_editable": False
   }
 ]
+
+# extra-fields pipeline
+auth_event17 = {
+    "auth_method": "email",
+    "census": "open",
+    "config": {
+        "authentication-action": {"mode": ""},
+        "subject": "Confirm your email",
+        "msg": "Click __URL__ and put this code __CODE__"
+    },
+    "extra_fields": [
+        {
+            "name": "dni",
+            "help": "put the dni without dash",
+            "type": "dni",
+            "required": True,
+            "min": 5,
+            "max": 12,
+            "userid_field": True,
+            "required_on_authentication": False,
+            "register-pipeline": [
+                ["CanonizeDni", {}],
+                ["DniChecker", {}]
+            ],
+            "authenticate-pipeline": [
+                ["CanonizeDni", {}]
+            ]
+        }
+    ]
+}
 
 # Users
 admin = {'username': 'john', 'email': 'john@agoravoting.com', 'password': 'smith'}
