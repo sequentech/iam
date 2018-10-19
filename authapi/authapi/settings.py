@@ -196,6 +196,27 @@ MAX_SIZE_NAME_EXTRA_FIELD = 1024
 MAX_IMAGE_SIZE = 5 * 1024 * 1024 # 5 MB
 IMAGE_STORE_PATH = os.path.join(BASE_DIR, 'imgfields')
 
+# List of OpenID Connect providers. Example:
+#
+# OPENID_CONNECT_PROVIDERS = [
+#   dict(
+#     public_info = dict(
+#       id="example",
+#       title="Example Org",
+#       description="Some description",
+#       icon="https://example.com/image.png"
+#     ),
+#     private_config=dict(
+#       version="1.0",
+#       issuer="https://example.org/OP/1",
+#       authorization_endpoint="https://example.org/OP/1/authz",
+#       token_endpoint="https://example.org/OP/1/token"
+#     )
+#   )
+# ]
+OPENID_CONNECT_PROVIDERS_CONF = [
+]
+
 if not os.path.exists(IMAGE_STORE_PATH):
     os.mkdir(IMAGE_STORE_PATH)
 
