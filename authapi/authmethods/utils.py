@@ -340,6 +340,9 @@ def canonize_extra_field(extra, req):
     elif field_type == 'dni':
         if isinstance(field_value, str):
             req[field_name] = encode_dni(normalize_dni(field_value))
+    elif field_type == 'bool':
+        if isinstance(field_value, str):
+            req[field_name] = field_value.lower().strip() not in ["", "false"]
 
 def check_pipeline(request, ae, step='register', default_pipeline=None):
     req = json.loads(request.body.decode('utf-8'))
@@ -477,6 +480,7 @@ def check_fields_in_request(req, ae, step='register', validation=True):
         if len(req) > settings.MAX_EXTRA_FIELDS * 2:
             return "Number of fields is bigger than allowed fields."
         for extra in ae.extra_fields:
+            canonize_extra_field(extra, req)
             msg += check_field_type(extra, req.get(extra.get('name')), step)
             canonize_extra_field(extra, req)
             if validation:
@@ -580,7 +584,7 @@ def edit_user(user, req, ae):
             elif extra.get('type') == 'password':
                 user.set_password(req.get(extra.get('name')))
                 req.pop(extra.get('name'))
-            if extra.get('type') == 'image':
+            elif extra.get('type') == 'image':
                 img = req.get(extra.get('name'))
                 fname = user.username.decode()
                 path = os.path.join(settings.IMAGE_STORE_PATH, fname)
