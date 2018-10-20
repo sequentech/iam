@@ -13,20 +13,25 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
-import json
-import logging
 from . import register_method
 from utils import genhmac
+from utils import json_response
+from utils import stack_trace_str
+from authmethods.utils import *
+
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.conf.urls import url
 from django.db.models import Q
-
-from utils import json_response
-from utils import stack_trace_str
-from authmethods.utils import *
 from django.contrib.auth.signals import user_logged_in
 
+import requests
+import json
+import logging
+
+from oic.oic import Client
+from oic.oic.message import ProviderConfigurationResponse, RegistrationResponse
+from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 
 LOGGER = logging.getLogger('authapi')
 
@@ -64,6 +69,30 @@ class OpenIdConnect(object):
       "required_on_authentication": True
     }
 
+    PROVIDERS = dict()
+
+    def __init__(self):
+        for conf in settings.OPENID_CONNECT_PROVIDERS_CONF:
+            client = Client(client_authn_method=CLIENT_AUTHN_METHOD)
+
+            client.provider_info = ProviderConfigurationResponse(
+                version='1.0',
+                **conf['public_info']
+            )
+            client.store_registration_info(
+                RegistrationResponse(
+                    dict(
+                        client_id=conf['public_info']['id'],
+                        **conf["private_config"]
+                    )
+                )
+            )
+
+            self.PROVIDERS[conf['public_info']['id']] = dict(
+                conf=conf,
+                client=client
+            )
+
     def check_config(self, config):
         return ''
 
@@ -88,7 +117,11 @@ class OpenIdConnect(object):
         d = {'status': 'ok'}
         req = json.loads(request.body.decode('utf-8'))
         id_token = req.get('id_token', '')
-        pwd = req.get('password', '')
+        provider_id = req.get('provider', '')
+        nonce = req.get('nonce', '')
+
+        if provider_id not in self.PROVIDERS:
+            return self.authenticate_error("invalid-provider", req, ae)
 
         #msg = ""
         #msg += check_fields_in_request(req, ae, 'authenticate')
