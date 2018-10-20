@@ -1171,7 +1171,8 @@ class AuthEventView(View):
                 census=census,
                 num_successful_logins_allowed=num_successful_logins_allowed,
                 based_in=based_in,
-                has_ballot_boxes=has_ballot_boxes
+                has_ballot_boxes=has_ballot_boxes,
+                allow_public_census_query=allow_public_census_query
             )
 
             # Save before the acl creation to get the ae id
