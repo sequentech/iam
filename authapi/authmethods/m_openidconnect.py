@@ -168,15 +168,19 @@ class OpenIdConnect(object):
         # get user_id and get/create user
         user_id = id_token_dict['sub']
         try:
-            u = User.objects.get(username=user_id)
+            u = User.objects.get(
+                userdata__event=ae,
+                userdata__metadata__contains={"sub": user_id}
+            )
         except:
             u = create_user(
                 req=req,
                 ae=ae,
                 active=True,
-                creator=request.user,
-                user=user_id)
+                creator=request.user)
             give_perms(u, ae)
+            u.userdata.metadata["sub"] = user_id
+            u.userdata.save()
 
         msg = check_pipeline(request, ae, 'authenticate')
         if msg:
@@ -200,8 +204,12 @@ class OpenIdConnect(object):
             user_logged_in.send(sender=u.__class__, request=request, user=u)
             u.save()
 
-            ret_data['username'] = u.username
-            ret_data['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
+            username = u.username
+            if isinstance(username, bytes):
+                username = u.username.decode('utf-8')
+
+            ret_data['username'] = username
+            ret_data['auth-token'] = genhmac(settings.SHARED_SECRET, username)
 
             # add redirection
             auth_action = ae.auth_method_config['config']['authentication-action']
