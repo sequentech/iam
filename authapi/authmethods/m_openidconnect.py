@@ -79,14 +79,12 @@ class OpenIdConnect(object):
                 version='1.0',
                 **conf['public_info']
             )
-            client.store_registration_info(
-                RegistrationResponse(
-                    dict(
-                        client_id=conf['public_info']['id'],
-                        **conf["private_config"]
-                    )
-                )
+            registration_data = dict(
+              client_id=conf['public_info']['client_id'],
+              **conf["private_config"]
             )
+            registration_response = RegistrationResponse().from_dict(registration_data)
+            client.store_registration_info(registration_response)
 
             self.PROVIDERS[conf['public_info']['id']] = dict(
                 conf=conf,
