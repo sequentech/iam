@@ -174,13 +174,11 @@ class OpenIdConnect(object):
             )
         except:
             u = create_user(
-                req=req,
+                req=dict(sub=user_id),
                 ae=ae,
                 active=True,
                 creator=request.user)
             give_perms(u, ae)
-            u.userdata.metadata["sub"] = user_id
-            u.userdata.save()
 
         msg = check_pipeline(request, ae, 'authenticate')
         if msg:
