@@ -514,6 +514,15 @@ class Authenticate(View):
             return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
         if data and 'status' in data and data['status'] == 'ok':
+            user = User.objects.get(username=data['username'])
+            action = Action(
+                executer=user,
+                receiver=user,
+                action_name='user:authenticate',
+                event=e,
+                metadata=dict())
+            action.save()
+
             return json_response(data)
         else:
             return json_response(
