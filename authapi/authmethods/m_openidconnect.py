@@ -126,7 +126,7 @@ class OpenIdConnect(object):
         return d
 
     def authenticate(self, ae, request, mode='authenticate'):
-        d = {'status': 'ok'}
+        ret_data = {'status': 'ok'}
         req = json.loads(request.body.decode('utf-8'))
         id_token = req.get('id_token', '')
         provider_id = req.get('provider', '')
@@ -136,6 +136,7 @@ class OpenIdConnect(object):
             return self.authenticate_error("invalid-provider", req, ae)
 
         provider = self.PROVIDERS[provider_id]
+        # parses and verifies/validates the id token
         id_token_obj = provider['client'].parse_response(
             AuthorizationResponse,
             info=id_token,
@@ -154,9 +155,9 @@ class OpenIdConnect(object):
                 message="'%r' != '%r'" % (id_token_dict['nonce'], nonce))
 
         # verify client_id
-        if not constant_time_compare(id_token_dict['aud'], provider['conf']['client_id']):
+        if not constant_time_compare(id_token_dict['aud'], provider['conf']['public_info']['client_id']):
             return self.authenticate_error("invalid-aud", req, ae,
-                message="'%r' != '%r'" % (id_token_dict['aud'], provider['conf']['client_id']))
+                message="'%r' != '%r'" % (id_token_dict['aud'], provider['conf']['public_info']['client_id']))
 
         # verify expiration
         current_timestamp = utc_time_sans_frac()
@@ -175,6 +176,7 @@ class OpenIdConnect(object):
                 active=True,
                 creator=request.user,
                 user=user_id)
+            give_perms(u, ae)
 
         msg = check_pipeline(request, ae, 'authenticate')
         if msg:
@@ -182,6 +184,9 @@ class OpenIdConnect(object):
                 message=msg)
 
         if mode == "authenticate":
+            if not u.is_active:
+                return self.authenticate_error("user-inactive", req, ae)
+
             if (ae.num_successful_logins_allowed > 0 and
                 u.userdata.successful_logins.filter(is_active=True).count() >= ae.num_successful_logins_allowed):
                 return self.authenticate_error(
@@ -195,7 +200,6 @@ class OpenIdConnect(object):
             user_logged_in.send(sender=u.__class__, request=request, user=u)
             u.save()
 
-            ret_data = {'status': 'ok'}
             ret_data['username'] = u.username
             ret_data['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
 
