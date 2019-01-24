@@ -17,25 +17,28 @@ import json
 import logging
 from django.conf import settings
 from django.conf.urls import url
+from django.db.models import Q
 from django.contrib.auth.models import User
-from utils import genhmac, constant_time_compare, send_codes, get_client_ip, is_valid_url
+from django.shortcuts import get_object_or_404
+from datetime import datetime, timedelta
+from utils import (
+  genhmac, send_codes, get_client_ip, is_valid_url, constant_time_compare
+)
 
+import plugins
 from . import register_method
-from authmethods.utils import *
-from api.models import AuthEvent
 from contracts.base import check_contract, JsonTypeEncoder
 from contracts import CheckException
-from authmethods.models import Code
+from authmethods.utils import *
 from utils import stack_trace_str
 from django.contrib.auth.signals import user_logged_in
 
 LOGGER = logging.getLogger('authapi')
 
-class Email:
-    DESCRIPTION = 'Register by email. You need to confirm your email.'
+class SmsOtp:
+    DESCRIPTION = 'Provides authentication using an SMS code.'
     CONFIG = {
-        'subject': 'Confirm your email',
-        'msg': 'Click __URL__ and put this code __CODE__',
+        'msg': 'Enter in __URL__ and put this code __CODE__',
         'registration-action': {
             'mode': 'vote',
             'mode-config': None,
@@ -52,25 +55,34 @@ class Email:
             {'object_type': 'AuthEvent', 'perms': ['vote',], 'object_id': 'AuthEventId' }
         ],
         "register-pipeline": [
+            ["check_whitelisted", {"field": "tlf"}],
             ["check_whitelisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "ip"}],
+            ["check_blacklisted", {"field": "tlf"}],
             ["check_total_max", {"field": "ip", "period": 3600, "max": 10}],
+            ["check_total_max", {"field": "tlf", "period": 3600, "max": 10}],
             ["check_total_max", {"field": "ip", "period": 3600*24, "max": 50}],
+            ["check_total_max", {"field": "tlf", "period": 3600*24, "max": 50}],
         ],
         "authenticate-pipeline": [
             #['check_total_connection', {'times': 5 }],
+            #['check_sms_code', {'timestamp': 5 }]
         ],
         "resend-auth-pipeline": [
+            ["check_whitelisted", {"field": "tlf"}],
             ["check_whitelisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "ip"}],
-            ["check_total_max", {"field": "ip", "period": 3600, "max": 10}],
-            ["check_total_max", {"field": "ip", "period": 3600*24, "max": 50}],
+            ["check_blacklisted", {"field": "tlf"}],
+            ["check_total_max", {"field": "tlf", "period": 3600, "max": 25}],
+            ["check_total_max", {"field": "tlf", "period": 3600*24, "max": 100}],
+            ["check_total_max", {"field": "ip", "period": 3600, "max": 25}],
+            ["check_total_max", {"field": "ip", "period": 3600*24, "max": 100}],
         ]
     }
-    USED_TYPE_FIELDS = ['email']
+    USED_TYPE_FIELDS = ['tlf']
 
-    email_definition = { "name": "email", "type": "email", "required": True, "min": 4, "max": 255, "required_on_authentication": True }
-    email_opt_definition = { "name": "email", "type": "email", "required": False, "min": 0, "max": 255, "required_on_authentication": False }
+    tlf_definition = { "name": "tlf", "type": "text", "required": True, "min": 4, "max": 20, "required_on_authentication": True }
+    tlf_opt_definition = { "name": "tlf", "type": "text", "required": False, "min": 0, "max": 20, "required_on_authentication": False }
     code_definition = { "name": "code", "type": "text", "required": True, "min": 6, "max": 255, "required_on_authentication": True }
 
     CONFIG_CONTRACT = [
@@ -80,7 +92,7 @@ class Email:
       },
       {
         'check': 'dict-keys-exist',
-        'keys': ['msg', 'subject', 'registration-action', 'authentication-action']
+        'keys': ['msg', 'registration-action', 'authentication-action']
       },
       {
         'check': 'index-check-list',
@@ -92,21 +104,7 @@ class Email:
           },
           {
             'check': 'length',
-            'range': [1, 5000]
-          }
-        ]
-      },
-      {
-        'check': 'index-check-list',
-        'index': 'subject',
-        'check-list': [
-          {
-            'check': 'isinstance',
-            'type': str
-          },
-          {
-            'check': 'length',
-            'range': [1, 1024]
+            'range': [1, 200]
           }
         ]
       },
@@ -250,13 +248,22 @@ class Email:
       }
     ]
 
+    def error(self, msg, error_codename):
+        d = {'status': 'nok', 'msg': msg, 'error_codename': error_codename}
+        LOGGER.error(\
+            "SmsOtp.error\n"\
+            "error '%r'\n"\
+            "Stack trace: \n%s",\
+            d, stack_trace_str())
+        return d
+
     def check_config(self, config):
         """ Check config when create auth-event. """
         msg = ''
         try:
             check_contract(self.CONFIG_CONTRACT, config)
             LOGGER.debug(\
-                "Email.check_config success\n"\
+                "SmsOtp.check_config success\n"\
                 "config '%r'\n"\
                 "returns ''\n"\
                 "Stack trace: \n%s",\
@@ -264,9 +271,9 @@ class Email:
             return ''
         except CheckException as e:
             LOGGER.error(\
-                "Email.check_config error\n"\
+                "SmsOtp.check_config error\n"\
                 "error '%r'\n"\
-                "config '%r'\n"\
+                "config '%r'"\
                 "Stack trace: \n%s",\
                 e, config, stack_trace_str())
             return json.dumps(e.data, cls=JsonTypeEncoder)
@@ -274,34 +281,27 @@ class Email:
     def census(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
         validation = req.get('field-validation', 'enabled') == 'enabled'
+        data = {'status': 'ok'}
 
         msg = ''
-        current_emails = []
+        current_tlfs = []
         for r in req.get('census'):
-            email = r.get('email')
-            if isinstance(email, str):
-                email = email.strip()
-                email = email.replace(" ", "")
-            msg += check_field_type(self.email_definition, email)
+            if r.get('tlf'):
+                r['tlf'] = get_cannonical_tlf(r.get('tlf'))
+            tlf = r.get('tlf')
+            if isinstance(tlf, str):
+                tlf = tlf.strip()
+            msg += check_field_type(self.tlf_definition, tlf)
             if validation:
-                msg += check_field_type(self.email_definition, email)
-                msg += check_field_value(self.email_definition, email)
+                msg += check_field_value(self.tlf_definition, tlf)
             msg += check_fields_in_request(r, ae, 'census', validation=validation)
             if validation:
                 msg += exist_user(r, ae)
-                if email in current_emails:
-                    msg += "Email %s repeat in this census." % email
-                current_emails.append(email)
+                if tlf in current_tlfs:
+                    msg += "Tlf %s repeat." % tlf
+                current_tlfs.append(tlf)
             else:
                 if msg:
-                    LOGGER.debug(\
-                        "Email.census warning\n"\
-                        "error (but validation disabled) '%r'\n"\
-                        "request '%r'\n"\
-                        "validation '%r'\n"\
-                        "authevent '%r'\n"\
-                        "Stack trace: \n%s",\
-                        msg, req, validation, ae, stack_trace_str())
                     msg = ''
                     continue
                 exist = exist_user(r, ae)
@@ -312,14 +312,14 @@ class Email:
                 u = create_user(r, ae, True, request.user)
                 give_perms(u, ae)
         if msg and validation:
-            LOGGER.error(\
-                "Email.census error\n"\
+            SmsOtp.error(\
+                "Sms.census error\n"\
                 "error '%r'\n"\
-                "request '%r'\n"\
                 "validation '%r'\n"\
+                "request '%r'\n"\
                 "authevent '%r'\n"\
                 "Stack trace: \n%s",\
-                msg, req, validation, ae, stack_trace_str())
+                msg, validation, req, ae, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         if validation:
@@ -328,26 +328,16 @@ class Email:
                 # the pipeline
                 u = create_user(r, ae, True, request.user)
                 give_perms(u, ae)
-        
-        ret = {'status': 'ok'}
         LOGGER.debug(\
-            "Email.census\n"\
-            "request '%r'\n"\
+            "SmsOtp.census success\n"\
+            "response '%r'\n"\
             "validation '%r'\n"\
+            "msg '%r'"\
+            "request '%r'\n"\
             "authevent '%r'\n"\
-            "returns '%r'\n"\
             "Stack trace: \n%s",\
-            req, validation, ae, ret, stack_trace_str())
-        return ret
-
-    def error(self, msg, error_codename):
-        d = {'status': 'nok', 'msg': msg, 'error_codename': error_codename}
-        LOGGER.error(\
-            "Email.error\n"\
-            "error '%r'\n"\
-            "Stack trace: \n%s",\
-            d, stack_trace_str())
-        return d
+            data, validation, msg, req, ae, stack_trace_str())
+        return data
 
     def register(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
@@ -359,13 +349,13 @@ class Email:
         msg = check_pipeline(request, ae)
         if msg:
             LOGGER.error(\
-                "Email.register error\n"\
-                "pipeline check error'%r'\n"\
+                "SmsOtp.register error\n"\
+                "error '%r'\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
                 msg, ae, req, stack_trace_str())
-            return msg
+            return self.error("Incorrect data", error_codename="invalid_credentials")
 
         # create the user as active? Usually yes, but the execute_pipeline call inside
         # check_fields_in_request might modify this
@@ -388,17 +378,18 @@ class Email:
             ]
 
         msg = ''
-        email = req.get('email')
-        if isinstance(email, str):
-            email = email.strip()
-            email = email.replace(" ", "")
-        msg += check_field_type(self.email_definition, email)
-        msg += check_field_value(self.email_definition, email)
+        if req.get('tlf'):
+            req['tlf'] = get_cannonical_tlf(req.get('tlf'))
+        tlf = req.get('tlf')
+        if isinstance(tlf, str):
+            tlf = tlf.strip()
+        msg += check_field_type(self.tlf_definition, tlf)
+        msg += check_field_value(self.tlf_definition, tlf)
         msg += check_fields_in_request(req, ae)
         if msg:
             LOGGER.error(\
-                "Email.register error\n"\
-                "Fields check error '%r'"\
+                "SmsOtp.register error\n"\
+                "error '%r'\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
@@ -408,45 +399,45 @@ class Email:
         active = req.pop('active')
 
         if len(reg_match_fields) > 0 or len(reg_fill_empty_fields) > 0:
-            # is the email a match field?
-            match_email = False
-            match_email_element = None
+            # is the tlf a match field?
+            match_tlf = False
+            match_tlf_element = None
             for extra in ae.extra_fields:
-                if 'name' in extra and 'email' == extra['name'] and "match_census_on_registration" in extra and extra['match_census_on_registration']:
-                    match_email = True
-                    match_email_element = extra
+                if 'name' in extra and 'tlf' == extra['name'] and "match_census_on_registration" in extra and extra['match_census_on_registration']:
+                    match_tlf = True
+                    match_tlf_element = extra
                     break
-            # if the email is not a match field, and there already is a user
-            # with that email, reject the registration request
-            if not match_email and User.objects.filter(email=email, userdata__event=ae, is_active=True).count() > 0:
+            # if the tlf is not a match field, and there already is a user
+            # with that tlf, reject the registration request
+            if not match_tlf and User.objects.filter(userdata__tlf=tlf, userdata__event=ae, is_active=True).count() > 0:
                 LOGGER.error(\
-                    "Email.register error\n"\
-                    "email is not a match field, and there already is a user with email '%r'\n"\
+                    "SmsOtp.register error\n"\
+                    "tlf is not a match field and  there already is a user with that tlf\n"\
+                    "error '%r'\n"\
+                    "user '%r'\n"\
                     "authevent '%r'\n"\
-                    "request '%r'\n"\
+                    "request '%r'"\
                     "Stack trace: \n%s",\
-                    email,\
-                    User.objects.filter(email=email, userdata__event=ae, is_active=True)[0],\
-                    ae,\
-                    req,\
-                    stack_trace_str())
+                    msg,\
+                    User.objects.filter(userdata__tlf=tlf, userdata__event=ae, is_active=True)[0],\
+                    ae, req, stack_trace_str())
                 return self.error("Incorrect data", error_codename=user_exists_codename)
 
             # lookup in the database if there's any user with the match fields
             # NOTE: we assume reg_match_fields are unique in the DB and required
-            search_email = email if match_email else ""
-            if match_email:
-                reg_match_fields.remove(match_email_element)
+            search_tlf = tlf if match_tlf else ""
+            if match_tlf:
+                reg_match_fields.remove(match_tlf_element)
             q = Q(userdata__event=ae,
                   is_active=False,
-                  email=search_email)
+                  userdata__tlf=search_tlf)
             # Check the reg_match_fields
             for reg_match_field in reg_match_fields:
                  # Filter with Django's JSONfield
                  reg_name = reg_match_field.get('name')
                  if not reg_name:
                      LOGGER.error(\
-                         "Email.register error\n"\
+                         "SmsOtp.register error\n"\
                          "'name' not in match field '%r'\n"\
                          "authevent '%r'\n"\
                          "request '%r'\n"\
@@ -458,7 +449,7 @@ class Email:
                      q = q & Q(userdata__metadata__contains={reg_name: req_field_data})
                  else:
                      LOGGER.error(\
-                         "Email.register error\n"\
+                         "SmsOtp.register error\n"\
                          "match field '%r' missing in request '%r'\n"\
                          "authevent '%r'\n"\
                          "Stack trace: \n%s",\
@@ -472,7 +463,7 @@ class Email:
                  reg_name = reg_empty_field.get('name')
                  if not reg_name:
                      LOGGER.error(\
-                         "Email.register error\n"\
+                         "SmsOtp.register error\n"\
                          "'name' not in empty field '%r'\n"\
                          "authevent '%r'\n"\
                          "request '%r'\n"\
@@ -484,7 +475,7 @@ class Email:
                      q = q & Q(userdata__metadata__contains={reg_name: ""})
                  else:
                      LOGGER.error(\
-                         "Email.register error\n"\
+                         "SmsOtp.register error\n"\
                          "the register query _must_ contain a value for these fields\n"\
                          "reg_name '%r'\n"\
                          "reg_name in req '%r'\n"\
@@ -496,10 +487,9 @@ class Email:
                          req, stack_trace_str())
                      return self.error("Incorrect data", error_codename="invalid_credentials")
 
-
             user_found = None
             user_list = User.objects.filter(q)
-            if 1 == user_list.count():
+            if 1 == len(user_list):
                 user_found = user_list[0]
 
                 # check that the unique:True extra fields are actually unique
@@ -517,7 +507,7 @@ class Email:
                             repeated_list = base_list.filter(uq)
                             if repeated_list.count() > 0:
                                 LOGGER.error(\
-                                    "Email.register error\n"\
+                                    "SmsOtp.register error\n"\
                                     "unique field named '%r'\n"\
                                     "with content '%r'\n"\
                                     "is repeated on '%r'\n"\
@@ -531,7 +521,7 @@ class Email:
             # user needs to exist
             if user_found is None:
                 LOGGER.error(\
-                    "Email.register error\n"\
+                    "SmsOtp.register error\n"\
                     "user not found for query '%r'\n"\
                     "authevent '%r'\n"\
                     "request '%r'\n"\
@@ -544,16 +534,17 @@ class Email:
                 if reg_name in req:
                     user_found.userdata.metadata[reg_name] = req.get(reg_name)
             user_found.userdata.save()
-            if not match_email:
-               user_found.email = email
-            user_found.save()
+            if not match_tlf:
+                user_found.userdata.tlf = tlf
+            user_found.userdata.save()
             u = user_found
         else:
             msg_exist = exist_user(req, ae, get_repeated=True)
             if msg_exist:
                 ret_error = True
                 try:
-                    u = User.objects.get(email=req.get('email'), userdata__event=ae)
+                    tlf = get_cannonical_tlf(req['tlf'])
+                    u = User.objects.get(userdata__tlf=tlf, userdata__event=ae)
                     # user is  admin and is disabled (deregistered)
                     # allow him to re-register with new parameters
                     if settings.ADMIN_AUTH_ID == ae.pk and \
@@ -567,7 +558,7 @@ class Email:
                     pass
                 if ret_error:
                     LOGGER.error(\
-                        "Email.register error\n"\
+                        "SmsOtp.register error\n"\
                         "User already exists '%r'\n"\
                         "authevent '%r'\n"\
                         "request '%r'\n"\
@@ -577,10 +568,12 @@ class Email:
             else:
                 u = create_user(req, ae, active, request.user)
                 msg += give_perms(u, ae)
+                u.userdata.tlf = tlf
+                u.userdata.save()
 
         if msg:
             LOGGER.error(\
-                "Email.register error\n"\
+                "SmsOtp.register error\n"\
                 "Probably a permissions error\n"\
                 "Error '%r'\n"\
                 "authevent '%r'\n"\
@@ -589,67 +582,59 @@ class Email:
                 msg, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
         elif not active:
+            # Note, we are not calling to extend_send_sms because we are not
+            # sending the code in here
             LOGGER.debug(\
-                "Email.register.\n"\
+                "SmsOtp.register.\n"\
                 "user id '%r' is not active, message NOT sent\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
                 u.id, ae, req, stack_trace_str())
-            # Note, we are not calling to extend_send_sms because we are not
-            # sending the code in here
             return {'status': 'ok', 'user': u}
 
-        response = {'status': 'ok', 'user': u}
-        send_codes.apply_async(args=[[u.id,], get_client_ip(request),'email'])
+        result = plugins.call("extend_send_sms", ae, 1)
+        if result:
+            LOGGER.error(\
+                "SmsOtp.register error\n"\
+                "extend_send_sms plugin error\n"\
+                "Error '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                result, ae, req, stack_trace_str())
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+        send_codes.apply_async(args=[[u.id,], get_client_ip(request),'sms'])
         LOGGER.info(\
-            "Email.register.\n"\
-            "Sending (email) codes to user id '%r'"\
+            "SmsOtp.register.\n"\
+            "Sending (sms) codes to user id '%r'"\
             "client ip '%r'\n"\
             "authevent '%r'\n"\
             "request '%r'\n"\
             "Stack trace: \n%s",\
             u.id, get_client_ip(request), ae, req, stack_trace_str())
-        return response
-
-    def authenticate_error(self):
-        d = {'status': 'nok'}
-        LOGGER.error(\
-            "Email.authenticate_error\n"\
-            "returning '%r'"\
-            "Stack trace: \n%s",\
-            d, stack_trace_str())
-        return d
+        return {'status': 'ok', 'user': u}
 
     def authenticate(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
-        msg = ''
-        email = req.get('email')
-        if isinstance(email, str):
-            email = email.strip()
-            email = email.replace(" ", "")
 
-        email_def = self.email_definition if not settings.MAKE_LOGIN_KEY_PRIVATE else self.email_opt_definition
-        msg += check_field_type(email_def, email, 'authenticate')
-        msg += check_field_value(email_def, email, 'authenticate')
+        msg = ''
+        if req.get('tlf'):
+            req['tlf'] = get_cannonical_tlf(req.get('tlf'))
+        tlf = req.get('tlf')
+        if isinstance(tlf, str):
+            tlf = tlf.strip()
+
+        tlf_def = self.tlf_definition if not settings.MAKE_LOGIN_KEY_PRIVATE else self.tlf_opt_definition
+        msg += check_field_type(tlf_def, tlf, 'authenticate')
+        msg += check_field_value(tlf_def, tlf, 'authenticate')
         msg += check_field_type(self.code_definition, req.get('code'), 'authenticate')
         msg += check_field_value(self.code_definition, req.get('code'), 'authenticate')
         msg += check_fields_in_request(req, ae, 'authenticate')
         if msg:
             LOGGER.error(\
-                "Email.authenticate error\n"\
+                "SmsOtp.authenticate error\n"\
                 "error '%r'"\
-                "authevent '%r'\n"\
-                "request '%r'\n"\
-                "Stack trace: \n%s",\
-                msg, ae, req, stack_trace_str())
-            return self.error("Incorrect data", error_codename="invalid_credentials")
-
-        msg = check_pipeline(request, ae, 'authenticate')
-        if msg:
-            LOGGER.error(\
-                "Email.authenticate error\n"\
-                "error '%r'\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
@@ -658,8 +643,8 @@ class Email:
 
         try:
             q = Q(userdata__event=ae, is_active=True)
-            if 'email' in req:
-                q = q & Q(email=email)
+            if 'tlf' in req:
+                q = q & Q(userdata__tlf=tlf)
             elif not settings.MAKE_LOGIN_KEY_PRIVATE:
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
@@ -667,20 +652,20 @@ class Email:
             u = User.objects.get(q)
         except:
             LOGGER.error(\
-                "Email.authenticate error\n"\
-                "user not found with these characteristics: email '%r'\n"\
+                "SmsOtp.authenticate error\n"\
+                "user not found with these characteristics: tlf '%r'\n"\
                 "authevent '%r'\n"\
                 "is_active True\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                email, ae, req, stack_trace_str())
+                tlf, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         successful_logins_count = u.userdata.successful_logins.filter(is_active=True).count()
         if (ae.num_successful_logins_allowed > 0 and
             successful_logins_count >= ae.num_successful_logins_allowed):
             LOGGER.error(\
-                "Email.authenticate error\n"\
+                "SmsOtp.authenticate error\n"\
                 "Maximum number of revotes already reached for user '%r'\n"\
                 "revotes for user '%r'\n"\
                 "maximum allowed '%r'\n"\
@@ -693,19 +678,45 @@ class Email:
                 ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        code = Code.objects.filter(user=u.userdata,
-                code=req.get('code').upper()).order_by('-created').first()
-        if not code:
+        code = Code.objects.filter(
+            user=u.userdata,
+            created__gt=datetime.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
+            ).order_by('-created').first()
+        if not code:       
             LOGGER.error(\
-                "Email.authenticate error\n"\
+                "SmsOtp.authenticate error\n"\
                 "Code not found on db for user '%r'\n"\
-                "and code '%r'\n"\
+                "and time between now and '%r' seconds earlier\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
                 u.userdata,\
-                req.get('code').upper(),\
+                settings.SMS_OTP_EXPIRE_SECONDS,\
                 ae, req, stack_trace_str())
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+          
+        if not constant_time_compare(req.get('code').upper(), code.code):  
+            LOGGER.error(\
+                "SmsOtp.authenticate error\n"\
+                "Code mismatch for user '%r'\n"\
+                "Code received '%r'\n"\
+                "and latest code in the db for the user '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                u.userdata, req.get('code').upper(), code.code, ae, req,\
+                stack_trace_str())
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+
+        msg = check_metadata(req, u)
+        if msg:
+            LOGGER.error(\
+                "SmsOtp.authenticate error\n"\
+                "Metadata error '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         user_logged_in.send(sender=u.__class__, request=request, user=u)
@@ -721,7 +732,7 @@ class Email:
             data['redirect-to-url'] = auth_action['mode-config']['url']
 
         LOGGER.debug(\
-            "Email.authenticate success\n"\
+            "SmsOtp.authenticate success\n"\
             "returns '%r'\n"\
             "authevent '%r'\n"\
             "request '%r'\n"\
@@ -733,43 +744,45 @@ class Email:
         req = json.loads(request.body.decode('utf-8'))
 
         msg = ''
-        email = req.get('email')
-        if isinstance(email, str):
-            email = email.strip()
-            email = email.replace(" ", "")
-        msg += check_field_type(self.email_definition, email)
-        msg += check_field_value(self.email_definition, email)
+        if req.get('tlf'):
+            req['tlf'] = get_cannonical_tlf(req.get('tlf'))
+        tlf = req.get('tlf')
+        if isinstance(tlf, str):
+            tlf = tlf.strip()
+        msg += check_field_type(self.tlf_definition, tlf, 'authenticate')
+        msg += check_field_value(self.tlf_definition, tlf, 'authenticate')
         if msg:
             LOGGER.error(\
-                "Email.resend_auth_code error\n"\
+                "SmsOtp.resend_auth_code error\n"\
                 "error '%r'\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
                 msg, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
+
         try:
-            u = User.objects.get(email=email, userdata__event=ae, is_active=True)
+            u = User.objects.get(userdata__tlf=tlf, userdata__event=ae, is_active=True)
         except:
             LOGGER.error(\
-                "Email.resend_auth_code error\n"\
-                "user not found with these characteristics: email '%r'\n"\
+                "SmsOtp.resend_auth_code error\n"\
+                "user not found with these characteristics: tlf '%r'\n"\
                 "authevent '%r'\n"\
                 "is_active True"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                email, ae, req, stack_trace_str())
+                tlf, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_pipeline(
           request,
           ae,
           'resend-auth-pipeline',
-          Email.PIPELINES['resend-auth-pipeline'])
+          SmsOtp.PIPELINES['resend-auth-pipeline'])
 
         if msg:
             LOGGER.error(\
-                "Email.resend_auth_code error\n"\
+                "SmsOtp.resend_auth_code error\n"\
                 "check_pipeline error '%r'\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
@@ -777,16 +790,26 @@ class Email:
                 msg, ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        send_codes.apply_async(args=[[u.id,], get_client_ip(request),'email'])
+        result = plugins.call("extend_send_sms", ae, 1)
+        if result:
+            LOGGER.error(\
+                "SmsOtp.resend_auth_code error\n"\
+                "extend_send_sms plugin error\n"\
+                "Error '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                result, ae, req, stack_trace_str())
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+        send_codes.apply_async(args=[[u.id,], get_client_ip(request),'sms'])
         LOGGER.info(\
-            "Email.resend_auth_code.\n"\
-            "Sending (email) codes to user id '%r'\n"\
+            "SmsOtp.resend_auth_code.\n"\
+            "Sending (sms) codes to user id '%r'\n"\
             "client ip '%r'\n"\
             "authevent '%r'\n"\
             "request '%r'\n"\
             "Stack trace: \n%s",\
             u.id, get_client_ip(request), ae, req, stack_trace_str())
         return {'status': 'ok', 'user': u}
-        
 
-register_method('email', Email)
+register_method('sms-otp', SmsOtp)

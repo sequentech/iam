@@ -24,6 +24,8 @@ import time
 import six
 import re
 from logging import getLogger
+import inspect
+import traceback
 
 from djcelery import celery
 from django.core.validators import URLValidator
@@ -41,12 +43,20 @@ from random import choice
 from pipelines import PipeReturnvalue
 from pipelines.base import check_pipeline_conf
 from contracts import CheckException, JSONContractEncoder
+from time import sleep
+import plugins
 
-RE_SPLIT_FILTER = re.compile('(__lt|__gt|__equals)')
+RE_SPLIT_FILTER = re.compile('(__lt|__gt|__equals|__in)')
 RE_SPLIT_SORT = re.compile('__sort')
 RE_INT = re.compile('^\d+$')
 RE_BOOL = re.compile('^(true|false)$')
 LOGGER = getLogger('authapi.notify')
+
+
+def stack_trace_str():
+  frame = inspect.currentframe()
+  stack_trace = traceback.format_stack(frame)
+  return "\n".join(stack_trace[:-1])
 
 @unique
 class ErrorCodes(IntEnum):
@@ -57,6 +67,9 @@ class ErrorCodes(IntEnum):
     GENERAL_ERROR = 5
     MAX_CONNECTION = 6
     BLACKLIST = 7
+
+def reproducible_json_dumps(s):
+    return json.dumps(s, indent=4, ensure_ascii=False, sort_keys=True, separators=(',', ': '))
 
 def parse_json_request(request):
     '''
@@ -120,6 +133,8 @@ def paginate(request, queryset, serialize_method=None, elements_name='elements')
 
     try:
         pageindex = int(index)
+        if pageindex < 1:
+            pageindex = 1
     except:
         pageindex = 1
 
@@ -279,6 +294,7 @@ def send_sms_code(receiver, msg):
         LOGGER.info('SMS sent: \n%s: %s', receiver, msg)
     except Exception as error:
         LOGGER.error('SMS NOT sent: \n%s: %s, error message %s', receiver, msg, str(error.args))
+        LOGGER.error(error)
 
 def template_replace_data(templ, data):
     '''
@@ -315,7 +331,7 @@ def send_code(user, ip, config=None, auth_method_override=None):
     event_id = user.userdata.event.id
 
     # if blank tlf or email
-    if auth_method == "sms" and not user.userdata.tlf:
+    if auth_method in ["sms", "sms-otp"] and not user.userdata.tlf:
         return
     elif auth_method == "email" and not user.email:
         return
@@ -334,10 +350,15 @@ def send_code(user, ip, config=None, auth_method_override=None):
         code = generate_code(user.userdata)
 
     default_receiver_account = user.email
-    if "sms" == user.userdata.event.auth_method:
+    if user.userdata.event.auth_method in ["sms", "sms-otp"]:
         default_receiver_account = user.userdata.tlf
 
-    if "sms" == auth_method:
+    base_home_url = settings.HOME_URL
+    home_url = template_replace_data(
+      base_home_url,
+      dict(event_id=event_id))
+
+    if auth_method in ["sms", "sms-otp"]:
         receiver = user.userdata.tlf
         base_auth_url = settings.SMS_AUTH_CODE_URL
     else:
@@ -355,17 +376,18 @@ def send_code(user, ip, config=None, auth_method_override=None):
 
     # base_msg is the base template, allows the authapi superadmin to configure
     # a prefix or suffix to all messages
-    if auth_method == "sms":
+    if auth_method in ["sms", "sms-otp"]:
         base_msg = settings.SMS_BASE_TEMPLATE
     else:
         # email
         base_msg = settings.EMAIL_BASE_TEMPLATE
+        base_title = settings.EMAIL_BASE_TITLE_TEMPLATE
 
     # url with authentication code
     if needs_code:
         url2 = url + '/' + code
 
-    template_dict = dict(event_id=event_id, url=url)
+    template_dict = dict(event_id=event_id, url=url, home_url=home_url)
     if needs_code:
         template_dict['code'] = format_code(code)
         template_dict['url2'] = url2
@@ -376,23 +398,21 @@ def send_code(user, ip, config=None, auth_method_override=None):
                 template_dict[field['slug']] = user.userdata.metadata[field['name']]
 
     # replace fields on subject and message
-    if subject:
-        subject = template_replace_data(
-          subject,
-          template_dict)
+    if subject and "sms" != auth_method:
+        raw_title = template_replace_data(base_title, dict(title=subject))
+        subject = template_replace_data(raw_title, template_dict)
+
     # msg is the message sent by the user
-    raw_msg = template_replace_data(
-      msg,
-      template_dict)
-    msg = template_replace_data(base_msg, dict(message=raw_msg))
+    raw_msg = template_replace_data(base_msg, dict(message=msg))
+    msg = template_replace_data(raw_msg, template_dict)
 
     code_msg = {'subject': subject, 'msg': msg}
     cm = MsgLog(authevent_id=event_id, receiver=receiver, msg=code_msg)
     cm.save()
 
-    if auth_method == "sms":
+    if auth_method in ["sms", "sms-otp"]:
         send_sms_code(receiver, msg)
-        m = Message(tlf=receiver, ip=ip, auth_event_id=event_id)
+        m = Message(tlf=receiver, ip=ip[:15], auth_event_id=event_id)
         m.save()
     else: # email
         # TODO: Allow HTML messages for emails
@@ -440,11 +460,33 @@ def get_client_ip(request):
 
 
 @celery.task
-def send_codes(users, ip, auth_method, config=None):
+def send_codes(users, ip, auth_method, config=None, sender_uid=None, eid=None):
+    from api.models import Action, AuthEvent
+
+    # delay between send code calls
+    delay = 0
+    extend_info = plugins.call("extend_send_codes")
+    if extend_info:
+        for info in extend_info:
+             delay = info
+
+
+    sender = User.objects.get(pk=sender_uid) if sender_uid else None
+    auth_event = AuthEvent.objects.get(pk=eid) if eid else None
+
     ''' Massive send_code with celery task.  '''
     user_objs = User.objects.filter(id__in=users)
     for user in user_objs:
+        action = Action(
+                executer=sender,
+                receiver=user,
+                action_name='user:send-auth',
+                event=auth_event,
+                metadata=dict())
+        action.save()
         send_code(user, ip, config, auth_method)
+        if delay > 0:
+            sleep(delay)
 
 
 # CHECKERS AUTHEVENT
@@ -453,24 +495,44 @@ VALID_FIELDS = (
   'help',
   'type',
   'required',
+  'autofill',
   'regex',
   'min',
   'max',
   'required_on_authentication',
   'unique',
   'private',
+  'required_when_registered',
+  'user_editable',
   'register-pipeline',
   'authenticate-pipeline',
+
   # match_census_on_registration can be True or False. It is used for
   # pre-registration. If true, when the user registers, this field is used for
   # whitelisting: the user will only succeed registering if there is already a
   # pre-registered user in the census that matches all the 
   # 'match_census_on_registration':True fields.
   'match_census_on_registration',
+
   # fill_if_empty_on_registration can be True or False. It is used for
   # pre-registration. If the pre-registered user on the census has this field
   # empty, then when the user will be able to set its value upon registration.
-  'fill_if_empty_on_registration')
+  'fill_if_empty_on_registration',
+
+  # userid_field can be True or False. It is used to generate the username, used
+  # to generate the hmac authentication token. If any field on the authevent
+  # is marked with userid_field as True, the username won't be generated
+  # randomly as it done usually, but instead it will be generated by:
+  #
+  # 1. Concatenating all the data from the userid_fields (in order of
+  # appeareance of the fields in ae.extra_fields)
+  # 2. Adding the shared_secret (field1:field2:field3...:shared_secret)
+  # separated with the colon character: ':'
+  # 3. The username will be the sha256 hash of the above
+  #
+  # Note that if a field is marked as userid_field, it should always have a
+  # valid convertable-to-string value.
+  'userid_field')
 REQUIRED_FIELDS = ('name', 'type', 'required_on_authentication')
 VALID_PIPELINES = (
     'check_whitelisted',
@@ -479,7 +541,9 @@ VALID_PIPELINES = (
     'check_total_connection',
     )
 VALID_TYPE_FIELDS = ('text', 'password', 'int', 'bool', 'regex', 'email', 'tlf',
-        'captcha', 'textarea', 'dni', 'dict', 'image')
+        'captcha', 'textarea', 'dni', 'dict', 'image', 'date')
+REQUIRED_ADMIN_FIELDS = ('name', 'type')
+VALID_ADMIN_FIELDS = VALID_FIELDS + ('description', 'label', 'step', 'value', 'placeholder')
 
 def check_authmethod(method):
     """ Check if method exists in method list. """
@@ -583,7 +647,7 @@ def check_fields(key, value):
     elif key == 'type':
         if not value in VALID_TYPE_FIELDS:
             msg += "Invalid extra_fields: bad %s.\n" % key
-    elif key in ('required', 'required_on_authentication', 'unique'):
+    elif key in ('required', 'required_on_authentication', 'unique', 'userid_field'):
         if not isinstance(value, bool):
             msg += "Invalid extra_fields: bad %s.\n" % key
     elif key == 'regex':
@@ -633,6 +697,34 @@ def check_extra_fields(fields, used_type_fields=[]):
                 msg += check_fields(key, field.get(key))
             else:
                 msg += "Invalid extra_field: %s not possible.\n" % key
+    return msg
+
+def check_admin_field(key, value):
+    """ Check fields in admin_field when create auth-event. """
+    msg = ''
+    return msg
+
+def check_admin_fields(fields, used_type_fields=[]):
+    """ Check extra_fields when create auth-event. """
+    msg = ''
+    if fields is None:
+       return msg
+    if len(fields) > settings.MAX_ADMIN_FIELDS:
+        return "Maximum number of fields reached\n"
+    # create a copy of the list to not modify it
+    used_fields = used_type_fields[:]
+    for field in fields:
+        if field.get('name') in used_fields:
+            msg += "Two admin fields with same name: %s.\n" % field.get('name')
+        used_fields.append(field.get('name'))
+        for required in REQUIRED_ADMIN_FIELDS:
+            if not required in field.keys():
+                msg += "Required field %s.\n" % required
+        for key in field.keys():
+            if key in VALID_ADMIN_FIELDS:
+                msg += check_admin_field(key, field.get(key))
+            else:
+                msg += "Invalid admin_field: %s not possible.\n" % key
     return msg
 
 
@@ -750,6 +842,12 @@ def filter_query(filters, query, constraints, prefix, contraints_policy="ignore_
             except ValueError as e:
                 return apply_contraint_policy('invalid_filter')
 
+        elif filter_key[val_key] == "StringList":
+            try:
+                assert(isinstance(filter_val['value'], str))
+            except ValueError as e:
+                return apply_contraint_policy('invalid_filter')
+
         return True
 
     def check_sort(sort_val):
@@ -770,7 +868,9 @@ def filter_query(filters, query, constraints, prefix, contraints_policy="ignore_
         given a filter value, gets the pair of (key, value) needed to create
         the dict that will be used for filtering the query
         '''
-        if filter_val['full'].endswith('__equals'):
+        if filter_val['full'].endswith('__in'):
+            filter_val['value'] = filter_val['value'].split("|")
+        elif filter_val['full'].endswith('__equals'):
             filter_val['full'] = filter_val['full'][:-len('__equals')]
 
         return (filter_val['full'],filter_val['value'])
@@ -806,6 +906,8 @@ def filter_query(filters, query, constraints, prefix, contraints_policy="ignore_
         else:
             sort_str = '-' + sort_el['key']
         ret_query = ret_query.order_by(sort_str)
+    elif 'default_ordery_by' in constraints:
+        ret_query = ret_query.order_by(constraints['default_ordery_by'])
 
     return ret_query
 

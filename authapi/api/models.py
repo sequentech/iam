@@ -26,6 +26,7 @@ from django.db.models.signals import post_save
 from django.db.models import Q
 from django.conf import settings
 from utils import genhmac
+from django.utils import timezone
 
 CENSUS = (
     ('close', 'Close census'),
@@ -53,7 +54,9 @@ class AuthEvent(models.Model):
     extra_fields = JSONField(blank=True, null=True)
     status = models.CharField(max_length=15, choices=AE_STATUSES, default="notstarted")
     created = models.DateTimeField(auto_now_add=True)
-    real = models.BooleanField(default=False)
+    admin_fields = JSONField(blank=True, null=True)
+    has_ballot_boxes = models.BooleanField(default=True)
+    allow_public_census_query = models.BooleanField(default=True)
 
     # 0 means any number of logins is allowed
     num_successful_logins_allowed = models.IntegerField(
@@ -63,6 +66,13 @@ class AuthEvent(models.Model):
         ]
     )
     based_in = models.IntegerField(null=True) # auth_event_id
+
+    # will return true if allow_user_resend is defined and it's True,
+    # false otherwise
+    def check_allow_user_resend(self):
+       return isinstance(self.auth_method_config, dict) and\
+           isinstance(self.auth_method_config.get('config', None), dict) and\
+           True == self.auth_method_config['config'].get('allow_user_resend', None)
 
     def serialize(self, restrict=False):
         '''
@@ -78,12 +88,18 @@ class AuthEvent(models.Model):
             'auth_method': self.auth_method,
             'census': self.census,
             'users': self.len_census(),
+            'has_ballot_boxes': self.has_ballot_boxes,
+            'allow_public_census_query': self.allow_public_census_query,
             'created': (self.created.isoformat()
                         if hasattr(self.created, 'isoformat')
                         else self.created),
-            'real': self.real,
             'based_in': self.based_in,
-            'num_successful_logins_allowed': self.num_successful_logins_allowed
+            'num_successful_logins_allowed': self.num_successful_logins_allowed,
+            'auth_method_config': {
+               'config': {
+                 'allow_user_resend': self.check_allow_user_resend()
+               }
+            }
         }
 
         def none_list(e):
@@ -96,15 +112,21 @@ class AuthEvent(models.Model):
                 'extra_fields': [
                     f for f in none_list(self.extra_fields)
                         if not f.get('private', False)
+                ],
+                'admin_fields': [
+                    f for f in none_list(self.admin_fields)
+                        if not f.get('private', True)
                 ]
             })
+
         else:
             d.update({
                 'extra_fields': self.extra_fields,
                 'auth_method_config': self.auth_method_config,
                 'auth_method_stats': {
                     self.auth_method: Code.objects.filter(auth_event_id=self.id).count()
-                }
+                },
+                'admin_fields': self.admin_fields,
             })
 
         return d
@@ -124,7 +146,7 @@ class AuthEvent(models.Model):
             object_type='AuthEvent',
             perm='vote',
             object_id=self.id)
-     
+
     def get_owners(self):
         '''
         Returns the list of people that can edit this event
@@ -136,6 +158,18 @@ class AuthEvent(models.Model):
 
     def len_census(self):
         return self.get_census_query().count()
+
+    def autofill_fields(self, from_user=None, to_user=None):
+        if not from_user or not to_user:
+            return
+
+        extra_fields = self.extra_fields or []
+        fields = [i for i in extra_fields if i.get("autofill", False)]
+        for afield in fields:
+            name = afield["name"]
+            value = from_user.userdata.metadata.get(name, "NOT SET")
+            to_user.userdata.metadata[name] = value
+        to_user.userdata.save()
 
     def __str__(self):
         return "%s - %s" % (self.id, self.census)
@@ -160,8 +194,9 @@ class UserData(models.Model):
     user = models.OneToOneField(User, related_name="userdata")
     event = models.ForeignKey(AuthEvent, related_name="userdata", null=True)
     tlf = models.CharField(max_length=20, blank=True, null=True)
-    metadata = fields.JSONField(default=dict(), blank=True, null=True, db_index=True)
+    metadata = fields.JSONField(default=dict(), blank=True, null=True)
     status = models.CharField(max_length=255, choices=STATUSES, default="act", db_index=True)
+    draft_election = fields.JSONField(default=dict(), blank=True, null=True, db_index=False)
 
     def get_perms(self, obj, permission, object_id=0):
         q = Q(object_type=obj, perm=permission)
@@ -174,6 +209,19 @@ class UserData(models.Model):
     def has_perms(self, obj, permission, object_id=0):
         return bool(self.get_perms(obj, permission, object_id).count())
 
+    def serialize_draft(self):
+        d = {}
+        if self.draft_election:
+            if type(self.draft_election) == str:
+                draft_election = json.loads(self.draft_election)
+                if type(draft_election) == str:
+                    draft_election = json.loads(draft_election)
+            else:
+                draft_election = self.draft_election
+            d.update(draft_election)
+        return d
+
+
     def serialize(self):
         d = {
             'username': self.user.username,
@@ -185,9 +233,22 @@ class UserData(models.Model):
             d['tlf'] = self.tlf
         return d
 
+    def serialize_metadata(self):
+        d = {}
+        if self.metadata:
+            if type(self.metadata) == str:
+                metadata = json.loads(self.metadata)
+                if type(metadata) == str:
+                    metadata = json.loads(metadata)
+            else:
+                metadata = self.metadata
+            d.update(metadata)
+        return d
+
     def serialize_data(self):
         d = self.serialize()
-        del d['username']
+        if not self.event.auth_method == 'user-and-password':
+            del d['username']
         if self.metadata:
             if type(self.metadata) == str:
                 metadata = json.loads(self.metadata)
@@ -207,6 +268,79 @@ def create_user_data(sender, instance, created, *args, **kwargs):
     ud.save()
 
 
+# List of allowed actions used as only valid values for the Action model
+# action_name column
+ALLOWED_ACTIONS = (
+    ('authevent:create', 'authevent:create'),
+    ('authevent:callback', 'authevent:callback'),
+    ('authevent:edit', 'authevent:edit'),
+    ('authevent:start', 'authevent:start'),
+    ('authevent:stop', 'authevent:stop'),
+    ('user:activate', 'user:activate'),
+    ('user:successful-login', 'user:successful-login'),
+    ('user:send-auth', 'user:send-auth'),
+    ('user:deactivate', 'user:deactivate'),
+    ('user:register', 'user:register'),
+    ('user:added-to-census', 'user:added-to-census'),
+    ('user:resend-authcode', 'user:resend-authcode'),
+)
+
+
+class Action(models.Model):
+    '''
+    Registers (potentially) any action performed by an user for traceability
+    and transparency.
+    '''
+
+    # user that executed the action
+    executer = models.ForeignKey(User, related_name="executed_actions",
+        db_index=True, null=True)
+
+    # date at which the action was executed
+    created = models.DateTimeField(default=timezone.now, db_index=True)
+
+    # name of the action executed
+    action_name = models.CharField(max_length=255, db_index=True,
+        choices=ALLOWED_ACTIONS)
+
+    # event related to the action
+    event = models.ForeignKey(AuthEvent, related_name="related_actions",
+        null=True, db_index=True)
+
+    # user onto which the action was executed
+    receiver = models.ForeignKey(User, related_name="received_actions",
+        db_index=True, null=True)
+
+    # any other relevant information, which varies depending on the action
+    metadata = fields.JSONField(default=dict())
+
+    def serialize(self):
+        d = {
+            'id': self.id,
+            'executer_id': self.executer.id,
+            'executer_username': self.executer.username,
+            'executer_email': self.executer.email,
+            'receiver_id': self.receiver.id if self.receiver else None,
+            'receiver_username': (
+                self.receiver.username if self.receiver else None
+            ),
+            'receiver_email': (
+                self.receiver.email if self.receiver else None
+            ),
+            'action_name': self.action_name,
+            'created': (
+                self.created.isoformat()
+                if hasattr(self.created, 'isoformat')
+                else self.created
+            ),
+            'event_id': self.event.id if self.event else None,
+            'metadata': self.metadata
+        }
+        return d
+
+    def __str__(self):
+        return "%s - %s - %s" % (self.receiver.username, self.action_name, self.created)
+
 class ACL(models.Model):
     '''
     The permission model is based in Access Control Lists, and this data model
@@ -221,7 +355,7 @@ class ACL(models.Model):
     perm = models.CharField(max_length=255)
     object_type = models.CharField(max_length=255, blank=True, null=True)
     object_id = models.CharField(max_length=255, default=0)
-    created = models.DateTimeField(auto_now_add=True)
+    created = models.DateTimeField(default=timezone.now)
 
     def serialize(self):
         d = {
@@ -247,9 +381,73 @@ class SuccessfulLogin(models.Model):
     usually triggered by a explicit call to /authevent/<ID>/successful_login
     '''
     user = models.ForeignKey(UserData, related_name="successful_logins")
-    created = models.DateTimeField(auto_now_add=True)
+    created = models.DateTimeField(default=timezone.now)
     # when counting the number of successful logins, only active ones count
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return "%d: %s - %s" % (self.id, self.user.user.username, str(self.created))
+
+class BallotBox(models.Model):
+    '''
+    Registers the list of ballot boxes related to a ballot box auth_event
+    '''
+    auth_event = models.ForeignKey(AuthEvent, related_name="ballot_boxes")
+    name = models.CharField(max_length=255, db_index=True)
+    created = models.DateTimeField(default=timezone.now, db_index=True)
+
+    def __str__(self):
+        return "%d: %s - %d - %s" % (
+            self.id,
+            self.name,
+            self.auth_event.id,
+            str(self.created)
+        )
+
+    class Meta:
+        unique_together = (
+            ("auth_event", "name"),
+        )
+
+
+class TallySheet(models.Model):
+    '''
+    Each tally sheet related to a ballot box can be registered here
+    '''
+    # related ballot box
+    ballot_box = models.ForeignKey(BallotBox, related_name="tally_sheets")
+
+    # date at which the tally sheet was created
+    created = models.DateTimeField(default=timezone.now, db_index=True)
+
+    # person who registered this tally sheet
+    creator = models.ForeignKey(User, related_name="created_tally_sheets",
+        db_index=True, null=False)
+
+    # json data of the tally sheet. for now it only supports simple plurality
+    # elections. The format is like in this example:
+    #
+    # data = dict(
+    #     num_votes=222,
+    #     questions=[
+    #         dict(
+    #             title="Do you want Foo Bar to be president?",
+    #             blank_votes=1,
+    #             null_votes=1,
+    #             tally_type="plurality-at-large",
+    #             answers=[
+    #               dict(text="Yes", num_votes=200),
+    #               dict(text="No", num_votes=120)
+    #             ]
+    #         )
+    #     ]
+    # )
+    data = JSONField()
+
+    def __str__(self):
+        return "%d: %s - %d - %s" % (
+            self.id,
+            self.ballot_box.name,
+            self.ballot_box.auth_event.id,
+            str(self.created)
+        )

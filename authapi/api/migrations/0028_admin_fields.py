@@ -1,5 +1,5 @@
 # This file is part of authapi.
-# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+# Copyright (C) 2014-2017  Agora Voting SL <agora@agoravoting.com>
 
 # authapi is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -16,19 +16,20 @@
 from __future__ import unicode_literals
 
 from django.db import migrations, models
-from django.contrib.postgres.fields import JSONField
+import jsonfield.fields
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0025_add_userdata_indexes'),
+        ('api', '0027_successful_login'),
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='userdata',
-            name='metadata',
-            field=JSONField(blank=True, db_index=False, default='{}', null=True),
+        migrations.AddField(
+            model_name='authevent',
+            name='admin_fields',
+            field=jsonfield.fields.JSONField(blank=True, db_index=True, default=[], max_length=4096, null=True),
+            preserve_default=True,
         )
     ]
