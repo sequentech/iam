@@ -561,15 +561,14 @@ def edit_user(user, req, ae):
     elif ae.auth_method == 'email-and-password':
         req.pop('email')
         req.pop('password')
-    elif ae.auth_method == 'email':
+
+    if req.get('email'):
         user.email = req.get('email')
         req.pop('email')
-    elif ae.auth_method in ['sms', 'sms-otp']:
-        if req['tlf']:
-            user.userdata.tlf = get_cannonical_tlf(req['tlf'])
-        else:
-            user.userdata.tlf = req['tlf']
+    elif req.get('tlf'):
+        user.userdata.tlf = get_cannonical_tlf(req['tlf'])
         req.pop('tlf')
+
     if ae.extra_fields:
         for extra in ae.extra_fields:
             if extra.get('type') == 'email':
