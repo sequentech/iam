@@ -47,7 +47,7 @@ class SmsOtp:
             'mode': 'vote',
             'mode-config': None,
         },
-        'allow_user_resend': False
+        'allow_user_resend': True
     }
     PIPELINES = {
         'give_perms': [
