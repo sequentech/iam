@@ -962,9 +962,17 @@ class Activity(View):
 
         # the global event activity list requires a different permission
         if receiver_id is None:
-            permission_required(request.user, 'AuthEvent', ['event-view-activity'], pk)
+            permission_required(
+                request.user,
+                'AuthEvent',
+                ['event-view-activity', 'edit', 'view'],
+                pk)
         else:
-            permission_required(request.user, 'AuthEvent', ['event-view-activity', 'event-receiver-view-activity'], pk)
+            permission_required(
+                request.user,
+                'AuthEvent',
+                ['event-view-activity', 'event-receiver-view-activity', 'edit', 'view'],
+                pk)
 
         # validate input
         try:
