@@ -653,7 +653,7 @@ def get_trimmed_user(user, ae):
     if user.email:
         metadata['email'] = user.email
     if user.userdata.tlf:
-        metadata['tlf'] = user.metadata.tlf
+        metadata['tlf'] = user.userdata.tlf
 
     metadata['_username'] = user.username
     metadata['_id'] = user.id
