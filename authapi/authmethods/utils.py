@@ -565,7 +565,7 @@ def edit_user(user, req, ae):
     if req.get('email'):
         user.email = req.get('email')
         req.pop('email')
-    elif req.get('tlf'):
+    if req.get('tlf'):
         user.userdata.tlf = get_cannonical_tlf(req['tlf'])
         req.pop('tlf')
 
@@ -579,7 +579,6 @@ def edit_user(user, req, ae):
                     user.userdata.tlf = get_cannonical_tlf(req[extra.get('name')])
                 else:
                     user.userdata.tlf = req[extra.get('name')]
-                req.pop(extra.get('name'))
             elif extra.get('type') == 'password':
                 user.set_password(req.get(extra.get('name')))
                 req.pop(extra.get('name'))
