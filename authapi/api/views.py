@@ -299,7 +299,7 @@ class CensusDelete(View):
                 receiver=None,
                 action_name='user:deleted-from-census',
                 event=ae,
-                metadata=get_trimmed_user(u))
+                metadata=get_trimmed_user(u, ae))
             action.save()
 
             for acl in u.userdata.acls.all():

@@ -622,7 +622,7 @@ def generate_username(req, ae):
     userid_fields.append(settings.SHARED_SECRET.decode("utf-8"))
     return hashlib.sha256(":".join(userid_fields).encode('utf-8')).hexdigest()
 
-def get_trimmed_user_req(req):
+def get_trimmed_user_req(req, ae):
     '''
     Returns the request without images or passwords, used to log the action when
     adding someone to census
@@ -638,7 +638,7 @@ def get_trimmed_user_req(req):
 
     return metadata
 
-def get_trimmed_user(user):
+def get_trimmed_user(user, ae):
     '''
     Returns the request without images or passwords, used to log the action
     when deleting someone from census
@@ -682,7 +682,7 @@ def create_user(req, ae, active, creator, user=None, password=None):
         receiver=u,
         action_name='user:register' if is_anon else 'user:added-to-census',
         event=ae,
-        metadata=get_trimmed_user_req(req))
+        metadata=get_trimmed_user_req(req, ae))
     action.save()
 
     return edit_user(u, req, ae)
