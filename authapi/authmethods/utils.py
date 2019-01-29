@@ -622,6 +622,45 @@ def generate_username(req, ae):
     userid_fields.append(settings.SHARED_SECRET.decode("utf-8"))
     return hashlib.sha256(":".join(userid_fields).encode('utf-8')).hexdigest()
 
+def get_trimmed_user_req(req):
+    '''
+    Returns the request without images or passwords, used to log the action when
+    adding someone to census
+    '''
+    metadata = req.copy()
+    if 'password' in metadata:
+        metadata.pop('password')
+
+    if ae.extra_fields:
+        for extra in ae.extra_fields:
+            if extra.get('type') in ['password', 'image']:
+                metadata.pop(extra.get('name'))
+
+    return metadata
+
+def get_trimmed_user(user):
+    '''
+    Returns the request without images or passwords, used to log the action
+    when deleting someone from census
+    '''
+    metadata = user.userdata.metadata.copy()
+
+    if ae.extra_fields:
+        for extra in ae.extra_fields:
+            if extra.get('type') in ['password', 'image']:
+                metadata.pop(extra.get('name'))
+
+    if user.email:
+        metadata['email'] = user.email
+    if user.userdata.tlf:
+        metadata['tlf'] = user.metadata.tlf
+
+    metadata['_username'] = user.username
+    metadata['_id'] = user.id
+
+    return metadata
+
+
 def create_user(req, ae, active, creator, user=None, password=None):
     from api.models import Action
     if not user:
@@ -643,7 +682,7 @@ def create_user(req, ae, active, creator, user=None, password=None):
         receiver=u,
         action_name='user:register' if is_anon else 'user:added-to-census',
         event=ae,
-        metadata=dict())
+        metadata=get_trimmed_user_req(req))
     action.save()
 
     return edit_user(u, req, ae)

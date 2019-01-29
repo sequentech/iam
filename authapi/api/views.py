@@ -289,9 +289,19 @@ class CensusDelete(View):
         req = parse_json_request(request)
         user_ids = req.get('user-ids', [])
         check_contract(CONTRACTS['list_of_ints'], user_ids)
+        from authmethods.utils import get_trimmed_user
 
         for uid in user_ids:
             u = get_object_or_404(User, pk=uid, userdata__event=ae)
+
+            action = Action(
+                executer=request.user,
+                receiver=None,
+                action_name='user:deleted-from-census',
+                event=ae,
+                metadata=get_trimmed_user(u))
+            action.save()
+
             for acl in u.userdata.acls.all():
                 acl.delete()
             u.delete()
