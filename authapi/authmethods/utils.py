@@ -571,14 +571,12 @@ def edit_user(user, req, ae):
 
     if ae.extra_fields:
         for extra in ae.extra_fields:
-            if extra.get('type') == 'email':
+            if extra.get('type') == 'email' and req.get(extra.get('name')):
                 user.email = req.get(extra.get('name'))
                 req.pop(extra.get('name'))
-            elif extra.get('type') == 'tlf':
-                if req[extra.get('name')]:
-                    user.userdata.tlf = get_cannonical_tlf(req[extra.get('name')])
-                else:
-                    user.userdata.tlf = req[extra.get('name')]
+            elif extra.get('type') == 'tlf' and req.get(extra.get('name')):
+                user.userdata.tlf = get_cannonical_tlf(req[extra.get('name')])
+                req.pop(extra.get('name'))
             elif extra.get('type') == 'password':
                 user.set_password(req.get(extra.get('name')))
                 req.pop(extra.get('name'))
