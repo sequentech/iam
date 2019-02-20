@@ -651,6 +651,8 @@ class CallbackView(View):
             event=ae)
         action.save()
 
+        plugins.call("extend_callback", request, ae, get_client_ip(request))
+
         return json_response({}, status=200)
 
 callback = CallbackView.as_view()
