@@ -299,7 +299,7 @@ def encode_dni(dni):
     '''
     if DNI_RE.match(dni):
       return "DNI" + dni
-    elif dni.startswith("PASS"):
+    elif dni.startswith("PASS") or dni.startswith("DNI"):
       return dni
     else:
       return "PASS" + dni
