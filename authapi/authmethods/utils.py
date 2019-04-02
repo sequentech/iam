@@ -299,8 +299,6 @@ def encode_dni(dni):
     '''
     if DNI_RE.match(dni):
       return "DNI" + dni
-    else:
-      return "PASS" + dni
 
 def dni_constraint(val):
     ''' check that the input is a valid dni '''
