@@ -299,6 +299,10 @@ def encode_dni(dni):
     '''
     if DNI_RE.match(dni):
       return "DNI" + dni
+    elif val.startswith("PASS"):
+      return dni
+    else:
+      return "PASS" + dni
 
 def dni_constraint(val):
     ''' check that the input is a valid dni '''
@@ -307,7 +311,7 @@ def dni_constraint(val):
 
     # Allow Passports
     if val.startswith("PASS") and len(val) < 30:
-        return True
+        return False
 
     # remove the "DNI" prefix
     val = val[3:]
