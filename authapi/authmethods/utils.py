@@ -287,7 +287,7 @@ def normalize_dni(dni):
     last_char = ""
     dni3 = ""
     for c in dni2:
-      if (last_char is "" or last_char not in '1234567890') and c == '0':
+      if (last_char is "" or last_char not in '1234567890XY') and c == '0':
         continue
       dni3 += c
       last_char = c
@@ -320,9 +320,9 @@ def dni_constraint(val):
         nie_letter = val[0]
         val = val[1:]
         if nie_letter == 'Y':
-            val2 = "1" + val2
+            val = "1" + val
         elif nie_letter == 'Z':
-            val2 = "2" + val2
+            val = "2" + val
 
     mod_letters = 'TRWAGMYFPDXBNJZSQVHLCKE'
     digits = val[:-1]
