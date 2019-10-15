@@ -1042,3 +1042,19 @@ census_date_field_nok = {
         {"email": "a5@aaa.com", "date of birth": "2018-02-31"},
     ]
 }
+
+authmethod_config_openid_connect_default = {
+        "config": {},
+        "pipeline": {
+            'give_perms': [
+                {'object_type': 'UserData', 'perms': ['edit',], 'object_id': 'UserDataId' },
+                {'object_type': 'AuthEvent', 'perms': ['vote',], 'object_id': 'AuthEventId' }
+            ],
+            "register-pipeline": [
+                ["check_whitelisted", {"field": "ip"}],
+                ["check_blacklisted", {"field": "ip"}],
+                ["check_total_max", {"field": "ip", "max": pipe_total_max_ip}],
+            ],
+            "authenticate-pipeline": []
+        }
+}

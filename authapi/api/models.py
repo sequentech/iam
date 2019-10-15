@@ -99,7 +99,11 @@ class AuthEvent(models.Model):
                'config': {
                  'allow_user_resend': self.check_allow_user_resend()
                }
-            }
+            },
+            'openid_connect_providers': [
+                provider['public_info']
+                for provider in settings.OPENID_CONNECT_PROVIDERS_CONF
+            ]
         }
 
         def none_list(e):

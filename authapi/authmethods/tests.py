@@ -687,3 +687,52 @@ class ExternalCheckPipelineTestCase(TestCase):
         self.assertEqual(u.is_active, True)
         mdata = u.userdata.metadata
         self.assertEqual(mdata['external_data']['custom'], True)
+
+
+class AuthMethodOpenIDConnectTestCase(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        auth_method_config = test_data.authmethod_config_openid_connect_default
+        ae = AuthEvent(auth_method='openid-connect',
+                auth_method_config=auth_method_config,
+                extra_fields=test_data.auth_event2['extra_fields'],
+                status='started',
+                census=test_data.auth_event2['census'])
+        ae.save()
+        self.aeid = ae.pk
+
+        u = User(username='test1', email='test@test.com')
+        u.save()
+        u.userdata.event = ae
+        u.userdata.tlf = '+34666666666'
+        u.userdata.metadata = { 'dni': 'DNI11111111H' }
+        u.userdata.save()
+        self.u = u.userdata
+        code = Code(user=u.userdata, code='AAAAAAAA', auth_event_id=ae.pk)
+        code.save()
+        m = Message(tlf=u.userdata.tlf, auth_event_id=ae.pk)
+        m.save()
+
+        u2 = User(email='test2@agoravoting.com')
+        u2.is_active = False
+        u2.save()
+        u2.userdata.tlf = '+34766666666'
+        u2.userdata.event = ae
+        u2.userdata.metadata = { 'dni': 'DNI11111111H' }
+        u2.userdata.save()
+        code = Code(user=u2.userdata, code='AAAAAAAA', auth_event_id=ae.pk)
+        code.save()
+        self.c = JClient()
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_method_sms_register(self):
+        data = {'tlf': '+34666666667', 'code': 'AAAAAAAA',
+                    'email': 'test1@test.com', 'dni': '11111111H'}
+        response = self.c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['status'], 'ok')
