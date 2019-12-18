@@ -313,8 +313,10 @@ def template_replace_data(templ, data):
 def send_code(user, ip, config=None, auth_method_override=None):
     '''
     Sends the code for authentication in the related auth event, to the user
-    in a message sent via sms or email, depending on the authentication method
-    of the auth event.
+    in a message sent via sms and/or email, depending on the authentication 
+    method of the auth event and the fields it has. If election authentication
+    method is email-otp but it also has an tlf extra field, it will also send
+    authentication through that method.
 
     The message will be automatically completed with the base message in
     settings.
@@ -333,7 +335,8 @@ def send_code(user, ip, config=None, auth_method_override=None):
     # if blank tlf or email
     if auth_method in ["sms", "sms-otp"] and not user.userdata.tlf:
         return
-    elif auth_method == "email" and not user.email:
+    # else email or email-top
+    elif not user.email:
         return
 
     if config is None:
@@ -414,7 +417,14 @@ def send_code(user, ip, config=None, auth_method_override=None):
         send_sms_code(receiver, msg)
         m = Message(tlf=receiver, ip=ip[:15], auth_event_id=event_id)
         m.save()
-    else: # email
+
+        # also send via email if possible and only if there was no override (to 
+        # remove infinite looping)
+        if user.userdata.event.auth_method in ["sms", "sms-otp"] and\
+            user.email:
+            send_code(user, ip, config, 'email')
+            
+    else: # email or email-otp
         # TODO: Allow HTML messages for emails
         from api.models import ACL
         acl = ACL.objects.filter(object_type='AuthEvent', perm='edit',
@@ -427,6 +437,12 @@ def send_code(user, ip, config=None, auth_method_override=None):
             headers = {'Reply-To': acl.user.user.email}
         )
         send_email(email)
+
+        # also send via sms if possible and only if there was no override (to 
+        # remove infinite looping)
+        if user.userdata.event.auth_method in ["email", "email-otp"] and\
+            user.email:
+            send_code(user, ip, config, 'sms')
 
 
 def send_msg(data, msg, subject=''):

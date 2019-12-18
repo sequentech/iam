@@ -170,7 +170,8 @@ SMS_VOICE_LANG_CODE = ""
 MAX_AUTH_MSG_SIZE = {
   "sms": 120,
   "sms-otp": 120,
-  "email": 10000
+  "email": 10000,
+  "email-otp": 10000
 }
 
 SMS_BASE_TEMPLATE = "__MESSAGE__ -- nVotes"
