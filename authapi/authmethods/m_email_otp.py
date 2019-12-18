@@ -256,7 +256,7 @@ class Email:
         try:
             check_contract(self.CONFIG_CONTRACT, config)
             LOGGER.debug(\
-                "Email.check_config success\n"\
+                "EmailOtp.check_config success\n"\
                 "config '%r'\n"\
                 "returns ''\n"\
                 "Stack trace: \n%s",\
@@ -264,7 +264,7 @@ class Email:
             return ''
         except CheckException as e:
             LOGGER.error(\
-                "Email.check_config error\n"\
+                "EmailOtp.check_config error\n"\
                 "error '%r'\n"\
                 "config '%r'\n"\
                 "Stack trace: \n%s",\
@@ -295,7 +295,7 @@ class Email:
             else:
                 if msg:
                     LOGGER.debug(\
-                        "Email.census warning\n"\
+                        "EmailOtp.census warning\n"\
                         "error (but validation disabled) '%r'\n"\
                         "request '%r'\n"\
                         "validation '%r'\n"\
@@ -313,7 +313,7 @@ class Email:
                 give_perms(u, ae)
         if msg and validation:
             LOGGER.error(\
-                "Email.census error\n"\
+                "EmailOtp.census error\n"\
                 "error '%r'\n"\
                 "request '%r'\n"\
                 "validation '%r'\n"\
@@ -331,7 +331,7 @@ class Email:
         
         ret = {'status': 'ok'}
         LOGGER.debug(\
-            "Email.census\n"\
+            "EmailOtp.census\n"\
             "request '%r'\n"\
             "validation '%r'\n"\
             "authevent '%r'\n"\
@@ -343,7 +343,7 @@ class Email:
     def error(self, msg, error_codename):
         d = {'status': 'nok', 'msg': msg, 'error_codename': error_codename}
         LOGGER.error(\
-            "Email.error\n"\
+            "EmailOtp.error\n"\
             "error '%r'\n"\
             "Stack trace: \n%s",\
             d, stack_trace_str())
@@ -359,7 +359,7 @@ class Email:
         msg = check_pipeline(request, ae)
         if msg:
             LOGGER.error(\
-                "Email.register error\n"\
+                "EmailOtp.register error\n"\
                 "pipeline check error'%r'\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
@@ -397,7 +397,7 @@ class Email:
         msg += check_fields_in_request(req, ae)
         if msg:
             LOGGER.error(\
-                "Email.register error\n"\
+                "EmailOtp.register error\n"\
                 "Fields check error '%r'"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
@@ -420,7 +420,7 @@ class Email:
             # with that email, reject the registration request
             if not match_email and User.objects.filter(email=email, userdata__event=ae, is_active=True).count() > 0:
                 LOGGER.error(\
-                    "Email.register error\n"\
+                    "EmailOtp.register error\n"\
                     "email is not a match field, and there already is a user with email '%r'\n"\
                     "authevent '%r'\n"\
                     "request '%r'\n"\
@@ -446,7 +446,7 @@ class Email:
                  reg_name = reg_match_field.get('name')
                  if not reg_name:
                      LOGGER.error(\
-                         "Email.register error\n"\
+                         "EmailOtp.register error\n"\
                          "'name' not in match field '%r'\n"\
                          "authevent '%r'\n"\
                          "request '%r'\n"\
@@ -458,7 +458,7 @@ class Email:
                      q = q & Q(userdata__metadata__contains={reg_name: req_field_data})
                  else:
                      LOGGER.error(\
-                         "Email.register error\n"\
+                         "EmailOtp.register error\n"\
                          "match field '%r' missing in request '%r'\n"\
                          "authevent '%r'\n"\
                          "Stack trace: \n%s",\
@@ -472,7 +472,7 @@ class Email:
                  reg_name = reg_empty_field.get('name')
                  if not reg_name:
                      LOGGER.error(\
-                         "Email.register error\n"\
+                         "EmailOtp.register error\n"\
                          "'name' not in empty field '%r'\n"\
                          "authevent '%r'\n"\
                          "request '%r'\n"\
@@ -484,7 +484,7 @@ class Email:
                      q = q & Q(userdata__metadata__contains={reg_name: ""})
                  else:
                      LOGGER.error(\
-                         "Email.register error\n"\
+                         "EmailOtp.register error\n"\
                          "the register query _must_ contain a value for these fields\n"\
                          "reg_name '%r'\n"\
                          "reg_name in req '%r'\n"\
@@ -517,7 +517,7 @@ class Email:
                             repeated_list = base_list.filter(uq)
                             if repeated_list.count() > 0:
                                 LOGGER.error(\
-                                    "Email.register error\n"\
+                                    "EmailOtp.register error\n"\
                                     "unique field named '%r'\n"\
                                     "with content '%r'\n"\
                                     "is repeated on '%r'\n"\
@@ -531,7 +531,7 @@ class Email:
             # user needs to exist
             if user_found is None:
                 LOGGER.error(\
-                    "Email.register error\n"\
+                    "EmailOtp.register error\n"\
                     "user not found for query '%r'\n"\
                     "authevent '%r'\n"\
                     "request '%r'\n"\
@@ -567,7 +567,7 @@ class Email:
                     pass
                 if ret_error:
                     LOGGER.error(\
-                        "Email.register error\n"\
+                        "EmailOtp.register error\n"\
                         "User already exists '%r'\n"\
                         "authevent '%r'\n"\
                         "request '%r'\n"\
@@ -580,7 +580,7 @@ class Email:
 
         if msg:
             LOGGER.error(\
-                "Email.register error\n"\
+                "EmailOtp.register error\n"\
                 "Probably a permissions error\n"\
                 "Error '%r'\n"\
                 "authevent '%r'\n"\
@@ -590,7 +590,7 @@ class Email:
             return self.error("Incorrect data", error_codename="invalid_credentials")
         elif not active:
             LOGGER.debug(\
-                "Email.register.\n"\
+                "EmailOtp.register.\n"\
                 "user id '%r' is not active, message NOT sent\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
@@ -603,7 +603,7 @@ class Email:
         response = {'status': 'ok', 'user': u}
         send_codes.apply_async(args=[[u.id,], get_client_ip(request),'email'])
         LOGGER.info(\
-            "Email.register.\n"\
+            "EmailOtp.register.\n"\
             "Sending (email) codes to user id '%r'"\
             "client ip '%r'\n"\
             "authevent '%r'\n"\
@@ -615,7 +615,7 @@ class Email:
     def authenticate_error(self):
         d = {'status': 'nok'}
         LOGGER.error(\
-            "Email.authenticate_error\n"\
+            "EmailOtp.authenticate_error\n"\
             "returning '%r'"\
             "Stack trace: \n%s",\
             d, stack_trace_str())
@@ -637,7 +637,7 @@ class Email:
         msg += check_fields_in_request(req, ae, 'authenticate')
         if msg:
             LOGGER.error(\
-                "Email.authenticate error\n"\
+                "EmailOtp.authenticate error\n"\
                 "error '%r'"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
@@ -648,7 +648,7 @@ class Email:
         msg = check_pipeline(request, ae, 'authenticate')
         if msg:
             LOGGER.error(\
-                "Email.authenticate error\n"\
+                "EmailOtp.authenticate error\n"\
                 "error '%r'\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
@@ -667,7 +667,7 @@ class Email:
             u = User.objects.get(q)
         except:
             LOGGER.error(\
-                "Email.authenticate error\n"\
+                "EmailOtp.authenticate error\n"\
                 "user not found with these characteristics: email '%r'\n"\
                 "authevent '%r'\n"\
                 "is_active True\n"\
@@ -680,7 +680,7 @@ class Email:
         if (ae.num_successful_logins_allowed > 0 and
             successful_logins_count >= ae.num_successful_logins_allowed):
             LOGGER.error(\
-                "Email.authenticate error\n"\
+                "EmailOtp.authenticate error\n"\
                 "Maximum number of revotes already reached for user '%r'\n"\
                 "revotes for user '%r'\n"\
                 "maximum allowed '%r'\n"\
@@ -693,19 +693,34 @@ class Email:
                 ae, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        code = Code.objects.filter(user=u.userdata,
-                code=req.get('code').upper()).order_by('-created').first()
-        if not code:
+        code = Code.objects.filter(
+            user=u.userdata,
+            created__gt=datetime.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
+            ).order_by('-created').first()
+        if not code:       
             LOGGER.error(\
-                "Email.authenticate error\n"\
+                "EmailOtp.authenticate error\n"\
                 "Code not found on db for user '%r'\n"\
-                "and code '%r'\n"\
+                "and time between now and '%r' seconds earlier\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
                 u.userdata,\
-                req.get('code').upper(),\
+                settings.SMS_OTP_EXPIRE_SECONDS,\
                 ae, req, stack_trace_str())
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+          
+        if not constant_time_compare(req.get('code').upper(), code.code):  
+            LOGGER.error(\
+                "EmailOtp.authenticate error\n"\
+                "Code mismatch for user '%r'\n"\
+                "Code received '%r'\n"\
+                "and latest code in the db for the user '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                u.userdata, req.get('code').upper(), code.code, ae, req,\
+                stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         user_logged_in.send(sender=u.__class__, request=request, user=u)
@@ -721,7 +736,7 @@ class Email:
             data['redirect-to-url'] = auth_action['mode-config']['url']
 
         LOGGER.debug(\
-            "Email.authenticate success\n"\
+            "EmailOtp.authenticate success\n"\
             "returns '%r'\n"\
             "authevent '%r'\n"\
             "request '%r'\n"\
@@ -741,7 +756,7 @@ class Email:
         msg += check_field_value(self.email_definition, email)
         if msg:
             LOGGER.error(\
-                "Email.resend_auth_code error\n"\
+                "EmailOtp.resend_auth_code error\n"\
                 "error '%r'\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
@@ -752,7 +767,7 @@ class Email:
             u = User.objects.get(email=email, userdata__event=ae, is_active=True)
         except:
             LOGGER.error(\
-                "Email.resend_auth_code error\n"\
+                "EmailOtp.resend_auth_code error\n"\
                 "user not found with these characteristics: email '%r'\n"\
                 "authevent '%r'\n"\
                 "is_active True"\
@@ -769,7 +784,7 @@ class Email:
 
         if msg:
             LOGGER.error(\
-                "Email.resend_auth_code error\n"\
+                "EmailOtp.resend_auth_code error\n"\
                 "check_pipeline error '%r'\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
@@ -779,7 +794,7 @@ class Email:
 
         send_codes.apply_async(args=[[u.id,], get_client_ip(request),'email'])
         LOGGER.info(\
-            "Email.resend_auth_code.\n"\
+            "EmailOtp.resend_auth_code.\n"\
             "Sending (email) codes to user id '%r'\n"\
             "client ip '%r'\n"\
             "authevent '%r'\n"\
