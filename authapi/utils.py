@@ -310,7 +310,7 @@ def template_replace_data(templ, data):
         ret = ret.replace("__%s__" % key.upper(), str(value))
     return ret
 
-def send_code(user, ip, config=None, auth_method_override=None):
+def send_code(user, ip, config=None, auth_method_override=None, code=None):
     '''
     Sends the code for authentication in the related auth event, to the user
     in a message sent via sms and/or email, depending on the authentication 
@@ -349,7 +349,7 @@ def send_code(user, ip, config=None, auth_method_override=None):
 
     # only generate the code if required
     needs_code = "__URL2__" in msg or "__CODE__" in msg
-    if needs_code:
+    if needs_code and code is None:
         code = generate_code(user.userdata)
 
     default_receiver_account = user.email
@@ -422,7 +422,7 @@ def send_code(user, ip, config=None, auth_method_override=None):
         # remove infinite looping)
         if user.userdata.event.auth_method in ["sms", "sms-otp"] and\
             user.email:
-            send_code(user, ip, config, 'email')
+            send_code(user, ip, config, 'email', code)
             
     else: # email or email-otp
         # TODO: Allow HTML messages for emails
@@ -442,7 +442,7 @@ def send_code(user, ip, config=None, auth_method_override=None):
         # remove infinite looping)
         if user.userdata.event.auth_method in ["email", "email-otp"] and\
             user.email:
-            send_code(user, ip, config, 'sms')
+            send_code(user, ip, config, 'sms', code)
 
 
 def send_msg(data, msg, subject=''):
