@@ -4,13 +4,13 @@ billiard==3.3.0.23
 celery==3.1.23
 contextlib2==0.5.3
 decorator==4.0.10
-Django==1.11.27
+Django==2.0.13
 django-celery==3.2.2
 django-cors-headers==3.2.1
 django-nose==1.4.5
 ipdb==0.10.0
 ipdbplugin==1.4.5
-ipython==4.2.0
+ipython==7.11.1
 ipython-genutils==0.1.0
 jsonfield==2.0.2
 kombu==3.0.35

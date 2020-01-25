@@ -877,7 +877,7 @@ class TestAuthEvent(TestCase):
         r = parse_json_response(response)
         auth_event = {
             'events': {
-                'allow_public_census_query': True,
+                'allow_public_census_query': False,
                 'auth_method': 'email',
                 'created': '2018-03-29T11:20:30.656486+00:00',
                 'auth_method_config': test_data.ae_email_default__method_config,
@@ -891,7 +891,8 @@ class TestAuthEvent(TestCase):
                 },
                 'id': rid,
                 'users': 0,
-                'num_successful_logins_allowed': 0
+                'num_successful_logins_allowed': 0,
+                'openid_connect_providers': [],
             },
             'status': 'ok'
         }
@@ -2258,7 +2259,7 @@ class TestRevotes(TestCase):
         self.assertEqual(response.status_code, 200)
         auth_token = self.genhmac(settings.SHARED_SECRET, "%s:AuthEvent:%d:RegisterSuccessfulLogin" % (cuser.username, self.aeid))
         c.set_auth_token(auth_token)
-        response = c.post('/api/auth-event/%d/successful_login/%s' % (self.aeid, cuser.username.decode('utf-8')), {})
+        response = c.post('/api/auth-event/%d/successful_login/%s' % (self.aeid, cuser.username), {})
         self.assertEqual(response.status_code, 200)
         response = c.authenticate(self.aeid, test_data.auth_email_default1)
         self.assertEqual(response.status_code, 400)
@@ -2274,7 +2275,7 @@ class TestRevotes(TestCase):
         self.assertEqual(response.status_code, 200)
         auth_token = self.genhmac(settings.SHARED_SECRET, "%s:AuthEvent:%d:RegisterSuccessfulLogin" % (cuser.username, self.aeid))
         c.set_auth_token(auth_token)
-        response = c.post('/api/auth-event/%d/successful_login/%s' % (self.aeid, cuser.username.decode('utf-8')), {})
+        response = c.post('/api/auth-event/%d/successful_login/%s' % (self.aeid, cuser.username), {})
         self.assertEqual(response.status_code, 200)
         response = c.authenticate(self.aeid, test_data.auth_email_default1)
         self.assertEqual(response.status_code, 400)
@@ -2302,7 +2303,7 @@ class TestRevotes(TestCase):
             self.assertEqual(response.status_code, 200)
             auth_token = self.genhmac(settings.SHARED_SECRET, "%s:AuthEvent:%d:RegisterSuccessfulLogin" % (cuser.username, self.aeid))
             c.set_auth_token(auth_token)
-            response = c.post('/api/auth-event/%d/successful_login/%s' % (self.aeid, cuser.username.decode('utf-8')), {})
+            response = c.post('/api/auth-event/%d/successful_login/%s' % (self.aeid, cuser.username), {})
 
         response = c.authenticate(self.aeid, test_data.auth_email_default1)
         self.assertEqual(response.status_code, 400)
@@ -2581,6 +2582,7 @@ class ApiTestActivationAndActivity(TestCase):
         acl = ACL(user=u_admin.userdata, object_type='AuthEvent', perm='edit',
             object_id=self.aeid)
         acl.save()
+        self.acl_edit_event = acl
 
         # election view events permission
         acl = ACL(user=u_admin.userdata, object_type='AuthEvent',
@@ -2615,11 +2617,11 @@ class ApiTestActivationAndActivity(TestCase):
         response = c.authenticate(self.aeid, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
-        # admin can list activity and log is empty
+        # admin can list activity and log has only auth events
         response = c.get('/api/auth-event/%d/activity/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
-        self.assertEqual(len(r['activity']), 0)
+        self.assertEqual(len(r['activity']), 2)
 
         # admin deactivates voter
         self.assertEqual(response.status_code, 200)
@@ -2631,7 +2633,7 @@ class ApiTestActivationAndActivity(TestCase):
         response = c.get('/api/auth-event/%d/activity/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
-        self.assertEqual(len(r['activity']), 1)
+        self.assertEqual(len(r['activity']), 3)
         self.assertEqual(r['activity'][0]['executer_id'], self.uid_admin)
         self.assertEqual(r['activity'][0]['executer_username'], 'john')
         self.assertEqual(r['activity'][0]['executer_email'], 'john@agoravoting.com')
@@ -2661,7 +2663,7 @@ class ApiTestActivationAndActivity(TestCase):
         response = c.get('/api/auth-event/%d/activity/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
-        self.assertEqual(len(r['activity']), 2)
+        self.assertEqual(len(r['activity']), 5)
         self.assertEqual(r['activity'][0]['executer_id'], self.uid_admin)
         self.assertEqual(r['activity'][0]['executer_username'], 'john')
         self.assertEqual(r['activity'][0]['receiver_id'], self.uid)
@@ -2671,6 +2673,7 @@ class ApiTestActivationAndActivity(TestCase):
 
         # check that removing permission works as expected
         self.acl_activity1.delete()
+        self.acl_edit_event.delete()
         response = c.get('/api/auth-event/%d/activity/' % self.aeid, {})
         self.assertEqual(response.status_code, 403)
 
@@ -2699,7 +2702,14 @@ class ApiTestActivationAndActivity(TestCase):
         response = c.post('/api/auth-event/%d/census/activate/' % self.aeid, data)
         self.assertEqual(response.status_code, 200)
 
-        def check_activity(response, action='user:activate', l=2, status=200):
+        def check_activity(
+            response, 
+            action='user:activate', 
+            l=3, 
+            status=200, 
+            receiver=self.uid,
+            receiver_username='test',
+            verify_comment=True):
             ## check that the deactivation/activation was logged properly
             self.assertEqual(response.status_code, status)
 
@@ -2714,22 +2724,29 @@ class ApiTestActivationAndActivity(TestCase):
 
             self.assertEqual(r['activity'][0]['executer_id'], self.uid_admin)
             self.assertEqual(r['activity'][0]['executer_username'], 'john')
-            self.assertEqual(r['activity'][0]['receiver_id'], self.uid)
-            self.assertEqual(r['activity'][0]['receiver_username'], 'test')
+            self.assertEqual(r['activity'][0]['receiver_id'], receiver)
+            self.assertEqual(r['activity'][0]['receiver_username'], receiver_username)
             self.assertEqual(r['activity'][0]['action_name'], action)
-            self.assertEqual(r['activity'][0]['metadata']['comment'], data['comment'])
+            if verify_comment:
+                self.assertEqual(r['activity'][0]['metadata']['comment'], data['comment'])
 
         ## check input parameters filtering and validation
         path = '/api/auth-event/%d/activity/' % self.aeid
-
+        
         # check filtering by executer_id
         response = c.get(path + '?executer_id=%d' % self.uid_admin, {})
         check_activity(response)
         # check filtering by receiver_id
         response = c.get(path + '?receiver_id=%d' % self.uid_admin, {})
-        check_activity(response, l=0)
+        check_activity(
+            response, 
+            l=1, 
+            receiver=self.uid_admin, 
+            receiver_username='john',
+            action="user:authenticate", 
+            verify_comment=False)
         response = c.get(path + '?receiver_id=%d' % self.uid, {})
-        check_activity(response)
+        check_activity(response, l=2)
 
         # check a receiver_id that doesn't exist
         response = c.get(path + '?receiver_id=133311', {})
@@ -2755,10 +2772,10 @@ class ApiTestActivationAndActivity(TestCase):
 
         # check filtering with multiple actions
         response = c.get(path + '?actions=user:activate|user:deactivate', {})
-        check_activity(response)
+        check_activity(response, l=2)
 
-        # check filtering with multiple actions, with one action not existent
-        response = c.get(path + '?actions=user:activate|user:deactivate|authevent:create', {})
+        # check filtering with multiple actions, with one action not registered
+        response = c.get(path + '?actions=user:activate|user:deactivate|user:authenticate|authevent:create', {})
         check_activity(response)
 
         # check filtering with invalid actions
@@ -2769,19 +2786,25 @@ class ApiTestActivationAndActivity(TestCase):
 
         # check multiple filters
         response = c.get(path + '?executer_id=%d&receiver_id=%d' % (self.uid_admin, self.uid), {})
-        check_activity(response)
+        check_activity(response, l=2)
         response = c.get(path + '?executer_id=%d&receiver_id=%d' % (self.uid_admin, self.uid_admin), {})
-        check_activity(response, l=0)
+        check_activity(
+            response, 
+            l=1, 
+            receiver=self.uid_admin, 
+            receiver_username='john',
+            action="user:authenticate", 
+            verify_comment=False)
         response = c.get(path + '?receiver_id=%d&executer_id=%d' % (self.uid, self.uid_admin), {})
-        check_activity(response)
+        check_activity(response, l=2)
         response = c.get(path + '?actions=user:activate&receiver_id=%d&executer_id=%d' % (self.uid, self.uid_admin), {})
         check_activity(response, l=1)
         response = c.get(path + '?receiver_id=%d&actions=user:deactivate&executer_id=%d' % (self.uid, self.uid_admin), {})
         check_activity(response, l=1, action="user:deactivate")
 
-
         # check that without permissions no activity listing is allowed
         self.acl_activity1.delete()
+        self.acl_edit_event.delete()
         response = c.get(path + '?actions=user:activate|INVALID|authevent:create', {})
         check_activity(response, status=403)
         response = c.get(path + '?actions=INVALID_ACTION', {})
@@ -2806,13 +2829,19 @@ class ApiTestActivationAndActivity(TestCase):
         # checking that with event-receiver-view-activity permission activity
         # listing is allowed with filtering by receiver_id
         response = c.get(path + '?receiver_id=%d' % self.uid, {})
-        check_activity(response)
+        check_activity(response, l=2)
         response = c.get(path + '?executer_id=%d&receiver_id=%d' % (self.uid_admin, self.uid), {})
-        check_activity(response)
+        check_activity(response, l=2)
         response = c.get(path + '?executer_id=%d&receiver_id=%d' % (self.uid_admin, self.uid_admin), {})
-        check_activity(response, l=0)
+        check_activity(
+            response, 
+            l=1, 
+            receiver=self.uid_admin, 
+            receiver_username='john',
+            action="user:authenticate", 
+            verify_comment=False)
         response = c.get(path + '?receiver_id=%d&executer_id=%d' % (self.uid, self.uid_admin), {})
-        check_activity(response)
+        check_activity(response, l=2)
         response = c.get(path + '?actions=user:activate&receiver_id=%d&executer_id=%d' % (self.uid, self.uid_admin), {})
         check_activity(response, l=1)
         response = c.get(path + '?receiver_id=%d&actions=user:deactivate&executer_id=%d' % (self.uid, self.uid_admin), {})
@@ -2862,11 +2891,11 @@ class ApiTestActivationAndActivity(TestCase):
         path = '/api/auth-event/%d/activity/' % self.aeid
 
         response = c.get(path, {})
-        check_activity(response, l=2)
+        check_activity(response, l=3)
 
-        # both actions are prefixed with "user:"
+        # all actions are prefixed with "user:"
         response = c.get(path + '?filter=user:', {})
-        check_activity(response, l=2)
+        check_activity(response, l=3)
 
         # only one action has a comment with the word "here2"
         response = c.get(path + '?filter=here2', {})
@@ -2881,9 +2910,9 @@ class ApiTestActivationAndActivity(TestCase):
         response = c.get(path + '?filter=deactivate', {})
         check_activity(response, l=1, action="user:deactivate", comment='some comment here')
 
-        # both actions have the executer "john"
+        # all actions have the executer "john"
         response = c.get(path + '?filter=john', {})
-        check_activity(response, l=2)
+        check_activity(response, l=3)
 
 
 class ApiTestBallotBoxes(TestCase):

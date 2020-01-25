@@ -1300,7 +1300,7 @@ class AuthEventView(View):
 
         if pk:
             e = AuthEvent.objects.get(pk=pk)
-            if (user is not None and user.is_authenticated() and
+            if (user is not None and user.is_authenticated and
                 permission_required(
                     user,
                     'AuthEvent',
