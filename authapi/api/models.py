@@ -198,9 +198,9 @@ class UserData(models.Model):
     user = models.OneToOneField(User, models.CASCADE, related_name="userdata")
     event = models.ForeignKey(AuthEvent, models.CASCADE, related_name="userdata", null=True)
     tlf = models.CharField(max_length=20, blank=True, null=True)
-    metadata = fields.JSONField(default=dict(), blank=True, null=True)
+    metadata = fields.JSONField(default=dict, blank=True, null=True)
     status = models.CharField(max_length=255, choices=STATUSES, default="act", db_index=True)
-    draft_election = fields.JSONField(default=dict(), blank=True, null=True, db_index=False)
+    draft_election = fields.JSONField(default=dict, blank=True, null=True, db_index=False)
 
     def get_perms(self, obj, permission, object_id=0):
         q = Q(object_type=obj, perm=permission)
@@ -318,7 +318,7 @@ class Action(models.Model):
         db_index=True, null=True)
 
     # any other relevant information, which varies depending on the action
-    metadata = fields.JSONField(default=dict())
+    metadata = fields.JSONField(default=dict)
 
     def serialize(self):
         d = {

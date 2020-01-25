@@ -29,7 +29,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='userdata',
             name='metadata',
-            field=jsonfield.fields.JSONField(blank=True, db_index=True, default='{}', max_length=4096, null=True),
+            field=jsonfield.fields.JSONField(blank=True, db_index=True, default=dict, max_length=4096, null=True),
         ),
         migrations.AlterField(
             model_name='userdata',

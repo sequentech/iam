@@ -29,6 +29,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='userdata',
             name='metadata',
-            field=JSONField(blank=True, db_index=False, default='{}', null=True),
+            field=JSONField(blank=True, db_index=False, default=dict, null=True),
         )
     ]

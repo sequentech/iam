@@ -16,11 +16,11 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='action',
             name='metadata',
-            field=django.contrib.postgres.fields.jsonb.JSONField(default={}, db_index=True),
+            field=django.contrib.postgres.fields.jsonb.JSONField(default=dict, db_index=True),
         ),
         migrations.AlterField(
             model_name='userdata',
             name='metadata',
-            field=django.contrib.postgres.fields.jsonb.JSONField(blank=True, default={}, null=True, db_index=True),
+            field=django.contrib.postgres.fields.jsonb.JSONField(blank=True, default=dict, null=True, db_index=True),
         ),
     ]

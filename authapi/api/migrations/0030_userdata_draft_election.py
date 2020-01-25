@@ -16,6 +16,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='userdata',
             name='draft_election',
-            field=django.contrib.postgres.fields.jsonb.JSONField(blank=True, db_index=False, default={}, null=True),
+            field=django.contrib.postgres.fields.jsonb.JSONField(blank=True, db_index=False, default=dict, null=True),
         ),
     ]
