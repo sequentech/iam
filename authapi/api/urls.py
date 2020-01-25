@@ -1,5 +1,5 @@
 # This file is part of authapi.
-# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+# Copyright (C) 2014-2020  Agora Voting SL <contact@nvotes.com>
 
 # authapi is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
-from django.conf.urls import url, include
+from django.urls import re_path as url, include, path
 from django.conf import settings
 from api import views
 from authmethods import views as authmethods_views
@@ -68,10 +68,10 @@ urlpatterns = [
 
 if settings.ENABLE_CAPTCHA:
     urlpatterns += [
-        url(r'^captcha/', include('captcha.urls')),
+        path('captcha/', include('captcha.urls')),
     ]
 
 for plugin in settings.PLUGINS:
     urlpatterns += [
-        url(r'^%s/' % plugin, include('%s.urls' % plugin)),
+        path('%s/' % plugin, include('%s.urls' % plugin)),
     ]

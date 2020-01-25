@@ -1,5 +1,5 @@
 # This file is part of authapi.
-# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+# Copyright (C) 2014-2020  Agora Voting SL <contact@nvotes.com>
 
 # authapi is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -1675,7 +1675,8 @@ class TestRegisterAndAuthenticateSMS(TestCase):
 
         correct_tpl = {"msg": "this is an example __CODE__ and __URL__"}
         incorrect_tpl = {"msg": 121*"a"}
-
+        
+        self.assertEqual(MsgLog.objects.count(), 0)
         c = JClient()
         response = c.authenticate(self.aeid, test_data.auth_sms_default)
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, {})
@@ -2257,7 +2258,7 @@ class TestRevotes(TestCase):
         self.assertEqual(response.status_code, 200)
         auth_token = self.genhmac(settings.SHARED_SECRET, "%s:AuthEvent:%d:RegisterSuccessfulLogin" % (cuser.username, self.aeid))
         c.set_auth_token(auth_token)
-        response = c.post('/api/auth-event/%d/successful_login/%s' % (self.aeid, cuser.username), {})
+        response = c.post('/api/auth-event/%d/successful_login/%s' % (self.aeid, cuser.username.decode('utf-8')), {})
         self.assertEqual(response.status_code, 200)
         response = c.authenticate(self.aeid, test_data.auth_email_default1)
         self.assertEqual(response.status_code, 400)
@@ -2273,7 +2274,7 @@ class TestRevotes(TestCase):
         self.assertEqual(response.status_code, 200)
         auth_token = self.genhmac(settings.SHARED_SECRET, "%s:AuthEvent:%d:RegisterSuccessfulLogin" % (cuser.username, self.aeid))
         c.set_auth_token(auth_token)
-        response = c.post('/api/auth-event/%d/successful_login/%s' % (self.aeid, cuser.username), {})
+        response = c.post('/api/auth-event/%d/successful_login/%s' % (self.aeid, cuser.username.decode('utf-8')), {})
         self.assertEqual(response.status_code, 200)
         response = c.authenticate(self.aeid, test_data.auth_email_default1)
         self.assertEqual(response.status_code, 400)
@@ -2301,7 +2302,7 @@ class TestRevotes(TestCase):
             self.assertEqual(response.status_code, 200)
             auth_token = self.genhmac(settings.SHARED_SECRET, "%s:AuthEvent:%d:RegisterSuccessfulLogin" % (cuser.username, self.aeid))
             c.set_auth_token(auth_token)
-            response = c.post('/api/auth-event/%d/successful_login/%s' % (self.aeid, cuser.username), {})
+            response = c.post('/api/auth-event/%d/successful_login/%s' % (self.aeid, cuser.username.decode('utf-8')), {})
 
         response = c.authenticate(self.aeid, test_data.auth_email_default1)
         self.assertEqual(response.status_code, 400)

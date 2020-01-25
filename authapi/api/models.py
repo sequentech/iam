@@ -1,5 +1,5 @@
 # This file is part of authapi.
-# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+# Copyright (C) 2014-2020  Agora Voting SL <contact@nvotes.com>
 
 # authapi is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -195,8 +195,8 @@ class UserData(models.Model):
 
     In authapi each user is created in relation with a specific authevent.
     '''
-    user = models.OneToOneField(User, related_name="userdata")
-    event = models.ForeignKey(AuthEvent, related_name="userdata", null=True)
+    user = models.OneToOneField(User, models.CASCADE, related_name="userdata")
+    event = models.ForeignKey(AuthEvent, models.CASCADE, related_name="userdata", null=True)
     tlf = models.CharField(max_length=20, blank=True, null=True)
     metadata = fields.JSONField(default=dict(), blank=True, null=True)
     status = models.CharField(max_length=255, choices=STATUSES, default="act", db_index=True)
@@ -298,7 +298,7 @@ class Action(models.Model):
     '''
 
     # user that executed the action
-    executer = models.ForeignKey(User, related_name="executed_actions",
+    executer = models.ForeignKey(User, models.CASCADE, related_name="executed_actions",
         db_index=True, null=True)
 
     # date at which the action was executed
@@ -309,11 +309,11 @@ class Action(models.Model):
         choices=ALLOWED_ACTIONS)
 
     # event related to the action
-    event = models.ForeignKey(AuthEvent, related_name="related_actions",
+    event = models.ForeignKey(AuthEvent, models.CASCADE, related_name="related_actions",
         null=True, db_index=True)
 
     # user onto which the action was executed
-    receiver = models.ForeignKey(User, related_name="received_actions",
+    receiver = models.ForeignKey(User, models.CASCADE, related_name="received_actions",
         db_index=True, null=True)
 
     # any other relevant information, which varies depending on the action
@@ -356,7 +356,7 @@ class ACL(models.Model):
     permissions can be used outside authapi through HMAC tokens that contain
     authenticated permission information.
     '''
-    user = models.ForeignKey(UserData, related_name="acls")
+    user = models.ForeignKey(UserData, models.CASCADE, related_name="acls")
     perm = models.CharField(max_length=255)
     object_type = models.CharField(max_length=255, blank=True, null=True)
     object_id = models.CharField(max_length=255, default=0)
@@ -385,7 +385,7 @@ class SuccessfulLogin(models.Model):
     Each successful login attempt is recorded with an object of this type, and
     usually triggered by a explicit call to /authevent/<ID>/successful_login
     '''
-    user = models.ForeignKey(UserData, related_name="successful_logins")
+    user = models.ForeignKey(UserData, models.CASCADE, related_name="successful_logins")
     created = models.DateTimeField(default=timezone.now)
     # when counting the number of successful logins, only active ones count
     is_active = models.BooleanField(default=True)
@@ -397,7 +397,7 @@ class BallotBox(models.Model):
     '''
     Registers the list of ballot boxes related to a ballot box auth_event
     '''
-    auth_event = models.ForeignKey(AuthEvent, related_name="ballot_boxes")
+    auth_event = models.ForeignKey(AuthEvent, models.CASCADE, related_name="ballot_boxes")
     name = models.CharField(max_length=255, db_index=True)
     created = models.DateTimeField(default=timezone.now, db_index=True)
 
@@ -420,13 +420,13 @@ class TallySheet(models.Model):
     Each tally sheet related to a ballot box can be registered here
     '''
     # related ballot box
-    ballot_box = models.ForeignKey(BallotBox, related_name="tally_sheets")
+    ballot_box = models.ForeignKey(BallotBox, models.CASCADE, related_name="tally_sheets")
 
     # date at which the tally sheet was created
     created = models.DateTimeField(default=timezone.now, db_index=True)
 
     # person who registered this tally sheet
-    creator = models.ForeignKey(User, related_name="created_tally_sheets",
+    creator = models.ForeignKey(User, models.CASCADE, related_name="created_tally_sheets",
         db_index=True, null=False)
 
     # json data of the tally sheet. for now it only supports simple plurality

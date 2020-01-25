@@ -1,5 +1,5 @@
 # This file is part of authapi.
-# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+# Copyright (C) 2014-2020  Agora Voting SL <contact@nvotes.com>
 
 # authapi is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -56,12 +56,12 @@ def error(message="", status=400, field=None, error_codename=None):
 
 def random_username():
     # 30 hex digits random username
-    username = binascii.b2a_hex(os.urandom(14))
+    username = binascii.b2a_hex(os.urandom(14)).decode('utf-8')
     try:
         User.objects.get(username=username)
         return random_username()
     except User.DoesNotExist:
-        return username;
+        return username
 
 
 def email_constraint(val):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # This file is part of authapi.
-# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+# Copyright (C) 2014-2020  Agora Voting SL <contact@nvotes.com>
 
 # authapi is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -333,8 +333,9 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None):
     event_id = user.userdata.event.id
 
     # if blank tlf or email
-    if auth_method in ["sms", "sms-otp"] and not user.userdata.tlf:
-        return
+    if auth_method in ["sms", "sms-otp"]:
+        if not user.userdata.tlf:
+            return
     # else email or email-top
     elif not user.email:
         return
@@ -410,6 +411,7 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None):
     msg = template_replace_data(raw_msg, template_dict)
 
     code_msg = {'subject': subject, 'msg': msg}
+
     cm = MsgLog(authevent_id=event_id, receiver=receiver, msg=code_msg)
     cm.save()
 

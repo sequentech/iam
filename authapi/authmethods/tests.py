@@ -1,5 +1,5 @@
 # This file is part of authapi.
-# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+# Copyright (C) 2014-2020  Agora Voting SL <contact@nvotes.com>
 
 # authapi is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -178,6 +178,13 @@ class AuthMethodSmsTestCase(TestCase):
         code.save()
         m = Message(tlf=u.userdata.tlf, auth_event_id=ae.pk)
         m.save()
+
+        acl = ACL(
+            user=u.userdata, 
+            object_type='AuthEvent', 
+            perm='edit', 
+            object_id=ae.pk)
+        acl.save()
 
         u2 = User(email='test2@agoravoting.com')
         u2.is_active = False
