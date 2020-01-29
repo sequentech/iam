@@ -82,14 +82,13 @@ PLUGINS = (
 if PLUGINS:
     INSTALLED_APPS += PLUGINS
 
-MIDDLEWARE_CLASSES = (
+MIDDLEWARE = (
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'wrap.LoggingMiddleware'
 )
 
 # change the test runner to the one provided by celery so that the tests that
