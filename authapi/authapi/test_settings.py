@@ -120,10 +120,12 @@ WSGI_APPLICATION = 'authapi.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'authapi',
         'USER': 'authapi',
-        'PASSWORD': '<PASSWORD>'
+        'PASSWORD': 'authapi',
+        'HOST': 'localhost',
+        'PORT': '5432'
     }
 }
 
