@@ -1,5 +1,5 @@
 # This file is part of authapi.
-# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+# Copyright (C) 2014-2020  Agora Voting SL <contact@nvotes.com>
 
 # authapi is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -17,7 +17,7 @@ import copy
 from django.conf import settings
 
 
-pwd_auth = {'email': 'john@agoravoting.com', 'password': 'smith'}
+pwd_auth = {'username': 'john', 'password': 'smith'}
 
 pwd_auth_email = {'email': 'john2@agoravoting.com', 'password': 'smith'}
 
@@ -48,8 +48,8 @@ auth_event1 = {
             "help": "put the dni without dash",
             "type": "dni",
             "required": True,
-            "min": 9,
-            "max": 9,
+            "min": 5,
+            "max": 12,
             "required_on_authentication": True
             }
     ]
@@ -91,8 +91,8 @@ auth_event2 = {
             "help": "put the dni without dash",
             "type": "dni",
             "required": True,
-            "min": 9,
-            "max": 9,
+            "min": 5,
+            "max": 12,
             "required_on_authentication": True
             }
     ]
@@ -147,8 +147,8 @@ auth_event6 = {
             "help": "put the dni without dash",
             "type": "dni",
             "required": True,
-            "min": 9,
-            "max": 9,
+            "min": 5,
+            "max": 12,
             "required_on_authentication": True,
             "register-pipeline": [
                 ["CanonizeDni", {}],
@@ -339,6 +339,153 @@ auth_event13 = {
                 "max": 24,
                 "required_on_authentication": False
             }
+    ]
+}
+
+auth_event14 = {
+    "auth_method": "email",
+    "census": "open",
+    "config": {},
+    "extra_fields":[
+      {
+         "name":"MemberID",
+         "type":"text",
+         "required": True,
+         "min":9,
+         "max":9,
+         "private": False,
+         "required_on_authentication": True,
+         "match_census_on_registration": True,
+         "fill_if_empty_on_registration": False,
+         "register-pipeline":[
+         ],
+         "help":" True your Member ID",
+         "unique": True
+      }
+   ],
+   "admin_fields":[
+      {
+         "name":"expected_census",
+         "label":"Expected Census",
+         "description":"Expected census",
+         "type":"int",
+         "min":0,
+         "step":1,
+         "value":1000,
+         "required": True,
+         "private": True
+      }
+   ]
+}
+
+auth_event15 = {
+    "auth_method": "email",
+    "census": "open",
+    "config": {},
+    "extra_fields":[
+      {
+         "name":"MemberID",
+         "type":"text",
+         "required": True,
+         "min":9,
+         "max":9,
+         "private": False,
+         "required_on_authentication": True,
+         "match_census_on_registration": True,
+         "fill_if_empty_on_registration": False,
+         "register-pipeline":[
+         ],
+         "help":" True your Member ID",
+         "unique": True
+      }
+   ],
+   "admin_fields":[
+      {
+         "name":"expected_census",
+         "label":"Expected Census",
+         "description":"Expected census",
+         "type":"int",
+         "min":0,
+         "step":1,
+         "value":1000,
+         "required": True,
+         "private": True
+      },
+      {
+         "name":"expected_census",
+         "label":"Expected Census2",
+         "description":"Expected census2",
+         "type":"int",
+         "min":0,
+         "step":1,
+         "value":1000,
+         "required": True,
+         "private": True
+      }
+   ]
+}
+
+userdata_metadata16 = {
+  "dni": "1234567L",
+  "company name": "Agora Voting S.L"
+}
+
+extra_fields16 = [
+  {
+    "name": "dni",
+    "type": "text",
+    "required": False,
+    "min": 1,
+    "required_on_authentication": False,
+    "user_editable": True
+  },
+  {
+    "name": "company name",
+    "type": "text",
+    "required": False,
+    "min": 1,
+    "required_on_authentication": False,
+    "required_when_registered": True,
+    "user_editable": True
+  },
+  {
+    "name": "other",
+    "type": "text",
+    "required": False,
+    "min": 1,
+    "required_on_authentication": False,
+    "required_when_registered": False,
+    "user_editable": False
+  }
+]
+
+# extra-fields pipeline
+auth_event17 = {
+    "auth_method": "email",
+    "census": "open",
+    "config": {
+        "authentication-action": {"mode": ""},
+        "subject": "Confirm your email",
+        "msg": "Click __URL__ and put this code __CODE__"
+    },
+    "extra_fields": [
+        {
+            "name": "dni",
+            "help": "put the dni without dash",
+            "type": "dni",
+            "required": True,
+            "min": 5,
+            "max": 12,
+            "userid_field": True,
+            "required_on_authentication": False,
+            "register-pipeline": [
+                ["CanonizeDni", {}],
+                ["DniChecker", {}]
+            ],
+            "authenticate-pipeline": [
+                ["CanonizeDni", {}]
+            ]
+        }
     ]
 }
 
@@ -613,6 +760,103 @@ ae_email_default = {
     "census": "open",
 }
 
+ae_email_default__method_config = {
+  'pipeline':{
+    'give_perms':[
+        {
+          'perms':[
+              'edit'
+          ],
+          'object_id':'UserDataId',
+          'object_type':'UserData'
+        },
+        {
+          'perms':[
+              'vote'
+          ],
+          'object_id':'AuthEventId',
+          'object_type':'AuthEvent'
+        }
+    ],
+    'register-pipeline':[
+        [
+          'check_whitelisted',
+          {
+              'field':'ip'
+          }
+        ],
+        [
+          'check_blacklisted',
+          {
+              'field':'ip'
+          }
+        ],
+        [
+          'check_total_max',
+          {
+              'max':10,
+              'field':'ip',
+              'period':3600
+          }
+        ],
+        [
+          'check_total_max',
+          {
+              'max':50,
+              'field':'ip',
+              'period':86400
+          }
+        ]
+    ],
+    'authenticate-pipeline':[
+
+    ],
+    'resend-auth-pipeline':[
+        [
+          'check_whitelisted',
+          {
+              'field':'ip'
+          }
+        ],
+        [
+          'check_blacklisted',
+          {
+              'field':'ip'
+          }
+        ],
+        [
+          'check_total_max',
+          {
+              'max':10,
+              'field':'ip',
+              'period':3600
+          }
+        ],
+        [
+          'check_total_max',
+          {
+              'max':50,
+              'field':'ip',
+              'period':86400
+          }
+        ]
+    ]
+  },
+  'config':{
+    'authentication-action':{
+        'mode-config':None,
+        'mode':'vote'
+    },
+    'subject':'Confirm your email',
+    'allow_user_resend':False,
+    'msg':'Click __URL__ and put this code __CODE__',
+    'registration-action':{
+        'mode-config':None,
+        'mode':'vote'
+    }
+  }
+}
+
 ae_email_real = ae_email_default.copy()
 ae_email_real.update({"real": True})
 
@@ -761,3 +1005,56 @@ extra_field_unique = [
             "required_on_authentication": True
         }
 ]
+
+extra_field_autofill = [
+        {
+            "name": "mesa",
+            "type": "text",
+            "required": False,
+            "unique": False,
+            "required_on_authentication": False,
+            "autofill": True,
+        }
+]
+
+extra_field_date = [
+        {
+            "name": "date of birth",
+            "type": "date",
+            "required": False,
+            "unique": False,
+            "required_on_authentication": False,
+            "autofill": False,
+        }
+]
+
+census_date_field_ok = {
+    "census": [
+        {"email": "a1@aaa.com", "date of birth": "2018-01-31"},
+        {"email": "a2@aaa.com", "date of birth": "2018-02-20"},
+        {"email": "a3@aaa.com", "date of birth": "2018-03-14"},
+        {"email": "a4@aaa.com", "date of birth": "2018-04-21"},
+    ]
+}
+
+census_date_field_nok = {
+    "census": [
+        {"email": "a5@aaa.com", "date of birth": "2018-02-31"},
+    ]
+}
+
+authmethod_config_openid_connect_default = {
+        "config": {},
+        "pipeline": {
+            'give_perms': [
+                {'object_type': 'UserData', 'perms': ['edit',], 'object_id': 'UserDataId' },
+                {'object_type': 'AuthEvent', 'perms': ['vote',], 'object_id': 'AuthEventId' }
+            ],
+            "register-pipeline": [
+                ["check_whitelisted", {"field": "ip"}],
+                ["check_blacklisted", {"field": "ip"}],
+                ["check_total_max", {"field": "ip", "max": pipe_total_max_ip}],
+            ],
+            "authenticate-pipeline": []
+        }
+}

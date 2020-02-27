@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 
 from django.db import models, migrations
-
+import django
 
 class Migration(migrations.Migration):
 
@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
                 ('name', models.CharField(default='b', choices=[('f', 'Free'), ('b', 'Basic'), ('p', 'Premium')], max_length=3)),
                 ('status', models.CharField(default='pen', choices=[('pen', 'Pending'), ('pai', 'Paid'), ('act', 'Active'), ('dis', 'Disabled')], max_length=3)),
                 ('created', models.DateTimeField(auto_now_add=True)),
-                ('user', models.ForeignKey(to='api.UserData', related_name='packs')),
+                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='api.UserData', related_name='packs')),
             ],
             options={
             },

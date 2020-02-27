@@ -1,5 +1,5 @@
 # This file is part of authapi.
-# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+# Copyright (C) 2014-2020  Agora Voting SL <contact@nvotes.com>
 
 # authapi is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -18,15 +18,19 @@ from logging import getLogger
 
 
 class LoggingMiddleware(object):
-    def __init__(self):
+    def __init__(self, get_response):
         self.logger = getLogger('authapi.request')
-        self.timer = 0
+        self.get_response = get_response
 
-    def process_request(self, request):
-        self.timer = time()
-        return None
+    def __call__(self, request):
+        # Code to be executed for each request before
+        # the view (and later middleware) are called.
+        timer = time()
 
-    def process_response(self, request, response):
+        response = self.get_response(request)
+
+        # Code to be executed for each request/response after
+        # the view is called.
         if response.status_code >= 200 and response.status_code < 400:
             return response
 

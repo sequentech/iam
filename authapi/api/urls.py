@@ -1,5 +1,5 @@
 # This file is part of authapi.
-# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+# Copyright (C) 2014-2020  Agora Voting SL <contact@nvotes.com>
 
 # authapi is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
-from django.conf.urls import url, include
+from django.urls import re_path as url, include, path
 from django.conf import settings
 from api import views
 from authmethods import views as authmethods_views
@@ -26,11 +26,19 @@ urlpatterns = [
 
     url(r'^auth-event/$', views.authevent, name='authevent'),
     url(r'^auth-event/(?P<pk>\d+)/$', views.authevent, name='authevent'),
+    url(r'^auth-event/(?P<pk>\d+)/callback/$', views.callback, name='callback'),
+    url(r'^auth-event/(?P<pk>\d+)/csv-stats/$', views.csv_stats, name='csv_stats'),
+    url(r'^auth-event/(?P<pk>\d+)/activity/$', views.activity, name='activity'),
     url(r'^auth-event/(?P<pk>\d+)/census/$', views.census, name='census'),
     url(r'^auth-event/(?P<pk>\d+)/census/delete/$', views.census_delete, name='census_delete'),
     url(r'^auth-event/(?P<pk>\d+)/census/activate/$', views.census_activate, name='census_activate'),
     url(r'^auth-event/(?P<pk>\d+)/census/deactivate/$', views.census_deactivate, name='census_deactivate'),
+    url(r'^auth-event/(?P<pk>\d+)/census/public-query/$', views.public_census_query, name='census'),
     url(r'^auth-event/(?P<pk>\d+)/ping/$', views.ping, name='ping'),
+    url(r'^auth-event/(?P<pk>\d+)/ballot-box/$', views.ballot_box, name='ballot_box'),
+    url(r'^auth-event/(?P<pk>\d+)/ballot-box/(?P<ballot_box_pk>\d+)/delete/$', views.ballot_box, name='ballot_box_delete'),
+    url(r'^auth-event/(?P<pk>\d+)/ballot-box/(?P<ballot_box_pk>\d+)/tally-sheet/$', views.tally_sheet, name='tally_sheet'),
+    url(r'^auth-event/(?P<pk>\d+)/ballot-box/(?P<ballot_box_pk>\d+)/tally-sheet/(?P<tally_sheet_pk>\d+)/$', views.tally_sheet, name='tally_sheet_one'),
     url(r'^auth-event/(?P<pk>\d+)/register/$', views.register, name='register'),
     url(r'^auth-event/(?P<pk>\d+)/authenticate/$', views.authenticate, name='authenticate'),
     url(r'^auth-event/(?P<pk>\d+)/successful_login/(?P<uid>\w+)$', views.successful_login, name='successful_login'),
@@ -48,19 +56,22 @@ urlpatterns = [
     url(r'^user/(?P<pk>\d+)/$', views.user, name='user'),
     url(r'^user/auth-event/$', views.user_auth_event, name='user_auth_event'),
     url(r'^user/reset-pwd/$', views.reset_pwd, name='reset_pwd'),
+    url(r'^user/extra/$', views.user_extra, name='user_extra'),
+    url(r'^user/draft/$', views.draft, name='draft'),
+    url(r'^user/deregister/$', views.deregister, name='deregister'),
 
     url(r'^authmethod/(.*)/', authmethods_views.view),
-    
+
     url(r'^legal/(?P<pk>\d+)/$', views.legal, name='legal'),
 ]
 
 
 if settings.ENABLE_CAPTCHA:
     urlpatterns += [
-        url(r'^captcha/', include('captcha.urls')),
+        path('captcha/', include('captcha.urls')),
     ]
 
 for plugin in settings.PLUGINS:
     urlpatterns += [
-        url(r'^%s/' % plugin, include('%s.urls' % plugin)),
+        path('%s/' % plugin, include('%s.urls' % plugin)),
     ]

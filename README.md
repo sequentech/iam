@@ -44,7 +44,7 @@ kind of object.
 
 2. Install package and its dependencies
     ```
-    $ sudo apt-get install libfreetype6-dev # necessary for captcha generator, pillow require it
+    $ sudo apt-get install libfreetype6-dev python3-dev libjpeg-dev zlib1g-dev libpq-dev
     $ mkvirtualenv -p $(which python3) myenv
     $ pip install -r requirements.txt
     ```
@@ -53,6 +53,7 @@ kind of object.
     ```
     $ sudo su postgres
     $ createuser -P authapi
+    $ psql -tAc "ALTER USER authapi PASSWORD '<SOMEPASSWORD>';" -U postgres
     $ createdb -O authapi authapi
     ```
 
@@ -80,6 +81,18 @@ Optional. Added some plugin:
     Install plugins with pip or by other way
     Added plugins to PLUGINS in settings
     Enjoy of your plugin
+
+# Run unit tests
+
+You can run unit tests by having a local `authapi` postgresql database, managed by the user
+`authapi` with password `authapi` and then executing the `runtests.sh` script:
+
+    $ sudo su postgres
+    $ psql -tAc "CREATE USER authapi WITH PASSWORD 'authapi';" -U postgres
+    $ psql -tAc "ALTER USER authapi CREATEDB;" -U postgres
+  - $ psql -tAc "CREATE DATABASE authapi OWNER authapi;" -U postgres
+    $ exit
+    (authapi-env) ~/authapi $ ./runtests.sh
 
 # Tecnical details
 

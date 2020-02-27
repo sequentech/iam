@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 
 from django.db import models, migrations
+import django
 import jsonfield.fields
 
 
@@ -19,11 +20,11 @@ class Migration(migrations.Migration):
                 ('action', models.CharField(default='add', max_length=5, choices=[('add', 'add_credits'), ('spend', 'spend_credits')])),
                 ('status', models.CharField(default='created', max_length=10, choices=[('created', 'created'), ('done', 'done'), ('cancelled', 'cancelled')])),
                 ('quantity', models.FloatField()),
-                ('payment_metadata', jsonfield.fields.JSONField(default='{}')),
+                ('payment_metadata', jsonfield.fields.JSONField(default=dict)),
                 ('created', models.DateTimeField(auto_now_add=True)),
                 ('updated', models.DateTimeField(auto_now_add=True)),
-                ('authevent', models.ForeignKey(null=True, to='api.AuthEvent', related_name='creditsactions')),
-                ('user', models.ForeignKey(related_name='creditsactions', to='api.UserData')),
+                ('authevent', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, null=True, to='api.AuthEvent', related_name='creditsactions')),
+                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='creditsactions', to='api.UserData')),
             ],
             options={
             },

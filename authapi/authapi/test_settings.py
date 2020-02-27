@@ -1,5 +1,5 @@
 # This file is part of authapi.
-# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+# Copyright (C) 2014-2020  Agora Voting SL <contact@nvotes.com>
 
 # authapi is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -31,6 +31,8 @@ djcelery.setup_loader()
 # Celery config
 BROKER_URL = "amqp://guest:guest@localhost:5672//"
 
+ALLOW_DEREGISTER = True
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.7/howto/deployment/checklist/
 
@@ -41,6 +43,14 @@ SECRET_KEY = 'zct2c=hlij$^0xu0i8o6c^phjc!=m)r(%h90th0yyx9r5dm))+'
 DEBUG = True
 
 ALLOWED_HOSTS = []
+
+ADMIN_AUTH_ID = 1
+
+# If this option is true, when an user tries to register and the user is
+# already registered, authapi will return an error with the 'user_exists'
+# codename. Otherwise, on error, authapi will always return the same generic
+# error with 'invalid_credentials' codename.
+SHOW_ALREADY_REGISTERED = False
 
 
 # Application definition
@@ -71,15 +81,13 @@ PLUGINS = (
 if PLUGINS:
     INSTALLED_APPS += PLUGINS
 
-MIDDLEWARE_CLASSES = (
+MIDDLEWARE = (
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'wrap.LoggingMiddleware'
 )
 
 # change the test runner to the one provided by celery so that the tests that
@@ -112,10 +120,12 @@ WSGI_APPLICATION = 'authapi.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'authapi',
         'USER': 'authapi',
-        'PASSWORD': '<PASSWORD>'
+        'PASSWORD': 'authapi',
+        'HOST': 'localhost',
+        'PORT': '5432'
     }
 }
 
@@ -132,6 +142,8 @@ USE_L10N = True
 
 USE_TZ = True
 
+MAKE_LOGIN_KEY_PRIVATE = False
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.7/howto/static-files/
@@ -142,8 +154,10 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 # cors
 CORS_ORIGIN_ALLOW_ALL = False
 CORS_ORIGIN_WHITELIST = (
-        'localhost:9001',
+        'http://localhost:9001',
 )
+
+OPENID_CONNECT_PROVIDERS_CONF = []
 
 ENABLE_CAPTCHA = True
 PREGENERATION_CAPTCHA = 100
@@ -154,23 +168,34 @@ SMS_LOGIN = ""
 SMS_PASSWORD = ""
 SMS_URL = ""
 SMS_SENDER_ID = ""
+SMS_SENDER_NUMBER = ""
 SMS_VOICE_LANG_CODE = ""
+
+SMS_OTP_EXPIRE_SECONDS = 300
 
 MAX_AUTH_MSG_SIZE = {
   "sms": 120,
   "email": 10000
 }
 
-SMS_BASE_TEMPLATE = "__MESSAGE__ -- Agora Voting"
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-EMAIL_BASE_TEMPLATE = "__MESSAGE__\n\n -- Agora Voting https://agoravoting.com"
+SMS_BASE_TEMPLATE = "__MESSAGE__ -- nVotes"
 
+EMAIL_BASE_TEMPLATE = "__MESSAGE__\n\n -- nVotes https://nvotes.com"
+
+EMAIL_BASE_TITLE_TEMPLATE = "__TITLE__ - nVotes"
+
+HOME_URL = "https://agoravoting.example.com/#/election/__EVENT_ID__/public/home"
 SMS_AUTH_CODE_URL = "https://agoravoting.example.com/#/election/__EVENT_ID__/public/login/__RECEIVER__"
 EMAIL_AUTH_CODE_URL = "https://agoravoting.example.com/#/election/__EVENT_ID__/public/login/__RECEIVER__"
+
+AGORA_ELECTIONS_BASE = []
 
 SIZE_CODE = 8
 MAX_GLOBAL_STR = 512
 MAX_EXTRA_FIELDS = 15
+MAX_ADMIN_FIELDS = 15
 MAX_SIZE_NAME_EXTRA_FIELD = 1024
 
 MAX_IMAGE_SIZE = 5 * 1024 * 1024 # 5 MB

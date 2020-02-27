@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # This file is part of authapi.
-# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+# Copyright (C) 2014-2020  Agora Voting SL <contact@nvotes.com>
 
 # authapi is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -16,6 +16,6 @@
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
 cd authapi
-python manage.py migrate --settings=authapi.test_settings
-python manage.py loaddata --settings=authapi.test_settings initial
-python manage.py test --settings=authapi.test_settings
+python manage.py migrate --settings=authapi.test_settings &&\
+python manage.py loaddata --settings=authapi.test_settings initial &&\
+python manage.py test --settings=authapi.test_settings $1 --nocapture #--ipdb

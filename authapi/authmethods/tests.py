@@ -1,5 +1,5 @@
 # This file is part of authapi.
-# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+# Copyright (C) 2014-2020  Agora Voting SL <contact@nvotes.com>
 
 # authapi is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -39,7 +39,7 @@ class AuthMethodTestCase(TestCase):
         ae.save()
         self.aeid = ae.pk
 
-        u = User(email=test_data.pwd_auth['email'])
+        u = User(username=test_data.admin['username'], email=test_data.admin['email'])
         u.set_password(test_data.pwd_auth['password'])
         u.save()
         u.userdata.event = ae
@@ -171,7 +171,7 @@ class AuthMethodSmsTestCase(TestCase):
         u.save()
         u.userdata.event = ae
         u.userdata.tlf = '+34666666666'
-        u.userdata.metadata = { 'dni': '11111111H' }
+        u.userdata.metadata = { 'dni': 'DNI11111111H' }
         u.userdata.save()
         self.u = u.userdata
         code = Code(user=u.userdata, code='AAAAAAAA', auth_event_id=ae.pk)
@@ -179,12 +179,19 @@ class AuthMethodSmsTestCase(TestCase):
         m = Message(tlf=u.userdata.tlf, auth_event_id=ae.pk)
         m.save()
 
+        acl = ACL(
+            user=u.userdata, 
+            object_type='AuthEvent', 
+            perm='edit', 
+            object_id=ae.pk)
+        acl.save()
+
         u2 = User(email='test2@agoravoting.com')
         u2.is_active = False
         u2.save()
         u2.userdata.tlf = '+34766666666'
         u2.userdata.event = ae
-        u2.userdata.metadata = { 'dni': '11111111H' }
+        u2.userdata.metadata = { 'dni': 'DNI11111111H' }
         u2.userdata.save()
         code = Code(user=u2.userdata, code='AAAAAAAA', auth_event_id=ae.pk)
         code.save()
@@ -201,6 +208,9 @@ class AuthMethodSmsTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['status'], 'ok')
 
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
     def test_method_sms_register_valid_dni(self):
         data = {'tlf': '+34666666666', 'code': 'AAAAAAAA', 'dni': '11111111H'}
         response = self.c.register(self.aeid, data)
@@ -360,14 +370,14 @@ class ExtraFieldPipelineTestCase(TestCase):
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 200)
         user = UserData.objects.get(user__email=data['email'])
-        self.assertEqual(user.metadata.get('dni'), '39873625C')
+        self.assertEqual(user.metadata.get('dni'), 'DNI39873625C')
 
         data = {'email': 'test1@test.com', 'user': 'test',
                 'dni': '39873625c'}
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 200)
         user = UserData.objects.get(user__email=data['email'])
-        self.assertEqual(user.metadata.get('dni'), '39873625C')
+        self.assertEqual(user.metadata.get('dni'), 'DNI39873625C')
 
         data = {'email': 'test2@test.com', 'user': 'test',
                 'dni': '39873625X'}
@@ -684,3 +694,53 @@ class ExternalCheckPipelineTestCase(TestCase):
         self.assertEqual(u.is_active, True)
         mdata = u.userdata.metadata
         self.assertEqual(mdata['external_data']['custom'], True)
+
+''' 
+class AuthMethodOpenIDConnectTestCase(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        auth_method_config = test_data.authmethod_config_openid_connect_default
+        ae = AuthEvent(auth_method='openid-connect',
+                auth_method_config=auth_method_config,
+                extra_fields=test_data.auth_event2['extra_fields'],
+                status='started',
+                census=test_data.auth_event2['census'])
+        ae.save()
+        self.aeid = ae.pk
+
+        u = User(username='test1', email='test@test.com')
+        u.save()
+        u.userdata.event = ae
+        u.userdata.tlf = '+34666666666'
+        u.userdata.metadata = { 'dni': 'DNI11111111H' }
+        u.userdata.save()
+        self.u = u.userdata
+        code = Code(user=u.userdata, code='AAAAAAAA', auth_event_id=ae.pk)
+        code.save()
+        m = Message(tlf=u.userdata.tlf, auth_event_id=ae.pk)
+        m.save()
+
+        u2 = User(email='test2@agoravoting.com')
+        u2.is_active = False
+        u2.save()
+        u2.userdata.tlf = '+34766666666'
+        u2.userdata.event = ae
+        u2.userdata.metadata = { 'dni': 'DNI11111111H' }
+        u2.userdata.save()
+        code = Code(user=u2.userdata, code='AAAAAAAA', auth_event_id=ae.pk)
+        code.save()
+        self.c = JClient()
+
+    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+                       CELERY_ALWAYS_EAGER=True,
+                       BROKER_BACKEND='memory')
+    def test_method_sms_register(self):
+        data = {'tlf': '+34666666667', 'code': 'AAAAAAAA',
+                    'email': 'test1@test.com', 'dni': '11111111H'}
+        response = self.c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['status'], 'ok')
+ '''

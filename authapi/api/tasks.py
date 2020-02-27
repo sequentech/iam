@@ -1,5 +1,5 @@
 # This file is part of authapi.
-# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+# Copyright (C) 2014-2020  Agora Voting SL <contact@nvotes.com>
 
 # authapi is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -62,4 +62,4 @@ def census_send_auth_task(pk, ip, config=None, userids=None, auth_method=None, s
     if extend_errors:
         # Only can return one error at least for now
         return extend_errors[0]
-    send_codes.apply_async(args=[census, ip, auth_method, config])
+    send_codes.apply_async(args=[census, ip, auth_method, config, sender_uid, pk])

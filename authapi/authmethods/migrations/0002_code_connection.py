@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 
 from django.db import models, migrations
-
+import django
 
 class Migration(migrations.Migration):
 
@@ -20,7 +20,7 @@ class Migration(migrations.Migration):
                 ('dni', models.CharField(max_length=16)),
                 ('code', models.CharField(max_length=16)),
                 ('created', models.DateTimeField(auto_now_add=True)),
-                ('user', models.ForeignKey(related_name='codes', to='api.UserData')),
+                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='codes', to='api.UserData')),
             ],
             options={
             },

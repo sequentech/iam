@@ -20,7 +20,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='userdata',
             name='metadata',
-            field=jsonfield.fields.JSONField(default='{}', null=True, blank=True),
+            field=jsonfield.fields.JSONField(default=dict, null=True, blank=True),
         ),
         migrations.AlterField(
             model_name='userdata',

@@ -1,8 +1,12 @@
 language: python
 python:
-  - "3.4"
+  - "3.5"
 addons:
-  postgresql: "9.4"
+  postgresql: "9.5"
+  apt:
+    update: true
+before_install:
+  - sudo apt-get -y install libfreetype6-dev python3-dev libjpeg-dev zlib1g-dev libpq-dev
 install:
   - pip install -r requirements.txt
   - pip install coveralls
@@ -10,7 +14,7 @@ services:
   - postgresql
 # command to run tests
 before_script:
-  - psql -tAc "CREATE USER authapi WITH PASSWORD '<PASSWORD>';" -U postgres
+  - psql -tAc "CREATE USER authapi WITH PASSWORD 'authapi';" -U postgres
   - psql -tAc "ALTER USER authapi CREATEDB;" -U postgres
   - psql -tAc "CREATE DATABASE authapi OWNER authapi;" -U postgres
 script:

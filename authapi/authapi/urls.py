@@ -1,5 +1,5 @@
 # This file is part of authapi.
-# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+# Copyright (C) 2014-2020  Agora Voting SL <contact@nvotes.com>
 
 # authapi is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -13,15 +13,15 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
-from django.conf.urls import include, url
+from django.urls import path, include
 from django.contrib import admin
 from django.conf import settings
 
 urlpatterns = [
-    url(r'^api/', include('api.urls')),
+    path('api/', include('api.urls')),
 ]
 
 if settings.DEBUG:
     urlpatterns += [
-      url(r'^admin/', include(admin.site.urls)),
+      path('admin/', admin.site.urls),
     ]

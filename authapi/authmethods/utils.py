@@ -1,5 +1,5 @@
 # This file is part of authapi.
-# Copyright (C) 2014-2016  Agora Voting SL <agora@agoravoting.com>
+# Copyright (C) 2014-2020  Agora Voting SL <contact@nvotes.com>
 
 # authapi is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -13,14 +13,15 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
+import hashlib
 import json
 import re
 import os
 import binascii
 from base64 import decodestring
-from datetime import timedelta
+from datetime import timedelta, datetime
 from django.conf import settings
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, AnonymousUser
 from django.utils import timezone
 from django.db.models import Q
 
@@ -29,7 +30,7 @@ from api.models import ACL
 from captcha.models import Captcha
 from captcha.decorators import valid_captcha
 from contracts import CheckException, JSONContractEncoder
-from utils import json_response, get_client_ip, is_valid_url
+from utils import json_response, get_client_ip, is_valid_url, constant_time_compare
 from pipelines.base import execute_pipeline, PipeReturnvalue
 
 
@@ -40,8 +41,11 @@ EMAIL_RX = re.compile(
     r')@((?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)$)'  # domain
     r'|\[(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}\]$', re.IGNORECASE)  # literal form, ipv4 address (SMTP 4.1.3)
 
-DNI_RX = re.compile("[A-Z]?[0-9]{7,8}[A-Z]", re.IGNORECASE)
 LETTER_RX = re.compile("[A-Z]", re.IGNORECASE)
+
+DNI_ALLOWED_CHARS = "1234567890QWERTYUIOPASDFGHJKLZXCVBNM"
+DNI_RE = re.compile(r"^([0-9]{1,8}[A-Z]|[LMXYZ][0-9]{1,7}[A-Z])$")
+
 RET_PIPE_CONTINUE = 0
 
 
@@ -52,12 +56,12 @@ def error(message="", status=400, field=None, error_codename=None):
 
 def random_username():
     # 30 hex digits random username
-    username = binascii.b2a_hex(os.urandom(14))
+    username = binascii.b2a_hex(os.urandom(14)).decode('utf-8')
     try:
         User.objects.get(username=username)
         return random_username()
     except User.DoesNotExist:
-        return username;
+        return username
 
 
 def email_constraint(val):
@@ -66,31 +70,15 @@ def email_constraint(val):
         return False
     return EMAIL_RX.match(val)
 
+def date_constraint(val):
+    ''' check that the input is a valid date YYYY-MM-DD '''
 
-def dni_constraint(val):
-    ''' check that the input is a valid dni '''
-    if not isinstance(val, str):
+    try:
+        datetime.strptime(val, '%Y-%m-%d')
+    except:
         return False
 
-    val2 = val.upper()
-    if not DNI_RX.match(val2):
-        return False
-
-    if LETTER_RX.match(val2[0]):
-        nie_letter = val2[0]
-        val2 = val2[1:]
-        if nie_letter == 'Y':
-            val2 = "1" + val2
-        elif nie_letter == 'Z':
-            val2 = "2" + val2
-
-    mod_letters = 'TRWAGMYFPDXBNJZSQVHLCKE'
-    digits = val2[:-1]
-    letter = val2[-1].upper()
-
-    expected = mod_letters[int(digits) % 23]
-
-    return letter == expected
+    return True
 
 # Pipeline
 def check_tlf_whitelisted(data):
@@ -119,7 +107,7 @@ def check_ip_whitelisted(data):
 
     ip_addr = data['ip_addr']
     try:
-        item = ColorList.objects.filter(key=ColorList.KEY_IP, value=ip_addr,
+        item = ColorList.objects.filter(key=ColorList.KEY_IP, value=ip_addr[:15],
                                         auth_event_id=data['auth_event'].id)
         for item in items:
             if item.action == ColorList.ACTION_WHITELIST:
@@ -166,7 +154,7 @@ def check_ip_blacklisted(data):
 
     ip_addr = data['ip_addr']
     try:
-        item = ColorList.objects.filter(key=ColorList.KEY_IP, value=ip_addr,
+        item = ColorList.objects.filter(key=ColorList.KEY_IP, value=ip_addr[:15],
                 action=ColorList.ACTION_BLACKLIST,
                 auth_event_id=data['auth_event'].id)[0]
         return error("Blacklisted", error_codename="blacklisted")
@@ -196,7 +184,7 @@ def check_tlf_total_max(data, **kwargs):
 
     if len(item) >= total_max:
         c1 = ColorList(action=ColorList.ACTION_BLACKLIST,
-                       key=ColorList.KEY_IP, value=ip_addr,
+                       key=ColorList.KEY_IP, value=ip_addr[:15],
                        auth_event_id=data['auth_event'].id)
         c1.save()
         c2 = ColorList(action=ColorList.ACTION_BLACKLIST,
@@ -221,17 +209,17 @@ def check_ip_total_max(data, **kwargs):
     if period:
         time_threshold = timezone.now() - timedelta(seconds=period)
         item = Message.objects.filter(
-            ip=ip_addr,
+            ip=ip_addr[:15],
             created__gt=time_threshold,
             auth_event_id=data['auth_event'].id)
     else:
         item = Message.objects.filter(
-            ip=ip_addr,
+            ip=ip_addr[:15],
             auth_event_id=data['auth_event'].id)
 
     if len(item) >= total_max:
         cl = ColorList(action=ColorList.ACTION_BLACKLIST,
-                       key=ColorList.KEY_IP, value=ip_addr,
+                       key=ColorList.KEY_IP, value=ip_addr[:15],
                        auth_event_id=data['auth_event'].id)
         cl.save()
         return error("Blacklisted", error_codename="blacklisted")
@@ -290,11 +278,81 @@ def check_total_connection(data, **kwargs):
     conn.save()
     return RET_PIPE_CONTINUE
 
+def normalize_dni(dni):
+    '''
+    Normalizes dnis, using uppercase, removing characters not allowed and
+    left-side zeros
+    '''
+    dni2 = ''.join([i for i in dni.upper() if i in DNI_ALLOWED_CHARS])
+    last_char = ""
+    dni3 = ""
+    for c in dni2:
+      if (last_char is "" or last_char not in '1234567890XY') and c == '0':
+        continue
+      dni3 += c
+      last_char = c
+    return dni3
+
+def encode_dni(dni):
+    '''
+    Mark dnis with DNI prefix, and passports with PASS prefix.
+    '''
+    if DNI_RE.match(dni):
+      return "DNI" + dni
+    elif dni.startswith("PASS") or dni.startswith("DNI"):
+      return dni
+    else:
+      return "PASS" + dni
+
+def dni_constraint(val):
+    ''' check that the input is a valid dni '''
+    if not isinstance(val, str):
+        return False
+
+    # Allow Passports
+    if val.startswith("PASS") and len(val) < 30:
+        return False
+
+    # remove the "DNI" prefix
+    val = val[3:]
+
+    if LETTER_RX.match(val[0]):
+        nie_letter = val[0]
+        val = val[1:]
+        if nie_letter == 'Y':
+            val = "1" + val
+        elif nie_letter == 'Z':
+            val = "2" + val
+
+    mod_letters = 'TRWAGMYFPDXBNJZSQVHLCKE'
+    digits = val[:-1]
+    letter = val[-1].upper()
+    expected = mod_letters[int(digits) % 23]
+    return letter == expected
+
+
+
+def canonize_extra_field(extra, req):
+    field_name = extra.get('name')
+    field_value = req.get(field_name)
+    field_type = extra.get('type')
+
+    if field_type == 'tlf':
+        req[field_name] = get_cannonical_tlf(field_value)
+    elif field_type == 'dni':
+        if isinstance(field_value, str):
+            req[field_name] = encode_dni(normalize_dni(field_value))
+    elif field_type == 'bool':
+        if isinstance(field_value, str):
+            req[field_name] = field_value.lower().strip() not in ["", "false"]
 
 def check_pipeline(request, ae, step='register', default_pipeline=None):
     req = json.loads(request.body.decode('utf-8'))
-    if req.get('tlf'):
-        req['tlf'] = get_cannonical_tlf(req['tlf'])
+
+    if ae.extra_fields:
+        for extra_field in ae.extra_fields:
+            canonize_extra_field(extra_field, req)
+
     data = {
         'ip_addr': get_client_ip(request),
         'tlf': req.get('tlf', None),
@@ -380,6 +438,9 @@ def check_field_value(definition, field, req=None, ae=None, step='register'):
             a = re.compile(definition.get('regex'))
             if not a.match(str(field)):
                 msg += "Field %s regex incorrect, value %s" % (definition.get('name'), field)
+        if definition.get('type') == 'date':
+            if not date_constraint(field):
+                msg += "Field date incorrect, value %s" % field
         if definition.get(step + '-pipeline'):
             pipedata = dict(request=req)
             name = step + '-pipeline'
@@ -412,16 +473,18 @@ def check_captcha(code, answer):
         return 'Invalid captcha'
     return ''
 
-
 def check_fields_in_request(req, ae, step='register', validation=True):
     """ Checked fields in extra_fields are correct, checked the type of field and the value if
     validation is True. """
     msg = ''
+
     if ae.extra_fields:
         if len(req) > settings.MAX_EXTRA_FIELDS * 2:
             return "Number of fields is bigger than allowed fields."
         for extra in ae.extra_fields:
+            canonize_extra_field(extra, req)
             msg += check_field_type(extra, req.get(extra.get('name')), step)
+            canonize_extra_field(extra, req)
             if validation:
                 msg += check_field_value(extra, req.get(extra.get('name')), req, ae, step)
                 if not msg and extra.get('type') == 'captcha' and step != 'census':
@@ -456,6 +519,12 @@ def exist_user(req, ae, get_repeated=False):
             msg += "Tel %s repeat." % req.get('tlf')
         except:
             pass
+    if req.get('username'):
+        try:
+            user = User.objects.get(username=r.get('username'), userdata__event=ae)
+            msg += "Username %s repeat." % req.get('username')
+        except:
+            pass
 
     if not msg:
         if not ae.extra_fields:
@@ -488,30 +557,32 @@ def get_cannonical_tlf(tlf):
 
 
 def edit_user(user, req, ae):
-    if ae.auth_method == 'email':
+    if ae.auth_method == 'user-and-password':
+        req.pop('username')
+        req.pop('password')
+    elif ae.auth_method == 'email-and-password':
+        req.pop('email')
+        req.pop('password')
+
+    if req.get('email'):
         user.email = req.get('email')
         req.pop('email')
-    elif ae.auth_method == 'sms':
-        if req['tlf']:
-            user.userdata.tlf = get_cannonical_tlf(req['tlf'])
-        else:
-            user.userdata.tlf = req['tlf']
+    if req.get('tlf'):
+        user.userdata.tlf = get_cannonical_tlf(req['tlf'])
         req.pop('tlf')
+
     if ae.extra_fields:
         for extra in ae.extra_fields:
-            if extra.get('type') == 'email':
+            if extra.get('type') == 'email' and req.get(extra.get('name')):
                 user.email = req.get(extra.get('name'))
                 req.pop(extra.get('name'))
-            elif extra.get('type') == 'tlf':
-                if req[extra.get('name')]:
-                    user.userdata.tlf = get_cannonical_tlf(req[extra.get('name')])
-                else:
-                    user.userdata.tlf = req[extra.get('name')]
+            elif extra.get('type') == 'tlf' and req.get(extra.get('name')):
+                user.userdata.tlf = get_cannonical_tlf(req[extra.get('name')])
                 req.pop(extra.get('name'))
             elif extra.get('type') == 'password':
                 user.set_password(req.get(extra.get('name')))
                 req.pop(extra.get('name'))
-            if extra.get('type') == 'image':
+            elif extra.get('type') == 'image':
                 img = req.get(extra.get('name'))
                 fname = user.username.decode()
                 path = os.path.join(settings.IMAGE_STORE_PATH, fname)
@@ -526,20 +597,98 @@ def edit_user(user, req, ae):
     return user
 
 
-def create_user(req, ae, active=False):
-    user = random_username()
+def generate_username(req, ae):
+    '''
+    Generates username by:
+    a) if any user field is marked as userid_field, then the username will be:
+      sha256(userid_field1:userid_field2:..:auth_event_id:shared_secret)
+    b) in any other case, use a random username
+    '''
+    userid_fields = []
+    if not ae.extra_fields:
+        return random_username()
+
+    for extra in ae.extra_fields:
+        if 'userid_field' in extra.keys() and extra.get('userid_field'):
+            val = req.get(extra.get('name', ""))
+            if not isinstance(val, str):
+              val = ""
+            userid_fields.append(val)
+
+    if len(userid_fields) == 0:
+        return random_username()
+
+    userid_fields.append(str(ae.id))
+    userid_fields.append(settings.SHARED_SECRET.decode("utf-8"))
+    return hashlib.sha256(":".join(userid_fields).encode('utf-8')).hexdigest()
+
+def get_trimmed_user_req(req, ae):
+    '''
+    Returns the request without images or passwords, used to log the action when
+    adding someone to census
+    '''
+    metadata = req.copy()
+    if 'password' in metadata:
+        metadata.pop('password')
+
+    if ae.extra_fields:
+        for extra in ae.extra_fields:
+            if extra.get('type') in ['password', 'image']:
+                metadata.pop(extra.get('name'))
+
+    return metadata
+
+def get_trimmed_user(user, ae):
+    '''
+    Returns the request without images or passwords, used to log the action
+    when deleting someone from census
+    '''
+    metadata = user.userdata.metadata.copy()
+
+    if ae.extra_fields:
+        for extra in ae.extra_fields:
+            if extra.get('type') in ['password', 'image']:
+                metadata.pop(extra.get('name'))
+
+    if user.email:
+        metadata['email'] = user.email
+    if user.userdata.tlf:
+        metadata['tlf'] = user.userdata.tlf
+
+    metadata['_username'] = user.username
+    metadata['_id'] = user.id
+
+    return metadata
+
+
+def create_user(req, ae, active, creator, user=None, password=None):
+    from api.models import Action
+    if not user:
+        user = generate_username(req, ae)
+
     u = User(username=user)
     u.is_active = active
+    if password:
+        u.set_password(password)
     u.save()
+
     u.userdata.event = ae
     u.userdata.save()
-    return edit_user(u, req, ae)
 
+    is_anon = creator is None or isinstance(creator, AnonymousUser)
+
+    action = Action(
+        executer=u if is_anon else creator,
+        receiver=u,
+        action_name='user:register' if is_anon else 'user:added-to-census',
+        event=ae,
+        metadata=get_trimmed_user_req(req, ae))
+    action.save()
+
+    return edit_user(u, req, ae)
 
 def check_metadata(req, user):
     meta = user.userdata.metadata
-    if type(meta) == str:
-        meta = json.loads(meta)
     extra = user.userdata.event.extra_fields
     if not extra:
         return ""
@@ -548,17 +697,37 @@ def check_metadata(req, user):
         if field.get('required_on_authentication'):
             name = field.get('name')
             typee = field.get('type')
+
+            user_value = meta.get(name)
             if (typee == 'email'):
-                if user.email != req.get(name):
-                    return "Incorrect authentication."
+                user_value = user.email
             elif (typee == 'tlf'):
-                if user.userdata.tlf != req.get(name):
-                    return "Incorrect authentication."
-            else:
-                if meta.get(name) != req.get(name):
-                    return "Incorrect authentication."
+                user_value = user.userdata.tlf
+
+            if not constant_time_compare(user_value, req.get(name)):
+                return "Incorrect authentication."
     return ""
 
+def get_required_fields_on_auth(req, ae, q):
+    '''
+    Modifies a Q query adding required_on_authentication fields with the values
+    from the http request, used to filter users
+    '''
+    if ae.extra_fields:
+        for field in ae.extra_fields:
+            if not field.get('required_on_authentication'):
+                continue
+
+            value = req.get(field.get('name'), '')
+            typee = field.get('type')
+            if typee == 'email':
+                q = q & Q(email=value)
+            elif typee == 'tlf':
+                q = q & Q(userdata__tlf=value)
+            else:
+                q = q & Q(userdata__metadata__contains={field.get('name'): value})
+
+    return q
 
 def give_perms(u, ae):
     pipe = ae.auth_method_config.get('pipeline')
