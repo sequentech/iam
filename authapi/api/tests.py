@@ -347,7 +347,6 @@ class ApiTestCase(TestCase):
         assert_perms(perms=['edit'], count=1)
         assert_perms(perms=['unarchive'], count=0)
 
-class _Other:        
     def test_change_status(self):
         c = JClient()
         response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'started'), {})
