@@ -666,6 +666,74 @@ class CallbackView(View):
 
 callback = CallbackView.as_view()
 
+
+class Archive(View):
+    '''
+    Archives an auth-event
+    '''
+    def post(self, request, pk):
+        permission_required(request.user, 'AuthEvent', ['edit', 'archive'], pk)
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+
+        # Get all edit and view perms and convert edit into unarchive and view
+        # into view-archived permissions
+        acls = ACL.objects.filter(
+            perm__in=['edit', 'view'],
+            object_type='AuthEvent',
+            object_id=pk
+        )
+        converter_map = dict(edit='unarchive', view='view-archived')
+        for acl in acls:
+            acl.perm = converter_map[acl.perm]
+            acl.save()
+
+        # register the action
+        action = Action(
+            executer=request.user,
+            receiver=None,
+            action_name='authevent:archive',
+            event=auth_event,
+            metadata=dict())
+        action.save()
+
+        return json_response()
+archive = login_required(Archive.as_view())
+
+
+class Unarchive(View):
+    '''
+    Unarchives an auth-event
+    '''
+    def post(self, request, pk):
+        permission_required(request.user, 'AuthEvent', ['unarchive'], pk)
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+
+        # Reverts the archiving of an auth-event
+        acls = ACL.objects.filter(
+            perm__in=['unarchive', 'view-archived'],
+            object_type='AuthEvent',
+            object_id=pk
+        )
+        converter_map = {
+            'unarchive': 'edit',
+            'view-archived': 'view'
+        }
+        for acl in acls:
+            acl.perm = converter_map[acl.perm]
+            acl.save()
+        
+        # register the action
+        action = Action(
+            executer=request.user,
+            receiver=None,
+            action_name='authevent:unarchive',
+            event=auth_event,
+            metadata=dict())
+        action.save()
+
+        return json_response()
+unarchive = login_required(Unarchive.as_view())
+
 class CsvStatsView(View):
     '''
     Returns statistical data about votes in text/plain csv format
@@ -1304,7 +1372,7 @@ class AuthEventView(View):
                 permission_required(
                     user,
                     'AuthEvent',
-                    ['edit', 'view'],
+                    ['edit', 'view', 'view-archived'],
                     e.id,
                     return_bool=True)):
                 aes = e.serialize()
