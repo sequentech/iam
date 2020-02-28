@@ -306,6 +306,48 @@ class ApiTestCase(TestCase):
         acl = ACL(user=u.userdata, object_type='ACL', perm='create', object_id=0)
         acl.save()
 
+    def test_archive_unarchive(self):
+        c = JClient()
+        response = c.post('/api/auth-event/%d/archive/' % self.aeid, {})
+        self.assertEqual(response.status_code, 403)
+        response = c.post('/api/auth-event/%d/unarchive/' % self.aeid, {})
+        self.assertEqual(response.status_code, 403)
+
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        response = c.post('/api/auth-event/%d/unarchive/' % self.aeid, {})
+        self.assertEqual(response.status_code, 403)
+
+        def assert_perms(perms, count):
+            self.assertEqual(
+                ACL.objects.filter(
+                    user=self.testuser.userdata,
+                    perm__in=perms,
+                    object_type='AuthEvent',
+                    object_id=self.aeid
+                ).count(),
+                count
+            )
+        assert_perms(perms=['edit'], count=1)
+        assert_perms(perms=['unarchive'], count=0)
+
+        response = c.post('/api/auth-event/%d/archive/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+
+        assert_perms(perms=['edit'], count=0)
+        assert_perms(perms=['unarchive'], count=1)
+
+        response = c.post('/api/auth-event/%d/archive/' % self.aeid, {})
+        self.assertEqual(response.status_code, 403)
+
+        response = c.post('/api/auth-event/%d/unarchive/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+
+        assert_perms(perms=['edit'], count=1)
+        assert_perms(perms=['unarchive'], count=0)
+
+class _Other:        
     def test_change_status(self):
         c = JClient()
         response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'started'), {})
