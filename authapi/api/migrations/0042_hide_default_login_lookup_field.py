@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0042_hide_default_login_lookup_field'),
+        ('api', '0041_auto_20200125_1041'),
     ]
 
     operations = [
