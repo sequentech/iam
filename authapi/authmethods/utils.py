@@ -412,6 +412,11 @@ def check_field_value(definition, field, req=None, ae=None, step='register'):
     msg = ''
     if step == 'authenticate' and not definition.get('required_on_authentication'):
         return msg
+    if step == 'resend-auth':
+        if not definition.get('required_on_authentication'):
+            return msg
+        elif definition.get('type') == 'code':
+            return msg
     if step == 'census' and definition.get('type') == 'captcha':
         return msg
     if field is None:
