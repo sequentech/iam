@@ -629,7 +629,7 @@ class Email:
             email = email.strip()
             email = email.replace(" ", "")
 
-        email_def = self.email_definition if not settings.MAKE_LOGIN_KEY_PRIVATE else self.email_opt_definition
+        email_def = self.email_definition if not ae.hide_default_login_lookup_field else self.email_opt_definition
         msg += check_field_type(email_def, email, 'authenticate')
         msg += check_field_value(email_def, email, 'authenticate')
         msg += check_field_type(self.code_definition, req.get('code'), 'authenticate')
@@ -660,7 +660,7 @@ class Email:
             q = Q(userdata__event=ae, is_active=True)
             if 'email' in req:
                 q = q & Q(email=email)
-            elif not settings.MAKE_LOGIN_KEY_PRIVATE:
+            elif not ae.hide_default_login_lookup_field:
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
             q = get_required_fields_on_auth(req, ae, q)

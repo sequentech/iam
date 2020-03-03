@@ -162,7 +162,7 @@ class PWD:
 
             if 'username' in req:
                 q = q & Q(username=username)
-            elif not settings.MAKE_LOGIN_KEY_PRIVATE:
+            elif not ae.hide_default_login_lookup_field:
                 return self.authenticate_error("no-username-provided", req, ae)
 
             q = get_required_fields_on_auth(req, ae, q)

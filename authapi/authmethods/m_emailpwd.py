@@ -154,7 +154,7 @@ class EmailPWD:
             q = Q(userdata__event=ae, is_active=True)
             if 'email' in req:
                 q = q & Q(email=email)
-            elif not settings.MAKE_LOGIN_KEY_PRIVATE:
+            elif not ae.hide_default_login_lookup_field:
                 return self.authenticate_error("no-email-provided", req, ae)
 
             q = get_required_fields_on_auth(req, ae, q)

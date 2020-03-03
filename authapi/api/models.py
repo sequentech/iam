@@ -57,6 +57,7 @@ class AuthEvent(models.Model):
     admin_fields = JSONField(blank=True, null=True)
     has_ballot_boxes = models.BooleanField(default=True)
     allow_public_census_query = models.BooleanField(default=True)
+    hide_default_login_lookup_field = models.BooleanField(default=False)
 
     # 0 means any number of logins is allowed
     num_successful_logins_allowed = models.IntegerField(
@@ -95,6 +96,7 @@ class AuthEvent(models.Model):
                         else self.created),
             'based_in': self.based_in,
             'num_successful_logins_allowed': self.num_successful_logins_allowed,
+            'hide_default_login_lookup_field': self.hide_default_login_lookup_field,
             'auth_method_config': {
                'config': {
                  'allow_user_resend': self.check_allow_user_resend()
