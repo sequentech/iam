@@ -627,7 +627,7 @@ class Sms:
         if isinstance(tlf, str):
             tlf = tlf.strip()
 
-        tlf_def = self.tlf_definition if not settings.MAKE_LOGIN_KEY_PRIVATE else self.tlf_opt_definition
+        tlf_def = self.tlf_definition if not ae.hide_default_login_lookup_field else self.tlf_opt_definition
         msg += check_field_type(tlf_def, tlf, 'authenticate')
         msg += check_field_value(tlf_def, tlf, 'authenticate')
         msg += check_field_type(self.code_definition, req.get('code'), 'authenticate')
@@ -647,7 +647,7 @@ class Sms:
             q = Q(userdata__event=ae, is_active=True)
             if 'tlf' in req:
                 q = q & Q(userdata__tlf=tlf)
-            elif not settings.MAKE_LOGIN_KEY_PRIVATE:
+            elif not ae.hide_default_login_lookup_field:
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
             q = get_required_fields_on_auth(req, ae, q)

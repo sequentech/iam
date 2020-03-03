@@ -933,6 +933,7 @@ class TestAuthEvent(TestCase):
                 'id': rid,
                 'users': 0,
                 'num_successful_logins_allowed': 0,
+                'hide_default_login_lookup_field': False,
                 'openid_connect_providers': [],
             },
             'status': 'ok'
@@ -3929,7 +3930,8 @@ class ApiTestRequiredOnAuthentication(TestCase):
         response = c.post(url_auth, user_data)
         self.assertEqual(response.status_code, 400)
 
-        settings.MAKE_LOGIN_KEY_PRIVATE = True
+        self.ae.hide_default_login_lookup_field = True
+        self.ae.save()
 
         c = JClient()
         response = c.post(url_auth, user_data)

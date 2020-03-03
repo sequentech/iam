@@ -1232,6 +1232,13 @@ class AuthEventView(View):
                     status=400,
                     error_codename="INVALID_BALLOT_BOXES")
 
+            # check if it has ballot boxes
+            hide_default_login_lookup_field = req.get('hide_default_login_lookup_field', False)
+            if not isinstance(hide_default_login_lookup_field, bool):
+                return json_response(
+                    status=400,
+                    error_codename="INVALID_HIDE_DEFAULT_LOGIN_LOOKUP_FIELD")
+
             # check if census public can query the census
             allow_public_census_query = req.get('allow_public_census_query', False)
             if not isinstance(allow_public_census_query, bool):
@@ -1269,13 +1276,18 @@ class AuthEventView(View):
                 num_successful_logins_allowed=num_successful_logins_allowed,
                 based_in=based_in,
                 has_ballot_boxes=has_ballot_boxes,
+                hide_default_login_lookup_field=hide_default_login_lookup_field,
                 allow_public_census_query=allow_public_census_query
             )
 
             # Save before the acl creation to get the ae id
             ae.save()
-            acl = ACL(user=request.user.userdata, perm='edit', object_type='AuthEvent',
-                      object_id=ae.id)
+            acl = ACL(
+                user=request.user.userdata, 
+                perm='edit', 
+                object_type='AuthEvent',
+                object_id=ae.id
+            )
             acl.save()
             acl = ACL(user=request.user.userdata, perm='create',
                     object_type='UserData', object_id=ae.id)
@@ -1292,6 +1304,7 @@ class AuthEventView(View):
                     admin_fields=admin_fields,
                     census=census,
                     num_successful_logins_allowed=num_successful_logins_allowed,
+                    hide_default_login_lookup_field=hide_default_login_lookup_field,
                     based_in=based_in
                 )
             )
