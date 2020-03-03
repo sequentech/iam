@@ -69,7 +69,8 @@ from .models import (
     User,
     UserData,
     BallotBox,
-    TallySheet
+    TallySheet,
+    children_election_info_validator
 )
 from .tasks import census_send_auth_task
 from django.db.models import Q
@@ -1232,7 +1233,7 @@ class AuthEventView(View):
                     status=400,
                     error_codename="INVALID_BALLOT_BOXES")
 
-            # check if it has ballot boxes
+            # check if it has hide_default_login_lookup_field
             hide_default_login_lookup_field = req.get('hide_default_login_lookup_field', False)
             if not isinstance(hide_default_login_lookup_field, bool):
                 return json_response(
@@ -1250,6 +1251,27 @@ class AuthEventView(View):
             if based_in and not ACL.objects.filter(user=request.user.userdata, perm='edit',
                     object_type='AuthEvent', object_id=based_in):
                 msg += "Invalid id to based_in"
+            
+            # check parent_id
+            parent_id = req.get('parent_id', None)
+            parent = None
+            if parent_id:
+                if type(parent_id) is not int or AuthEvent.objects.filter(pk=parent_id).count() != 1:
+                    return json_response(
+                        status=400,
+                        error_codename="INVALID_PARENT_ID")
+                parent = AuthEvent.objects.get(pk=parent_id)
+            
+            # children_election_info
+            children_election_info = req.get('children_election_info', None)
+            if children_election_info:
+                try:
+                    children_election_info_validator(children_election_info)
+                except:
+                    return json_response(
+                        status=400,
+                        error_codename="INVALID_CHILDREN_ELECTION_INFO")
+
 
             # Note that a login is only complete if a call has been received and
             # accepted at /authevent/<ID>/successful_login
@@ -1272,8 +1294,10 @@ class AuthEventView(View):
                 auth_method_config=auth_method_config,
                 extra_fields=extra_fields,
                 admin_fields=admin_fields,
+                parent=parent,
                 census=census,
                 num_successful_logins_allowed=num_successful_logins_allowed,
+                children_election_info=children_election_info,
                 based_in=based_in,
                 has_ballot_boxes=has_ballot_boxes,
                 hide_default_login_lookup_field=hide_default_login_lookup_field,

@@ -16,6 +16,7 @@
 import json
 from django.db import models
 from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 
 from django.contrib.postgres import fields
@@ -28,6 +29,9 @@ from django.conf import settings
 from utils import genhmac
 from django.utils import timezone
 
+from contracts.base import check_contract
+from contracts import CheckException
+
 CENSUS = (
     ('close', 'Close census'),
     ('open', 'Open census'),
@@ -39,6 +43,158 @@ AE_STATUSES = (
     ('stopped', 'stopped'),
 )
 
+
+CHILDREN_ELECTION_INFO_CONTRACT = [
+    {
+        'check': 'isinstance',
+        'type': dict
+    },
+    {
+        'check': 'dict-keys-exist',
+        'keys': ['natural_order', 'presentation']
+    },
+    {
+        'check': 'index-check-list',
+        'index': 'natural_order',
+        'check-list': [
+            {
+                'check': 'isinstance',
+                'type': list
+            },
+            {
+                'check': 'length',
+                'range': [1, 200]
+            },
+            {
+                'check': 'lambda',
+                'lambda': lambda d: len(set(d)) == len(d)
+            }
+        ]
+    },
+    {
+        'check': 'index-check-list',
+        'index': 'presentation',
+        'check-list': [
+            {
+                'check': 'isinstance',
+                'type': dict
+            },
+            {
+                'check': 'dict-keys-exact',
+                'keys': ['categories']
+            },
+            {
+                'check': 'index-check-list',
+                'index': 'categories',
+                'check-list': [
+                    {
+                        'check': 'isinstance',
+                        'type': list
+                    },
+                    {
+                        'check': "iterate-list",
+                        'check-list': [
+                            {
+                                'check': 'isinstance',
+                                'type': dict
+                            },
+                            {
+                                'check': 'dict-keys-exact',
+                                'keys': ['id', 'title', 'events']
+                            },
+                            {
+                                'check': 'index-check-list',
+                                'index': 'id',
+                                'check-list': [
+                                    {
+                                        'check': 'isinstance',
+                                        'type': int
+                                    },
+                                    {
+                                        'check': 'lambda',
+                                        'lambda': lambda d: d >= 1
+                                    }
+                                ]
+                            },
+                            {
+                                'check': 'index-check-list',
+                                'index': 'title',
+                                'check-list': [
+                                    {
+                                        'check': 'isinstance',
+                                        'type': str
+                                    },
+                                    {
+                                        'check': 'length',
+                                        'range': [1, 254]
+                                    }
+                                ]
+                            },
+                            {
+                                'check': 'index-check-list',
+                                'index': 'events',
+                                'check-list': [
+                                    {
+                                        'check': 'isinstance',
+                                        'type': list
+                                    },
+                                    {
+                                        'check': "iterate-list",
+                                        'check-list': [
+                                            {
+                                                'check': 'dict-keys-exact',
+                                                'keys': ['event_id', 'title']
+                                            },
+                                            {
+                                                'check': 'index-check-list',
+                                                'index': 'event_id',
+                                                'check-list': [
+                                                    {
+                                                        'check': 'isinstance',
+                                                        'type': int
+                                                    },
+                                                    {
+                                                        'check': 'lambda',
+                                                        'lambda': lambda d: d >= 1
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                'check': 'index-check-list',
+                                                'index': 'title',
+                                                'check-list': [
+                                                    {
+                                                        'check': 'isinstance',
+                                                        'type': str
+                                                    },
+                                                    {
+                                                        'check': 'length',
+                                                        'range': [1, 254]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+]
+
+
+def children_election_info_validator(value):
+    if value == None:
+        return
+    else:
+        try:
+            check_contract(CHILDREN_ELECTION_INFO_CONTRACT, value)
+        except CheckException as e:
+            raise ValidationError()
+        
 
 class AuthEvent(models.Model):
     '''
@@ -57,7 +213,47 @@ class AuthEvent(models.Model):
     admin_fields = JSONField(blank=True, null=True)
     has_ballot_boxes = models.BooleanField(default=True)
     allow_public_census_query = models.BooleanField(default=True)
+
+    # allows to hide default login lookup field during the authentication
+    # step. For example, in email authentication it would not show the
+    # email field.
+    #
+    # It only makes sense to use when another required_on_authentication
+    # extra_field exists that can be used to find the user to authenticate.
     hide_default_login_lookup_field = models.BooleanField(default=False)
+
+    # Contains the information related on how to show or act related to
+    # the children elections. Example:
+    # {
+    #     "natural_order": [101,102,103],
+    #     "presentation": {
+    #         "categories": [
+    #             {
+    #                 "id": 1,
+    #                 "title": "Executive Board",
+    #                 "events": [
+    #                     {
+    #                         "event_id": 101,
+    #                         "title": "Pre/Vice"
+    #                     },
+    #                     {
+    #                         "event_id": 102,
+    #                         "title": "Vocales"
+    #                     }
+    #                 ]
+    #             }
+    #         ]
+    #     }
+    # }
+    children_election_info = JSONField(blank=True, null=True, validators=[children_election_info_validator])
+
+    # allow for hierarchy of elections
+    parent = models.ForeignKey(
+        'self', 
+        models.CASCADE, 
+        related_name="children", 
+        null=True
+    )
 
     # 0 means any number of logins is allowed
     num_successful_logins_allowed = models.IntegerField(
@@ -97,6 +293,8 @@ class AuthEvent(models.Model):
             'based_in': self.based_in,
             'num_successful_logins_allowed': self.num_successful_logins_allowed,
             'hide_default_login_lookup_field': self.hide_default_login_lookup_field,
+            'parent_id': self.parent.id if self.parent is not None else None,
+            'children_election_info': self.children_election_info,
             'auth_method_config': {
                'config': {
                  'allow_user_resend': self.check_allow_user_resend()

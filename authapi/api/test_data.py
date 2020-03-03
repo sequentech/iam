@@ -1058,3 +1058,27 @@ authmethod_config_openid_connect_default = {
             "authenticate-pipeline": []
         }
 }
+
+auth_event18 = copy.deepcopy(auth_event1)
+auth_event18["children_election_info"] = {
+    "natural_order": [101,102,103],
+    "presentation": {
+        "categories": [
+            {
+                "id": 1,
+                "title": "Executive Board",
+                "events": [
+                    {
+                        "event_id": 101,
+                        "title": "Pre/Vice"
+                    },
+                    {
+                        "event_id": 102,
+                        "title": "Vocales"
+                    }
+                ]
+            }
+        ]
+    }
+}
+

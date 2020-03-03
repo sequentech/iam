@@ -934,6 +934,8 @@ class TestAuthEvent(TestCase):
                 'users': 0,
                 'num_successful_logins_allowed': 0,
                 'hide_default_login_lookup_field': False,
+                'parent_id': None,
+                'children_election_info': None,
                 'openid_connect_providers': [],
             },
             'status': 'ok'
@@ -3968,3 +3970,77 @@ class ApiTestUserIdField(TestCase):
             u.username,
             "65d208b58bed19558591967ea937799b5a7f266310e27d31f5209bf7e788bfdf"
         )
+
+
+class ApitTestCreateParentElection(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        self.aeid_special = 1
+        u = User(
+            username=test_data.admin['username'], 
+            email=test_data.admin['email']
+        )
+        u.set_password(test_data.admin['password'])
+        u.save()
+        u.userdata.event = AuthEvent.objects.get(pk=1)
+        u.userdata.save()
+        self.user = u
+
+        self.admin_auth_data = dict(
+            email=test_data.admin['email'],
+            code="ERGERG"
+        )
+        c = Code(
+            user=self.user.userdata,
+            code=self.admin_auth_data['code'],
+            auth_event_id=self.aeid_special
+        )
+        c.save()
+        
+        acl = ACL(
+            user=self.user.userdata, 
+            object_type='AuthEvent', 
+            perm='create',
+            object_id=0
+        )
+        acl.save()
+
+    def test_create_parent_authevent(self):
+        c = JClient()
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+        response = c.post('/api/auth-event/', test_data.auth_event18)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        rid = r['id']
+
+        response = c.get('/api/auth-event/%d/' % rid, {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(
+            reproducible_json_dumps(r['events']['children_election_info']),
+            reproducible_json_dumps(test_data.auth_event18['children_election_info'])
+        )
+
+    def test_create_children_authevent(self):
+        c = JClient()
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        auth_event = copy.deepcopy(test_data.auth_event1)
+        auth_event['parent_id'] = 3463453 # does not exist
+        response = c.post('/api/auth-event/', auth_event)
+        self.assertEqual(response.status_code, 400)
+
+        auth_event['parent_id'] = 1 # does exist
+        response = c.post('/api/auth-event/', auth_event)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        rid = r['id']
+
+        response = c.get('/api/auth-event/%d/' % rid, {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(r['events']['parent_id'], 1)
