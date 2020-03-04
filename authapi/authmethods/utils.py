@@ -30,7 +30,13 @@ from api.models import ACL
 from captcha.models import Captcha
 from captcha.decorators import valid_captcha
 from contracts import CheckException, JSONContractEncoder
-from utils import json_response, get_client_ip, is_valid_url, constant_time_compare
+from utils import (
+    json_response, 
+    get_client_ip, 
+    is_valid_url, 
+    constant_time_compare,
+    permission_required
+)
 from pipelines.base import execute_pipeline, PipeReturnvalue
 
 
@@ -597,6 +603,10 @@ def edit_user(user, req, ae):
                     f.write(img)
                 req[extra.get('name')] = fname
     user.save()
+
+    if ae.children_election_info is not None:
+        user.userdata.children_event_id_list = req.get('children_event_id_list')
+
     user.userdata.metadata = req
     user.userdata.save()
     return user
@@ -755,3 +765,33 @@ def give_perms(u, ae):
             acl, created = ACL.objects.get_or_create(user=u.userdata, object_type=obj, perm=perm, object_id=obj_id)
             acl.save()
     return ''
+
+def verify_children_election_info(auth_event, user, perms):
+    '''
+    Verify that the requesting user has permissions to edit all
+    the referred children events (and that they do, in fact, exist)
+    '''
+    from api.models import AuthEvent
+
+    # Cannot have nested parents or no children_election_info
+    assert auth_event.parent is None
+    assert auth_event.children_election_info is not None
+
+    # verify the children do exist and the requesting user have the 
+    # appropiate permissions
+    for event_id in auth_event.children_election_info['natural_order']:
+        children_event = AuthEvent.objects.get(pk=event_id, parent=auth_event)
+        permission_required(user, 'AuthEvent', perms, event_id)
+
+
+def verify_valid_children_elections(auth_event, census_element):
+    '''
+    Verify that the requesting census element is referring as children
+    elections only to elections who indeed are children of the parent
+    '''
+    from api.models import children_event_id_list_validator
+    assert 'children_event_id_list' in census_element
+    children_event_id_list_validator(census_element['children_event_id_list'])
+
+    for event_id in census_element['children_event_id_list']:
+        assert event_id in auth_event.children_election_info['natural_order']

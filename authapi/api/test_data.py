@@ -1061,7 +1061,7 @@ authmethod_config_openid_connect_default = {
 
 auth_event18 = copy.deepcopy(auth_event1)
 auth_event18["children_election_info"] = {
-    "natural_order": [101,102,103],
+    "natural_order": [101,102],
     "presentation": {
         "categories": [
             {
@@ -1082,3 +1082,90 @@ auth_event18["children_election_info"] = {
     }
 }
 
+# election with no extra fields, used for child elections
+auth_event19 = {
+    "auth_method": "email-otp",
+    "census": "open",
+    "config": {
+        "authentication-action": {"mode": ""},
+        "subject": "Confirm your email",
+        "msg": "Click __URL__ and put this code __CODE__"
+    },
+    "extra_fields": []
+}
+
+auth_event19_census = {
+    "census": [
+        {"email": "a1@aaa.com"},
+        {"email": "a2@aaa.com"},
+    ]
+}
+
+# parent election
+def get_auth_event_20(child_id_1, child_id_2):
+    return {
+        "auth_method": "email-otp",
+        "census": "close",
+        "config": {"msg": "Enter in __URL__ and put this code __CODE__"},
+        "extra_fields": [
+            {
+                "name": "dni",
+                "help": "put the dni without dash",
+                "type": "dni",
+                "required": True,
+                "min": 5,
+                "max": 12,
+                "required_on_authentication": True
+            }
+        ],
+        "children_election_info": {
+            "natural_order": [child_id_1, child_id_2],
+            "presentation": {
+                "categories": [
+                    {
+                        "id": 1,
+                        "title": "Executive Board",
+                        "events": [
+                            {
+                                "event_id": child_id_1,
+                                "title": "Pre/Vice"
+                            },
+                            {
+                                "event_id": child_id_2,
+                                "title": "Vocales"
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    }
+
+
+def get_auth_event20_census_ok(child_id_1, child_id_2):
+    return {
+        "census": [
+            {
+                "email": "a1@aaa.com", 
+                "dni": "1234567L",
+                "children_event_id_list": [child_id_1, child_id_2]
+            },
+            {
+                "email": "a2@aaa.com", 
+                "dni": "22222222J",
+                "children_event_id_list": [child_id_1]
+            },
+        ]
+    }
+
+
+def get_auth_event20_census_invalid():
+    return {
+        "census": [
+            {
+                "email": "a3@aaa.com", 
+                "dni": "22222223Z",
+                "children_event_id_list": [1]
+            }
+        ]
+    }

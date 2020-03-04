@@ -132,7 +132,6 @@ class JClient(Client):
             content_type="application/json", HTTP_AUTH=self.auth_token)
 
 
-
 class ApiTestCreateNotReal(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
@@ -4164,3 +4163,97 @@ class ApitTestCreateParentElection(TestCase):
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
         self.assertEqual(r['events']['parent_id'], 1)
+
+
+class ApitTestCensusManagementInElectionWithChildren(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        self.aeid_special = 1
+        u = User(
+            username=test_data.admin['username'], 
+            email=test_data.admin['email']
+        )
+        u.set_password(test_data.admin['password'])
+        u.save()
+        u.userdata.event = AuthEvent.objects.get(pk=1)
+        u.userdata.save()
+        self.user = u
+
+        self.admin_auth_data = dict(
+            email=test_data.admin['email'],
+            code="ERGERG"
+        )
+        c = Code(
+            user=self.user.userdata,
+            code=self.admin_auth_data['code'],
+            auth_event_id=self.aeid_special
+        )
+        c.save()
+        
+        acl = ACL(
+            user=self.user.userdata, 
+            object_type='AuthEvent', 
+            perm='create',
+            object_id=0
+        )
+        acl.save()
+
+    def test_add_to_census(self):
+        '''
+        Test that adding 
+        '''
+        c = JClient()
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # create the child election1
+        response = c.post('/api/auth-event/', test_data.auth_event19)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        child_id_1 = r['id']
+
+        # create the child election2
+        response = c.post('/api/auth-event/', test_data.auth_event19)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        child_id_2 = r['id']
+
+        # create the parent election
+        parent_election_data = test_data.get_auth_event_20(child_id_1, child_id_2)
+        response = c.post('/api/auth-event/', parent_election_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        parent_id = r['id']
+
+        # set the parent in children. We do not set at the begining
+        # because we do not know the children election ids..
+        parent_election = AuthEvent.objects.get(pk=parent_id)
+        
+        children_1 = AuthEvent.objects.get(pk=child_id_1)
+        children_1.parent = parent_election
+        children_1.save()
+        
+        children_2 = AuthEvent.objects.get(pk=child_id_2)
+        children_2.parent = parent_election
+        children_2.save()
+        
+        # try to add otherwise "valid-looking" census to the children 
+        # should fail
+        response = c.census(child_id_1, test_data.auth_event19_census)
+        self.assertEqual(response.status_code, 400)
+        
+        # try to add valid census to the parent should work
+        response = c.census(
+            parent_id, 
+            test_data.get_auth_event20_census_ok(child_id_1, child_id_2)
+        )
+        self.assertEqual(response.status_code, 200)
+        
+        # try to add census linking to other elections should fail
+        response = c.census(
+            parent_id, 
+            test_data.get_auth_event20_census_invalid()
+        )
+        self.assertEqual(response.status_code, 400)

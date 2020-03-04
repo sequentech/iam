@@ -271,24 +271,75 @@ class Email:
                 e, config, stack_trace_str())
             return json.dumps(e.data, cls=JsonTypeEncoder)
 
-    def census(self, ae, request):
+    def census(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))
         validation = req.get('field-validation', 'enabled') == 'enabled'
 
         msg = ''
         current_emails = []
-        for r in req.get('census'):
-            email = r.get('email')
+
+        # children election cannot have census
+        if auth_event.parent is not None:
+            LOGGER.error(
+                "EmailOtp.census error cannot add census to a children election\n"\
+                "error '%r'\n"\
+                "request '%r'\n"\
+                "validation '%r'\n"\
+                "authevent '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, req, validation, auth_event, stack_trace_str())
+            return self.error("Incorrect data", error_codename="invalid_data")
+        
+        # cannot add voters to an election with invalid children election info
+        if auth_event.children_election_info is not None:
+            try:
+                verify_children_election_info(auth_event, request.user, ['edit', 'census-add'])
+            except:
+                LOGGER.error(
+                    "EmailOtp.census error in verify_children_election_info"\
+                    "error '%r'\n"\
+                    "request '%r'\n"\
+                    "validation '%r'\n"\
+                    "authevent '%r'\n"\
+                    "Stack trace: \n%s",\
+                    msg, req, validation, auth_event, stack_trace_str())
+                return self.error("Incorrect data", error_codename="invalid_data")
+
+        for census_element in req.get('census'):
+            email = census_element.get('email')
+            
             if isinstance(email, str):
                 email = email.strip()
                 email = email.replace(" ", "")
+            
             msg += check_field_type(self.email_definition, email)
+            
             if validation:
                 msg += check_field_type(self.email_definition, email)
                 msg += check_field_value(self.email_definition, email)
-            msg += check_fields_in_request(r, ae, 'census', validation=validation)
+
+            msg += check_fields_in_request(
+                census_element, 
+                auth_event, 
+                'census',
+                validation=validation)
+
+            if auth_event.children_election_info is not None:
+                try:
+                    verify_valid_children_elections(auth_event, census_element)
+                except:
+                    LOGGER.error(
+                        "EmailOtp.census error in verify_valid_children_elections"\
+                        "error '%r'\n"\
+                        "request '%r'\n"\
+                        "validation '%r'\n"\
+                        "authevent '%r'\n"\
+                        "Stack trace: \n%s",\
+                        msg, req, validation, auth_event, stack_trace_str())
+                    return self.error("Incorrect data", error_codename="invalid_data")
+
             if validation:
-                msg += exist_user(r, ae)
+                msg += exist_user(census_element, auth_event)
                 if email in current_emails:
                     msg += "Email %s repeat in this census." % email
                 current_emails.append(email)
@@ -301,16 +352,16 @@ class Email:
                         "validation '%r'\n"\
                         "authevent '%r'\n"\
                         "Stack trace: \n%s",\
-                        msg, req, validation, ae, stack_trace_str())
+                        msg, req, validation, auth_event, stack_trace_str())
                     msg = ''
                     continue
-                exist = exist_user(r, ae)
+                exist = exist_user(census_element, auth_event)
                 if exist and not exist.count('None'):
                     continue
                 # By default we creates the user as active we don't check
                 # the pipeline
-                u = create_user(r, ae, True, request.user)
-                give_perms(u, ae)
+                u = create_user(census_element, auth_event, True, request.user)
+                give_perms(u, auth_event)
         if msg and validation:
             LOGGER.error(\
                 "EmailOtp.census error\n"\
@@ -319,15 +370,15 @@ class Email:
                 "validation '%r'\n"\
                 "authevent '%r'\n"\
                 "Stack trace: \n%s",\
-                msg, req, validation, ae, stack_trace_str())
+                msg, req, validation, auth_event, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         if validation:
-            for r in req.get('census'):
+            for census_element in req.get('census'):
                 # By default we creates the user as active we don't check
                 # the pipeline
-                u = create_user(r, ae, True, request.user)
-                give_perms(u, ae)
+                u = create_user(census_element, auth_event, True, request.user)
+                give_perms(u, auth_event)
         
         ret = {'status': 'ok'}
         LOGGER.debug(\
@@ -337,7 +388,7 @@ class Email:
             "authevent '%r'\n"\
             "returns '%r'\n"\
             "Stack trace: \n%s",\
-            req, validation, ae, ret, stack_trace_str())
+            req, validation, auth_event, ret, stack_trace_str())
         return ret
 
     def error(self, msg, error_codename):

@@ -14,6 +14,7 @@
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
+import itertools
 from django.db import models
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.core.exceptions import ValidationError
@@ -43,6 +44,25 @@ AE_STATUSES = (
     ('stopped', 'stopped'),
 )
 
+CHILDREN_EVENT_ID_LIST_CONTRACT = [
+    {
+        'check': 'isinstance',
+        'type': list
+    },
+    {
+        'check': "iterate-list",
+        'check-list': [
+            {
+                'check': 'isinstance',
+                'type': int
+            },
+        ]
+    },
+    {
+        'check': 'lambda',
+        'lambda': lambda d: len(set(d)) == len(d) and len(d) > 0
+    }
+]
 
 CHILDREN_ELECTION_INFO_CONTRACT = [
     {
@@ -182,9 +202,28 @@ CHILDREN_ELECTION_INFO_CONTRACT = [
                 ]
             }
         ]
+    },
+    {
+        'check': 'lambda',
+        'lambda': lambda d: set(d['natural_order']) == set([
+            event['event_id']
+                for category in d['presentation']['categories']
+                    for event in category['events']
+        ])
+    },
+    {
+        'check': 'lambda',
+        'lambda': lambda d: len(set([
+            event['event_id']
+                for category in d['presentation']['categories']
+                    for event in category['events']
+        ])) == len([
+            event['event_id']
+                for category in d['presentation']['categories']
+                    for event in category['events']
+        ])
     }
 ]
-
 
 def children_election_info_validator(value):
     if value == None:
@@ -194,7 +233,16 @@ def children_election_info_validator(value):
             check_contract(CHILDREN_ELECTION_INFO_CONTRACT, value)
         except CheckException as e:
             raise ValidationError()
-        
+
+def children_event_id_list_validator(value):
+    if value == None:
+        return
+    else:
+        try:
+            check_contract(CHILDREN_EVENT_ID_LIST_CONTRACT, value)
+        except CheckException as e:
+            raise ValidationError()
+
 
 class AuthEvent(models.Model):
     '''
@@ -245,7 +293,10 @@ class AuthEvent(models.Model):
     #         ]
     #     }
     # }
-    children_election_info = JSONField(blank=True, null=True, validators=[children_election_info_validator])
+    children_election_info = JSONField(
+        blank=True, 
+        null=True, 
+        validators=[children_election_info_validator])
 
     # allow for hierarchy of elections
     parent = models.ForeignKey(
@@ -401,6 +452,12 @@ class UserData(models.Model):
     metadata = fields.JSONField(default=dict, blank=True, null=True)
     status = models.CharField(max_length=255, choices=STATUSES, default="act", db_index=True)
     draft_election = fields.JSONField(default=dict, blank=True, null=True, db_index=False)
+
+    # Stablishes in which children elections can this user vote
+    children_event_id_list = JSONField(
+        blank=True, 
+        null=True, 
+        validators=[children_event_id_list_validator])
 
     def get_perms(self, obj, permission, object_id=0):
         q = Q(object_type=obj, perm=permission)
