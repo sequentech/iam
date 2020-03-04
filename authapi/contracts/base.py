@@ -75,7 +75,6 @@ def check_isinstance(contract, data):
         check_isinstance({"type": Foo}, Bar())
     '''
     if not isinstance(data, contract['type']):
-        import ipdb; ipdb.set_trace()
         raise CheckException(
             key="invalid-check",
             context={
@@ -98,7 +97,6 @@ def check_length(contract, data):
     '''
     l = len(data)
     if l > contract['range'][1] or l < contract['range'][0]:
-        import ipdb; ipdb.set_trace()
         raise CheckException(
             key="invalid-data-length",
             context={
@@ -124,7 +122,6 @@ def check_lambda(contract, data):
     try:
         ret = contract['lambda'](data)
     except:
-        import ipdb; ipdb.set_trace()
         ret = False
 
     if ret is False:
@@ -189,7 +186,6 @@ def check_dict_keys_exist(contract, data):
     '''
     for key in contract['keys']:
         if key not in data:
-            import ipdb; ipdb.set_trace()
             raise CheckException(
                 key="dict-keys-not-found",
                 context={
@@ -215,7 +211,6 @@ def check_dict_keys_exact(contract, data):
     '''
 
     if set(contract['keys']) != set(data.keys()):
-        import ipdb; ipdb.set_trace()
         raise CheckException(
             key="dict-keys-not-exact",
             context={
@@ -267,7 +262,6 @@ def check_switch_contract(contract, data):
     key_val = data[switch_key]
     contracts = contract['contracts']
     if key_val not in contracts:
-        import ipdb; ipdb.set_trace()
         raise CheckException(
             key="unknown-key-contract",
             context={
@@ -288,10 +282,8 @@ def check_item(contract, data):
             "switch-contract-by-dict-key": check_switch_contract
         }[contract['check']](contract, data)
     except CheckException as e:
-        import ipdb; ipdb.set_trace()
         raise e
     except Exception as e:
-        import ipdb; ipdb.set_trace()
         raise CheckException(
             key="invalid-check",
             context=contract)
