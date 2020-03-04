@@ -756,23 +756,14 @@ class Email:
         req = json.loads(request.body.decode('utf-8'))
 
         msg = ''
-        if 'email' in req:
-            email = req.get('email')
-            if isinstance(email, str):
-                email = email.strip()
-                email = email.replace(" ", "")
-            msg += check_field_type(self.email_definition, email)
-            msg += check_field_value(self.email_definition, email)
-            if msg:
-                LOGGER.error(\
-                    "EmailOtp.resend_auth_code error\n"\
-                    "error '%r'\n"\
-                    "authevent '%r'\n"\
-                    "request '%r'\n"\
-                    "Stack trace: \n%s",\
-                    msg, ae, req, stack_trace_str())
-                return self.error("Incorrect data", error_codename="invalid_credentials")
+        email = req.get('email')
+        if isinstance(email, str):
+            email = email.strip()
+            email = email.replace(" ", "")
         
+        email_def = self.email_definition if not ae.hide_default_login_lookup_field else self.email_opt_definition
+        msg += check_field_type(email_def, email)
+        msg += check_field_value(email_def, email)
         msg += check_fields_in_request(req, ae, 'resend-auth')
         if msg:
             LOGGER.error(\
@@ -807,7 +798,6 @@ class Email:
                 "EmailOtp.resend_auth_code error\n"\
                 "user not found with these characteristics: email '%r'\n"\
                 "authevent '%r'\n"\
-                "is_active True"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
                 email, ae, req, stack_trace_str())

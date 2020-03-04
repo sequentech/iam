@@ -722,6 +722,11 @@ def get_required_fields_on_auth(req, ae, q):
         for field in ae.extra_fields:
             if not field.get('required_on_authentication'):
                 continue
+            
+            # Raise exception if a required field is not provided.
+            # It will be catched by parent as an error.
+            if field.get('name') not in req:
+                raise Exception()
 
             value = req.get(field.get('name'), '')
             typee = field.get('type')

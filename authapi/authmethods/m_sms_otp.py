@@ -749,12 +749,15 @@ class SmsOtp:
         tlf = req.get('tlf')
         if isinstance(tlf, str):
             tlf = tlf.strip()
-        msg += check_field_type(self.tlf_definition, tlf, 'authenticate')
-        msg += check_field_value(self.tlf_definition, tlf, 'authenticate')
+
+        tlf_def = self.tlf_definition if not ae.hide_default_login_lookup_field else self.tlf_opt_definition
+        msg += check_field_type(tlf_def, tlf)
+        msg += check_field_value(tlf_def, tlf)
+        msg += check_fields_in_request(req, ae, 'resend-auth')
         if msg:
             LOGGER.error(\
                 "SmsOtp.resend_auth_code error\n"\
-                "error '%r'\n"\
+                "error '%r'"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
@@ -762,13 +765,28 @@ class SmsOtp:
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         try:
-            u = User.objects.get(userdata__tlf=tlf, userdata__event=ae, is_active=True)
+            q = Q(userdata__event=ae, is_active=True)
+            if 'tlf' in req:
+                if not ae.hide_default_login_lookup_field:
+                    q = q & Q(userdata__tlf=tlf)
+            elif not ae.hide_default_login_lookup_field:
+                LOGGER.error(\
+                    "SmsOtp.resend_auth_code error\n"\
+                    "ae.hide_default_login_lookup_field is False and tlf not given\n"\
+                    "error '%r'\n"\
+                    "authevent '%r'\n"\
+                    "request '%r'\n"\
+                    "Stack trace: \n%s",\
+                    msg, ae, req, stack_trace_str())
+                return self.error("Incorrect data", error_codename="invalid_credentials")
+
+            q = get_required_fields_on_auth(req, ae, q)
+            u = User.objects.get(q)
         except:
             LOGGER.error(\
                 "SmsOtp.resend_auth_code error\n"\
                 "user not found with these characteristics: tlf '%r'\n"\
                 "authevent '%r'\n"\
-                "is_active True"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
                 tlf, ae, req, stack_trace_str())

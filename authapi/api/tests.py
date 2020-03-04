@@ -3865,7 +3865,6 @@ class ApiTestRequiredOnAuthentication(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-
         self.ae = AuthEvent(
             auth_method='email',
             auth_method_config=test_data.authmethod_config_email_default,
@@ -3895,6 +3894,18 @@ class ApiTestRequiredOnAuthentication(TestCase):
             perm='vote',
             object_id=self.ae.id)
         acl.save()
+
+        # in this test we need two user so that the narrowing of
+        # finding users cannot be done simply because there's only
+        # one
+        self.user2 = User(
+            username='foo2',
+            email='foo2@bar.com')
+        self.user2.set_password('qwerty2')
+        self.user2.save()
+        self.user2.userdata.event = self.ae
+        self.user2.userdata.metadata = {'dni':'DNI34534534B'}
+        self.user2.userdata.save()
 
     def test_required_on_authentication(self):
         c = JClient()
@@ -3938,6 +3949,115 @@ class ApiTestRequiredOnAuthentication(TestCase):
         c = JClient()
         response = c.post(url_auth, user_data)
         self.assertEqual(response.status_code, 200)
+
+
+class ApiTestHideDefaultLoginLookupField(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        self.ae = AuthEvent(
+            auth_method='email',
+            auth_method_config=copy.deepcopy(test_data.authmethod_config_email_default),
+            extra_fields=copy.deepcopy(test_data.auth_event6['extra_fields']),
+            status='started',
+            census='open')
+        self.ae.save()
+
+        self.user = User(
+            username='foo',
+            email='foo@bar.com')
+        self.user.set_password('qwerty')
+        self.user.save()
+        self.user.userdata.event = self.ae
+        self.user.userdata.metadata = {'dni':'DNI1234567L'}
+        self.user.userdata.save()
+
+        c = Code(
+            user=self.user.userdata,
+            code='ERGERG',
+            auth_event_id=self.ae.id)
+        c.save()
+
+        acl = ACL(
+            user=self.user.userdata,
+            object_type='AuthEvent',
+            perm='vote',
+            object_id=self.ae.id)
+        acl.save()
+
+        # in this test we need two user so that the narrowing of
+        # finding users cannot be done simply because there's only
+        # one
+        self.user2 = User(
+            username='foo2',
+            email='foo2@bar.com')
+        self.user2.set_password('qwerty2')
+        self.user2.save()
+        self.user2.userdata.event = self.ae
+        self.user2.userdata.metadata = {'dni':'DNI34534534B'}
+        self.user2.userdata.save()
+
+    def _hide_default_login_lookup_field(self, is_resend=False):
+        # reset data
+        self.ae.extra_fields[0]["required_on_authentication"] = True
+        self.ae.hide_default_login_lookup_field = False
+
+        if is_resend:
+            user_data_good = dict(dni='01234567L')
+            user_data_bad = dict(dni='00011111W')
+            url_auth = '/api/auth-event/%d/resend_auth_code/' % self.ae.id
+        else:
+            user_data_good = dict(code='ERGERG', dni='01234567L')
+            user_data_bad = dict(code='ERGERG', dni='00011111W')
+            url_auth = '/api/auth-event/%d/authenticate/' % self.ae.id
+
+        # without email, it fails
+        c = JClient()
+        response = c.post(url_auth, user_data_good)
+        self.assertEqual(response.status_code, 400)
+
+        self.ae.hide_default_login_lookup_field = True
+        self.ae.save()
+                
+        # now that hide_default_login_lookup_field auth without email works
+        response = c.post(url_auth, user_data_good)
+        self.assertEqual(response.status_code, 200)
+
+        # using bad dni doesn't work
+        response = c.post(url_auth, user_data_bad)
+        self.assertEqual(response.status_code, 400)
+
+        # if dni is not required_on_authentication it doesn't work
+        self.ae.extra_fields[0]["required_on_authentication"] = False
+        self.ae.hide_default_login_lookup_field = True
+        self.ae.save()
+        response = c.post(url_auth, user_data_good)
+        self.assertEqual(response.status_code, 400)
+
+    def test_hide_default_login_lookup_field_email(self):
+        self.ae.auth_method = 'email'
+        self.ae.save()
+        self._hide_default_login_lookup_field()
+
+    @override_settings(CELERY_ALWAYS_EAGER=True)
+    def test_hide_default_login_lookup_field_email_otp(self):
+        self.ae.auth_method = 'email-otp'
+        self.ae.save()
+        self._hide_default_login_lookup_field()
+        self._hide_default_login_lookup_field(is_resend=True)
+
+    def test_hide_default_login_lookup_field_sms(self):
+        self.ae.auth_method = 'sms'
+        self.ae.save()
+        self._hide_default_login_lookup_field()
+
+    @override_settings(CELERY_ALWAYS_EAGER=True)
+    def test_hide_default_login_lookup_field_sms_otp(self):
+        self.ae.auth_method = 'sms-otp'
+        self.ae.save()
+        self._hide_default_login_lookup_field()
+        self._hide_default_login_lookup_field(is_resend=True)
 
 
 class ApiTestUserIdField(TestCase):
