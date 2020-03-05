@@ -4200,29 +4200,31 @@ class ApitTestCensusManagementInElectionWithChildren(TestCase):
         )
         acl.save()
 
-    def test_add_to_census(self):
-        '''
-        Test that adding 
-        '''
+    def _add_to_census(self, auth_method):
         c = JClient()
         response = c.authenticate(self.aeid_special, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         # create the child election1
-        response = c.post('/api/auth-event/', test_data.auth_event19)
+        event_data = copy.deepcopy(test_data.auth_event19)
+        event_data['auth_method'] = auth_method
+        response = c.post('/api/auth-event/', event_data)
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
         child_id_1 = r['id']
 
         # create the child election2
-        response = c.post('/api/auth-event/', test_data.auth_event19)
+        event_data = copy.deepcopy(test_data.auth_event19)
+        event_data['auth_method'] = auth_method
+        response = c.post('/api/auth-event/', event_data)
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
         child_id_2 = r['id']
 
         # create the parent election
-        parent_election_data = test_data.get_auth_event_20(child_id_1, child_id_2)
-        response = c.post('/api/auth-event/', parent_election_data)
+        event_data = test_data.get_auth_event_20(child_id_1, child_id_2)
+        event_data['auth_method'] = auth_method
+        response = c.post('/api/auth-event/', event_data)
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
         parent_id = r['id']
@@ -4241,19 +4243,31 @@ class ApitTestCensusManagementInElectionWithChildren(TestCase):
         
         # try to add otherwise "valid-looking" census to the children 
         # should fail
-        response = c.census(child_id_1, test_data.auth_event19_census)
+        response = c.census(child_id_1, test_data.get_auth_event19_census(auth_method))
         self.assertEqual(response.status_code, 400)
         
         # try to add valid census to the parent should work
         response = c.census(
             parent_id, 
-            test_data.get_auth_event20_census_ok(child_id_1, child_id_2)
+            test_data.get_auth_event20_census_ok(child_id_1, child_id_2, auth_method)
         )
         self.assertEqual(response.status_code, 200)
         
         # try to add census linking to other elections should fail
         response = c.census(
             parent_id, 
-            test_data.get_auth_event20_census_invalid()
+            test_data.get_auth_event20_census_invalid(auth_method)
         )
         self.assertEqual(response.status_code, 400)
+
+    def test_add_to_census_email(self):
+        self._add_to_census('email')
+
+    def test_add_to_census_email_otp(self):
+        self._add_to_census('email-otp')
+
+    def test_add_to_census_sms(self):
+        self._add_to_census('sms')
+
+    def test_add_to_census_email(self):
+        self._add_to_census('sms-otp')

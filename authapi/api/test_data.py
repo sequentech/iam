@@ -1094,12 +1094,21 @@ auth_event19 = {
     "extra_fields": []
 }
 
-auth_event19_census = {
-    "census": [
-        {"email": "a1@aaa.com"},
-        {"email": "a2@aaa.com"},
-    ]
-}
+def get_auth_event19_census(auth_method):
+    if 'email' in auth_method:
+        return {
+            "census": [
+                {"email": "a1@aaa.com"},
+                {"email": "a2@aaa.com"},
+            ]
+        }
+    else:
+        return {
+            "census": [
+                {"tlf": "666555444"},
+                {"tlf": "666444333"},
+            ]
+        }
 
 # parent election
 def get_auth_event_20(child_id_1, child_id_2):
@@ -1142,30 +1151,57 @@ def get_auth_event_20(child_id_1, child_id_2):
     }
 
 
-def get_auth_event20_census_ok(child_id_1, child_id_2):
-    return {
-        "census": [
-            {
-                "email": "a1@aaa.com", 
-                "dni": "1234567L",
-                "children_event_id_list": [child_id_1, child_id_2]
-            },
-            {
-                "email": "a2@aaa.com", 
-                "dni": "22222222J",
-                "children_event_id_list": [child_id_1]
-            },
-        ]
-    }
+def get_auth_event20_census_ok(child_id_1, child_id_2, auth_method):
+    if 'email' in auth_method:
+        return {
+            "census": [
+                {
+                    "email": "a1@aaa.com", 
+                    "dni": "1234567L",
+                    "children_event_id_list": [child_id_1, child_id_2]
+                },
+                {
+                    "email": "a2@aaa.com", 
+                    "dni": "22222222J",
+                    "children_event_id_list": [child_id_1]
+                },
+            ]
+        }
+    else:
+        return {
+            "census": [
+                {
+                    "tlf": "666555444", 
+                    "dni": "1234567L",
+                    "children_event_id_list": [child_id_1, child_id_2]
+                },
+                {
+                    "tlf": "666444333", 
+                    "dni": "22222222J",
+                    "children_event_id_list": [child_id_1]
+                },
+            ]
+        }
 
 
-def get_auth_event20_census_invalid():
-    return {
-        "census": [
-            {
-                "email": "a3@aaa.com", 
-                "dni": "22222223Z",
-                "children_event_id_list": [1]
-            }
-        ]
-    }
+def get_auth_event20_census_invalid(auth_method):
+    if 'email' in auth_method:
+        return {
+            "census": [
+                {
+                    "email": "a3@aaa.com", 
+                    "dni": "22222223Z",
+                    "children_event_id_list": [1]
+                }
+            ]
+        }
+    else:
+        return {
+            "census": [
+                {
+                    "tlf": "666777888", 
+                    "dni": "22222223Z",
+                    "children_event_id_list": [1]
+                }
+            ]
+        }

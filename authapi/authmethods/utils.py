@@ -18,10 +18,12 @@ import json
 import re
 import os
 import binascii
+import logging
 from base64 import decodestring
 from datetime import timedelta, datetime
 from django.conf import settings
 from django.contrib.auth.models import User, AnonymousUser
+from django.contrib.auth.signals import user_logged_in
 from django.utils import timezone
 from django.db.models import Q
 
@@ -35,10 +37,13 @@ from utils import (
     get_client_ip, 
     is_valid_url, 
     constant_time_compare,
-    permission_required
+    permission_required,
+    genhmac,
+    stack_trace_str
 )
 from pipelines.base import execute_pipeline, PipeReturnvalue
 
+LOGGER = logging.getLogger('authapi')
 
 EMAIL_RX = re.compile(
     r"(^[-!#$%&'*+/=?^_`{}|~0-9A-Z]+(\.[-!#$%&'*+/=?^_`{}|~0-9A-Z]+)*"  # dot-atom
@@ -770,6 +775,7 @@ def verify_children_election_info(auth_event, user, perms):
     '''
     Verify that the requesting user has permissions to edit all
     the referred children events (and that they do, in fact, exist)
+    and the correct configuration.
     '''
     from api.models import AuthEvent
 
@@ -778,9 +784,10 @@ def verify_children_election_info(auth_event, user, perms):
     assert auth_event.children_election_info is not None
 
     # verify the children do exist and the requesting user have the 
-    # appropiate permissions
+    # appropiate permissions and configuration
     for event_id in auth_event.children_election_info['natural_order']:
         children_event = AuthEvent.objects.get(pk=event_id, parent=auth_event)
+        assert children_event.auth_method == auth_event.auth_method
         permission_required(user, 'AuthEvent', perms, event_id)
 
 
@@ -795,3 +802,49 @@ def verify_valid_children_elections(auth_event, census_element):
 
     for event_id in census_element['children_event_id_list']:
         assert event_id in auth_event.children_election_info['natural_order']
+
+def return_auth_data(auth_event, logger_name, req_json, request, user):
+    '''
+    used at the end of the authentication process to return the required
+    authentication data, which can be:
+    - redirect to url
+    - auth-token
+    - username
+    - multiple auth-tokens and the list of available children authevents in
+      which the user can participate, including info about those where he 
+      already registered a successful authentication event.
+    '''
+    # register the django-way the latest login of this user
+    user_logged_in.send(sender=user.__class__, request=request, user=user)
+    user.save()
+
+    # this is the data that will be returned
+    data = {'status': 'ok'}
+
+    # return the username, ensuring it's a string
+    username = user.username
+    if isinstance(username, bytes):
+        username = user.username.decode('utf-8')
+    data['username'] = username
+
+    # if it's a normal election, generate the auth-token
+    if auth_event.parent is None:
+        data['auth-token'] = genhmac(settings.SHARED_SECRET, user.username)
+    # if it's a parent election, return all the required info
+    # for proceeding with the authentication
+    else:
+        
+
+    # add redirection
+    auth_action = auth_event.auth_method_config['config']['authentication-action']
+    if auth_action['mode'] == 'go-to-url':
+        data['redirect-to-url'] = auth_action['mode-config']['url']
+
+    LOGGER.debug(\
+        "%s.authenticate success\n"\
+        "returns '%r'\n"\
+        "authevent '%r'\n"\
+        "request '%r'\n"\
+        "Stack trace: \n%s",\
+        logger_name, data, auth_event, req_json, stack_trace_str())
+    return data

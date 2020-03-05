@@ -125,7 +125,7 @@ class OpenIdConnect(object):
             error, message, req, ae, stack_trace_str())
         return d
 
-    def authenticate(self, ae, request, mode='authenticate'):
+    def authenticate(self, auth_event, request, mode='authenticate'):
         ret_data = {'status': 'ok'}
         req = json.loads(request.body.decode('utf-8'))
         id_token = req.get('id_token', '')
@@ -133,7 +133,7 @@ class OpenIdConnect(object):
         nonce = req.get('nonce', '')
 
         if provider_id not in self.PROVIDERS:
-            return self.authenticate_error("invalid-provider", req, ae)
+            return self.authenticate_error("invalid-provider", req, auth_event)
 
         provider = self.PROVIDERS[provider_id]
         # parses and verifies/validates the id token
@@ -145,74 +145,68 @@ class OpenIdConnect(object):
             scope="openid"
         )
         if not id_token_obj:
-            return self.authenticate_error("invalid-id-token", req, ae,
+            return self.authenticate_error("invalid-id-token", req, auth_event,
                 message="id_token_obj is empty")
 
         # verify nonce securely
         id_token_dict = id_token_obj.to_dict()
         if not constant_time_compare(id_token_dict['nonce'], nonce):
-            return self.authenticate_error("invalid-nonce", req, ae,
+            return self.authenticate_error("invalid-nonce", req, auth_event,
                 message="'%r' != '%r'" % (id_token_dict['nonce'], nonce))
 
         # verify client_id
         if not constant_time_compare(id_token_dict['aud'], provider['conf']['public_info']['client_id']):
-            return self.authenticate_error("invalid-aud", req, ae,
+            return self.authenticate_error("invalid-aud", req, auth_event,
                 message="'%r' != '%r'" % (id_token_dict['aud'], provider['conf']['public_info']['client_id']))
 
         # verify expiration
         current_timestamp = utc_time_sans_frac()
         if id_token_dict['exp'] < current_timestamp:
-            return self.authenticate_error("invalid-exp", req, ae,
+            return self.authenticate_error("invalid-exp", req, auth_event,
                 message="'%r' != '%r'" % (id_token_dict['exp'], current_timestamp))
 
         # get user_id and get/create user
         user_id = id_token_dict['sub']
         try:
-            u = User.objects.get(
-                userdata__event=ae,
+            user = User.objects.get(
+                userdata__event=auth_event,
                 userdata__metadata__contains={"sub": user_id}
             )
         except:
-            u = create_user(
+            user = create_user(
                 req=dict(sub=user_id),
-                ae=ae,
+                ae=auth_event,
                 active=True,
                 creator=request.user)
-            give_perms(u, ae)
+            give_perms(user, auth_event)
 
-        msg = check_pipeline(request, ae, 'authenticate')
+        msg = check_pipeline(request, auth_event, 'authenticate')
         if msg:
-            return self.authenticate_error("invalid-pipeline", req, ae,
+            return self.authenticate_error("invalid-pipeline", req, auth_event,
                 message=msg)
 
         if mode == "authenticate":
-            if not u.is_active:
-                return self.authenticate_error("user-inactive", req, ae)
+            if not user.is_active:
+                return self.authenticate_error("user-inactive", req, auth_event)
 
-            if (ae.num_successful_logins_allowed > 0 and
-                u.userdata.successful_logins.filter(is_active=True).count() >= ae.num_successful_logins_allowed):
+            if (auth_event.num_successful_logins_allowed > 0 and
+                user.userdata.successful_logins.filter(is_active=True).count() >= auth_event.num_successful_logins_allowed):
                 return self.authenticate_error(
-                    "invalid_num_successful_logins_allowed", req, ae,
+                    "invalid_num_successful_logins_allowed", req, auth_event,
                     message="'%r' != '%r'" % (
-                        u.userdata.successful_logins.filter(is_active=True).count(),
-                        ae.num_successful_logins_allowed
+                        user.userdata.successful_logins.filter(is_active=True).count(),
+                        auth_event.num_successful_logins_allowed
                     )
                 )
 
-            user_logged_in.send(sender=u.__class__, request=request, user=u)
-            u.save()
-
-            username = u.username
-            if isinstance(username, bytes):
-                username = u.username.decode('utf-8')
-
-            ret_data['username'] = username
-            ret_data['auth-token'] = genhmac(settings.SHARED_SECRET, username)
-
-            # add redirection
-            auth_action = ae.auth_method_config['config']['authentication-action']
-            if auth_action['mode'] == 'go-to-url':
-                data['redirect-to-url'] = auth_action['mode-config']['url']
+            return return_auth_data(
+                auth_event, 
+                'OpenIdConnect', 
+                req, 
+                request, 
+                user,
+                extra_debug="id_token_dict '%r'\n" % id_token_dict
+            )
 
         LOGGER.debug(\
             "OpenIdConnect.authenticate success\n"\
@@ -221,7 +215,7 @@ class OpenIdConnect(object):
             "id_token_dict '%r'\n"\
             "request '%r'\n"\
             "Stack trace: \n%s",\
-            ret_data, ae, id_token_dict, req, stack_trace_str())
+            ret_data, auth_event, id_token_dict, req, stack_trace_str())
         return ret_data
 
     def public_census_query(self, ae, request):
