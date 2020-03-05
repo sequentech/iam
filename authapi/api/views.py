@@ -610,12 +610,24 @@ class SuccessfulLoginView(View):
         # check everything is ok
         if (not user or
             error is not None or
-            str(user.userdata.event.id) != pk or
+            (
+                (
+                    user.userdata.event.parent is None and 
+                    str(user.userdata.event.id) != pk
+                ) or (
+                    user.userdata.event.parent is not None and 
+                    int(pk) not in user.userdata.event.parent.children_election_info.get('natural_order', [])
+                )
+            ) or
             type(khmac_obj) != HMACToken or
             khmac_obj.get_other_values() != valid_data):
             return json_response({}, status=403)
 
-        sl = SuccessfulLogin(user=user.userdata, is_active = user.is_active)
+        sl = SuccessfulLogin(
+            user=user.userdata, 
+            is_active=user.is_active,
+            auth_event=get_object_or_404(AuthEvent, pk=pk)
+        )
         sl.save()
 
         action = Action(
@@ -623,7 +635,7 @@ class SuccessfulLoginView(View):
             receiver=user,
             action_name='user:successful-login',
             event=user.userdata.event,
-            metadata=dict())
+            metadata=dict(auth_event=pk))
         action.save()
 
         return json_response({}, status=200)

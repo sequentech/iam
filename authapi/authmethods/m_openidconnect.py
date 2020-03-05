@@ -189,14 +189,9 @@ class OpenIdConnect(object):
             if not user.is_active:
                 return self.authenticate_error("user-inactive", req, auth_event)
 
-            if (auth_event.num_successful_logins_allowed > 0 and
-                user.userdata.successful_logins.filter(is_active=True).count() >= auth_event.num_successful_logins_allowed):
+            if not verify_num_successful_logins(auth_event, 'OpenIdConnect', user, req):
                 return self.authenticate_error(
-                    "invalid_num_successful_logins_allowed", req, auth_event,
-                    message="'%r' != '%r'" % (
-                        user.userdata.successful_logins.filter(is_active=True).count(),
-                        auth_event.num_successful_logins_allowed
-                    )
+                    "invalid_num_successful_logins_allowed", req, auth_event
                 )
 
             return return_auth_data(

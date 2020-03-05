@@ -168,7 +168,6 @@ def paginate(request, queryset, serialize_method=None, elements_name='elements')
         'has_previous': page.has_previous(),
     }
 
-
 def genhmac(key, msg):
     timestamp = int(datetime.datetime.now().timestamp())
     msg = "%s:%s" % (msg, str(timestamp))

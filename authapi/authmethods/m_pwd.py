@@ -178,10 +178,10 @@ class PWD:
             if not user.check_password(pwd):
                 return self.authenticate_error("invalid-password", req, auth_event)
 
-            if (auth_event.num_successful_logins_allowed > 0 and
-                user.userdata.successful_logins.filter(is_active=True).count() >= auth_event.num_successful_logins_allowed):
+            if not verify_num_successful_logins(auth_event, 'PWD', user, req):
                 return self.authenticate_error(
-                    "invalid_num_successful_logins_allowed", req, auth_event)
+                    "invalid_num_successful_logins_allowed", req, auth_event
+                )
 
             return return_auth_data(auth_event, 'PWD', req, request, user)
 

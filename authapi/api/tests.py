@@ -4271,3 +4271,151 @@ class ApitTestCensusManagementInElectionWithChildren(TestCase):
 
     def test_add_to_census_email(self):
         self._add_to_census('sms-otp')
+
+
+class ApitTestAuthenticateInElectionWithChildren(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        self.aeid_special = 1
+        u = User(
+            username=test_data.admin['username'], 
+            email=test_data.admin['email']
+        )
+        u.set_password(test_data.admin['password'])
+        u.save()
+        u.userdata.event = AuthEvent.objects.get(pk=1)
+        u.userdata.save()
+        self.user = u
+
+        self.admin_auth_data = dict(
+            email=test_data.admin['email'],
+            code="ERGERG"
+        )
+        c = Code(
+            user=self.user.userdata,
+            code=self.admin_auth_data['code'],
+            auth_event_id=self.aeid_special
+        )
+        c.save()
+        
+        acl = ACL(
+            user=self.user.userdata, 
+            object_type='AuthEvent', 
+            perm='create',
+            object_id=0
+        )
+        acl.save()
+
+    def _auth_and_vote(self, auth_method):
+        client = JClient()
+        response = client.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # create the child election1
+        event_data = copy.deepcopy(test_data.auth_event19)
+        event_data['auth_method'] = auth_method
+        response = client.post('/api/auth-event/', event_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        child_id_1 = r['id']
+
+        # create the child election2
+        event_data = copy.deepcopy(test_data.auth_event19)
+        event_data['auth_method'] = auth_method
+        response = client.post('/api/auth-event/', event_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        child_id_2 = r['id']
+
+        # create the parent election
+        event_data = test_data.get_auth_event_20(child_id_1, child_id_2)
+        event_data['auth_method'] = auth_method
+        response = client.post('/api/auth-event/', event_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        parent_id = r['id']
+
+        # set the parent in children. We do not set at the begining
+        # because we do not know the children election ids..
+        parent_election = AuthEvent.objects.get(pk=parent_id)
+        
+        children_1 = AuthEvent.objects.get(pk=child_id_1)
+        children_1.parent = parent_election
+        children_1.save()
+        
+        children_2 = AuthEvent.objects.get(pk=child_id_2)
+        children_2.parent = parent_election
+        children_2.save()
+        
+        # add valid census to the parent should work
+        census_data = test_data.get_auth_event20_census_ok(
+            child_id_1, 
+            child_id_2, 
+            auth_method
+        )
+        response = client.census(
+            parent_id, 
+            census_data
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # create authentication code for user in census
+        voter = User.objects.get(
+            email=census_data['census'][0]['email'],
+            userdata__event=parent_election
+        )
+        code = Code(
+            user=voter.userdata, 
+            code=test_data.auth_email_default['code'], 
+            auth_event_id=parent_election.pk
+        )
+        code.save()
+
+        # start the election
+        response = client.post(
+            '/api/auth-event/%d/%s/' % (parent_election.pk, 'started'), 
+            {}
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # authenticate in parent election
+        response = client.authenticate(
+            parent_election.id, 
+            {
+                "email": census_data['census'][0]['email'],
+                "dni": census_data['census'][0]['dni'],
+                "code": test_data.auth_email_default['code']
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # verify answer data
+        resp_json = parse_json_response(response)
+        self.assertEqual(type(resp_json), dict)
+        self.assertEqual(resp_json['status'], 'ok')
+        assert 'username' in resp_json
+        self.assertEqual(type(resp_json['username']), str)
+        assert 'auth-token' in resp_json
+        self.assertEqual(type(resp_json['auth-token']), str)
+        assert 'vote-children-info' in resp_json
+        self.assertEqual(type(resp_json['vote-children-info']), dict)
+        assert str(child_id_1) in resp_json['vote-children-info']
+        assert str(child_id_2) in resp_json['vote-children-info']
+        child_info_1 = resp_json['vote-children-info'][str(child_id_1)]
+        self.assertEqual(type(child_info_1), dict)
+        assert 'vote-permission-token' in child_info_1
+        self.assertEqual(type(child_info_1['vote-permission-token']), str)
+        self.assertTrue(re.match(
+            "^khmac:\/\/\/sha-256;[a-f0-9]{64}\/[a-f0-9]+:AuthEvent:[0-9]:vote:[0-9]+$",
+            child_info_1['vote-permission-token']
+        ))
+        self.assertEqual(child_info_1.get('num-successful-logins-allowed'), 0)
+        self.assertEqual(child_info_1.get('num-successful-logins'), 0)
+
+    def test_auth_and_vote_email(self):
+        self._auth_and_vote('email')
+
+    def test_auth_and_vote_email_otp(self):
+        self._auth_and_vote('email-otp')

@@ -645,11 +645,17 @@ class SuccessfulLogin(models.Model):
     '''
     user = models.ForeignKey(UserData, models.CASCADE, related_name="successful_logins")
     created = models.DateTimeField(default=timezone.now)
+
     # when counting the number of successful logins, only active ones count
     is_active = models.BooleanField(default=True)
+    auth_event = models.ForeignKey(
+        AuthEvent, 
+        models.CASCADE, 
+        related_name="successful_logins", 
+        default=None)
 
     def __str__(self):
-        return "%d: %s - %s" % (self.id, self.user.user.username, str(self.created))
+        return "%d: %s - %s" % (self.id, self.user.user.username, str(self.created),)
 
 class BallotBox(models.Model):
     '''

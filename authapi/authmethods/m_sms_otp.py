@@ -725,21 +725,7 @@ class SmsOtp:
                 tlf, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        successful_logins_count = user.userdata.successful_logins.filter(is_active=True).count()
-        if (auth_event.num_successful_logins_allowed > 0 and
-            successful_logins_count >= auth_event.num_successful_logins_allowed):
-            LOGGER.error(\
-                "SmsOtp.authenticate error\n"\
-                "Maximum number of revotes already reached for user '%r'\n"\
-                "revotes for user '%r'\n"\
-                "maximum allowed '%r'\n"\
-                "authevent '%r'\n"\
-                "request '%r'\n"\
-                "Stack trace: \n%s",\
-                user.userdata,\
-                successful_logins_count,\
-                auth_event.num_successful_logins_allowed,\
-                auth_event, req, stack_trace_str())
+        if not verify_num_successful_logins(auth_event, 'SmsOtp', user, req):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         code = Code.objects.filter(

@@ -17,6 +17,7 @@ import hashlib
 import json
 import re
 import os
+import copy
 import binascii
 import logging
 from base64 import decodestring
@@ -767,7 +768,12 @@ def give_perms(u, ae):
         elif obj_id == 'AuthEventId':
             obj_id = ae.pk
         for perm in perms.get('perms'):
-            acl, created = ACL.objects.get_or_create(user=u.userdata, object_type=obj, perm=perm, object_id=obj_id)
+            acl, created = ACL.objects.get_or_create(
+                user=u.userdata, 
+                object_type=obj, 
+                perm=perm, 
+                object_id=obj_id
+            )
             acl.save()
     return ''
 
@@ -814,6 +820,7 @@ def return_auth_data(auth_event, logger_name, req_json, request, user):
       which the user can participate, including info about those where he 
       already registered a successful authentication event.
     '''
+    from api.models import AuthEvent
     # register the django-way the latest login of this user
     user_logged_in.send(sender=user.__class__, request=request, user=user)
     user.save()
@@ -827,13 +834,43 @@ def return_auth_data(auth_event, logger_name, req_json, request, user):
         username = user.username.decode('utf-8')
     data['username'] = username
 
-    # if it's a normal election, generate the auth-token
-    if auth_event.parent is None:
-        data['auth-token'] = genhmac(settings.SHARED_SECRET, user.username)
-    # if it's a parent election, return all the required info
-    # for proceeding with the authentication
+    # generate the user auth-token
+    data['auth-token'] = genhmac(settings.SHARED_SECRET, user.username)
+
+    if auth_event.children_election_info is None:
+        msg = ':'.join((user.username, 'AuthEvent', str(auth_event.id), 'vote'))
+        data['vote-permission-token'] = genhmac(settings.SHARED_SECRET, msg)
     else:
-        
+        def get_child_info(event_id):
+            auth_event = AuthEvent.objects.get(pk=event_id)
+            num_successful_logins = user\
+                .userdata\
+                .successful_logins\
+                .filter(is_active=True, auth_event=auth_event)\
+                .count()
+
+            if auth_event.num_successful_logins_allowed == 0 or\
+                num_successful_logins < auth_event.num_successful_logins_allowed:
+
+                msg = ':'.join((user.username, 'AuthEvent', str(event_id), 'vote'))
+                auth_token = genhmac(settings.SHARED_SECRET, msg)
+            else:
+                auth_token = None
+            
+            return {
+                'vote-permission-token': auth_token,
+                'num-successful-logins-allowed': auth_event.num_successful_logins_allowed,
+                'num-successful-logins': num_successful_logins
+            }
+
+        data['vote-children-info'] = dict([
+            (
+                str(child_event_id),
+                get_child_info(child_event_id)
+            )
+            for child_event_id in auth_event.children_election_info["natural_order"]
+        ])
+
 
     # add redirection
     auth_action = auth_event.auth_method_config['config']['authentication-action']
@@ -848,3 +885,31 @@ def return_auth_data(auth_event, logger_name, req_json, request, user):
         "Stack trace: \n%s",\
         logger_name, data, auth_event, req_json, stack_trace_str())
     return data
+
+def verify_num_successful_logins(auth_event, logger_name, user, req_json):
+    '''
+    During authentication, verify that the user has not voted more
+    times than allowed. Only verified for non-parent elections, as
+    it is verified in return_auth_data() for parent elections.
+    '''
+    if auth_event.children_election_info is None:
+        successful_logins_count = user.userdata.successful_logins\
+            .filter(is_active=True, auth_event=auth_event).count()
+        if (auth_event.num_successful_logins_allowed > 0 and
+            successful_logins_count >= auth_event.num_successful_logins_allowed):
+            LOGGER.error(
+                "%s.authenticate error\n"\
+                "Maximum number of revotes already reached for user '%r'\n"\
+                "revotes for user '%r'\n"\
+                "maximum allowed '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",
+                logger_name,
+                user.userdata,
+                successful_logins_count,
+                auth_event.num_successful_logins_allowed,
+                auth_event, req_json, stack_trace_str()
+            )
+            return False
+    return True
