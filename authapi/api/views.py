@@ -1162,6 +1162,65 @@ class Activity(View):
 
 activity = login_required(Activity.as_view())
 
+class EditChildrenParentView(View):
+    @login_required
+    def post(request, pk):
+        '''
+        Edit the Children Info or Parent info of
+        an election
+        '''
+        from authmethods.utils import verify_children_election_info
+        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        try:
+            req = parse_json_request(request)
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        # check parent_id
+        parent_id = req.get('parent_id', None)
+        children_election_info = req.get('children_election_info', None)
+        parent = None
+        if parent_id:
+            if (
+                type(parent_id) is not int or
+                AuthEvent.objects.filter(pk=parent_id).count() != 1
+            ):
+                return json_response(
+                    status=400,
+                    error_codename="INVALID_PARENT_ID"
+                )
+            parent = AuthEvent.objects.get(pk=parent_id)
+            auth_event.parent = parent
+        
+        # children_election_info
+        # 
+        # There's a difference here with when an election is created:
+        # children_election_info is verified to relate to valid elections
+        # that the requesting user can edit
+        elif children_election_info:
+            try:
+                children_election_info_validator(children_election_info)
+                verify_children_election_info(
+                    auth_event, 
+                    request.user, 
+                    ['edit'],
+                    children_election_info
+                )
+            except:
+                return json_response(
+                    status=400,
+                    error_codename="INVALID_CHILDREN_ELECTION_INFO"
+                )
+            auth_event.children_election_info = children_election_info
+        
+        auth_event.save()
+        data = {'status': 'ok', 'id': auth_event.pk}
+        return json_response(data)
+
+edit_children_parent = EditChildrenParentView.as_view()
 
 class AuthEventView(View):
     @login_required

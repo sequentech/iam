@@ -777,7 +777,7 @@ def give_perms(u, ae):
             acl.save()
     return ''
 
-def verify_children_election_info(auth_event, user, perms):
+def verify_children_election_info(auth_event, user, perms, children_election_info=None):
     '''
     Verify that the requesting user has permissions to edit all
     the referred children events (and that they do, in fact, exist)
@@ -787,11 +787,13 @@ def verify_children_election_info(auth_event, user, perms):
 
     # Cannot have nested parents or no children_election_info
     assert auth_event.parent is None
-    assert auth_event.children_election_info is not None
+    if children_election_info is None:
+        children_election_info = auth_event.children_election_info
+    assert children_election_info is not None
 
     # verify the children do exist and the requesting user have the 
     # appropiate permissions and configuration
-    for event_id in auth_event.children_election_info['natural_order']:
+    for event_id in children_election_info['natural_order']:
         children_event = AuthEvent.objects.get(pk=event_id, parent=auth_event)
         assert children_event.auth_method == auth_event.auth_method
         permission_required(user, 'AuthEvent', perms, event_id)

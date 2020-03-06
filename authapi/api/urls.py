@@ -26,6 +26,7 @@ urlpatterns = [
 
     url(r'^auth-event/$', views.authevent, name='authevent'),
     url(r'^auth-event/(?P<pk>\d+)/$', views.authevent, name='authevent'),
+    url(r'^auth-event/(?P<pk>\d+)/edit-children-parent/$', views.edit_children_parent, name='edit-children-parent'),
     url(r'^auth-event/(?P<pk>\d+)/archive/$', views.archive, name='archive'),
     url(r'^auth-event/(?P<pk>\d+)/unarchive/$', views.unarchive, name='unarchive'),
     url(r'^auth-event/(?P<pk>\d+)/callback/$', views.callback, name='callback'),

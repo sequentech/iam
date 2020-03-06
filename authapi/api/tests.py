@@ -4414,8 +4414,136 @@ class ApitTestAuthenticateInElectionWithChildren(TestCase):
         self.assertEqual(child_info_1.get('num-successful-logins-allowed'), 0)
         self.assertEqual(child_info_1.get('num-successful-logins'), 0)
 
+
+    def _auth_and_vote_with_edit_children_parent(self, auth_method):
+        client = JClient()
+        response = client.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # create the child election1
+        event_data = copy.deepcopy(test_data.auth_event19)
+        event_data['auth_method'] = auth_method
+        response = client.post('/api/auth-event/', event_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        child_id_1 = r['id']
+        self.assertEqual(
+            AuthEvent.objects.get(pk=child_id_1).parent_id,
+            None
+        )
+
+        # create the child election2
+        event_data = copy.deepcopy(test_data.auth_event19)
+        event_data['auth_method'] = auth_method
+        response = client.post('/api/auth-event/', event_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        child_id_2 = r['id']
+        self.assertEqual(
+            AuthEvent.objects.get(pk=child_id_2).parent_id,
+            None
+        )
+
+        # create the parent election, but not yet with children_election_info
+        event_data = test_data.get_auth_event_20(child_id_1, child_id_2)
+        children_election_info = event_data['children_election_info']
+        del event_data['children_election_info']
+        event_data['auth_method'] = auth_method
+        response = client.post('/api/auth-event/', event_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        parent_id = r['id']
+
+        # set the parent and children election info in the elections
+        update_data = {
+            'parent_id': parent_id
+        }
+        response = client.post(
+            '/api/auth-event/%d/edit-children-parent/' % child_id_1, 
+            update_data
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            AuthEvent.objects.get(pk=child_id_1).parent_id,
+            parent_id
+        )
+        response = client.post(
+            '/api/auth-event/%d/edit-children-parent/' % child_id_2, 
+            update_data
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            AuthEvent.objects.get(pk=child_id_2).parent_id,
+            parent_id
+        )
+
+        response = client.post(
+            '/api/auth-event/%d/edit-children-parent/' % parent_id, 
+            {
+                'children_election_info': children_election_info
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            reproducible_json_dumps(
+                AuthEvent\
+                    .objects\
+                    .get(pk=parent_id)\
+                    .children_election_info
+            ),
+            reproducible_json_dumps(children_election_info)
+        )
+        
+        # add valid census to the parent should work
+        census_data = test_data.get_auth_event20_census_ok(
+            child_id_1, 
+            child_id_2, 
+            auth_method
+        )
+        response = client.census(
+            parent_id, 
+            census_data
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # create authentication code for user in census
+        voter = User.objects.get(
+            email=census_data['census'][0]['email'],
+            userdata__event_id=parent_id
+        )
+        code = Code(
+            user=voter.userdata, 
+            code=test_data.auth_email_default['code'], 
+            auth_event_id=parent_id
+        )
+        code.save()
+
+        # start the election
+        response = client.post(
+            '/api/auth-event/%d/%s/' % (parent_id, 'started'), 
+            {}
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # authenticate in parent election
+        response = client.authenticate(
+            parent_id, 
+            {
+                "email": census_data['census'][0]['email'],
+                "dni": census_data['census'][0]['dni'],
+                "code": test_data.auth_email_default['code']
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+
     def test_auth_and_vote_email(self):
         self._auth_and_vote('email')
 
     def test_auth_and_vote_email_otp(self):
         self._auth_and_vote('email-otp')
+
+    def test_auth_and_vote_with_edit_children_parent_email(self):
+        self._auth_and_vote_with_edit_children_parent('email')
+
+    def test_auth_and_vote_with_edit_children_parent_email_otp(self):
+        self._auth_and_vote_with_edit_children_parent('email-otp')
