@@ -652,6 +652,7 @@ class SuccessfulLogin(models.Model):
         AuthEvent, 
         models.CASCADE, 
         related_name="successful_logins", 
+        null=True,
         default=None)
 
     def __str__(self):
