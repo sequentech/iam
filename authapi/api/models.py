@@ -506,6 +506,24 @@ class UserData(models.Model):
             d.update(metadata)
         return d
 
+    def serialize_children_voted_elections(self, auth_event):
+        if auth_event.children_election_info:
+            return list(set([
+                successful_login.auth_event.pk
+                for successful_login in self.successful_logins.filter(
+                    is_active=True, 
+                    auth_event__parent_id=auth_event.pk
+                )
+            ]))
+        else:
+            return list(set([
+                successful_login.auth_event.pk
+                for successful_login in self.successful_logins.filter(
+                    is_active=True, 
+                    auth_event=auth_event
+                )
+            ]))
+
     def serialize_data(self):
         d = self.serialize()
         if not self.event.auth_method == 'user-and-password':

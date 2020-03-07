@@ -26,7 +26,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 
 from . import test_data
-from .models import ACL, AuthEvent, Action, BallotBox, TallySheet
+from .models import ACL, AuthEvent, Action, BallotBox, TallySheet, SuccessfulLogin
 from authmethods.models import Code, MsgLog
 from utils import verifyhmac, reproducible_json_dumps
 from authmethods.utils import get_cannonical_tlf
@@ -4536,14 +4536,33 @@ class ApitTestAuthenticateInElectionWithChildren(TestCase):
         )
         self.assertEqual(response.status_code, 200)
 
-    def test_auth_and_vote_email(self):
+        # verify census
+        response = client.authenticate(self.aeid_special, self.admin_auth_data)
+        response = client.get('/api/auth-event/%d/census/' % parent_id, {})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            reproducible_json_dumps(parse_json_response(response)['object_list'][0]['voted_children_elections']),
+            reproducible_json_dumps([])
+        )
+
+        successful_login = SuccessfulLogin(user=voter.userdata, auth_event_id=child_id_1)
+        successful_login.save()
+        response = client.get('/api/auth-event/%d/census/' % parent_id, {})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            reproducible_json_dumps(parse_json_response(response)['object_list'][0]['voted_children_elections']),
+            reproducible_json_dumps([child_id_1])
+        )
+
+
+    def _test_auth_and_vote_email(self):
         self._auth_and_vote('email')
 
-    def test_auth_and_vote_email_otp(self):
+    def _test_auth_and_vote_email_otp(self):
         self._auth_and_vote('email-otp')
 
     def test_auth_and_vote_with_edit_children_parent_email(self):
         self._auth_and_vote_with_edit_children_parent('email')
 
-    def test_auth_and_vote_with_edit_children_parent_email_otp(self):
+    def _test_auth_and_vote_with_edit_children_parent_email_otp(self):
         self._auth_and_vote_with_edit_children_parent('email-otp')

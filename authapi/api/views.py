@@ -409,13 +409,13 @@ class Census(View):
 
     def get(self, request, pk):
         permission_required(request.user, 'AuthEvent', ['edit', 'view-census'], pk)
-        e = get_object_or_404(AuthEvent, pk=pk)
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
 
         filter_str = request.GET.get('filter', None)
-        query = e.get_census_query()
+        query = auth_event.get_census_query()
 
         if filter_str is not None:
-            if len(e.extra_fields):
+            if len(auth_event.extra_fields):
                 filter_str = "%" + filter_str + "%"
                 raw_sql = '''
                              SELECT "api_acl"."id", "api_acl"."user_id", "api_acl"."perm",
@@ -436,7 +436,7 @@ class Census(View):
                                 OR UPPER("auth_user"."email"::text) LIKE UPPER(%s)
                                 OR UPPER("api_userdata"."tlf"::text) LIKE UPPER(%s)'''
                 params_array = [pk, filter_str, filter_str, filter_str]
-                for field in e.extra_fields:
+                for field in auth_event.extra_fields:
                     raw_sql += '''
                                 OR UPPER(api_userdata.metadata::jsonb->>%s) LIKE UPPER(%s)'''
                     params_array += [field['name'], filter_str]
@@ -447,9 +447,11 @@ class Census(View):
                 query = query.filter(id__in=id_list)
 
             else:
-                q = (Q(user__user__username__icontains=filter_str) |
-                  Q(user__user__email__icontains=filter_str) |
-                  Q(user__tlf__icontains=filter_str))
+                q = (
+                    Q(user__user__username__icontains=filter_str) |
+                    Q(user__user__email__icontains=filter_str) |
+                    Q(user__tlf__icontains=filter_str)
+                )
                 query = query.filter(q)
 
         has_voted_str = request.GET.get('has_voted__equals', None)
@@ -480,7 +482,8 @@ class Census(View):
                 order_by=[
                     'user__user__id',
                     'user__user__is_active',
-                    'user__user__date_joined']
+                    'user__user__date_joined'
+                ]
             ),
             prefix='census__',
             contraints_policy='ignore_invalid')
@@ -491,7 +494,8 @@ class Census(View):
             "username": acl.user.user.username,
             "active": acl.user.user.is_active,
             "date_joined": acl.user.user.date_joined.isoformat(),
-            "metadata": acl.user.serialize_data()
+            "metadata": acl.user.serialize_data(),
+            "voted_children_elections": acl.user.serialize_children_voted_elections(auth_event)
           }
 
         acls = paginate(
@@ -1171,7 +1175,7 @@ class EditChildrenParentView(View):
         '''
         from authmethods.utils import verify_children_election_info
         permission_required(request.user, 'AuthEvent', 'edit', pk)
-        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        auth_event = get_object_or_404(AuthEvent, pk=pk, status='notstarted')
         try:
             req = parse_json_request(request)
         except:
