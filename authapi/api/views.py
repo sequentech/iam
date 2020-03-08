@@ -1959,12 +1959,17 @@ class BallotBoxView(View):
         subq = TallySheet.objects\
             .filter(ballot_box=OuterRef('pk'))\
             .order_by('-created', '-id')
-        query = e.ballot_boxes.annotate(
-            last_updated=Subquery(subq.values('created')[:1]),
-            creator_id=Subquery(subq.values('creator_id')[:1]),
-            creator_username=Subquery(subq.values('creator__username')[:1]),
-            num_tally_sheets=Count('tally_sheets')
-        )
+        query = BallotBox.objects\
+            .filter(
+                Q(auth_event_id=pk) | Q(auth_event__parent_id=pk)
+            )\
+            .annotate(
+                last_updated=Subquery(subq.values('created')[:1]),
+                creator_id=Subquery(subq.values('creator_id')[:1]),
+                creator_username=Subquery(subq.values('creator__username')[:1]),
+                num_tally_sheets=Count('tally_sheets')
+            )
+        
         if filter_str:
             query = query.filter(name__icontains=filter_str)
 
