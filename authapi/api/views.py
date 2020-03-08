@@ -611,16 +611,21 @@ class SuccessfulLoginView(View):
 
         valid_data = ["AuthEvent", pk, "RegisterSuccessfulLogin"]
 
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+
         # check everything is ok
         if (not user or
             error is not None or
             (
                 (
-                    user.userdata.event.parent is None and 
+                    auth_event.parent is None and 
                     str(user.userdata.event.id) != pk
                 ) or (
-                    user.userdata.event.parent is not None and 
-                    int(pk) not in user.userdata.event.parent.children_election_info.get('natural_order', [])
+                    auth_event.parent is not None and 
+                    (
+                        int(pk) not in user.userdata.event.children_election_info.get('natural_order', []) or
+                        auth_event.parent_id != user.userdata.event.id
+                    )
                 )
             ) or
             type(khmac_obj) != HMACToken or
@@ -630,7 +635,7 @@ class SuccessfulLoginView(View):
         sl = SuccessfulLogin(
             user=user.userdata, 
             is_active=user.is_active,
-            auth_event=get_object_or_404(AuthEvent, pk=pk)
+            auth_event=auth_event
         )
         sl.save()
 
