@@ -2124,39 +2124,72 @@ class TestCallback(TestCase):
         self.assertEqual(response.status_code, 403)
 
 
-class TestCsvStats(TestCase):
+class TestVoteStats(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
 
     def setUp(self):
         from datetime import datetime, timedelta
 
-        ae = AuthEvent(auth_method="email",
-                auth_method_config=test_data.authmethod_config_email_default,
-                status='started',
-                census="open")
-        ae.save()
-        self.ae = ae
-        self.aeid = ae.pk
+        auth_event = AuthEvent(
+            auth_method="email",
+            auth_method_config=test_data.authmethod_config_email_default,
+            status='started',
+            census="open"
+        )
+        auth_event.save()
+        self.auth_event = auth_event
+        self.auth_event_id = auth_event.pk
+        self.aeid_special = 1
+
+        admin = User(
+            username=test_data.admin['username'], 
+            email=test_data.admin['email']
+        )
+        admin.set_password(test_data.admin['password'])
+        admin.save()
+        admin.userdata.event = AuthEvent.objects.get(pk=self.aeid_special)
+        admin.userdata.save()
+        self.uid_admin = admin.id
+        
+        self.admin_auth_data = dict(
+            email=test_data.admin['email'],
+            code="ERGERG")
+        
+        c = Code(
+            user=admin.userdata,
+            code=self.admin_auth_data['code'],
+            auth_event_id=self.aeid_special)
+        c.save()
+
+        acl = ACL(
+            user=admin.userdata, 
+            object_type='AuthEvent', 
+            perm='edit',
+            object_id=self.auth_event_id
+        )
+        acl.save()
 
         # convenience methods to create users and vote data
 
-        def newUser(name):
-            u = User(username=name, email=test_data.auth_email_default['email'])
-            u.save()
-            u.userdata.event = ae
-            u.userdata.save()
-            return u
+        def new_user(name):
+            user = User(
+                username=name, 
+                email=test_data.auth_email_default['email']
+            )
+            user.save()
+            user.userdata.event = auth_event
+            user.userdata.save()
+            return user
 
-        def newAction(user, date):
-            action = Action(
+        def add_vote(user, date):
+            vote = SuccessfulLogin(
                 created=date,
-                executer=user,
-                receiver=user,
-                action_name="authevent:callback",
-                event=ae)
-            action.save()
-            return action
+                user=user.userdata,
+                auth_event=auth_event
+            )
+            vote.save()
+            return vote
 
         # Create the data from which to run the query
         # the expected result is defined below the data, then used in an
@@ -2172,59 +2205,62 @@ class TestCsvStats(TestCase):
         # these votes will be overwritten later
         # the first hour slice will therefore have 0 votes
         for i in range(0, 4):
-            user = newUser("user%s" % i)
-            newAction(user, date)
+            user = new_user("user%s" % i)
+            add_vote(user, date)
             self.users.append(user)
 
         # in the second hour we have 3 votes
         date = date + timedelta(hours=1)
         for i in range(4, 7):
-            user = newUser("user%s" % i)
-            newAction(user, date)
+            user = new_user("user%s" % i)
+            add_vote(user, date)
 
         # here we cast votes for the same users as in the first hour,
         # effectively invalidating them
         # the third hour slice will therefore have 4 votes
         date = date + timedelta(hours=1)
         for i in range(0, 4):
-            newAction(self.users[i], date)
+            add_vote(self.users[i], date)
 
         # in the third hour we have 5 votes
         date = date + timedelta(hours=1)
         for i in range(7, 12):
-            user = newUser("user%s" % i)
-            newAction(user, date)
-
-        # the expected result as a csv string
-        # corresponds to 0 votes in first hour (no data)
-        # 3 votes in second hour
-        # 4 votes in third hour
-        # 5 votes in fourth hour
-        self.expected = b"2010-10-10 01:00:00+00:00,3\n2010-10-10 02:00:00+00:00,4\n2010-10-10 03:00:00+00:00,5"
-
-    def genhmac(self, key, msg):
-        import hmac
-        import datetime
-
-        if not key or not msg:
-           return
-
-        timestamp = int(datetime.datetime.now().timestamp())
-        msg = "%s:%s" % (msg, str(timestamp))
-
-        h = hmac.new(key, msg.encode('utf-8'), "sha256")
-        return 'khmac:///sha-256;' + h.hexdigest() + '/' + msg
+            user = new_user("user%s" % i)
+            add_vote(user, date)
 
     @override_settings(**override_celery_data)
-    def test_csv_stats(self):
-        c = JClient()
-        timed_auth = "%s:AuthEvent:%d:CsvStats" % (self.users[0].username, self.aeid)
-        hmac = self.genhmac(settings.SHARED_SECRET, timed_auth)
-        c.set_auth_token(hmac)
-
-        response = c.get('/api/auth-event/%d/csv-stats/' % self.aeid, {})
+    def test_vote_stats(self):
+        client = JClient()
+        response = client.authenticate(
+            self.aeid_special, 
+            self.admin_auth_data
+        )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.content, self.expected)
+
+        response = client.get(
+            '/api/auth-event/%d/vote-stats/' % self.auth_event_id, 
+            {}
+        )
+        self.assertEqual(response.status_code, 200)
+    
+        # the expected response should be:
+        # 0 votes in  hour 0 (no data)
+        # 3 votes in hour 1
+        # 4 votes in hour 2
+        # 5 votes in hour 3
+        
+        self.assertEqual(
+            reproducible_json_dumps(parse_json_response(response)),
+            reproducible_json_dumps({
+                "total_votes": 12, 
+                "votes_per_hour": [
+                    {"hour": "2010-10-10 01:00:00+00:00", "votes": 3}, 
+                    {"hour": "2010-10-10 02:00:00+00:00", "votes": 4}, 
+                    {"hour": "2010-10-10 03:00:00+00:00", "votes": 5}
+                ]
+            })
+        )
+            
 
 # Check the allowed number of revotes, using AuthEvent's
 # num_successful_logins_allowed field and calls to successful_login

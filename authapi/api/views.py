@@ -22,6 +22,8 @@ from datetime import datetime
 from django import forms
 from django.conf import settings
 from django.http import Http404
+from django.db.models import Q
+from django.db.models.functions import TruncHour
 from django.contrib.auth.models import User
 from django.views.generic import View
 from django.shortcuts import get_object_or_404
@@ -73,7 +75,6 @@ from .models import (
     children_election_info_validator
 )
 from .tasks import census_send_auth_task
-from django.db.models import Q
 from captcha.views import generate_captcha
 from utils import send_codes, get_client_ip, parse_json_request
 
@@ -756,64 +757,45 @@ class Unarchive(View):
         return json_response()
 unarchive = login_required(Unarchive.as_view())
 
-class CsvStatsView(View):
+class VoteStatsView(View):
     '''
-    Returns statistical data about votes in text/plain csv format
+    Returns statistical data about votes
 
-    This code uses raw sql and is dependent on a postgresql backend
+    This code is dependent on a postgresql backend
     '''
     def get(self, request, pk):
-        from django.db import connection
+        permission_required(request.user, 'AuthEvent', ['view-stats', 'edit'], pk)
 
-        # userid is not used, but recorded in the log
-        user, error, khmac_obj = get_login_user(request)
-
-        valid_data = ["AuthEvent", pk, "CsvStats"]
-
-        # check everything is ok
-        if (not user or
-            error is not None or
-            type(khmac_obj) != HMACToken or
-            khmac_obj.get_other_values() != valid_data):
-            return json_response({}, status=403)
-
-        # the auth event for which we are querying
-        ae = get_object_or_404(AuthEvent, pk=pk)
-
-        # returns the number of votes per hour slice, disregarding overwrites
-        cursor = connection.cursor()
-
-        # first we must obtain the last date vote for every user
-        # then we join on this data to discard overwritten votes
-        # finally the data is aggregated per hour slice
-        # hour slices are obtained by truncating with DATE_TRUNC
-        query = '''
-            SELECT DATE_TRUNC('hour', created) as created_date, COUNT(id)
-            FROM api_action AS a
-            JOIN (
-                SELECT receiver_id, MAX(created)
-                FROM api_action
-                WHERE action_name='authevent:callback'
-                GROUP BY receiver_id
+        q_base = SuccessfulLogin.objects\
+            .filter(
+                Q(auth_event_id=pk) |
+                Q(auth_event__parent_id=pk)
             )
-            AS b ON a.receiver_id = b.receiver_id AND a.created = b.max
-            WHERE a.action_name='authevent:callback'
-            AND a.event_id = %s
-            GROUP BY created_date
-            ORDER by created_date
-        '''
-        cursor.execute(query, [ae.pk])
+        subquery_distinct = q_base\
+            .order_by('user_id', '-created')\
+            .distinct('user_id')
 
-        # convert data to csv format
-        data = ["%s,%s" % (row[0], row[1]) for row in cursor.fetchall()]
+        q = q_base\
+            .annotate(hour=TruncHour('created'))\
+            .values('hour')\
+            .annotate(votes=Count('user_id'))\
+            .order_by('hour')\
+            .filter(id__in=subquery_distinct)
+        
+        data = dict(
+            total_votes=subquery_distinct.count(),
+            votes_per_hour = [
+                dict(
+                    hour=str(obj['hour']),
+                    votes=obj['votes']
+                )
+                for obj in q
+            ]
+        )
 
-        # return as csv attachment
-        response = HttpResponse('\n'.join(data), status=200, content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="data.csv"'
+        return json_response(data)
 
-        return response
-
-csv_stats = CsvStatsView.as_view()
+vote_stats = login_required(VoteStatsView.as_view())
 
 
 class Register(View):
