@@ -4400,11 +4400,13 @@ class ApitTestAuthenticateInElectionWithChildren(TestCase):
         assert 'auth-token' in resp_json
         self.assertEqual(type(resp_json['auth-token']), str)
         assert 'vote-children-info' in resp_json
-        self.assertEqual(type(resp_json['vote-children-info']), dict)
-        assert str(child_id_1) in resp_json['vote-children-info']
-        assert str(child_id_2) in resp_json['vote-children-info']
-        child_info_1 = resp_json['vote-children-info'][str(child_id_1)]
+        self.assertEqual(type(resp_json['vote-children-info']), list)
+        self.assertEqual(len(resp_json['vote-children-info']), 2)
+        
+        child_info_1 = resp_json['vote-children-info'][0]
         self.assertEqual(type(child_info_1), dict)
+        assert 'auth-event-id' in child_info_1
+        self.assertEqual(child_info_1['auth-event-id'], child_id_1)
         assert 'vote-permission-token' in child_info_1
         self.assertEqual(type(child_info_1['vote-permission-token']), str)
         self.assertTrue(re.match(
@@ -4440,11 +4442,12 @@ class ApitTestAuthenticateInElectionWithChildren(TestCase):
         # verify answer data
         resp_json = parse_json_response(response)
         resp_json['vote-children-info']
-        assert str(child_id_1) in resp_json['vote-children-info']
-        assert str(child_id_2) in resp_json['vote-children-info']
-        child_info_1 = resp_json['vote-children-info'][str(child_id_1)]
-        child_info_2 = resp_json['vote-children-info'][str(child_id_2)]
+        self.assertEqual(len(resp_json['vote-children-info']), 2)
+        child_info_1 = resp_json['vote-children-info'][0]
+        child_info_2 = resp_json['vote-children-info'][1]
         self.assertEqual(type(child_info_1), dict)
+        assert 'auth-event-id' in child_info_1
+        self.assertEqual(child_info_1['auth-event-id'], child_id_1)
         assert 'vote-permission-token' in child_info_1
         self.assertEqual(type(child_info_1['vote-permission-token']), str)
         self.assertTrue(re.match(
@@ -4452,6 +4455,8 @@ class ApitTestAuthenticateInElectionWithChildren(TestCase):
             child_info_1['vote-permission-token']
         ))
         self.assertEqual(type(child_info_2), dict)
+        assert 'auth-event-id' in child_info_2
+        self.assertEqual(child_info_2['auth-event-id'], child_id_2)
         assert 'vote-permission-token' in child_info_2
         self.assertEqual(child_info_2['vote-permission-token'], None)
 

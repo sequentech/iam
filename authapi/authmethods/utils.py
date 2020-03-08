@@ -867,13 +867,10 @@ def return_auth_data(auth_event, logger_name, req_json, request, user):
                 'num-successful-logins': num_successful_logins
             }
 
-        data['vote-children-info'] = dict([
-            (
-                str(child_event_id),
-                get_child_info(child_event_id)
-            )
+        data['vote-children-info'] = [
+            get_child_info(child_event_id)
             for child_event_id in auth_event.children_election_info["natural_order"]
-        ])
+        ]
 
 
     # add redirection
