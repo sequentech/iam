@@ -4414,6 +4414,46 @@ class ApitTestAuthenticateInElectionWithChildren(TestCase):
         self.assertEqual(child_info_1.get('num-successful-logins-allowed'), 0)
         self.assertEqual(child_info_1.get('num-successful-logins'), 0)
 
+        # verify the second user is not allowed to authenticate in child_election_2
+        voter = User.objects.get(
+            email=census_data['census'][1]['email'],
+            userdata__event=parent_election
+        )
+        code = Code(
+            user=voter.userdata, 
+            code=test_data.auth_email_default['code'], 
+            auth_event_id=parent_election.pk
+        )
+        code.save()
+
+        # authenticate in parent election
+        response = client.authenticate(
+            parent_election.id, 
+            {
+                "email": census_data['census'][1]['email'],
+                "dni": census_data['census'][1]['dni'],
+                "code": test_data.auth_email_default['code']
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # verify answer data
+        resp_json = parse_json_response(response)
+        resp_json['vote-children-info']
+        assert str(child_id_1) in resp_json['vote-children-info']
+        assert str(child_id_2) in resp_json['vote-children-info']
+        child_info_1 = resp_json['vote-children-info'][str(child_id_1)]
+        child_info_2 = resp_json['vote-children-info'][str(child_id_2)]
+        self.assertEqual(type(child_info_1), dict)
+        assert 'vote-permission-token' in child_info_1
+        self.assertEqual(type(child_info_1['vote-permission-token']), str)
+        self.assertTrue(re.match(
+            "^khmac:\/\/\/sha-256;[a-f0-9]{64}\/[a-f0-9]+:AuthEvent:[0-9]:vote:[0-9]+$",
+            child_info_1['vote-permission-token']
+        ))
+        self.assertEqual(type(child_info_2), dict)
+        assert 'vote-permission-token' in child_info_2
+        self.assertEqual(child_info_2['vote-permission-token'], None)
 
     def _auth_and_vote_with_edit_children_parent(self, auth_method):
         client = JClient()
@@ -4554,15 +4594,14 @@ class ApitTestAuthenticateInElectionWithChildren(TestCase):
             reproducible_json_dumps([child_id_1])
         )
 
-
-    def _test_auth_and_vote_email(self):
+    def test_auth_and_vote_email(self):
         self._auth_and_vote('email')
 
-    def _test_auth_and_vote_email_otp(self):
+    def test_auth_and_vote_email_otp(self):
         self._auth_and_vote('email-otp')
 
     def test_auth_and_vote_with_edit_children_parent_email(self):
         self._auth_and_vote_with_edit_children_parent('email')
 
-    def _test_auth_and_vote_with_edit_children_parent_email_otp(self):
+    def test_auth_and_vote_with_edit_children_parent_email_otp(self):
         self._auth_and_vote_with_edit_children_parent('email-otp')

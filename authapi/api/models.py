@@ -520,7 +520,7 @@ class UserData(models.Model):
                 successful_login.auth_event.pk
                 for successful_login in self.successful_logins.filter(
                     is_active=True, 
-                    auth_event=auth_event
+                    auth_event_id=auth_event.pk
                 )
             ]))
 

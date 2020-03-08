@@ -851,8 +851,9 @@ def return_auth_data(auth_event, logger_name, req_json, request, user):
                 .filter(is_active=True, auth_event=auth_event)\
                 .count()
 
-            if auth_event.num_successful_logins_allowed == 0 or\
-                num_successful_logins < auth_event.num_successful_logins_allowed:
+            if (auth_event.num_successful_logins_allowed == 0 or\
+                num_successful_logins < auth_event.num_successful_logins_allowed) and\
+                event_id in user.userdata.children_event_id_list:
 
                 msg = ':'.join((user.username, 'AuthEvent', str(event_id), 'vote'))
                 auth_token = genhmac(settings.SHARED_SECRET, msg)
@@ -860,6 +861,7 @@ def return_auth_data(auth_event, logger_name, req_json, request, user):
                 auth_token = None
             
             return {
+                'auth-event-id': event_id,
                 'vote-permission-token': auth_token,
                 'num-successful-logins-allowed': auth_event.num_successful_logins_allowed,
                 'num-successful-logins': num_successful_logins
