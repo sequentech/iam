@@ -1509,11 +1509,12 @@ class AuthEventView(View):
                 user.userdata is not None
             ):
                 if has_perms is not None:
+                    perms_split = has_perms.split('|')
                     q &= Q(
                         id__in=user.userdata.acls\
                             .filter(
                                 object_type='AuthEvent',
-                                perm__in=['edit', 'view']
+                                perm__in=perms_split
                             )\
                             .annotate(
                                 object_id_int=Cast(
@@ -1524,11 +1525,12 @@ class AuthEventView(View):
                             .values('object_id_int')
                     )
             
-                if (
-                    user.userdata.has_perms('AuthEvent', 'edit', pk) or
-                    user.userdata.has_perms('AuthEvent', 'view', pk)
-                ):
-                    serialize_method = 'serialize'
+                    if (
+                        'view' in perms_split or
+                        'edit' in perms_split or
+                        'view-archived' in perms_split
+                    ):
+                        serialize_method = 'serialize'
 
             events = AuthEvent.objects.filter(q)
             aes = paginate(

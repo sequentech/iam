@@ -4723,19 +4723,25 @@ class TestAuthEventList(TestCase):
         self.assertEqual(len(r['events']), 3)
 
         # list my elections
-        response = client.get('/api/auth-event/?has_perms=true', {})
+        response = client.get('/api/auth-event/?has_perms=edit|view', {})
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
         self.assertEqual(len(r['events']), 2)
 
         # list my elections with no parents
-        response = client.get('/api/auth-event/?has_perms=true&only_parent_elections=true', {})
+        response = client.get('/api/auth-event/?has_perms=edit|view&only_parent_elections=true', {})
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
         self.assertEqual(len(r['events']), 1)
 
+        # list my elections with no parents and archived
+        response = client.get('/api/auth-event/?has_perms=unarchive|view-archived&only_parent_elections=true', {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(len(r['events']), 0)
+
         # list my elections with specific ids
-        response = client.get('/api/auth-event/?has_perms=true&ids=%d' % self.ae2.id, {})
+        response = client.get('/api/auth-event/?has_perms=edit|view&ids=%d' % self.ae2.id, {})
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
         self.assertEqual(len(r['events']), 1)
