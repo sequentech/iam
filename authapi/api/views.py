@@ -22,8 +22,8 @@ from datetime import datetime
 from django import forms
 from django.conf import settings
 from django.http import Http404
-from django.db.models import Q
-from django.db.models.functions import TruncHour
+from django.db.models import Q, IntegerField
+from django.db.models.functions import TruncHour, Cast
 from django.contrib.auth.models import User
 from django.views.generic import View
 from django.shortcuts import get_object_or_404
@@ -1487,10 +1487,56 @@ class AuthEventView(View):
 
             data['events'] = aes
         else:
-            events = AuthEvent.objects.all()
-            aes = paginate(request, events,
-                           serialize_method='serialize_restrict',
-                           elements_name='events')
+            ids = request.GET.get('ids', None)
+            only_parent_elections = request.GET.get('only_parent_elections', None)
+            has_perms = request.GET.get('has_perms', None)
+            q = Q()
+            if ids is not None:
+                try:
+                    ids = ids.split('|')
+                    ids = [int(id) for id in ids]
+                    q &= Q(id__in=ids)
+                except:
+                    ids = None
+            
+            if only_parent_elections is not None:
+                q &= Q(parent_id=None)
+
+            serialize_method = 'serialize_restrict'
+            if (
+                user is not None and
+                user.is_authenticated and
+                user.userdata is not None
+            ):
+                if has_perms is not None:
+                    q &= Q(
+                        id__in=user.userdata.acls\
+                            .filter(
+                                object_type='AuthEvent',
+                                perm__in=['edit', 'view']
+                            )\
+                            .annotate(
+                                object_id_int=Cast(
+                                    'object_id',
+                                    output_field=IntegerField()
+                                )
+                            )\
+                            .values('object_id_int')
+                    )
+            
+                if (
+                    user.userdata.has_perms('AuthEvent', 'edit', pk) or
+                    user.userdata.has_perms('AuthEvent', 'view', pk)
+                ):
+                    serialize_method = 'serialize'
+
+            events = AuthEvent.objects.filter(q)
+            aes = paginate(
+                request, 
+                events,
+                serialize_method=serialize_method,
+                elements_name='events'
+            )
             data.update(aes)
         return json_response(data)
 

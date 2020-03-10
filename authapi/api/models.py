@@ -382,6 +382,7 @@ class AuthEvent(models.Model):
                     self.auth_method: Code.objects.filter(auth_event_id=self.id).count()
                 },
                 'admin_fields': self.admin_fields,
+                'total_votes': self.get_num_votes()
             })
 
         return d
@@ -401,6 +402,20 @@ class AuthEvent(models.Model):
             object_type='AuthEvent',
             perm='vote',
             object_id=self.id)
+
+    def get_num_votes(self):
+        '''
+        Returns the number of votes in this election and in
+        children elections (if any).
+        '''
+        return SuccessfulLogin.objects\
+            .filter(
+                Q(auth_event_id=self.pk) |
+                Q(auth_event__parent_id=self.pk)
+            )\
+            .order_by('user_id', '-created')\
+            .distinct('user_id')\
+            .count()
 
     def get_owners(self):
         '''

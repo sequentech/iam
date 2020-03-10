@@ -936,6 +936,7 @@ class TestAuthEvent(TestCase):
                 'parent_id': None,
                 'children_election_info': None,
                 'openid_connect_providers': [],
+                'total_votes': 0
             },
             'status': 'ok'
         }
@@ -4646,3 +4647,95 @@ class ApitTestAuthenticateInElectionWithChildren(TestCase):
 
     def test_auth_and_vote_with_edit_children_parent_email_otp(self):
         self._auth_and_vote_with_edit_children_parent('email-otp')
+
+
+class TestAuthEventList(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        ae = AuthEvent(
+            auth_method=test_data.auth_event4['auth_method'],
+            auth_method_config=test_data.authmethod_config_email_default
+        )
+        ae.save()
+        ae2 = AuthEvent(
+            auth_method=test_data.auth_event4['auth_method'],
+            auth_method_config=test_data.authmethod_config_email_default,
+            parent_id=ae.pk
+        )
+        ae2.save()
+
+        self.aeid_special = 1
+        u = User(
+            username=test_data.admin['username'], 
+            email=test_data.admin['email']
+        )
+        u.set_password('smith')
+        u.save()
+        u.userdata.event = AuthEvent.objects.get(pk=1)
+        u.userdata.save()
+
+        self.admin_auth_data = dict(
+            email=test_data.admin['email'],
+            code="ERGERG"
+        )
+        c = Code(
+            user=u.userdata,
+            code=self.admin_auth_data['code'],
+            auth_event_id=self.aeid_special
+        )
+        c.save()
+
+        self.userid = u.pk
+        self.testuser = u
+        self.aeid = ae.pk
+        self.ae = ae
+        self.ae2 = ae2
+
+        acl = ACL(
+            user=u.userdata, 
+            object_type='AuthEvent', 
+            perm='view',
+            object_id=self.ae.id
+        )
+        acl.save()
+        acl2 = ACL(
+            user=u.userdata, 
+            object_type='AuthEvent', 
+            perm='view',
+            object_id=self.ae2.id
+        )
+        acl2.save()
+    
+    def test_list_and_filter(self):
+        client = JClient()
+        response = client.authenticate(
+            self.aeid_special, 
+            self.admin_auth_data
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # list all
+        response = client.get('/api/auth-event/', {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(len(r['events']), 3)
+
+        # list my elections
+        response = client.get('/api/auth-event/?has_perms=true', {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(len(r['events']), 2)
+
+        # list my elections with no parents
+        response = client.get('/api/auth-event/?has_perms=true&only_parent_elections=true', {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(len(r['events']), 1)
+
+        # list my elections with specific ids
+        response = client.get('/api/auth-event/?has_perms=true&ids=%d' % self.ae2.id, {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(len(r['events']), 1)
