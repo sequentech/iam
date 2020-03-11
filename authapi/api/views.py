@@ -920,12 +920,12 @@ class AuthEventStatus(View):
                 action.save()
             
             # update in agora-elections
-            if status in ['start', 'stop']:
+            if alt in ['start', 'stop']:
                 for callback_base in settings.AGORA_ELECTIONS_BASE:
                     callback_url = "%s/api/election/%s/%s" % (
                         callback_base,
                         pk,
-                        status
+                        alt
                     )
                     data = "[]"
 
@@ -935,7 +935,7 @@ class AuthEventStatus(View):
                         headers={
                             'Authorization': genhmac(
                                 settings.SHARED_SECRET,
-                                "1:AuthEvent:%s:%s" % (pk, status)
+                                "1:AuthEvent:%s:%s" % (pk, alt)
                             ),
                             'Content-type': 'application/json'
                         }
