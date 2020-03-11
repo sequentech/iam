@@ -924,7 +924,7 @@ class AuthEventStatus(View):
                 for callback_base in settings.AGORA_ELECTIONS_BASE:
                     callback_url = "%s/api/election/%s/%s" % (
                         callback_base,
-                        pk,
+                        auth_event.id,
                         alt
                     )
                     data = "[]"
@@ -935,7 +935,7 @@ class AuthEventStatus(View):
                         headers={
                             'Authorization': genhmac(
                                 settings.SHARED_SECRET,
-                                "1:AuthEvent:%s:%s" % (pk, alt)
+                                "1:AuthEvent:%s:%s" % (auth_event.id, alt)
                             ),
                             'Content-type': 'application/json'
                         }
