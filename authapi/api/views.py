@@ -929,7 +929,7 @@ class AuthEventStatus(View):
                     )
                     data = "[]"
 
-                    request = requests.post(
+                    agora_elections_request = requests.post(
                         callback_url,
                         json=data,
                         headers={
@@ -940,7 +940,7 @@ class AuthEventStatus(View):
                             'Content-type': 'application/json'
                         }
                     )
-                    if request.status_code != 200:
+                    if agora_elections_request.status_code != 200:
                         LOGGER.error(\
                             "AuthEventStatus.post\n"\
                             "agora_elections.callback_url '%r'\n"\
@@ -949,8 +949,8 @@ class AuthEventStatus(View):
                             "agora_elections.text '%r'\n",\
                             callback_url, 
                             data, 
-                            request.status_code, 
-                            request.text
+                            agora_elections_request.status_code, 
+                            agora_elections_request.text
                         )
 
                         return json_response(
@@ -966,8 +966,8 @@ class AuthEventStatus(View):
                         "agora_elections.text '%r'\n",\
                         callback_url, 
                         data, 
-                        request.status_code, 
-                        request.text
+                        agora_elections_request.status_code, 
+                        agora_elections_request.text
                     )
 
         return json_response(
