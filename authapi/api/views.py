@@ -880,7 +880,10 @@ resend_auth_code = ResendAuthCode.as_view()
 
 
 class AuthEventStatus(View):
-    ''' Change the status of auth-event '''
+    '''
+    Change the status of auth-event, its children and also calls to agora-elections
+    to reflect it.
+    '''
 
     def post(self, request, pk, status):
         alt = dict(
@@ -889,21 +892,88 @@ class AuthEventStatus(View):
             stopped='stop'
         )[status]
         permission_required(request.user, 'AuthEvent', ['edit', alt], pk)
-        e = get_object_or_404(AuthEvent, pk=pk)
-        if e.status != status:
-            e.status = status
-            e.save()
-            st = 200
-            action = Action(
-                executer=request.user,
-                receiver=None,
-                action_name='authevent:' + alt,
-                event=e,
-                metadata=dict())
-            action.save()
-        else:
-            st = 400
-        return json_response(status=st, message='Authevent status:  %s' % status)
+        
+        auth_events = AuthEvent.objects.filter(
+            Q(pk=pk) | Q(parent_id=pk)
+        )
+        main_auth_event = get_object_or_404(AuthEvent, pk=pk)
+        
+        for auth_event in auth_events:
+            # update AuthEvent
+
+            if auth_event.status != status:
+                auth_event.status = status
+                auth_event.save()
+
+                # trace the event
+                if auth_event.id != pk:
+                    metadata = dict(auth_event=auth_event.id)
+                else:
+                    metadata = dict()
+                action = Action(
+                    executer=request.user,
+                    receiver=None,
+                    action_name='authevent:' + alt,
+                    event=main_auth_event,
+                    metadata=metadata
+                )
+                action.save()
+            
+            # update in agora-elections
+            if status in ['start', 'stop']:
+                for callback_base in settings.AGORA_ELECTIONS_BASE:
+                    callback_url = "%s/api/election/%s/%s" % (
+                        callback_base,
+                        pk,
+                        status
+                    )
+                    data = "[]"
+
+                    request = requests.post(
+                        callback_url,
+                        json=data,
+                        headers={
+                            'Authorization': genhmac(
+                                settings.SHARED_SECRET,
+                                "1:AuthEvent:%s:%s" % (pk, status)
+                            ),
+                            'Content-type': 'application/json'
+                        }
+                    )
+                    if request.status_code != 200:
+                        LOGGER.error(\
+                            "AuthEventStatus.post\n"\
+                            "agora_elections.callback_url '%r'\n"\
+                            "agora_elections.data '%r'\n"\
+                            "agora_elections.status_code '%r'\n"\
+                            "agora_elections.text '%r'\n",\
+                            callback_url, 
+                            data, 
+                            request.status_code, 
+                            request.text
+                        )
+
+                        return json_response(
+                            status=500,
+                            error_codename=ErrorCodes.GENERAL_ERROR
+                        )
+
+                    LOGGER.info(\
+                        "AuthEventStatus.post\n"\
+                        "agora_elections.callback_url '%r'\n"\
+                        "agora_elections.data '%r'\n"\
+                        "agora_elections.status_code '%r'\n"\
+                        "agora_elections.text '%r'\n",\
+                        callback_url, 
+                        data, 
+                        request.status_code, 
+                        request.text
+                    )
+
+        return json_response(
+            status=200, 
+            message='Authevent status: %s' % status
+        )
 ae_status = login_required(AuthEventStatus.as_view())
 
 
