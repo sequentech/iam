@@ -44,6 +44,13 @@ AE_STATUSES = (
     ('stopped', 'stopped'),
 )
 
+AE_TALLY_STATUSES = (
+    ('notstarted', 'notstarted'),
+    ('pending', 'pending'),
+    ('started', 'started'),
+    ('success', 'success'),
+)
+
 CHILDREN_EVENT_ID_LIST_CONTRACT = [
     {
         'check': 'isinstance',
@@ -257,6 +264,15 @@ class AuthEvent(models.Model):
     auth_method_config = JSONField()
     extra_fields = JSONField(blank=True, null=True)
     status = models.CharField(max_length=15, choices=AE_STATUSES, default="notstarted")
+    
+    # used by authapi_celery to know what tallies to launch, and to serialize
+    # those launches one by one. set/get with (s|g)et_tally_status api calls
+    tally_status = models.CharField(
+        max_length=15, 
+        choices=AE_TALLY_STATUSES, 
+        default="notstarted"
+    )
+    
     created = models.DateTimeField(auto_now_add=True)
     admin_fields = JSONField(blank=True, null=True)
     has_ballot_boxes = models.BooleanField(default=True)
@@ -337,6 +353,7 @@ class AuthEvent(models.Model):
             'census': self.census,
             'users': self.len_census(),
             'has_ballot_boxes': self.has_ballot_boxes,
+            'tally_status': self.tally_status,
             'allow_public_census_query': self.allow_public_census_query,
             'created': (self.created.isoformat()
                         if hasattr(self.created, 'isoformat')
@@ -382,7 +399,8 @@ class AuthEvent(models.Model):
                     self.auth_method: Code.objects.filter(auth_event_id=self.id).count()
                 },
                 'admin_fields': self.admin_fields,
-                'total_votes': self.get_num_votes()
+                'total_votes': self.get_num_votes(),
+                'children_tally_status': self.children_tally_status()
             })
 
         return d
@@ -416,6 +434,16 @@ class AuthEvent(models.Model):
             .order_by('user_id', '-created')\
             .distinct('user_id')\
             .count()
+    
+    def children_tally_status(self):
+        '''
+        Returns the tally status of children elections
+        '''
+        return list(
+            AuthEvent.objects\
+                .filter(parent_id=self.pk)\
+                .values('tally_status', 'id')
+        )
 
     def get_owners(self):
         '''

@@ -936,7 +936,9 @@ class TestAuthEvent(TestCase):
                 'parent_id': None,
                 'children_election_info': None,
                 'openid_connect_providers': [],
-                'total_votes': 0
+                'total_votes': 0,
+                'tally_status': 'notstarted',
+                'children_tally_status': []
             },
             'status': 'ok'
         }

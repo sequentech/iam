@@ -21,15 +21,31 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/1.7/ref/settings/
 """
 
-# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-
+from datetime import timedelta
 import djcelery
+
 djcelery.setup_loader()
 
+# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+
 # Celery config
+
 BROKER_URL = "amqp://guest:guest@localhost:5672//"
+
+USE_TZ = True
+
+TIME_ZONE = 'Europe/Madrid'
+
+CELERYBEAT_SCHEDULE = {
+    'review_tallies': {
+        'task': 'tasks.process_tallies',
+        'schedule': timedelta(seconds=5),
+        'args': []
+    },
+}
+
 
 ALLOW_DEREGISTER = True
 

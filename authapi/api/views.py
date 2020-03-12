@@ -2236,9 +2236,15 @@ class TallySheetView(View):
           .filter(ballot_box=OuterRef('pk'))\
           .order_by('-created', '-id')
 
-        tally_sheets = AuthEvent.objects.get(pk=pk).ballot_boxes.annotate(
-            data=Subquery(subq.values('data')[:1]), num_tally_sheets=Count('tally_sheets')
-        ).filter(num_tally_sheets__gt=0)
+        tally_sheets = AuthEvent.objects\
+            .get(pk=pk)\
+            .ballot_boxes.annotate(
+                data=Subquery(
+                    subq.values('data')[:1]
+                ), 
+                num_tally_sheets=Count('tally_sheets')
+            )\
+            .filter(num_tally_sheets__gt=0)
 
         data = reproducible_json_dumps([
             json.loads(tally_sheet.data, encoding='utf-8')
@@ -2355,3 +2361,150 @@ class TallySheetView(View):
 
 tally_sheet = login_required(TallySheetView.as_view())
 
+
+class TallyStatusView(View):
+
+    def post(self, request, pk):
+        '''
+        Launches the tallly in a celery background task. If the
+        election has children, also launches the tally for them.
+        '''
+        # check permissions
+        permission_required(
+            request.user, 
+            'AuthEvent', 
+            ['edit', 'tally'], 
+            pk
+        )
+
+        # get AuthEvent and parse request json
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        req = parse_json_request(request)
+
+        # cannot launch tally on an election whose voting period is still open
+        # or has not even started.
+        if auth_event.status != 'stopped':
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST
+            )
+
+        # Stablishes the tally force type. It can be eith:
+        # - 'do-not-force': only initiates the tally for an election if it
+        #   didn't start.
+        # - 'force-untallied': starts again the tally of any pending or
+        #   untallied  election.
+        # - 'force-all': starts again the tally of all the elections, even 
+        #   those already tallied.
+        force_tally = req.get('force_tally', 'do-not-force')
+        if force_tally not in ['do-not-force', 'force-untallied', 'force-all']:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST
+            )
+        
+        # allows to launch only the tally of specific children elections
+        # when an election is a parent election
+        children_election_ids = req.get('children_election_ids', None)
+        if children_election_ids is not None:
+            if (
+                type(children_election_ids) != list or
+                auth_event.children_election_info is None
+            ):
+                return json_response(
+                    status=400,
+                    error_codename=ErrorCodes.BAD_REQUEST
+                )
+            for election_id in children_election_ids:
+                if (
+                    type(election_id) != int or
+                    election_id not in election.children_election_info['natural_order']
+                ):
+                    return json_response(
+                        status=400,
+                        error_codename=ErrorCodes.BAD_REQUEST
+                    )
+        
+        # list with all the elections to be tallied. Parent elections
+        # are never tallied
+        if auth_event.children_election_info is None:
+            auth_events = [auth_event]
+        else:
+            auth_events = [
+                get_object_or_404(AuthEvent, pk=election_id)
+                for election_id in auth_event.children_election_info['natural_order']
+                if (
+                    election_id in children_election_ids or
+                    children_election_ids is None
+                )
+            ]
+        
+        # set the pending status accordingly
+        for auth_event_to_tally in auth_events:
+            if (
+                auth_event_to_tally.tally_status == 'notstarted' or
+                (
+                    auth_event_to_tally.tally_status == 'pending' and
+                    force_tally in ['force-untallied', 'force-all']
+                ) or (
+                    auth_event_to_tally.tally_status == 'started' and
+                    force_tally in ['force-all']
+                )
+            ):
+                # set tally status to pending
+                previous_tally_status = auth_event_to_tally.tally_status
+                auth_event_to_tally.tally_status = 'pending'
+                auth_event_to_tally.save()
+
+                # log the action
+                action = Action(
+                    executer=request.user,
+                    receiver=None,
+                    action_name='authevent:tally',
+                    event=auth_event,
+                    metadata=dict(
+                        auth_event=auth_event_to_tally.pk,
+                        previous_tally_status=previous_tally_status,
+                        force_tally=force_tally,
+                        forced=(previous_tally_status != 'notstarted')
+                    )
+                )
+                action.save()
+
+        # we don't launch the tally here, it will be catched by
+        # celery task
+        return json_response()
+
+    def get(self, request, pk):
+        '''
+        Returns the tally status of an election and its children
+        '''
+        permission_required(
+            request.user, 
+            'AuthEvent', 
+            ['edit', 'view-stats'], 
+            pk
+        )
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        if election.children_election_info is not None:
+            children_election_info = [
+                dict(
+                    election_id=election_id,
+                    tally_status=AuthEvent.objects\
+                        .get(pk=election_id)\
+                        .tally_status
+                )
+                for election_id in election.children_election_info
+            ]
+        else:
+            children_election_info = None
+
+        data = dict(
+            auth_event_id=auth_event.id,
+            tally_status=auth_event.tally_status,
+            children_election_info=children_election_info
+        )
+        return json_response(data)
+
+
+tally_status = login_required(TallyStatusView.as_view())
