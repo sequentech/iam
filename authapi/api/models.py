@@ -641,7 +641,7 @@ class Action(models.Model):
     def serialize(self):
         d = {
             'id': self.id,
-            'executer_id': self.executer.id,
+            'executer_id': self.executer.id if self.executer is not None else None,
             'executer_username': self.executer.username,
             'executer_email': self.executer.email,
             'receiver_id': self.receiver.id if self.receiver else None,
