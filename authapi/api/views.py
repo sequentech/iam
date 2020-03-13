@@ -2418,7 +2418,7 @@ class TallyStatusView(View):
             for election_id in children_election_ids:
                 if (
                     type(election_id) != int or
-                    election_id not in election.children_election_info['natural_order']
+                    election_id not in auth_event.children_election_info['natural_order']
                 ):
                     return json_response(
                         status=400,
