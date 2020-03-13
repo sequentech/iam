@@ -642,8 +642,8 @@ class Action(models.Model):
         d = {
             'id': self.id,
             'executer_id': self.executer.id if self.executer is not None else None,
-            'executer_username': self.executer.username,
-            'executer_email': self.executer.email,
+            'executer_username': self.executer.username  if self.executer is not None else None,
+            'executer_email': self.executer.email  if self.executer is not None else None,
             'receiver_id': self.receiver.id if self.receiver else None,
             'receiver_username': (
                 self.receiver.username if self.receiver else None
