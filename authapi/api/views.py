@@ -2238,13 +2238,18 @@ class TallySheetView(View):
 
         tally_sheets = AuthEvent.objects\
             .get(pk=pk)\
-            .ballot_boxes.annotate(
+            .ballot_boxes\
+            .annotate(
                 data=Subquery(
                     subq.values('data')[:1]
                 ), 
                 num_tally_sheets=Count('tally_sheets')
             )\
             .filter(num_tally_sheets__gt=0)
+        
+        # send the ballot_box_id
+        for tally_sheet in tally_sheets:
+            tally_sheet.data['ballot_box_id'] = tally_sheet.id
 
         data = reproducible_json_dumps([
             json.loads(tally_sheet.data, encoding='utf-8')
