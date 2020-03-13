@@ -14,6 +14,7 @@
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
 import requests
+import json
 from djcelery import celery
 from django.conf import settings
 from django.core.mail import send_mail
