@@ -23,11 +23,16 @@ from celery.utils.log import get_task_logger
 
 import plugins
 from authmethods.sms_provider import SMSProvider
-from utils import send_codes, parse_json_request, genhmac
+from utils import send_codes, genhmac
 from .models import Action, AuthEvent
 
 logger = get_task_logger(__name__)
 
+def parse_json_request(request):
+    '''
+    Returns the request body as a parsed json object
+    '''
+    return json.loads(request.content.decode('utf-8'))
 
 def census_send_auth_task(pk, ip, config=None, userids=None, auth_method=None, sender_uid=None, **kwargs):
     """
