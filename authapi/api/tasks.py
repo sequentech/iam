@@ -24,7 +24,7 @@ from celery.utils.log import get_task_logger
 import plugins
 from authmethods.sms_provider import SMSProvider
 from utils import send_codes, parse_json_request
-from .models import Action
+from .models import Action, AuthEvent
 
 logger = get_task_logger(__name__)
 
@@ -214,10 +214,7 @@ def update_tally_status(auth_event):
     updated_election = parse_json_request(agora_elections_request)
     election_state = updated_election['payload']['state']
 
-    if (
-        election_state in ['tally_error'] and 
-        auth_event.tally_status != 'notstarted'
-    ):
+    if election_state in ['tally_error', 'stopped', 'started']:
         auth_event.tally_status = 'notstarted'
         auth_event.save()
 
@@ -232,10 +229,7 @@ def update_tally_status(auth_event):
             )
         )
         action.save()
-    elif (
-        election_state in ['tally_ok', 'results_ok', 'results_pub'] and
-        auth_event.tally_status != 'success'
-    ):
+    elif election_state in ['tally_ok', 'results_ok', 'results_pub']:
         auth_event.tally_status = 'success'
         auth_event.save()
         
@@ -244,24 +238,6 @@ def update_tally_status(auth_event):
             executer=None,
             receiver=None,
             action_name='authevent:tally:success',
-            event=parent_auth_event,
-            metadata=dict(
-                auth_event=auth_event.pk
-            )
-        )
-        action.save()
-    elif (
-        election_state in ['doing_tally'] and
-        auth_event.tally_status != 'started'
-    ):
-        auth_event.tally_status = 'started'
-        auth_event.save()
-        
-        # log the action
-        action = Action(
-            executer=None,
-            receiver=None,
-            action_name='authevent:tally:started',
             event=parent_auth_event,
             metadata=dict(
                 auth_event=auth_event.pk
