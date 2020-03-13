@@ -2247,9 +2247,9 @@ class TallySheetView(View):
             )\
             .filter(num_tally_sheets__gt=0)
         
-        # send the ballot_box_id
+        # send the ballot_box_name
         for tally_sheet in tally_sheets:
-            tally_sheet.data['ballot_box_id'] = tally_sheet.id
+            tally_sheet.data['ballot_box_name'] = tally_sheet.name
 
         data = reproducible_json_dumps([
             json.loads(tally_sheet.data, encoding='utf-8')
