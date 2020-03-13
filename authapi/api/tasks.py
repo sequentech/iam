@@ -23,7 +23,7 @@ from celery.utils.log import get_task_logger
 
 import plugins
 from authmethods.sms_provider import SMSProvider
-from utils import send_codes, parse_json_request
+from utils import send_codes, parse_json_request, genhmac
 from .models import Action, AuthEvent
 
 logger = get_task_logger(__name__)
