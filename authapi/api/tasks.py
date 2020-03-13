@@ -131,10 +131,15 @@ def launch_tally(auth_event):
         auth_event.save()
 
         # log the action
+        if 'no votes in this election' in agora_elections_request.text:
+            action_name = 'authevent:tally:error-no-votes'
+        else:
+            action_name = 'authevent:tally:error'
+
         action = Action(
             executer=None,
             receiver=None,
-            action_name='authevent:tally:error',
+            action_name=action_name,
             event=parent_auth_event,
             metadata=dict(
                 auth_event=auth_event.pk,
