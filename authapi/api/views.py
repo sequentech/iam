@@ -74,7 +74,7 @@ from .models import (
     TallySheet,
     children_election_info_validator
 )
-from .tasks import census_send_auth_task
+from .tasks import census_send_auth_task, update_ballot_boxes_config
 from captcha.views import generate_captcha
 from utils import send_codes, get_client_ip, parse_json_request
 
@@ -2164,7 +2164,12 @@ class TallySheetView(View):
     '''
 
     def post(self, request, pk, ballot_box_pk):
-        permission_required(request.user, 'AuthEvent', ['edit', 'add-tally-sheets'], pk)
+        permission_required(
+            request.user, 
+            'AuthEvent', 
+            ['edit', 'add-tally-sheets'], 
+            pk
+        )
 
         # parse input
         try:
@@ -2185,10 +2190,14 @@ class TallySheetView(View):
         # require extra permissions to override tally sheet
         num_versions = ballot_box_obj.tally_sheets.count()
         if num_versions > 0:
-            permission_required(request.user, 'AuthEvent', ['edit', 'override-tally-sheets'], pk)
+            permission_required(
+                request.user, 
+                'AuthEvent', 
+                ['edit', 'override-tally-sheets'], 
+                pk
+            )
 
         # validate input
-
         try:
             check_contract(CONTRACTS['tally_sheet'], req)
         except CheckException as error:
@@ -2200,7 +2209,8 @@ class TallySheetView(View):
                 req, error, stack_trace_str())
             return json_response(
                 status=400,
-                error_codename=ErrorCodes.BAD_REQUEST)
+                error_codename=ErrorCodes.BAD_REQUEST
+            )
 
         # try to create new object in the db
         try:
@@ -2221,81 +2231,20 @@ class TallySheetView(View):
                     num_versions=num_versions,
                     comment=tally_sheet_obj.data['observations'],
                     tally_sheet_id=tally_sheet_obj.id,
-                    data=req)
+                    data=req
+                )
             )
             action.save()
 
         except Exception as e:
             return json_response(
                 status=400,
-                error_codename=ErrorCodes.BAD_REQUEST)
-
-        # A. try to do a call to agora_elections to update the election results
-        # A.1 get all the tally sheets for this election, last per ballot box
-        subq = TallySheet.objects\
-          .filter(ballot_box=OuterRef('pk'))\
-          .order_by('-created', '-id')
-
-        tally_sheets = AuthEvent.objects\
-            .get(pk=pk)\
-            .ballot_boxes\
-            .annotate(
-                data=Subquery(
-                    subq.values('data')[:1]
-                ), 
-                num_tally_sheets=Count('tally_sheets')
-            )\
-            .filter(num_tally_sheets__gt=0)
-        
-        # send the ballot_box_name
-        for tally_sheet in tally_sheets:
-            tally_sheet.data = json.loads(tally_sheet.data, encoding='utf-8')
-            tally_sheet.data['ballot_box_name'] = tally_sheet.name
-
-        data = reproducible_json_dumps([
-            tally_sheet.data
-            for tally_sheet in tally_sheets
-        ])
-        # A.2 call to agora-elections
-        for callback_base in settings.AGORA_ELECTIONS_BASE:
-            callback_url = "%s/api/election/%s/update-ballot-boxes-config" % (
-                callback_base,
-                pk
+                error_codename=ErrorCodes.BAD_REQUEST
             )
 
-            r = requests.post(
-                callback_url,
-                json=data,
-                headers={
-                    'Authorization': genhmac(
-                        settings.SHARED_SECRET,
-                        "1:AuthEvent:%s:update-ballot-boxes-results-config" % pk
-                    ),
-                    'Content-type': 'application/json'
-                }
-            )
-            if r.status_code != 200:
-                LOGGER.error(\
-                    "TallySheetView.post\n"\
-                    "agora_elections.callback_url '%r'\n"\
-                    "agora_elections.data '%r'\n"\
-                    "agora_elections.status_code '%r'\n"\
-                    "agora_elections.text '%r'\n",\
-                    callback_url, data, r.status_code, r.text
-                )
+        # send update to agora-elections asynchronously
+        update_ballot_boxes_config.apply_async(args=pk)
 
-                return json_response(
-                    status=500,
-                    error_codename=ErrorCodes.GENERAL_ERROR)
-
-            LOGGER.info(\
-                "TallySheetView.post\n"\
-                "agora_elections.callback_url '%r'\n"\
-                "agora_elections.data '%r'\n"\
-                "agora_elections.status_code '%r'\n"\
-                "agora_elections.text '%r'\n",\
-                callback_url, data, r.status_code, r.text
-            )
         # success!
         data = {'status': 'ok', 'id': tally_sheet_obj.pk}
         return json_response(data)

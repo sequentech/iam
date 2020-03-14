@@ -18,14 +18,15 @@ import json
 from djcelery import celery
 from django.conf import settings
 from django.core.mail import send_mail
+from django.db.models import Count, OuterRef, Subquery, Q
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
 from celery.utils.log import get_task_logger
 
 import plugins
 from authmethods.sms_provider import SMSProvider
-from utils import send_codes, genhmac
-from .models import Action, AuthEvent
+from utils import send_codes, genhmac, reproducible_json_dumps
+from .models import Action, AuthEvent, BallotBox, TallySheet
 
 logger = get_task_logger(__name__)
 
@@ -279,3 +280,86 @@ def process_tallies():
     # if no simultaneous election, then launch tally
     if tallying_events.count() == 0 and pending_events.count() > 0:
         launch_tally(pending_events[0])
+
+@celery.task(name='tasks.update_ballot_boxes_config')
+def update_ballot_boxes_config(auth_event_id):
+    '''
+    Updates in Agora-elections the ballot boxes configuration
+    '''
+    auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
+
+    # if this auth event has a parent, update also the parent
+    if auth_event.parent_id is not None:
+        update_ballot_boxes_config.apply_async(args=[auth_event.parent_id])
+    
+    # A. try to do a call to agora_elections to update the election results
+    # A.1 get all the tally sheets for this election, last per ballot box,
+    # including ballot boxes from children auth events
+    subq = TallySheet.objects\
+        .filter(ballot_box=OuterRef('pk'))\
+        .order_by('-created', '-id')
+
+    tally_sheets = BallotBox.objects\
+        .filter(
+            Q(auth_event_id=auth_event_id) |
+            Q(auth_event__parent_id=auth_event_id)
+        )\
+        .annotate(
+            data=Subquery(
+                subq.values('data')[:1]
+            ), 
+            num_tally_sheets=Count('tally_sheets')
+        )\
+        .filter(num_tally_sheets__gt=0)
+    
+    # send the ballot_box_name
+    for tally_sheet in tally_sheets:
+        tally_sheet.data = json.loads(tally_sheet.data, encoding='utf-8')
+        tally_sheet.data['ballot_box_name'] = tally_sheet.name
+
+    # craft ballot_boxes_config
+    ballot_boxes_config = reproducible_json_dumps([
+        tally_sheet.data
+        for tally_sheet in tally_sheets
+    ])
+
+    # A.2 call to agora-elections
+    for callback_base in settings.AGORA_ELECTIONS_BASE:
+        callback_url = "%s/api/election/%s/update-ballot-boxes-config" % (
+            callback_base,
+            pk
+        )
+
+        r = requests.post(
+            callback_url,
+            json=ballot_boxes_config,
+            headers={
+                'Authorization': genhmac(
+                    settings.SHARED_SECRET,
+                    "1:AuthEvent:%s:update-ballot-boxes-results-config" % pk
+                ),
+                'Content-type': 'application/json'
+            }
+        )
+        if r.status_code != 200:
+            LOGGER.error(\
+                "TallySheetView.post\n"\
+                "agora_elections.callback_url '%r'\n"\
+                "agora_elections.data '%r'\n"\
+                "agora_elections.status_code '%r'\n"\
+                "agora_elections.text '%r'\n",\
+                callback_url, data, r.status_code, r.text
+            )
+
+            return json_response(
+                status=500,
+                error_codename=ErrorCodes.GENERAL_ERROR)
+
+        LOGGER.info(\
+            "TallySheetView.post\n"\
+            "agora_elections.callback_url '%r'\n"\
+            "agora_elections.data '%r'\n"\
+            "agora_elections.status_code '%r'\n"\
+            "agora_elections.text '%r'\n",\
+            callback_url, data, r.status_code, r.text
+        )
