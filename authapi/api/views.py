@@ -2249,10 +2249,11 @@ class TallySheetView(View):
         
         # send the ballot_box_name
         for tally_sheet in tally_sheets:
+            tally_sheet.data = json.loads(tally_sheet.data, encoding='utf-8')
             tally_sheet.data['ballot_box_name'] = tally_sheet.name
 
         data = reproducible_json_dumps([
-            json.loads(tally_sheet.data, encoding='utf-8')
+            tally_sheet.data
             for tally_sheet in tally_sheets
         ])
         # A.2 call to agora-elections
