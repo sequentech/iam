@@ -2243,7 +2243,7 @@ class TallySheetView(View):
             )
 
         # send update to agora-elections asynchronously
-        update_ballot_boxes_config.apply_async(args=pk)
+        update_ballot_boxes_config.apply_async(args=[pk])
 
         # success!
         data = {'status': 'ok', 'id': tally_sheet_obj.pk}
