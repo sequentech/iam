@@ -1256,7 +1256,6 @@ class EditChildrenParentView(View):
             parent = AuthEvent.objects.get(pk=parent_id)
             auth_event.parent = parent
             auth_event.children_election_info = None
-        
         # children_election_info
         # 
         # There's a difference here with when an election is created:
@@ -1278,6 +1277,9 @@ class EditChildrenParentView(View):
                 )
             auth_event.children_election_info = children_election_info
             auth_event.parent = None
+        else:
+            auth_event.parent = None
+            auth_event.children_election_info = None
         
         auth_event.save()
         data = {'status': 'ok', 'id': auth_event.pk}
