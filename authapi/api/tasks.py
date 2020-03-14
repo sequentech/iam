@@ -327,7 +327,7 @@ def update_ballot_boxes_config(auth_event_id):
     for callback_base in settings.AGORA_ELECTIONS_BASE:
         callback_url = "%s/api/election/%s/update-ballot-boxes-config" % (
             callback_base,
-            pk
+            auth_event_id
         )
 
         r = requests.post(
@@ -336,7 +336,7 @@ def update_ballot_boxes_config(auth_event_id):
             headers={
                 'Authorization': genhmac(
                     settings.SHARED_SECRET,
-                    "1:AuthEvent:%s:update-ballot-boxes-results-config" % pk
+                    "1:AuthEvent:%s:update-ballot-boxes-results-config" % auth_event_id
                 ),
                 'Content-type': 'application/json'
             }
