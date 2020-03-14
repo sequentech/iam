@@ -342,7 +342,7 @@ def update_ballot_boxes_config(auth_event_id):
             }
         )
         if r.status_code != 200:
-            LOGGER.error(\
+            logger.error(\
                 "TallySheetView.post\n"\
                 "agora_elections.callback_url '%r'\n"\
                 "agora_elections.data '%r'\n"\
@@ -355,7 +355,7 @@ def update_ballot_boxes_config(auth_event_id):
                 status=500,
                 error_codename=ErrorCodes.GENERAL_ERROR)
 
-        LOGGER.info(\
+        logger.info(\
             "TallySheetView.post\n"\
             "agora_elections.callback_url '%r'\n"\
             "agora_elections.data '%r'\n"\
