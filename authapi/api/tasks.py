@@ -348,7 +348,7 @@ def update_ballot_boxes_config(auth_event_id):
                 "agora_elections.data '%r'\n"\
                 "agora_elections.status_code '%r'\n"\
                 "agora_elections.text '%r'\n",\
-                callback_url, data, r.status_code, r.text
+                callback_url, ballot_boxes_config, r.status_code, r.text
             )
 
             return json_response(
@@ -361,5 +361,5 @@ def update_ballot_boxes_config(auth_event_id):
             "agora_elections.data '%r'\n"\
             "agora_elections.status_code '%r'\n"\
             "agora_elections.text '%r'\n",\
-            callback_url, data, r.status_code, r.text
+            callback_url, ballot_boxes_config, r.status_code, r.text
         )
