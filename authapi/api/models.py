@@ -417,9 +417,16 @@ class AuthEvent(models.Model):
         returns a query with all the census of this event.
         '''
         return ACL.objects.filter(
-            object_type='AuthEvent',
-            perm='vote',
-            object_id=self.id)
+            Q(
+                object_type='AuthEvent',
+                perm='vote',
+                object_id__isnull=False
+            ) &
+            (
+                Q(object_id=self.id) |
+                Q(object_id=self.parent_id)
+            )
+        )
 
     def get_num_votes(self):
         '''
