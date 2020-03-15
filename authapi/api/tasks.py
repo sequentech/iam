@@ -48,7 +48,7 @@ def census_send_auth_task(
     """
     Send an auth token to census
     """
-    logger.info('census_send_auth_task(pk = %d)' % pk)
+    logger.info('census_send_auth_task(pk = %r)' % pk)
     from .models import AuthEvent, ACL, UserData
 
     e = get_object_or_404(AuthEvent, pk=pk)
@@ -60,7 +60,7 @@ def census_send_auth_task(
     new_census = []
 
     if sender_uid is not None:
-        logger.info("census_send_auth_task(pk = %d): Sender user id = %d" % (pk, sender_uid))
+        logger.info("census_send_auth_task(pk = %r): Sender user id = %d" % (pk, sender_uid))
 
     census = []
     if userids is None:
@@ -82,11 +82,11 @@ def census_send_auth_task(
     
     extend_errors = plugins.call("extend_send_message", e, len(census), kwargs)
     if extend_errors:
-        logger.info("census_send_auth_task(pk = %d): errors" % pk)
+        logger.info("census_send_auth_task(pk = %r): errors" % pk)
         # Only can return one error at least for now
         return extend_errors[0]
 
-    logger.info("census_send_auth_task(pk = %d): send_codes.apply_async" % pk)
+    logger.info("census_send_auth_task(pk = %r): send_codes.apply_async" % pk)
     send_codes.apply_async(args=[census, ip, auth_method, config, sender_uid, pk])
 
 def launch_tally(auth_event):
@@ -211,6 +211,7 @@ def launch_virtual_tally(auth_event):
 
     agora_elections_request = requests.post(
         callback_url,
+        json=reproducible_json_dumps({}),
         headers={
             'Authorization': genhmac(
                 settings.SHARED_SECRET,
