@@ -36,10 +36,19 @@ def parse_json_request(request):
     '''
     return json.loads(request.content.decode('utf-8'))
 
-def census_send_auth_task(pk, ip, config=None, userids=None, auth_method=None, sender_uid=None, **kwargs):
+def census_send_auth_task(
+    pk,
+    ip,
+    config=None,
+    userids=None,
+    auth_method=None,
+    sender_uid=None,
+    **kwargs
+):
     """
     Send an auth token to census
     """
+    logger.info('census_send_auth_task(pk = %d)' % pk)
     from .models import AuthEvent, ACL, UserData
 
     e = get_object_or_404(AuthEvent, pk=pk)
@@ -51,7 +60,7 @@ def census_send_auth_task(pk, ip, config=None, userids=None, auth_method=None, s
     new_census = []
 
     if sender_uid is not None:
-        print("Sender user id = %d" % sender_uid)
+        logger.info("census_send_auth_task(pk = %d): Sender user id = %d" % (pk, sender_uid))
 
     census = []
     if userids is None:
@@ -73,8 +82,11 @@ def census_send_auth_task(pk, ip, config=None, userids=None, auth_method=None, s
     
     extend_errors = plugins.call("extend_send_message", e, len(census), kwargs)
     if extend_errors:
+        logger.info("census_send_auth_task(pk = %d): errors" % pk)
         # Only can return one error at least for now
         return extend_errors[0]
+
+    logger.info("census_send_auth_task(pk = %d): send_codes.apply_async" % pk)
     send_codes.apply_async(args=[census, ip, auth_method, config, sender_uid, pk])
 
 def launch_tally(auth_event):
@@ -82,7 +94,9 @@ def launch_tally(auth_event):
     Launches the tally of an auth_event.
     Called by process_tallies() celery task.
     '''
+    logger.info('launch_tally(auth_event.id = %d)' % auth_event.id)
     if len(settings.AGORA_ELECTIONS_BASE) == 0:
+        logger.info('launch_tally(auth_event.id = %d): no AGORA_ELECTIONS_BASE, exiting' % auth_event.id)
         return
 
     callback_base = settings.AGORA_ELECTIONS_BASE[0]
@@ -118,11 +132,12 @@ def launch_tally(auth_event):
     )
     if agora_elections_request.status_code != 200:
         logger.error(
-            "launch_tally.post\n" +
+            "launch_tally(auth_event.id = %d): post\n" +
             "agora_elections.callback_url '%r'\n" +
             "agora_elections.data.len = '%r'\n" +
             "agora_elections.status_code '%r'\n" +
             "agora_elections.text '%r'\n",
+            auth_event.id,
             callback_url, 
             len(voter_ids_list), 
             agora_elections_request.status_code, 
@@ -152,11 +167,12 @@ def launch_tally(auth_event):
 
 
     logger.info(
-        "launch_tally.post\n" +
+        "launch_tally(auth_event.id = %d): post\n" +
         "agora_elections.callback_url '%r'\n" +
         "agora_elections.data.len = '%r'\n" +
         "agora_elections.status_code '%r'\n" +
         "agora_elections.text '%r'\n",
+        auth_event.id,
         callback_url, 
         len(voter_ids_list), 
         agora_elections_request.status_code, 
@@ -182,7 +198,9 @@ def launch_virtual_tally(auth_event):
     Launches the virtual tally of an auth_event.
     Called by process_tallies() celery task.
     '''
+    logger.info('launch_virtual_tally(auth_event.id = %d)' % auth_event.id)
     if len(settings.AGORA_ELECTIONS_BASE) == 0:
+        logger.info('launch_virtual_tally(auth_event.id = %d): no AGORA_ELECTIONS_BASE, exiting'  % auth_event.id)
         return
 
     callback_base = settings.AGORA_ELECTIONS_BASE[0]
@@ -203,10 +221,11 @@ def launch_virtual_tally(auth_event):
     )
     if agora_elections_request.status_code != 200:
         logger.error(
-            "launch_virtual_tally.post\n" +
+            "launch_virtual_tally(auth_event.id = %d): post\n" +
             "agora_elections.callback_url '%r'\n" +
             "agora_elections.status_code '%r'\n" +
             "agora_elections.text '%r'\n",
+            auth_event.id,
             callback_url, 
             agora_elections_request.status_code, 
             agora_elections_request.text
@@ -230,10 +249,11 @@ def launch_virtual_tally(auth_event):
 
 
     logger.info(
-        "launch_virtual_tally.post\n" +
+        "launch_virtual_tally(auth_event.id = %d): post\n" +
         "agora_elections.callback_url '%r'\n" +
         "agora_elections.status_code '%r'\n" +
         "agora_elections.text '%r'\n",
+        auth_event.id,
         callback_url, 
         agora_elections_request.status_code, 
         agora_elections_request.text
@@ -255,6 +275,7 @@ def update_tally_status(auth_event):
     Receives the status from agora-elections and updates the AuthEvent.
     Called by process_tallies() celery task.
     '''
+    logger.info("update_tally_status(auth_event_id=%d)" % auth_event.id)
 
     if auth_event.parent is None:
         parent_auth_event = auth_event
@@ -262,6 +283,7 @@ def update_tally_status(auth_event):
         parent_auth_event = auth_event.parent
     
     if len(settings.AGORA_ELECTIONS_BASE) == 0:
+        logger.info("update_tally_status(auth_event_id=%d): no AGORA_ELECTIONS_BASE, exiting"  % auth_event.id)
         return
 
     callback_base = settings.AGORA_ELECTIONS_BASE[0]
@@ -278,20 +300,22 @@ def update_tally_status(auth_event):
     )
     if agora_elections_request.status_code != 200:
         logger.error(
-            "update_tally_status.post\n" +
+            "update_tally_status(auth_event_id=%d): post\n" +
             "agora_elections.callback_url '%r'\n" +
             "agora_elections.status_code '%r'\n" +
             "agora_elections.text '%r'\n",
+            auth_event.id,
             callback_url, 
             agora_elections_request.status_code, 
             agora_elections_request.text
         )
 
     logger.info(
-        "update_tally_status.post\n" +
+        "update_tally_status(auth_event_id=%d): post\n" +
         "agora_elections.callback_url '%r'\n" +
         "agora_elections.status_code '%r'\n" +
         "agora_elections.text '%r'\n",
+        auth_event.id,
         callback_url, 
         agora_elections_request.status_code, 
         agora_elections_request.text
@@ -338,6 +362,7 @@ def process_tallies():
     2. Review which tally has succeeded and updates corresponding
        AuthEvents.
     '''
+    logger.info('tasks.process_tallies')
     tallying_events = AuthEvent.objects\
         .filter(tally_status='started')\
         .order_by('id')
@@ -349,6 +374,13 @@ def process_tallies():
     pending_events = AuthEvent.objects\
         .filter(tally_status='pending')\
         .order_by('id')
+
+    logger.info(
+        'tasks.process_tallies: pending_events.count() = %d' % pending_events.count()
+    )
+    logger.info(
+        'tasks.process_tallies: tallying_events.count() = %d' % tallying_events.count()
+    )
 
     # if no simultaneous election, then launch tally
     if tallying_events.count() == 0 and pending_events.count() > 0:
@@ -363,6 +395,7 @@ def update_ballot_boxes_config(auth_event_id):
     '''
     Updates in Agora-elections the ballot boxes configuration
     '''
+    logger.info('update_ballot_boxes_config(auth_event_id=%r)' % auth_event_id)
     auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
 
     # if this auth event has a parent, update also the parent
@@ -419,24 +452,32 @@ def update_ballot_boxes_config(auth_event_id):
             }
         )
         if r.status_code != 200:
-            logger.error(\
-                "TallySheetView.post\n"\
+            logger.error(
+                "update_ballot_boxes_config(auth_event_id=%r): post\n"\
                 "agora_elections.callback_url '%r'\n"\
                 "agora_elections.data '%r'\n"\
                 "agora_elections.status_code '%r'\n"\
                 "agora_elections.text '%r'\n",\
-                callback_url, ballot_boxes_config, r.status_code, r.text
+                auth_event_id,
+                callback_url, 
+                ballot_boxes_config, 
+                r.status_code, 
+                r.text
             )
 
             return json_response(
                 status=500,
                 error_codename=ErrorCodes.GENERAL_ERROR)
 
-        logger.info(\
-            "TallySheetView.post\n"\
+        logger.info(
+            "update_ballot_boxes_config(auth_event_id=%r): post\n"\
             "agora_elections.callback_url '%r'\n"\
             "agora_elections.data '%r'\n"\
             "agora_elections.status_code '%r'\n"\
             "agora_elections.text '%r'\n",\
-            callback_url, ballot_boxes_config, r.status_code, r.text
+            auth_event_id,
+            callback_url,
+            ballot_boxes_config,
+            r.status_code,
+            r.text
         )
