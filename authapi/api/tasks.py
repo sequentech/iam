@@ -177,6 +177,79 @@ def launch_tally(auth_event):
     )
     action.save()
 
+def launch_virtual_tally(auth_event):
+    '''
+    Launches the virtual tally of an auth_event.
+    Called by process_tallies() celery task.
+    '''
+    if len(settings.AGORA_ELECTIONS_BASE) == 0:
+        return
+
+    callback_base = settings.AGORA_ELECTIONS_BASE[0]
+    callback_url = "%s/api/election/%s/virtual-tally" % (
+        callback_base,
+        auth_event.id
+    )
+
+    agora_elections_request = requests.post(
+        callback_url,
+        headers={
+            'Authorization': genhmac(
+                settings.SHARED_SECRET,
+                "1:AuthEvent:%s:tally" % auth_event.id
+            ),
+            'Content-type': 'application/json'
+        }
+    )
+    if agora_elections_request.status_code != 200:
+        logger.error(
+            "launch_virtual_tally.post\n" +
+            "agora_elections.callback_url '%r'\n" +
+            "agora_elections.status_code '%r'\n" +
+            "agora_elections.text '%r'\n",
+            callback_url, 
+            agora_elections_request.status_code, 
+            agora_elections_request.text
+        )
+        auth_event.tally_status = 'notstarted'
+        auth_event.save()
+
+        # log the action
+        action_name = 'authevent:virtual-tally:error'
+        action = Action(
+            executer=None,
+            receiver=None,
+            action_name=action_name,
+            event=auth_event,
+            metadata=dict(
+                request_status_code=agora_elections_request.status_code,
+                request_text=agora_elections_request.text
+            )
+        )
+        action.save()
+
+
+    logger.info(
+        "launch_virtual_tally.post\n" +
+        "agora_elections.callback_url '%r'\n" +
+        "agora_elections.status_code '%r'\n" +
+        "agora_elections.text '%r'\n",
+        callback_url, 
+        agora_elections_request.status_code, 
+        agora_elections_request.text
+    )
+    auth_event.tally_status = 'success'
+    auth_event.save()
+
+    # log the action
+    action = Action(
+        executer=None,
+        receiver=None,
+        action_name='authevent:virtual-tally:success',
+        event=auth_event
+    )
+    action.save()
+
 def update_tally_status(auth_event):
     '''
     Receives the status from agora-elections and updates the AuthEvent.
@@ -279,7 +352,11 @@ def process_tallies():
 
     # if no simultaneous election, then launch tally
     if tallying_events.count() == 0 and pending_events.count() > 0:
-        launch_tally(pending_events[0])
+        next_auth_event = pending_events[0]
+        if next_auth_event.children_election_info is None:
+            launch_tally(next_auth_event)
+        else:
+            launch_virtual_tally(next_auth_event)
 
 @celery.task(name='tasks.update_ballot_boxes_config')
 def update_ballot_boxes_config(auth_event_id):

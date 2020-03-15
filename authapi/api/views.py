@@ -2313,6 +2313,9 @@ class TallySheetView(View):
         action.save()
         tally_sheet_obj.delete()
 
+        # send update to agora-elections asynchronously
+        update_ballot_boxes_config.apply_async(args=[pk])
+
         data = {'status': 'ok'}
         return json_response(data)
 
@@ -2383,7 +2386,7 @@ class TallyStatusView(View):
                     )
         
         # list with all the elections to be tallied. Parent elections
-        # are never tallied
+        # are also tallied, although as virtual
         if auth_event.children_election_info is None:
             auth_events = [auth_event]
         else:
@@ -2394,7 +2397,7 @@ class TallyStatusView(View):
                     election_id in children_election_ids or
                     children_election_ids is None
                 )
-            ]
+            ] + [auth_event]
         
         # set the pending status accordingly
         for auth_event_to_tally in auth_events:
