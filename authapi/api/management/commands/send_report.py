@@ -13,38 +13,31 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
+# Install rst2pdf for python3 support with:
+# pip install git+https://github.com/rst2pdf/rst2pdf.git --ignore-requires-python
+
 from api.models import AuthEvent
 
+from django.core.mail import send_mail, EmailMessage
 from django.core.management.base import BaseCommand, CommandError
-from prettytable import PrettyTable
 import tempfile
 import json
 import subprocess
 import datetime
 
-RST_STYLE = """
-styles:
-    subtitle:
-        fontSize: 10
-        alignment: TA_CENTER
-
-    table:
-        spaceBefore:6
-        spaceAfter:0
-        alignment: TA_CENTER
-        commands: []
-            [VALIGN, [ 0, 0 ], [ -1, -1 ], TOP ]
-            [INNERGRID, [ 0, 0 ], [ -1, -1 ], 3, white ]
-            [ROWBACKGROUNDS, [0, 0], [-1, -1], [white,#E0E0E0]]
-            [BOX, [ 0, 0 ], [ -1, -1 ], 0.25, white ]
-
-        borderColor: null
-
-    table-heading:
-        parent : heading
-        textColor: #FFFFFF
-        backColor : #D01D00
-"""
+from reportlab.lib import colors
+from reportlab.platypus import (
+    SimpleDocTemplate, 
+    Paragraph, 
+    Spacer, 
+    Table, 
+    TableStyle, 
+    Image
+)
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.enums import TA_RIGHT, TA_LEFT, TA_CENTER
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import mm
 
 def write(file, string):
     file.write(string.encode('utf-8'))
@@ -56,6 +49,28 @@ def replace_date(text, date):
     text3 = text2.replace("__DATETIME__", _date)
     return text3
 
+def gen_text(
+    text, 
+    size=None, 
+    bold=False, 
+    align=None, 
+    color='black', 
+    fontName=None
+):
+    if not isinstance(text, str):
+        text = text.__str__()
+    p = ParagraphStyle('test')
+    if fontName:
+        p.fontName = fontName
+    if size:
+        p.fontSize = size
+        p.leading = size * 1.2
+    if bold:
+        text = '<b>%s</b>' % text
+    p.textColor = color
+    if align:
+        p.alignment = align
+    return Paragraph(text, p)
 
 # The send_report Django manage command for Authapi generates a PDF document and
 # sends it to a specific given email address.
@@ -98,73 +113,127 @@ class Command(BaseCommand):
             nargs=1,
             type=str
         )
+        parser.add_argument(
+            'path',
+            nargs=1,
+            type=str
+        )
 
     def handle(self, *args, **options):
         config = json.loads(open(options['config'][0], 'r').read())
 
-        now = datetime.now()
+        pdf_path = options['path'][0]
 
-        rst_file = tempfile.NamedTemporaryFile(delete=False)
-        rst_path = rst_file.name
+        now = datetime.datetime.now()
+        styleSheet = getSampleStyleSheet()
+        doc = SimpleDocTemplate(
+            pdf_path, 
+            rightMargin=50,
+            leftMargin=50, 
+            topMargin=35,
+            bottomMargin=80
+        )
+        elements = []
 
-        # write title
+        # header image
+        height = 130
+        header_image = Image(
+            config['logo_path'],
+            height=height,
+            width=height*(890/237)
+        )
+        header_image.hAlign = 'CENTER'
+        elements.append(header_image)
+
+        # title
+        elements.append(Spacer(0, 15))
         title = replace_date(config["title"], now)
-        write(rst_file, title + "\n")
-        write(rst_file, "=" * len(title) + "\n\n")
+        elements.append(
+            gen_text(
+                title, 
+                size=20, 
+                bold=True, 
+                align=TA_CENTER
+            )
+        )
 
-
+        # subtitle
         subtitle = replace_date(config['subtitle'], now)
-        # write subtitle
-        write(
-            rst_file, 
-            ".. class:: subtitle\n    \n    %s\n\n" % subtitle
+        elements.append(Spacer(0, 15))
+        elements.append(
+            gen_text(
+                subtitle, 
+                size=12, 
+                bold=False, 
+                align=TA_CENTER
+            )
         )
 
         # table header
-        table = PrettyTable(config['table_headers'])
-        table.padding_width = 1
+        elements.append(Spacer(0, 15))
+        table_elements = []
+        table_elements.append([
+            gen_text(
+                header_text, 
+                bold=True,
+                size=12,
+                align=TA_CENTER, 
+                color="white"
+            )
+            for header_text in config['table_headers']
+        ])
+
+        # generate rows
         for group in config['groups']:
             census = 0
             votes = 0
             for auth_event_id in group['auth_event_ids']:
-                auth_event = AuthEvent.objects.get(pk=election_id)
+                auth_event = AuthEvent.objects.get(pk=auth_event_id)
                 census += auth_event.get_census_query().count()
                 votes += auth_event.get_num_votes()
 
-            table.add_row([
+            row = [
                 group['title'],
                 "{:,}".format(votes),
                 "{:,.2f}%".format(votes*100.0/census) if census > 0 else "-",
                 "{:,}".format(census),
+            ]
+
+            table_elements.append([
+                gen_text(cell_text, align=TA_CENTER, size=12)
+                for cell_text in row
             ])
         
-        write(rst_file, str(table))
-        rst_file.close()
-        print("generated rst file at %s" % rst_path)
-
-        style_file = tempfile.NamedTemporaryFile(delete=False)
-        style_path = style_file.name
-        write(style_file, RST_STYLE)
-        style_file.close()
-        print("generated style file at %s" % style_path)
-
-
-        pdf_file = tempfile.NamedTemporaryFile(delete=False)
-        pdf_path = pdf_file.name
-
-        command = [
-            'rst2pdf',
-            rst_file,
-            '-s',
-            style_path,
-            '-o',
-            pdf_path
-        ]
-        print("executing %s" % ' '.join(command))
-        process = subprocess.Popen(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT
+        main_table = Table(
+            table_elements,
+            colWidths=[
+                250,
+                60,
+                80,
+                80
+            ]
         )
-        stdout, stderr = process.communicate()
-        print(stdout)
+        main_table_style = TableStyle([
+            # general styling
+            ('INNERGRID', (0,0), (-1,-1), 5, colors.white),
+            ('TOPPADDING', (0,0), (-1,-1), 8),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+
+            # header
+            ('BACKGROUND',(0,0), (-1,0), '#d01d00'),
+            
+            # body
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), ['#efefef', colors.white])
+        ])
+        main_table.setStyle(main_table_style)
+        elements.append(main_table)
+        doc.build(elements)
+
+        email = EmailMessage(
+            subject=replace_date(config['email']['subject'], now),
+            body=replace_date(config['email']['body'], now),
+            to=config['email']['to']
+        )
+        email.attach_file(pdf_path)
+        email.send()
+
