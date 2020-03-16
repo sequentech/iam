@@ -20,6 +20,7 @@ from prettytable import PrettyTable
 import tempfile
 import json
 import subprocess
+import datetime
 
 RST_STYLE = """
 styles:
@@ -45,6 +46,17 @@ styles:
         backColor : #D01D00
 """
 
+def write(file, string):
+    file.write(string.encode('utf-8'))
+
+def replace_date(text, date):
+    _datetime = date.strftime("%Y-%m-%d, %H:%M")
+    _date = date.strftime("%Y-%m-%d")
+    text2 = text.replace("__DATE__", _date)
+    text3 = text2.replace("__DATETIME__", _date)
+    return text3
+
+
 # The send_report Django manage command for Authapi generates a PDF document and
 # sends it to a specific given email address.
 # 
@@ -53,14 +65,14 @@ styles:
 #
 # {
 #   "email": {
-#     "subject": "Informe diario __DATETIME__",
+#     "subject": "Informe diario __DATE__",
 #     "body": "Informe diario __DATETIME__",
 #     "to": ["whatever@example.com"]
 #   },
 #   "title": "Elecciones 2020 a Órganos de Gobierno del CICCP",
 #   "subtitle": "Número de votos electrónicos acumulado a día __DATETIME__",
 #   "logo_path": "/tmp/logo.png",
-#   "table_headers": [ "Votación", "Votos", "% censo", "# Electores" ]
+#   "table_headers": [ "Votación", "Votos", "% censo", "# Electores" ],
 #   "groups": [
 #       {
 #           "auth_event_ids": [24, 25, 26],
@@ -90,16 +102,22 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         config = json.loads(open(options['config'][0], 'r').read())
 
+        now = datetime.now()
+
         rst_file = tempfile.NamedTemporaryFile(delete=False)
         rst_path = rst_file.name
 
         # write title
-        rst_file.write(config["title"] + "\n")
-        rst_file.write("=" * len(config["title"]) + "\n\n")
+        title = replace_date(config["title"], now)
+        write(rst_file, title + "\n")
+        write(rst_file, "=" * len(title) + "\n\n")
 
+
+        subtitle = replace_date(config['subtitle'], now)
         # write subtitle
-        rst_file.write(
-            ".. class:: subtitle\n    \n    %s\n\n" % config['subtitle']
+        write(
+            rst_file, 
+            ".. class:: subtitle\n    \n    %s\n\n" % subtitle
         )
 
         # table header
@@ -120,13 +138,13 @@ class Command(BaseCommand):
                 "{:,}".format(census),
             ])
         
-        rst_file.write(str(table))
+        write(rst_file, str(table))
         rst_file.close()
         print("generated rst file at %s" % rst_path)
 
         style_file = tempfile.NamedTemporaryFile(delete=False)
         style_path = style_file.name
-        style_file.write(RST_STYLE)
+        write(style_file, RST_STYLE)
         style_file.close()
         print("generated style file at %s" % style_path)
 
