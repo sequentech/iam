@@ -498,15 +498,9 @@ def calculate_results_task(user_id, auth_event_id, data):
     user = get_object_or_404(User, pk=user_id)
     auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
 
-    # if this auth event has a parent, update also the parent
+    # if this auth event has children, update also them
     parent_auth_event = auth_event
-    if auth_event.parent is not None:
-        parent_auth_event = auth_event.parent
-
-        calculate_results_task.apply_async(
-            args=[user_id, auth_event.parent_id, '']
-        )
-    elif auth_event.children_election_info is not None:
+    if auth_event.children_election_info is not None:
         for child_id in auth_event.children_election_info['natural_order']:
             calculate_results_task.apply_async(
                 args=[user_id, child_id, '']
@@ -602,15 +596,9 @@ def publish_results_task(user_id, auth_event_id):
     user = get_object_or_404(User, pk=user_id)
     auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
 
-    # if this auth event has a parent, update also the parent
+    # if this auth event has children, update also them
     parent_auth_event = auth_event
-    if auth_event.parent is not None:
-        parent_auth_event = auth_event.parent
-
-        publish_results_task.apply_async(
-            args=[user_id, auth_event.parent_id]
-        )
-    elif auth_event.children_election_info is not None:
+    if auth_event.children_election_info is not None:
         for child_id in auth_event.children_election_info['natural_order']:
             publish_results_task.apply_async(
                 args=[user_id, child_id]

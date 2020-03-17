@@ -2489,8 +2489,18 @@ class CalculateResultsView(View):
             ['edit', 'calculate-results'], 
             pk
         )
+
+        # launch for parent
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        if auth_event.parent:
+            auth_event = auth_event.parent
+
         calculate_results_task.apply_async(
-            args=[request.user.id, pk, request.body.decode('utf-8')]
+            args=[
+                request.user.id,
+                auth_event.id,
+                request.body.decode('utf-8')
+            ]
         )
         return json_response()
 
@@ -2511,7 +2521,18 @@ class PublishResultsView(View):
             ['edit', 'publish-results'], 
             pk
         )
-        publish_results_task.apply_async(args=[pk])
+        
+        # launch for parent
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        if auth_event.parent:
+            auth_event = auth_event.parent
+
+        publish_results_task.apply_async(
+            args=[
+                request.user.id,
+                auth_event.id
+            ]
+        )
         return json_response()
 
 publish_results = login_required(PublishResultsView.as_view())
