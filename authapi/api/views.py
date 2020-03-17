@@ -540,7 +540,7 @@ class Authenticate(View):
                 executer=user,
                 receiver=user,
                 action_name='user:authenticate',
-                event=e,
+                event=user.userdata.event,
                 metadata=dict())
             action.save()
 
@@ -771,10 +771,17 @@ class VoteStatsView(View):
     def get(self, request, pk):
         permission_required(request.user, 'AuthEvent', ['view-stats', 'edit'], pk)
 
+        auth_event = AuthEvent.objects.get(pk=pk)
+        if auth_event.children_election_info:
+            parents2 = auth_event.children_election_info['natural_order']
+        else:
+            parents2 = []
+
         q_base = SuccessfulLogin.objects\
             .filter(
                 Q(auth_event_id=pk) |
-                Q(auth_event__parent_id=pk)
+                Q(auth_event__parent_id=pk) |
+                Q(auth_event__parent_id__in=parents2)
             )
         subquery_distinct = q_base\
             .order_by('user_id', '-created')\
@@ -1249,7 +1256,7 @@ class EditChildrenParentView(View):
         parent_id = req.get('parent_id', None)
         children_election_info = req.get('children_election_info', None)
         parent = None
-        if parent_id:
+        if parent_id is not None:
             if (
                 type(parent_id) is not int or
                 AuthEvent.objects.filter(pk=parent_id).count() != 1
@@ -1260,13 +1267,15 @@ class EditChildrenParentView(View):
                 )
             parent = AuthEvent.objects.get(pk=parent_id)
             auth_event.parent = parent
-            auth_event.children_election_info = None
+        else:
+            auth_event.parent = None
+
         # children_election_info
         # 
         # There's a difference here with when an election is created:
         # children_election_info is verified to relate to valid elections
         # that the requesting user can edit
-        elif children_election_info:
+        if children_election_info is not None:
             try:
                 children_election_info_validator(children_election_info)
                 verify_children_election_info(
@@ -1281,9 +1290,7 @@ class EditChildrenParentView(View):
                     error_codename="INVALID_CHILDREN_ELECTION_INFO"
                 )
             auth_event.children_election_info = children_election_info
-            auth_event.parent = None
-        else:
-            auth_event.parent = None
+        else: 
             auth_event.children_election_info = None
         
         auth_event.save()
@@ -1315,7 +1322,11 @@ class AuthEventView(View):
 
             # check if send code method is authorized
             disable_auth_method = False
-            extend_info = plugins.call("extend_disable_auth_method", auth_method, None)
+            extend_info = plugins.call(
+                "extend_disable_auth_method",
+                auth_method,
+                None
+            )
             if extend_info:
                 for info in extend_info:
                      disable_auth_method = info
@@ -1344,7 +1355,9 @@ class AuthEventView(View):
                 slug_set = set()
                 for field in extra_fields:
                     if 'name' in field:
-                        field['slug'] = slugify(field['name']).replace("-","_").upper()
+                        field['slug'] = slugify(field['name'])\
+                            .replace("-","_")\
+                            .upper()
                         slug_set.add(field['slug'])
                     else:
                         msg += "some extra_fields have no name\n"
@@ -1375,7 +1388,10 @@ class AuthEventView(View):
                     error_codename="INVALID_BALLOT_BOXES")
 
             # check if it has hide_default_login_lookup_field
-            hide_default_login_lookup_field = req.get('hide_default_login_lookup_field', False)
+            hide_default_login_lookup_field = req.get(
+                'hide_default_login_lookup_field',
+                False
+            )
             if not isinstance(hide_default_login_lookup_field, bool):
                 return json_response(
                     status=400,
@@ -1389,15 +1405,25 @@ class AuthEventView(View):
                     error_codename="INVALID_PUBLIC_CENSUS_QUERY")
 
             based_in = req.get('based_in', None)
-            if based_in and not ACL.objects.filter(user=request.user.userdata, perm='edit',
-                    object_type='AuthEvent', object_id=based_in):
+            if (
+                based_in and 
+                not ACL.objects.filter(
+                    user=request.user.userdata,
+                    perm='edit',
+                    object_type='AuthEvent',
+                    object_id=based_in
+                )
+            ):
                 msg += "Invalid id to based_in"
             
             # check parent_id
             parent_id = req.get('parent_id', None)
             parent = None
             if parent_id:
-                if type(parent_id) is not int or AuthEvent.objects.filter(pk=parent_id).count() != 1:
+                if (
+                    type(parent_id) is not int or
+                    AuthEvent.objects.filter(pk=parent_id).count() != 1
+                ):
                     return json_response(
                         status=400,
                         error_codename="INVALID_PARENT_ID")
@@ -1448,14 +1474,18 @@ class AuthEventView(View):
             # Save before the acl creation to get the ae id
             ae.save()
             acl = ACL(
-                user=request.user.userdata, 
+                user=request.user.userdata,
                 perm='edit', 
                 object_type='AuthEvent',
                 object_id=ae.id
             )
             acl.save()
-            acl = ACL(user=request.user.userdata, perm='create',
-                    object_type='UserData', object_id=ae.id)
+            acl = ACL(
+                user=request.user.userdata,
+                perm='create',
+                object_type='UserData',
+                object_id=ae.id
+            )
             acl.save()
 
             action = Action(
@@ -1577,7 +1607,10 @@ class AuthEventView(View):
                     ids = None
             
             if only_parent_elections is not None:
-                q &= Q(parent_id=None)
+                q &= (
+                    Q(parent_id=None, children_election_info=None) |
+                    Q(parent_id=None, children_election_info__isnull=False)
+                )
 
             serialize_method = 'serialize_restrict'
             if (
@@ -2064,13 +2097,20 @@ class BallotBoxView(View):
         permission_required(request.user, 'AuthEvent', ['edit', 'list-ballot-boxes'], pk)
         e = get_object_or_404(AuthEvent, pk=pk)
 
+        if e.children_election_info:
+            parents2 = e.children_election_info['natural_order']
+        else:
+            parents2 = []
+
         filter_str = request.GET.get('filter', None)
         subq = TallySheet.objects\
             .filter(ballot_box=OuterRef('pk'))\
             .order_by('-created', '-id')
         query = BallotBox.objects\
             .filter(
-                Q(auth_event_id=pk) | Q(auth_event__parent_id=pk)
+                Q(auth_event_id=pk) |
+                Q(auth_event__parent_id=pk) |
+                Q(auth_event__parent_id__in=parents2)
             )\
             .annotate(
                 last_updated=Subquery(subq.values('created')[:1]),
@@ -2490,18 +2530,36 @@ class CalculateResultsView(View):
             pk
         )
 
-        # launch for parent
+        # calculate this and parent elections
         auth_event = get_object_or_404(AuthEvent, pk=pk)
-        if auth_event.parent:
-            auth_event = auth_event.parent
 
         calculate_results_task.apply_async(
             args=[
                 request.user.id,
                 auth_event.id,
-                request.body.decode('utf-8')
+                request.body.decode('utf-8'),
+                True # visit_children
             ]
         )
+        if auth_event.parent:
+            calculate_results_task.apply_async(
+                args=[
+                    request.user.id,
+                    auth_event.parent.id,
+                    request.body.decode('utf-8'),
+                    False # visit_children
+                ]
+            )
+            if auth_event.parent.parent:
+                calculate_results_task.apply_async(
+                    args=[
+                        request.user.id,
+                        auth_event.parent.parent.id,
+                        request.body.decode('utf-8'),
+                        False # visit_children
+                    ]
+                )
+
         return json_response()
 
 calculate_results = login_required(CalculateResultsView.as_view())
@@ -2522,7 +2580,7 @@ class PublishResultsView(View):
             pk
         )
         
-        # launch for parent
+        # publish this and children elections
         auth_event = get_object_or_404(AuthEvent, pk=pk)
         publish_results_task.apply_async(
             args=[

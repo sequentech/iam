@@ -158,7 +158,7 @@ class PWD:
             return self.authenticate_error("invalid-fields-check", req, auth_event)
 
         try:
-            q = Q(userdata__event=auth_event, is_active=True)
+            q = get_base_auth_query(auth_event)
 
             if 'username' in req:
                 q = q & Q(username=username)

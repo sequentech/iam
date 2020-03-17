@@ -416,6 +416,11 @@ class AuthEvent(models.Model):
         '''
         returns a query with all the census of this event.
         '''
+        if self.children_election_info:
+            parents2 = self.children_election_info['natural_order']
+        else:
+            parents2 = []
+
         return ACL.objects.filter(
             Q(
                 object_type='AuthEvent',
@@ -424,7 +429,8 @@ class AuthEvent(models.Model):
             ) &
             (
                 Q(object_id=self.id) |
-                Q(object_id=self.parent_id)
+                Q(object_id=self.parent_id) |
+                Q(object_id__in=parents2)
             )
         )
 
@@ -433,10 +439,16 @@ class AuthEvent(models.Model):
         Returns the number of votes in this election and in
         children elections (if any).
         '''
+        if self.children_election_info:
+            parents2 = self.children_election_info['natural_order']
+        else:
+            parents2 = []
+
         return SuccessfulLogin.objects\
             .filter(
                 Q(auth_event_id=self.pk) |
-                Q(auth_event__parent_id=self.pk)
+                Q(auth_event__parent_id=self.pk) |
+                Q(auth_event__parent_id__in=parents2)
             )\
             .order_by('user_id', '-created')\
             .distinct('user_id')\
@@ -448,7 +460,9 @@ class AuthEvent(models.Model):
         '''
         return list(
             AuthEvent.objects\
-                .filter(parent_id=self.pk)\
+                .filter(
+                    Q(parent_id=self.pk)
+                )\
                 .values('tally_status', 'id')
         )
 
@@ -561,8 +575,11 @@ class UserData(models.Model):
             return list(set([
                 successful_login.auth_event.pk
                 for successful_login in self.successful_logins.filter(
-                    is_active=True, 
-                    auth_event__parent_id=auth_event.pk
+                    Q(is_active=True) & 
+                    (
+                        Q(auth_event__parent_id=auth_event.pk) |
+                        Q(auth_event__parent__parent_id=auth_event.pk)
+                    )
                 )
             ]))
         else:

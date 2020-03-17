@@ -151,7 +151,7 @@ class EmailPWD:
             return self.authenticate_error("invalid-fields-check", req, auth_event)
 
         try:
-            q = Q(userdata__event=auth_event, is_active=True)
+            q = get_base_auth_query(auth_event)
             if 'email' in req:
                 q = q & Q(email=email)
             elif not auth_event.hide_default_login_lookup_field:

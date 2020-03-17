@@ -402,7 +402,23 @@ def update_ballot_boxes_config(auth_event_id):
 
     # if this auth event has a parent, update also the parent
     if auth_event.parent_id is not None:
+        logger.info(
+            '\n\nupdate_ballot_boxes_config(auth_event_id=%r): launching for parent_id=%s' % (
+                auth_event_id,
+                auth_event.parent_id
+            )
+        )
         update_ballot_boxes_config.apply_async(args=[auth_event.parent_id])
+        if auth_event.parent.parent_id is not None:
+            logger.info(
+                '\n\nupdate_ballot_boxes_config(auth_event_id=%r): launching for parent.parent_id=%s' % (
+                    auth_event_id,
+                    auth_event.parent.parent_id
+                )
+            )
+            update_ballot_boxes_config.apply_async(
+                args=[auth_event.parent.parent_id]
+            )
     
     # A. try to do a call to agora_elections to update the election results
     # A.1 get all the tally sheets for this election, last per ballot box,
@@ -411,10 +427,15 @@ def update_ballot_boxes_config(auth_event_id):
         .filter(ballot_box=OuterRef('pk'))\
         .order_by('-created', '-id')
 
+    parents2 = []
+    if auth_event.children_election_info:
+        parents2 = auth_event.children_election_info['natural_order']
+
     tally_sheets = BallotBox.objects\
         .filter(
             Q(auth_event_id=auth_event_id) |
-            Q(auth_event__parent_id=auth_event_id)
+            Q(auth_event__parent_id=auth_event_id) |
+            Q(auth_event__parent_id__in=parents2)
         )\
         .annotate(
             data=Subquery(
@@ -482,7 +503,7 @@ def update_ballot_boxes_config(auth_event_id):
         )
 
 @celery.task(name='tasks.calculate_results_task')
-def calculate_results_task(user_id, auth_event_id, data):
+def calculate_results_task(user_id, auth_event_id, data, visit_children):
     '''
     Launches the results calculation in a celery background task. 
     If the election has children, also launches the results 
@@ -500,10 +521,10 @@ def calculate_results_task(user_id, auth_event_id, data):
 
     # if this auth event has children, update also them
     parent_auth_event = auth_event
-    if auth_event.children_election_info is not None:
+    if auth_event.children_election_info is not None and visit_children:
         for child_id in auth_event.children_election_info['natural_order']:
             calculate_results_task.apply_async(
-                args=[user_id, child_id, '']
+                args=[user_id, child_id, '', False]
             )
 
     # A.2 call to agora-elections

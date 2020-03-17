@@ -777,7 +777,12 @@ def give_perms(u, ae):
             acl.save()
     return ''
 
-def verify_children_election_info(auth_event, user, perms, children_election_info=None):
+def verify_children_election_info(
+    auth_event,
+    user,
+    perms,
+    children_election_info=None
+):
     '''
     Verify that the requesting user has permissions to edit all
     the referred children events (and that they do, in fact, exist)
@@ -786,17 +791,21 @@ def verify_children_election_info(auth_event, user, perms, children_election_inf
     from api.models import AuthEvent
 
     # Cannot have nested parents or no children_election_info
-    assert auth_event.parent is None
     if children_election_info is None:
         children_election_info = auth_event.children_election_info
-    assert children_election_info is not None
 
     # verify the children do exist and the requesting user have the 
     # appropiate permissions and configuration
-    for event_id in children_election_info['natural_order']:
-        children_event = AuthEvent.objects.get(pk=event_id, parent=auth_event)
-        assert children_event.auth_method == auth_event.auth_method
-        permission_required(user, 'AuthEvent', perms, event_id)
+    if children_election_info is not None:
+        for event_id in children_election_info['natural_order']:
+            children_event = AuthEvent.objects.get(
+                Q(pk=event_id) &
+                (
+                    Q(parent=auth_event) | Q(parent__parent=auth_event)
+                )
+            )
+            assert children_event.auth_method == auth_event.auth_method
+            permission_required(user, 'AuthEvent', perms, event_id)
 
 
 def verify_valid_children_elections(auth_event, census_element):
@@ -845,6 +854,7 @@ def return_auth_data(auth_event, logger_name, req_json, request, user):
     else:
         def get_child_info(event_id):
             auth_event = AuthEvent.objects.get(pk=event_id)
+
             num_successful_logins = user\
                 .userdata\
                 .successful_logins\
@@ -871,7 +881,7 @@ def return_auth_data(auth_event, logger_name, req_json, request, user):
             get_child_info(child_event_id)
             for child_event_id in auth_event.children_election_info["natural_order"]
         ]
-
+             
 
     # add redirection
     auth_action = auth_event.auth_method_config['config']['authentication-action']
@@ -914,3 +924,19 @@ def verify_num_successful_logins(auth_event, logger_name, user, req_json):
             )
             return False
     return True
+
+def get_base_auth_query(auth_event):
+    '''
+    returns the base authenticatio query for the given auth_event
+    '''
+    q = Q(
+        userdata__event=auth_event,
+        is_active=True
+    )
+    
+    if auth_event.children_election_info is not None:
+        q = q | Q(
+            userdata__event_id__in=auth_event.children_election_info['natural_order'],
+            is_active=True
+        )
+    return q

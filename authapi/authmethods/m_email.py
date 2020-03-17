@@ -718,7 +718,8 @@ class Email:
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         try:
-            q = Q(userdata__event=auth_event, is_active=True)
+            q = get_base_auth_query(auth_event)
+            
             if 'email' in req:
                 q = q & Q(email=email)
             elif not auth_event.hide_default_login_lookup_field:
@@ -737,11 +738,18 @@ class Email:
                 email, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        if not verify_num_successful_logins(auth_event, 'Email', user, req):
+        user_auth_event = user.userdata.event
+
+        if not verify_num_successful_logins(user_auth_event, 'Email', user, req):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        code = Code.objects.filter(user=user.userdata,
-                code=req.get('code').upper()).order_by('-created').first()
+        code = Code.objects\
+            .filter(
+                user=user.userdata,
+                code=req.get('code').upper()
+            )\
+            .order_by('-created')\
+            .first()
         if not code:
             LOGGER.error(\
                 "Email.authenticate error\n"\
@@ -755,7 +763,7 @@ class Email:
                 auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        return return_auth_data(auth_event, 'Email', req, request, user)
+        return return_auth_data(user_auth_event, 'Email', req, request, user)
 
     def resend_auth_code(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
