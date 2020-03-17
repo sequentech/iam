@@ -77,8 +77,8 @@ from .models import (
 from .tasks import (
     census_send_auth_task,
     update_ballot_boxes_config,
-    publish_results,
-    calculate_results
+    publish_results_task,
+    calculate_results_task
 )
 from captcha.views import generate_captcha
 from utils import send_codes, get_client_ip, parse_json_request
@@ -2489,7 +2489,7 @@ class CalculateResultsView(View):
             ['edit', 'calculate-results'], 
             pk
         )
-        calculate_results.apply_async(
+        calculate_results_task.apply_async(
             args=[request.user.id, pk, request.body.decode('utf-8')]
         )
         return json_response()
@@ -2511,7 +2511,7 @@ class PublishResultsView(View):
             ['edit', 'publish-results'], 
             pk
         )
-        publish_results.apply_async(args=[pk])
+        publish_results_task.apply_async(args=[pk])
         return json_response()
 
 publish_results = login_required(PublishResultsView.as_view())

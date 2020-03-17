@@ -481,15 +481,15 @@ def update_ballot_boxes_config(auth_event_id):
             r.text
         )
 
-@celery.task(name='tasks.calculate_results')
-def calculate_results(user_id, auth_event_id, data):
+@celery.task(name='tasks.calculate_results_task')
+def calculate_results_task(user_id, auth_event_id, data):
     '''
     Launches the results calculation in a celery background task. 
     If the election has children, also launches the results 
     calculation there.
     '''
     logger.info(
-        'calculate_results(user_id=%r, auth_event_id=%r, data=%r)' % (
+        'calculate_results_task(user_id=%r, auth_event_id=%r, data=%r)' % (
             user_id,
             auth_event_id,
             data
@@ -503,12 +503,12 @@ def calculate_results(user_id, auth_event_id, data):
     if auth_event.parent is not None:
         parent_auth_event = auth_event.parent
 
-        calculate_results.apply_async(
+        calculate_results_task.apply_async(
             args=[user_id, auth_event.parent_id, '']
         )
     elif auth_event.children_election_info is not None:
         for child_id in auth_event.children_election_info['natural_order']:
-            calculate_results.apply_async(
+            calculate_results_task.apply_async(
                 args=[user_id, child_id, '']
             )
 
@@ -532,7 +532,7 @@ def calculate_results(user_id, auth_event_id, data):
         )
         if req.status_code != 200:
             logger.error(
-                "calculate_results(user_id=%r, auth_event_id=%r): post\n"\
+                "calculate_results_task(user_id=%r, auth_event_id=%r): post\n"\
                 "agora_elections.callback_url '%r'\n"\
                 "agora_elections.data '%r'\n"\
                 "agora_elections.status_code '%r'\n"\
@@ -561,7 +561,7 @@ def calculate_results(user_id, auth_event_id, data):
             return
 
         logger.info(
-            "calculate_results(user_id=%r, auth_event_id=%r): post\n"\
+            "calculate_results_task(user_id=%r, auth_event_id=%r): post\n"\
             "agora_elections.callback_url '%r'\n"\
             "agora_elections.data '%r'\n"\
             "agora_elections.status_code '%r'\n"\
@@ -587,14 +587,14 @@ def calculate_results(user_id, auth_event_id, data):
         action.save()
 
 @celery.task(name='tasks.publish_results')
-def publish_results(user_id, auth_event_id):
+def publish_results_task(user_id, auth_event_id):
     '''
     Launches the publish results agora-elections call in a task. 
     If the election has children, also launches the call  for
     those.
     '''
     logger.info(
-        'publish_results(user_id=%r, auth_event_id=%r)' % (
+        'publish_results_task(user_id=%r, auth_event_id=%r)' % (
             user_id,
             auth_event_id
         )
@@ -607,12 +607,12 @@ def publish_results(user_id, auth_event_id):
     if auth_event.parent is not None:
         parent_auth_event = auth_event.parent
 
-        publish_results.apply_async(
+        publish_results_task.apply_async(
             args=[user_id, auth_event.parent_id]
         )
     elif auth_event.children_election_info is not None:
         for child_id in auth_event.children_election_info['natural_order']:
-            publish_results.apply_async(
+            publish_results_task.apply_async(
                 args=[user_id, child_id]
             )
 
@@ -635,7 +635,7 @@ def publish_results(user_id, auth_event_id):
         )
         if req.status_code != 200:
             logger.error(
-                "publish_results(user_id=%r, auth_event_id=%r): post\n"\
+                "publish_results_task(user_id=%r, auth_event_id=%r): post\n"\
                 "agora_elections.callback_url '%r'\n"\
                 "agora_elections.status_code '%r'\n"\
                 "agora_elections.text '%r'\n",\
@@ -662,7 +662,7 @@ def publish_results(user_id, auth_event_id):
             return
 
         logger.info(
-            "publish_results(user_id=%r, auth_event_id=%r): post\n"\
+            "publish_results_task(user_id=%r, auth_event_id=%r): post\n"\
             "agora_elections.callback_url '%r'\n"\
             "agora_elections.data '%r'\n"\
             "agora_elections.status_code '%r'\n"\
