@@ -506,6 +506,11 @@ def calculate_results(user_id, auth_event_id, data):
         calculate_results.apply_async(
             args=[user_id, auth_event.parent_id, '']
         )
+    elif auth_event.children_election_info is not None:
+        for child_id in auth_event.children_election_info['natural_order']:
+            calculate_results.apply_async(
+                args=[user_id, child_id, '']
+            )
 
     # A.2 call to agora-elections
     for callback_base in settings.AGORA_ELECTIONS_BASE:
@@ -603,8 +608,13 @@ def publish_results(user_id, auth_event_id):
         parent_auth_event = auth_event.parent
 
         publish_results.apply_async(
-            args=[user_id, auth_event.parent_id, '']
+            args=[user_id, auth_event.parent_id]
         )
+    elif auth_event.children_election_info is not None:
+        for child_id in auth_event.children_election_info['natural_order']:
+            publish_results.apply_async(
+                args=[user_id, child_id]
+            )
 
     # A.2 call to agora-elections
     for callback_base in settings.AGORA_ELECTIONS_BASE:

@@ -2489,7 +2489,6 @@ class CalculateResultsView(View):
             ['edit', 'calculate-results'], 
             pk
         )
-        parse_json_request(request)
         calculate_results.apply_async(
             args=[request.user.id, pk, request.body.decode('utf-8')]
         )
