@@ -1609,7 +1609,7 @@ class AuthEventView(View):
             if only_parent_elections is not None:
                 q &= (
                     Q(parent_id=None, children_election_info=None) |
-                    Q(parent_id=None, children_election_info__isnull=False)
+                    Q(parent_id__isnull=False, children_election_info__isnull=False)
                 )
 
             serialize_method = 'serialize_restrict'
