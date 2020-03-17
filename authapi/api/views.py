@@ -74,7 +74,12 @@ from .models import (
     TallySheet,
     children_election_info_validator
 )
-from .tasks import census_send_auth_task, update_ballot_boxes_config
+from .tasks import (
+    census_send_auth_task,
+    update_ballot_boxes_config,
+    publish_results,
+    calculate_results
+)
 from captcha.views import generate_captcha
 from utils import send_codes, get_client_ip, parse_json_request
 
@@ -2466,5 +2471,48 @@ class TallyStatusView(View):
         )
         return json_response(data)
 
-
 tally_status = login_required(TallyStatusView.as_view())
+
+
+class CalculateResultsView(View):
+
+    def post(self, request, pk):
+        '''
+        Launches the results calculation in a celery background task. 
+        If the election has children, also launches the results 
+        calculation there.
+        '''
+        # check permissions
+        permission_required(
+            request.user, 
+            'AuthEvent', 
+            ['edit', 'calculate-results'], 
+            pk
+        )
+        parse_json_request(request)
+        calculate_results.apply_async(
+            args=[request.user.id, pk, request.body.decode('utf-8')]
+        )
+        return json_response()
+
+calculate_results = login_required(CalculateResultsView.as_view())
+
+class PublishResultsView(View):
+
+    def post(self, request, pk):
+        '''
+        Launches the results publication in a celery background task. 
+        If the election has children, also launches the results 
+        publication there.
+        '''
+        # check permissions
+        permission_required(
+            request.user, 
+            'AuthEvent', 
+            ['edit', 'publish-results'], 
+            pk
+        )
+        publish_results.apply_async(args=[pk])
+        return json_response()
+
+publish_results = login_required(PublishResultsView.as_view())

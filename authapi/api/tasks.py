@@ -164,6 +164,7 @@ def launch_tally(auth_event):
             )
         )
         action.save()
+        return
 
 
     logger.info(
@@ -465,10 +466,7 @@ def update_ballot_boxes_config(auth_event_id):
                 r.status_code, 
                 r.text
             )
-
-            return json_response(
-                status=500,
-                error_codename=ErrorCodes.GENERAL_ERROR)
+            return
 
         logger.info(
             "update_ballot_boxes_config(auth_event_id=%r): post\n"\
@@ -482,3 +480,199 @@ def update_ballot_boxes_config(auth_event_id):
             r.status_code,
             r.text
         )
+
+@celery.task(name='tasks.calculate_results')
+def calculate_results(user_id, auth_event_id, data):
+    '''
+    Launches the results calculation in a celery background task. 
+    If the election has children, also launches the results 
+    calculation there.
+    '''
+    logger.info(
+        'calculate_results(user_id=%r, auth_event_id=%r, data=%r)' % (
+            user_id,
+            auth_event_id,
+            data
+        )
+    )
+    user = get_object_or_404(User, pk=user_id)
+    auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
+
+    # if this auth event has a parent, update also the parent
+    parent_auth_event = auth_event
+    if auth_event.parent is not None:
+        parent_auth_event = auth_event.parent
+
+        calculate_results.apply_async(
+            args=[user_id, auth_event.parent_id, '']
+        )
+
+    # A.2 call to agora-elections
+    for callback_base in settings.AGORA_ELECTIONS_BASE:
+        callback_url = "%s/api/election/%s/calculate-results" % (
+            callback_base,
+            auth_event_id
+        )
+
+        req = requests.post(
+            callback_url,
+            data=data,
+            headers={
+                'Authorization': genhmac(
+                    settings.SHARED_SECRET,
+                    "1:AuthEvent:%s:calculate-results" % auth_event_id
+                ),
+                'Content-type': 'application/json'
+            }
+        )
+        if req.status_code != 200:
+            logger.error(
+                "calculate_results(user_id=%r, auth_event_id=%r): post\n"\
+                "agora_elections.callback_url '%r'\n"\
+                "agora_elections.data '%r'\n"\
+                "agora_elections.status_code '%r'\n"\
+                "agora_elections.text '%r'\n",\
+                user_id,
+                auth_event_id,
+                callback_url, 
+                data, 
+                req.status_code, 
+                req.text
+            )
+        
+            # log the action
+            action = Action(
+                executer=user,
+                receiver=None,
+                action_name='authevent:calculate-results:error',
+                event=parent_auth_event,
+                metadata=dict(
+                    auth_event=auth_event.pk,
+                    request_status_code=req.status_code,
+                    request_text=req.text
+                )
+            )
+            action.save()
+            return
+
+        logger.info(
+            "calculate_results(user_id=%r, auth_event_id=%r): post\n"\
+            "agora_elections.callback_url '%r'\n"\
+            "agora_elections.data '%r'\n"\
+            "agora_elections.status_code '%r'\n"\
+            "agora_elections.text '%r'\n",\
+            user_id,
+            auth_event_id,
+            callback_url,
+            data,
+            req.status_code,
+            req.text
+        )
+
+        # log the action
+        action = Action(
+            executer=user,
+            receiver=None,
+            action_name='authevent:calculate-results:success',
+            event=parent_auth_event,
+            metadata=dict(
+                auth_event=auth_event.pk
+            )
+        )
+        action.save()
+
+@celery.task(name='tasks.publish_results')
+def publish_results(user_id, auth_event_id):
+    '''
+    Launches the publish results agora-elections call in a task. 
+    If the election has children, also launches the call  for
+    those.
+    '''
+    logger.info(
+        'publish_results(user_id=%r, auth_event_id=%r)' % (
+            user_id,
+            auth_event_id
+        )
+    )
+    user = get_object_or_404(User, pk=user_id)
+    auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
+
+    # if this auth event has a parent, update also the parent
+    parent_auth_event = auth_event
+    if auth_event.parent is not None:
+        parent_auth_event = auth_event.parent
+
+        publish_results.apply_async(
+            args=[user_id, auth_event.parent_id, '']
+        )
+
+    # A.2 call to agora-elections
+    for callback_base in settings.AGORA_ELECTIONS_BASE:
+        callback_url = "%s/api/election/%s/publish-results" % (
+            callback_base,
+            auth_event_id
+        )
+
+        req = requests.post(
+            callback_url,
+            headers={
+                'Authorization': genhmac(
+                    settings.SHARED_SECRET,
+                    "1:AuthEvent:%s:publish-results" % auth_event_id
+                ),
+                'Content-type': 'application/json'
+            }
+        )
+        if req.status_code != 200:
+            logger.error(
+                "publish_results(user_id=%r, auth_event_id=%r): post\n"\
+                "agora_elections.callback_url '%r'\n"\
+                "agora_elections.status_code '%r'\n"\
+                "agora_elections.text '%r'\n",\
+                user_id,
+                auth_event_id,
+                callback_url, 
+                req.status_code, 
+                req.text
+            )
+        
+            # log the action
+            action = Action(
+                executer=user,
+                receiver=None,
+                action_name='authevent:publish-results:error',
+                event=parent_auth_event,
+                metadata=dict(
+                    auth_event=auth_event.pk,
+                    request_status_code=req.status_code,
+                    request_text=req.text
+                )
+            )
+            action.save()
+            return
+
+        logger.info(
+            "publish_results(user_id=%r, auth_event_id=%r): post\n"\
+            "agora_elections.callback_url '%r'\n"\
+            "agora_elections.data '%r'\n"\
+            "agora_elections.status_code '%r'\n"\
+            "agora_elections.text '%r'\n",\
+            user_id,
+            auth_event_id,
+            callback_url,
+            data,
+            req.status_code,
+            req.text
+        )
+
+        # log the action
+        action = Action(
+            executer=user,
+            receiver=None,
+            action_name='authevent:calculate-results:success',
+            event=parent_auth_event,
+            metadata=dict(
+                auth_event=auth_event.pk
+            )
+        )
+        action.save()
