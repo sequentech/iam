@@ -613,6 +613,7 @@ def publish_results_task(user_id, auth_event_id):
 
         req = requests.post(
             callback_url,
+            data={},
             headers={
                 'Authorization': genhmac(
                     settings.SHARED_SECRET,
