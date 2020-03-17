@@ -610,10 +610,11 @@ def publish_results_task(user_id, auth_event_id):
             callback_base,
             auth_event_id
         )
+        data = {}
 
         req = requests.post(
             callback_url,
-            data={},
+            json=data,
             headers={
                 'Authorization': genhmac(
                     settings.SHARED_SECRET,
@@ -626,11 +627,13 @@ def publish_results_task(user_id, auth_event_id):
             logger.error(
                 "publish_results_task(user_id=%r, auth_event_id=%r): post\n"\
                 "agora_elections.callback_url '%r'\n"\
+                "agora_elections.data '%r'\n"\
                 "agora_elections.status_code '%r'\n"\
                 "agora_elections.text '%r'\n",\
                 user_id,
                 auth_event_id,
-                callback_url, 
+                callback_url,
+                data,
                 req.status_code, 
                 req.text
             )
