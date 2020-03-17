@@ -364,7 +364,7 @@ def process_tallies():
     2. Review which tally has succeeded and updates corresponding
        AuthEvents.
     '''
-    logger.info('tasks.process_tallies')
+    logger.info('\n\ntasks.process_tallies')
     tallying_events = AuthEvent.objects\
         .filter(tally_status='started')\
         .order_by('id')
@@ -397,7 +397,7 @@ def update_ballot_boxes_config(auth_event_id):
     '''
     Updates in Agora-elections the ballot boxes configuration
     '''
-    logger.info('update_ballot_boxes_config(auth_event_id=%r)' % auth_event_id)
+    logger.info('\n\nupdate_ballot_boxes_config(auth_event_id=%r)' % auth_event_id)
     auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
 
     # if this auth event has a parent, update also the parent
@@ -489,7 +489,7 @@ def calculate_results_task(user_id, auth_event_id, data):
     calculation there.
     '''
     logger.info(
-        'calculate_results_task(user_id=%r, auth_event_id=%r, data=%r)' % (
+        '\n\ncalculate_results_task(user_id=%r, auth_event_id=%r, data=%r)' % (
             user_id,
             auth_event_id,
             data
@@ -588,7 +588,7 @@ def publish_results_task(user_id, auth_event_id):
     those.
     '''
     logger.info(
-        'publish_results_task(user_id=%r, auth_event_id=%r)' % (
+        '\n\npublish_results_task(user_id=%r, auth_event_id=%r)' % (
             user_id,
             auth_event_id
         )
