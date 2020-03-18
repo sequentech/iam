@@ -906,10 +906,12 @@ class AuthEventStatus(View):
         permission_required(request.user, 'AuthEvent', ['edit', alt], pk)
         
         main_auth_event = get_object_or_404(AuthEvent, pk=pk)
-        children_ids = [
-            child.id
-            for child in main_auth_event.children
-        ]
+        
+        if main_auth_event.children_election_info is not None:
+            children_ids = main_auth_event.children_election_info['natural_ids']
+        else:
+            children_ids = []
+        
         auth_events = AuthEvent.objects.filter(
             Q(pk=pk) |
             Q(parent_id=pk) |
