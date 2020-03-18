@@ -765,7 +765,7 @@ class Email:
 
         return return_auth_data(user_auth_event, 'Email', req, request, user)
 
-    def resend_auth_code(self, ae, request):
+    def resend_auth_code(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))
 
         msg = ''
@@ -773,9 +773,21 @@ class Email:
         if isinstance(email, str):
             email = email.strip()
             email = email.replace(" ", "")
+
+        if auth_event.parent is not None:
+            msg += 'you can only authenticate to parent elections'
+            LOGGER.error(\
+                "Email.authenticate error\n"\
+                "error '%r'"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, auth_event, req, stack_trace_str())
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+
         msg += check_field_type(self.email_definition, email)
         msg += check_field_value(self.email_definition, email)
-        msg += check_fields_in_request(req, ae, 'resend-auth')
+        msg += check_fields_in_request(req, auth_event, 'resend-auth')
         if msg:
             LOGGER.error(\
                 "Email.resend_auth_code error\n"\
@@ -783,15 +795,15 @@ class Email:
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                msg, ae, req, stack_trace_str())
+                msg, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         try:
-            q = Q(userdata__event=ae, is_active=True)
+            q = get_base_auth_query(auth_event)
             if 'email' in req:
-                if not ae.hide_default_login_lookup_field:
+                if not auth_event.hide_default_login_lookup_field:
                     q = q & Q(email=email)
-            elif not ae.hide_default_login_lookup_field:
+            elif not auth_event.hide_default_login_lookup_field:
                 LOGGER.error(\
                     "Email.resend_auth_code error\n"\
                     "ae.hide_default_login_lookup_field is False and email not given\n"\
@@ -799,10 +811,10 @@ class Email:
                     "authevent '%r'\n"\
                     "request '%r'\n"\
                     "Stack trace: \n%s",\
-                    msg, ae, req, stack_trace_str())
+                    msg, auth_event, req, stack_trace_str())
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
-            q = get_required_fields_on_auth(req, ae, q)
+            q = get_required_fields_on_auth(req, auth_event, q)
             u = User.objects.get(q)
         except:
             LOGGER.error(\
@@ -811,12 +823,12 @@ class Email:
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                email, ae, req, stack_trace_str())
+                email, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_pipeline(
           request,
-          ae,
+          auth_event,
           'resend-auth-pipeline',
           Email.PIPELINES['resend-auth-pipeline'])
 
@@ -827,7 +839,7 @@ class Email:
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                msg, ae, req, stack_trace_str())
+                msg, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         send_codes.apply_async(args=[[u.id,], get_client_ip(request),'email'])
@@ -838,7 +850,7 @@ class Email:
             "authevent '%r'\n"\
             "request '%r'\n"\
             "Stack trace: \n%s",\
-            u.id, get_client_ip(request), ae, req, stack_trace_str())
+            u.id, get_client_ip(request), auth_event, req, stack_trace_str())
         return {'status': 'ok', 'user': u}
         
 
