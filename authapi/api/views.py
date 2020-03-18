@@ -905,10 +905,16 @@ class AuthEventStatus(View):
         )[status]
         permission_required(request.user, 'AuthEvent', ['edit', alt], pk)
         
-        auth_events = AuthEvent.objects.filter(
-            Q(pk=pk) | Q(parent_id=pk)
-        )
         main_auth_event = get_object_or_404(AuthEvent, pk=pk)
+        children_ids = [
+            child.id
+            for child in main_auth_event.children
+        ]
+        auth_events = AuthEvent.objects.filter(
+            Q(pk=pk) |
+            Q(parent_id=pk) |
+            Q(parent_id__in=children_ids)
+        )
         
         for auth_event in auth_events:
             # update AuthEvent
