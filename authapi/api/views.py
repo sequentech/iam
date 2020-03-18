@@ -908,7 +908,7 @@ class AuthEventStatus(View):
         main_auth_event = get_object_or_404(AuthEvent, pk=pk)
         
         if main_auth_event.children_election_info is not None:
-            children_ids = main_auth_event.children_election_info['natural_ids']
+            children_ids = main_auth_event.children_election_info['natural_order']
         else:
             children_ids = []
         
