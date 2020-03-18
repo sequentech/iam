@@ -769,7 +769,7 @@ class SmsOtp:
                 msg, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        return return_auth_data(auth_event, 'SmsOtp', req, request, user)
+        return return_auth_data('SmsOtp', req, request, user)
 
     def resend_auth_code(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))

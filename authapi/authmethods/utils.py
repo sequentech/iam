@@ -820,7 +820,7 @@ def verify_valid_children_elections(auth_event, census_element):
     for event_id in census_element['children_event_id_list']:
         assert event_id in auth_event.children_election_info['natural_order']
 
-def return_auth_data(auth_event, logger_name, req_json, request, user):
+def return_auth_data(logger_name, req_json, request, user):
     '''
     used at the end of the authentication process to return the required
     authentication data, which can be:
@@ -847,6 +847,7 @@ def return_auth_data(auth_event, logger_name, req_json, request, user):
 
     # generate the user auth-token
     data['auth-token'] = genhmac(settings.SHARED_SECRET, user.username)
+    auth_event = user.userdata.event
 
     if auth_event.children_election_info is None:
         msg = ':'.join((user.username, 'AuthEvent', str(auth_event.id), 'vote'))
