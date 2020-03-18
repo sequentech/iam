@@ -859,25 +859,25 @@ class ResendAuthCode(View):
     ''' Register into the authapi '''
 
     def post(self, request, pk):
-        e = get_object_or_404(AuthEvent, pk=pk)
-        if (e.census == 'close' and not e.check_allow_user_resend()):
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        if (auth_event.census == 'close' and not auth_event.check_allow_user_resend()):
             return json_response(
                 status=400,
                 error_codename="AUTH_EVENT_NOT_STARTED")
         # registration is closed
-        if (e.census == 'open' or e.check_allow_user_resend()) and e.status != 'started':
+        if (auth_event.census == 'open' or auth_event.check_allow_user_resend()) and auth_event.status != 'started':
             return json_response(
                 status=400,
                 error_codename="AUTH_EVENT_NOT_STARTED")
 
-        data = auth_resend_auth_code(e, request)
+        data = auth_resend_auth_code(auth_event, request)
         if data['status'] == 'ok':
             if 'user' in data:
                 action = Action(
                     executer=data['user'],
                     receiver=data['user'],
                     action_name='user:resend-authcode',
-                    event=e,
+                    event=data['user'].userdata.event,
                     metadata=dict())
                 action.save()
                 del data['user']
