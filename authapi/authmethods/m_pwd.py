@@ -183,7 +183,7 @@ class PWD:
                     "invalid_num_successful_logins_allowed", req, auth_event
                 )
 
-            return return_auth_data(auth_event, 'PWD', req, request, user)
+            return return_auth_data('PWD', req, request, user, auth_event)
 
         LOGGER.debug(\
             "PWD.authenticate success\n"\
