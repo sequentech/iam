@@ -2593,9 +2593,28 @@ class PublishResultsView(View):
         publish_results_task.apply_async(
             args=[
                 request.user.id,
-                auth_event.id
+                auth_event.id,
+                True # visit_children
             ]
         )
+
+        if auth_event.parent:
+            publish_results_task.apply_async(
+                args=[
+                    request.user.id,
+                    auth_event.id,
+                    False # visit_children
+                ]
+            )
+            if auth_event.parent.parent:
+                publish_results_task.apply_async(
+                    args=[
+                        request.user.id,
+                        auth_event.id,
+                        False # visit_children
+                    ]
+                )
+
         return json_response()
 
 publish_results = login_required(PublishResultsView.as_view())

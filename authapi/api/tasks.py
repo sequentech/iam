@@ -602,16 +602,17 @@ def calculate_results_task(user_id, auth_event_id, data, visit_children):
         action.save()
 
 @celery.task(name='tasks.publish_results')
-def publish_results_task(user_id, auth_event_id):
+def publish_results_task(user_id, auth_event_id, visit_children):
     '''
     Launches the publish results agora-elections call in a task. 
     If the election has children, also launches the call  for
     those.
     '''
     logger.info(
-        '\n\npublish_results_task(user_id=%r, auth_event_id=%r)' % (
+        '\n\npublish_results_task(user_id=%r, auth_event_id=%r, visit_children=%r)' % (
             user_id,
-            auth_event_id
+            auth_event_id,
+            visit_children
         )
     )
     user = get_object_or_404(User, pk=user_id)
@@ -619,10 +620,10 @@ def publish_results_task(user_id, auth_event_id):
 
     # if this auth event has children, update also them
     parent_auth_event = auth_event
-    if auth_event.children_election_info is not None:
+    if auth_event.children_election_info is not None and visit_children:
         for child_id in auth_event.children_election_info['natural_order']:
             publish_results_task.apply_async(
-                args=[user_id, child_id]
+                args=[user_id, child_id, True]
             )
 
     # A.2 call to agora-elections
@@ -646,13 +647,14 @@ def publish_results_task(user_id, auth_event_id):
         )
         if req.status_code != 200:
             logger.error(
-                "publish_results_task(user_id=%r, auth_event_id=%r): post\n"\
+                "publish_results_task(user_id=%r, auth_event_id=%r, visit_children=%r): post\n"\
                 "agora_elections.callback_url '%r'\n"\
                 "agora_elections.data '%r'\n"\
                 "agora_elections.status_code '%r'\n"\
                 "agora_elections.text '%r'\n",\
                 user_id,
                 auth_event_id,
+                visit_children,
                 callback_url,
                 data,
                 req.status_code, 
@@ -675,13 +677,14 @@ def publish_results_task(user_id, auth_event_id):
             return
 
         logger.info(
-            "publish_results_task(user_id=%r, auth_event_id=%r): post\n"\
+            "publish_results_task(user_id=%r, auth_event_id=%r, visit_children=%r): post\n"\
             "agora_elections.callback_url '%r'\n"\
             "agora_elections.data '%r'\n"\
             "agora_elections.status_code '%r'\n"\
             "agora_elections.text '%r'\n",\
             user_id,
             auth_event_id,
+            visit_children,
             callback_url,
             data,
             req.status_code,
@@ -692,7 +695,7 @@ def publish_results_task(user_id, auth_event_id):
         action = Action(
             executer=user,
             receiver=None,
-            action_name='authevent:calculate-results:success',
+            action_name='authevent:publish-results:success',
             event=parent_auth_event,
             metadata=dict(
                 auth_event=auth_event.pk
