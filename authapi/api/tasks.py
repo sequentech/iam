@@ -503,7 +503,7 @@ def update_ballot_boxes_config(auth_event_id):
         )
 
 @celery.task(name='tasks.calculate_results_task')
-def calculate_results_task(user_id, auth_event_id, data, visit_children):
+def calculate_results_task(user_id, auth_event_id, data, visit_children, parent_auth_event=None):
     '''
     Launches the results calculation in a celery background task. 
     If the election has children, also launches the results 
@@ -520,11 +520,12 @@ def calculate_results_task(user_id, auth_event_id, data, visit_children):
     auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
 
     # if this auth event has children, update also them
-    parent_auth_event = auth_event
+    if parent_auth_event is None:
+        parent_auth_event = auth_event
     if auth_event.children_election_info is not None and visit_children:
         for child_id in auth_event.children_election_info['natural_order']:
             calculate_results_task.apply_async(
-                args=[user_id, child_id, '', False]
+                args=[user_id, child_id, '', False, parent_auth_event]
             )
 
     # A.2 call to agora-elections
@@ -602,7 +603,7 @@ def calculate_results_task(user_id, auth_event_id, data, visit_children):
         action.save()
 
 @celery.task(name='tasks.publish_results')
-def publish_results_task(user_id, auth_event_id, visit_children):
+def publish_results_task(user_id, auth_event_id, visit_children, parent_auth_event=None):
     '''
     Launches the publish results agora-elections call in a task. 
     If the election has children, also launches the call  for
@@ -619,11 +620,12 @@ def publish_results_task(user_id, auth_event_id, visit_children):
     auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
 
     # if this auth event has children, update also them
-    parent_auth_event = auth_event
+    if parent_auth_event is None:
+        parent_auth_event = auth_event
     if auth_event.children_election_info is not None and visit_children:
         for child_id in auth_event.children_election_info['natural_order']:
             publish_results_task.apply_async(
-                args=[user_id, child_id, True]
+                args=[user_id, child_id, True, parent_auth_event]
             )
 
     # A.2 call to agora-elections
@@ -696,6 +698,210 @@ def publish_results_task(user_id, auth_event_id, visit_children):
             executer=user,
             receiver=None,
             action_name='authevent:publish-results:success',
+            event=parent_auth_event,
+            metadata=dict(
+                auth_event=auth_event.pk
+            )
+        )
+        action.save()
+
+
+@celery.task(name='tasks.unpublish_results')
+def unpublish_results_task(user_id, auth_event_id, parent_auth_event=None):
+    '''
+    Launches the unpublish results agora-elections call in a task. 
+    If the election has children, also launches the call for
+    those.
+    '''
+    logger.info(
+        '\n\nunpublish_results_task(user_id=%r, auth_event_id=%r)' % (
+            user_id,
+            auth_event_id
+        )
+    )
+    user = get_object_or_404(User, pk=user_id)
+    auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
+
+    # if this auth event has children, update also them
+    if parent_auth_event is None:
+        parent_auth_event = auth_event
+    
+    if auth_event.children_election_info is not None:
+        for child_id in auth_event.children_election_info['natural_order']:
+            unpublish_results_task.apply_async(
+                args=[user_id, child_id, parent_auth_event]
+            )
+
+    # A.2 call to agora-elections
+    for callback_base in settings.AGORA_ELECTIONS_BASE:
+        callback_url = "%s/api/election/%s/unpublish-results" % (
+            callback_base,
+            auth_event_id
+        )
+        data = {}
+
+        req = requests.post(
+            callback_url,
+            json=data,
+            headers={
+                'Authorization': genhmac(
+                    settings.SHARED_SECRET,
+                    "1:AuthEvent:%s:publish-results" % auth_event_id
+                ),
+                'Content-type': 'application/json'
+            }
+        )
+        if req.status_code != 200:
+            logger.error(
+                "unpublish_results_task(user_id=%r, auth_event_id=%r): post\n"\
+                "agora_elections.callback_url '%r'\n"\
+                "agora_elections.data '%r'\n"\
+                "agora_elections.status_code '%r'\n"\
+                "agora_elections.text '%r'\n",\
+                user_id,
+                auth_event_id,
+                callback_url,
+                data,
+                req.status_code, 
+                req.text
+            )
+        
+            # log the action
+            action = Action(
+                executer=user,
+                receiver=None,
+                action_name='authevent:unpublish-results:error',
+                event=parent_auth_event,
+                metadata=dict(
+                    auth_event=auth_event.pk,
+                    request_status_code=req.status_code,
+                    request_text=req.text
+                )
+            )
+            action.save()
+            return
+
+        logger.info(
+            "publish_results_task(user_id=%r, auth_event_id=%r): post\n"\
+            "agora_elections.callback_url '%r'\n"\
+            "agora_elections.data '%r'\n"\
+            "agora_elections.status_code '%r'\n"\
+            "agora_elections.text '%r'\n",\
+            user_id,
+            auth_event_id,
+            callback_url,
+            data,
+            req.status_code,
+            req.text
+        )
+
+        # log the action
+        action = Action(
+            executer=user,
+            receiver=None,
+            action_name='authevent:unpublish-results:success',
+            event=parent_auth_event,
+            metadata=dict(
+                auth_event=auth_event.pk
+            )
+        )
+        action.save()
+
+
+@celery.task(name='tasks.allow_tally')
+def allow_tally_task(user_id, auth_event_id, parent_auth_event=None):
+    '''
+    Launches the allow tally agora-elections call in a task. 
+    If the election has children, also launches the call for
+    those.
+    '''
+    logger.info(
+        '\n\nallow_tally_task(user_id=%r, auth_event_id=%r)' % (
+            user_id,
+            auth_event_id
+        )
+    )
+    user = get_object_or_404(User, pk=user_id)
+    auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
+
+    # if this auth event has children, update also them
+    if parent_auth_event is None:
+        parent_auth_event = auth_event
+    
+    if auth_event.children_election_info is not None:
+        for child_id in auth_event.children_election_info['natural_order']:
+            allow_tally_task.apply_async(
+                args=[user_id, child_id, parent_auth_event]
+            )
+
+    # A.2 call to agora-elections
+    for callback_base in settings.AGORA_ELECTIONS_BASE:
+        callback_url = "%s/api/election/%s/allow-tally" % (
+            callback_base,
+            auth_event_id
+        )
+        data = {}
+
+        req = requests.post(
+            callback_url,
+            json=data,
+            headers={
+                'Authorization': genhmac(
+                    settings.SHARED_SECRET,
+                    "1:AuthEvent:%s:allow-tally" % auth_event_id
+                ),
+                'Content-type': 'application/json'
+            }
+        )
+        if req.status_code != 200:
+            logger.error(
+                "allow_tally_task(user_id=%r, auth_event_id=%r): post\n"\
+                "agora_elections.callback_url '%r'\n"\
+                "agora_elections.data '%r'\n"\
+                "agora_elections.status_code '%r'\n"\
+                "agora_elections.text '%r'\n",\
+                user_id,
+                auth_event_id,
+                callback_url,
+                data,
+                req.status_code, 
+                req.text
+            )
+        
+            # log the action
+            action = Action(
+                executer=user,
+                receiver=None,
+                action_name='authevent:allow-tally:error',
+                event=parent_auth_event,
+                metadata=dict(
+                    auth_event=auth_event.pk,
+                    request_status_code=req.status_code,
+                    request_text=req.text
+                )
+            )
+            action.save()
+            return
+
+        logger.info(
+            "allow_tally_task(user_id=%r, auth_event_id=%r): post\n"\
+            "agora_elections.callback_url '%r'\n"\
+            "agora_elections.data '%r'\n"\
+            "agora_elections.status_code '%r'\n"\
+            "agora_elections.text '%r'\n",\
+            user_id,
+            auth_event_id,
+            callback_url,
+            data,
+            req.status_code,
+            req.text
+        )
+
+        # log the action
+        action = Action(
+            executer=user,
+            receiver=None,
+            action_name='authevent:allow-tally:success',
             event=parent_auth_event,
             metadata=dict(
                 auth_event=auth_event.pk

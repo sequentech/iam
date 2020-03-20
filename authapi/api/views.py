@@ -78,6 +78,8 @@ from .tasks import (
     census_send_auth_task,
     update_ballot_boxes_config,
     publish_results_task,
+    unpublish_results_task,
+    allow_tally_task,
     calculate_results_task
 )
 from captcha.views import generate_captcha
@@ -2382,6 +2384,7 @@ class TallyStatusView(View):
         Launches the tallly in a celery background task. If the
         election has children, also launches the tally for them.
         '''
+        from celery.contrib import rdb; rdb.set_trace()
         # check permissions
         permission_required(
             request.user, 
@@ -2422,7 +2425,10 @@ class TallyStatusView(View):
         if children_election_ids is not None:
             if (
                 type(children_election_ids) != list or
-                auth_event.children_election_info is None
+                (
+                    len(children_election_ids) > 0 and
+                    auth_event.children_election_info is None
+                )
             ):
                 return json_response(
                     status=400,
@@ -2569,8 +2575,8 @@ class CalculateResultsView(View):
                 )
 
         return json_response()
-
 calculate_results = login_required(CalculateResultsView.as_view())
+
 
 class PublishResultsView(View):
 
@@ -2616,5 +2622,62 @@ class PublishResultsView(View):
                 )
 
         return json_response()
-
 publish_results = login_required(PublishResultsView.as_view())
+
+
+class UnpublishResultsView(View):
+
+    def post(self, request, pk):
+        '''
+        Launches the results depublication in a celery background task. 
+        If the election has children, also launches the results 
+        depublication there.
+        '''
+        # check permissions
+        permission_required(
+            request.user, 
+            'AuthEvent', 
+            ['edit', 'publish-results'], 
+            pk
+        )
+        
+        # unpublish this and children elections
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        unpublish_results_task.apply_async(
+            args=[
+                request.user.id,
+                auth_event.id
+            ]
+        )
+
+        return json_response()
+unpublish_results = login_required(UnpublishResultsView.as_view())
+
+
+class AllowTallyView(View):
+
+    def post(self, request, pk):
+        '''
+        Launches the results publication in a celery background task. 
+        If the election has children, also launches the results 
+        publication there.
+        '''
+        # check permissions
+        permission_required(
+            request.user, 
+            'AuthEvent', 
+            ['edit', 'allow-tally'], 
+            pk
+        )
+        
+        # allow tally of this and children elections
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        allow_tally_task.apply_async(
+            args=[
+                request.user.id,
+                auth_event.id
+            ]
+        )
+
+        return json_response()
+allow_tally = login_required(AllowTallyView.as_view())
