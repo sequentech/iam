@@ -2602,7 +2602,7 @@ class PublishResultsView(View):
             publish_results_task.apply_async(
                 args=[
                     request.user.id,
-                    auth_event.id,
+                    auth_event.parent.id,
                     False # visit_children
                 ]
             )
@@ -2610,7 +2610,7 @@ class PublishResultsView(View):
                 publish_results_task.apply_async(
                     args=[
                         request.user.id,
-                        auth_event.id,
+                        auth_event.parent.parent.id,
                         False # visit_children
                     ]
                 )
