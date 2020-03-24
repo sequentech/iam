@@ -416,28 +416,25 @@ class AuthEvent(models.Model):
         '''
         returns a query with all the census of this event.
         '''
+        sub_query = Q(object_id=self.id)
         if self.children_election_info:
             children_election_ids = self.children_election_info['natural_order']
-        else:
-            children_election_ids = []
+            if self.parent is None:
+                sub_query |= Q(
+                    object_id__in=children_election_ids
+                )
+        elif self.parent_id:
+            sub_query |= Q(
+                    object_id=self.parent_id,
+                    user__children_event_id_list__contains=self.id
+                )
 
         return ACL.objects.filter(
             Q(
                 object_type='AuthEvent',
                 perm='vote',
                 object_id__isnull=False
-            ) &
-            (
-                Q(object_id=self.id) |
-                Q(
-                    object_id=self.parent_id,
-                    user__children_event_id_list__contains=self.id
-                ) |
-                Q(
-                    object_id__in=children_election_ids,
-                    user__children_event_id_list__contains=self.id
-                )
-            )
+            ) & sub_query
         )
 
     def get_num_votes(self):
@@ -446,15 +443,15 @@ class AuthEvent(models.Model):
         children elections (if any).
         '''
         if self.children_election_info:
-            parents2 = self.children_election_info['natural_order']
+            children_election_ids = self.children_election_info['natural_order']
         else:
-            parents2 = []
+            children_election_ids = []
 
         return SuccessfulLogin.objects\
             .filter(
                 Q(auth_event_id=self.pk) |
                 Q(auth_event__parent_id=self.pk) |
-                Q(auth_event__parent_id__in=parents2)
+                Q(auth_event__parent_id__in=children_election_ids)
             )\
             .order_by('user_id', '-created')\
             .distinct('user_id')\
