@@ -277,18 +277,6 @@ class Email:
 
         msg = ''
         current_emails = []
-
-        # children election cannot have census
-        if auth_event.parent is not None:
-            LOGGER.error(
-                "EmailOtp.census error cannot add census to a children election\n"\
-                "error '%r'\n"\
-                "request '%r'\n"\
-                "validation '%r'\n"\
-                "authevent '%r'\n"\
-                "Stack trace: \n%s",\
-                msg, req, validation, auth_event, stack_trace_str())
-            return self.error("Incorrect data", error_codename="invalid_data")
         
         # cannot add voters to an election with invalid children election info
         if auth_event.children_election_info is not None:
