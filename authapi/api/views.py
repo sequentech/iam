@@ -2384,7 +2384,6 @@ class TallyStatusView(View):
         Launches the tallly in a celery background task. If the
         election has children, also launches the tally for them.
         '''
-        from celery.contrib import rdb; rdb.set_trace()
         # check permissions
         permission_required(
             request.user, 
