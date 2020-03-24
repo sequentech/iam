@@ -417,9 +417,9 @@ class AuthEvent(models.Model):
         returns a query with all the census of this event.
         '''
         if self.children_election_info:
-            parents2 = self.children_election_info['natural_order']
+            children_election_ids = self.children_election_info['natural_order']
         else:
-            parents2 = []
+            children_election_ids = []
 
         return ACL.objects.filter(
             Q(
@@ -429,8 +429,14 @@ class AuthEvent(models.Model):
             ) &
             (
                 Q(object_id=self.id) |
-                Q(object_id=self.parent_id) |
-                Q(object_id__in=parents2)
+                Q(
+                    object_id=self.parent_id,
+                    user__children_event_id_list__contains=self.id
+                ) |
+                Q(
+                    object_id__in=children_election_ids,
+                    user__children_event_id_list__contains=self.id
+                )
             )
         )
 
