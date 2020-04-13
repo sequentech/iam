@@ -2544,7 +2544,7 @@ class CalculateResultsView(View):
     def post(self, request, pk):
         '''
         Launches the results calculation in a celery background task. 
-        If the election has children, also launches the results 
+        If the election has parents and children, also launches the results 
         calculation there.
         '''
         # check permissions
@@ -2557,33 +2557,35 @@ class CalculateResultsView(View):
 
         # calculate this and parent elections
         auth_event = get_object_or_404(AuthEvent, pk=pk)
+        event_id_list = []
+
+        def append_children(auth_event, event_id_list):
+            '''
+            It appends first the leaves in the tree, then its parents
+            '''
+            for child_id in auth_event.children_election_info['natural_order']:
+                child_obj = AuthEvent.objects.get(pk=child_id)
+                append_children(child_obj, event_id_list)
+                event_id_list.append(child_id)
+
+        def append_parents(auth_event, event_id_list):
+            '''
+            Append to the list the parents recursively
+            '''
+            if auth_event.parent:
+                event_id_list.append(auth_event.parent.id)
+                append_parents(auth_event.parent, event_id_list)
+
+        append_children(auth_event, event_id_list)
+        append_parents(auth_event, event_id_list)
 
         calculate_results_task.apply_async(
             args=[
                 request.user.id,
-                auth_event.id,
-                request.body.decode('utf-8'),
-                True # visit_children
+                event_id_list,
+                request.body.decode('utf-8')
             ]
         )
-        if auth_event.parent:
-            calculate_results_task.apply_async(
-                args=[
-                    request.user.id,
-                    auth_event.parent.id,
-                    request.body.decode('utf-8'),
-                    False # visit_children
-                ]
-            )
-            if auth_event.parent.parent:
-                calculate_results_task.apply_async(
-                    args=[
-                        request.user.id,
-                        auth_event.parent.parent.id,
-                        request.body.decode('utf-8'),
-                        False # visit_children
-                    ]
-                )
 
         return json_response()
 calculate_results = login_required(CalculateResultsView.as_view())

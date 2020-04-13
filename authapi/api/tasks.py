@@ -503,30 +503,28 @@ def update_ballot_boxes_config(auth_event_id):
         )
 
 @celery.task(name='tasks.calculate_results_task')
-def calculate_results_task(user_id, auth_event_id, data, visit_children, parent_auth_event=None):
+def calculate_results_task(user_id, event_id_list, data):
     '''
     Launches the results calculation in a celery background task. 
     If the election has children, also launches the results 
     calculation there.
     '''
     logger.info(
-        '\n\ncalculate_results_task(user_id=%r, auth_event_id=%r, data=%r)' % (
+        '\n\ncalculate_results_task(user_id=%r, event_id_list=%r, data=%r)' % (
             user_id,
-            auth_event_id,
+            event_id_list,
             data
         )
     )
     user = get_object_or_404(User, pk=user_id)
+    auth_event_id = event_id_list[0]
+    event_id_list = event_id_list[1:]
     auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
 
-    # if this auth event has children, update also them
-    if parent_auth_event is None:
+    if auth_event.parent is None:
         parent_auth_event = auth_event
-    if auth_event.children_election_info is not None and visit_children:
-        for child_id in auth_event.children_election_info['natural_order']:
-            calculate_results_task.apply_async(
-                args=[user_id, child_id, '', False, parent_auth_event]
-            )
+    else:
+        parent_auth_event = auth_event.parent
 
     # A.2 call to agora-elections
     for callback_base in settings.AGORA_ELECTIONS_BASE:
@@ -601,6 +599,16 @@ def calculate_results_task(user_id, auth_event_id, data, visit_children, parent_
             )
         )
         action.save()
+
+        # execute next calculation if needed
+        if len(event_id_list) > 0:
+            calculate_results_task.apply_async(
+                args=[
+                    user_id,
+                    event_id_list,
+                    data
+                ]
+            )
 
 @celery.task(name='tasks.publish_results')
 def publish_results_task(user_id, auth_event_id, visit_children, parent_auth_event=None):
