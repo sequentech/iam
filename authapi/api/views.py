@@ -2277,11 +2277,17 @@ class TallySheetView(View):
                 creator=request.user)
             tally_sheet_obj.save()
 
+            auth_event = ballot_box_obj.auth_event
+            if auth_event.parent is None:
+                parent_auth_event = auth_event
+            else:
+                parent_auth_event = auth_event.parent
+
             action = Action(
                 executer=request.user,
                 receiver=None,
                 action_name="tally-sheet:create",
-                event=ballot_box_obj.auth_event,
+                event=parent_auth_event,
                 metadata=dict(
                     ballot_box_id=ballot_box_obj.id,
                     ballot_box_name=ballot_box_obj.name,
@@ -2349,11 +2355,17 @@ class TallySheetView(View):
             ballot_box__auth_event__pk=pk
         )
 
+        auth_event = tally_sheet_obj.ballot_box.auth_event
+        if auth_event.parent is None:
+            parent_auth_event = auth_event
+        else:
+            parent_auth_event = auth_event.parent
+
         action = Action(
             executer=request.user,
             receiver=None,
             action_name="tally-sheet:delete",
-            event=tally_sheet_obj.ballot_box.auth_event,
+            event=parent_auth_event,
             metadata=dict(
                 id=tally_sheet_obj.id,
                 created=tally_sheet_obj.created.isoformat(),
