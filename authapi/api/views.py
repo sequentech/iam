@@ -2563,10 +2563,11 @@ class CalculateResultsView(View):
             '''
             It appends first the leaves in the tree, then its parents
             '''
-            for child_id in auth_event.children_election_info['natural_order']:
-                child_obj = AuthEvent.objects.get(pk=child_id)
-                append_children(child_obj, event_id_list)
-                event_id_list.append(child_id)
+            if auth_event.children_election_info is not None:
+                for child_id in auth_event.children_election_info['natural_order']:
+                    child_obj = AuthEvent.objects.get(pk=child_id)
+                    append_children(child_obj, event_id_list)
+            event_id_list.append(auth_event.id)
 
         def append_parents(auth_event, event_id_list):
             '''
