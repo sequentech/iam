@@ -510,10 +510,9 @@ def calculate_results_task(user_id, event_id_list):
     calculation there.
     '''
     logger.info(
-        '\n\ncalculate_results_task(user_id=%r, event_id_list=%r, data=%r)' % (
+        '\n\ncalculate_results_task(user_id=%r, event_id_list=%r)' % (
             user_id,
-            event_id_list,
-            data
+            event_id_list
         )
     )
     user = get_object_or_404(User, pk=user_id)
@@ -555,7 +554,7 @@ def calculate_results_task(user_id, event_id_list):
                 user_id,
                 auth_event_id,
                 callback_url, 
-                data, 
+                config, 
                 req.status_code, 
                 req.text
             )
@@ -584,7 +583,7 @@ def calculate_results_task(user_id, event_id_list):
             user_id,
             auth_event_id,
             callback_url,
-            data,
+            config,
             req.status_code,
             req.text
         )
@@ -606,8 +605,7 @@ def calculate_results_task(user_id, event_id_list):
             calculate_results_task.apply_async(
                 args=[
                     user_id,
-                    event_id_list,
-                    data
+                    event_id_list
                 ]
             )
 
