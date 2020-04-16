@@ -503,7 +503,7 @@ def update_ballot_boxes_config(auth_event_id):
         )
 
 @celery.task(name='tasks.calculate_results_task')
-def calculate_results_task(user_id, event_id_list, data):
+def calculate_results_task(user_id, event_id_list):
     '''
     Launches the results calculation in a celery background task. 
     If the election has children, also launches the results 
@@ -517,7 +517,8 @@ def calculate_results_task(user_id, event_id_list, data):
         )
     )
     user = get_object_or_404(User, pk=user_id)
-    auth_event_id = event_id_list[0]
+    auth_event_id = event_id_list[0]['id']
+    config = event_id_list[0]['config']
     event_id_list = event_id_list[1:]
     auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
 
@@ -535,7 +536,7 @@ def calculate_results_task(user_id, event_id_list, data):
 
         req = requests.post(
             callback_url,
-            data=data,
+            data=config,
             headers={
                 'Authorization': genhmac(
                     settings.SHARED_SECRET,

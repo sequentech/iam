@@ -2558,33 +2558,37 @@ class CalculateResultsView(View):
         # calculate this and parent elections
         auth_event = get_object_or_404(AuthEvent, pk=pk)
         event_id_list = []
+        config = request.body.decode('utf-8')
 
-        def append_children(auth_event, event_id_list):
+        def append_children(auth_event, event_id_list, config):
             '''
             It appends first the leaves in the tree, then its parents
             '''
             if auth_event.children_election_info is not None:
                 for child_id in auth_event.children_election_info['natural_order']:
                     child_obj = AuthEvent.objects.get(pk=child_id)
-                    append_children(child_obj, event_id_list)
-            event_id_list.append(auth_event.id)
+                    
+                    # config is only for current auth_event, set to None for
+                    # the others so that we don't change other's config
+                    append_children(child_obj, event_id_list, None)
+
+            event_id_list.append({"id": auth_event.id, "config": config})
 
         def append_parents(auth_event, event_id_list):
             '''
             Append to the list the parents recursively
             '''
             if auth_event.parent:
-                event_id_list.append(auth_event.parent.id)
+                event_id_list.append({"id": auth_event.parent.id, "config": None})
                 append_parents(auth_event.parent, event_id_list)
 
-        append_children(auth_event, event_id_list)
+        append_children(auth_event, event_id_list, config)
         append_parents(auth_event, event_id_list)
 
         calculate_results_task.apply_async(
             args=[
                 request.user.id,
-                event_id_list,
-                request.body.decode('utf-8')
+                event_id_list
             ]
         )
 
