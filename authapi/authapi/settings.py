@@ -62,6 +62,8 @@ ALLOWED_HOSTS = []
 
 ADMIN_AUTH_ID = 1
 
+ALLOW_ADMIN_AUTH_REGISTRATION = False
+
 ALLOW_DEREGISTER = True
 
 # If this option is true, when an user tries to register and the user is

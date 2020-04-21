@@ -818,6 +818,11 @@ class Register(View):
     def post(self, request, pk):
         e = get_object_or_404(AuthEvent, pk=pk)
 
+        if e.pk == settings.ADMIN_AUTH_ID and settings.ALLOW_ADMIN_AUTH_REGISTRATION:
+            return json_response(
+                status=400,
+                error_codename="REGISTER_IS_DISABLED")
+
         # find if there's any extra field of type
         match_census_on_registration  = []
         if e.extra_fields is not None:
