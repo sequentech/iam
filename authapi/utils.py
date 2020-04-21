@@ -428,8 +428,11 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None):
     else: # email or email-otp
         # TODO: Allow HTML messages for emails
         from api.models import ACL
-        acl = ACL.objects.filter(object_type='AuthEvent', perm='edit',
-                object_id=event_id).first()
+        acl = ACL.objects.filter(
+            object_type='AuthEvent',
+            perm__in=['edit', 'unarchive'],
+            object_id=event_id
+        ).first()
         email = EmailMessage(
             subject,
             msg,
