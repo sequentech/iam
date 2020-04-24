@@ -715,6 +715,7 @@ class Email:
 
             q = get_required_fields_on_auth(req, auth_event, q)
             user = User.objects.get(q)
+            post_verify_fields_on_auth(user, auth_event)
         except:
             LOGGER.error(\
                 "Email.authenticate error\n"\

@@ -729,6 +729,27 @@ def check_metadata(req, user):
                 return "Incorrect authentication."
     return ""
 
+def post_verify_fields_on_auth(user, auth_event):
+    '''
+    Verifies fields that cannot be verified during the user orm query on the 
+    database. Currently this is only password fields.
+    '''
+    if ae.extra_fields:
+        for field in ae.extra_fields:
+            if not field.get('required_on_authentication'):
+                continue
+            
+            # Raise exception if a required field is not provided.
+            # It will be catched by parent as an error.
+            if field.get('name') not in req:
+                raise Exception()
+
+            value = req.get(field.get('name'), '')
+            typee = field.get('type')
+            if typee == 'password':
+                user.check_password(value)
+
+
 def get_required_fields_on_auth(req, ae, q):
     '''
     Modifies a Q query adding required_on_authentication fields with the values
@@ -750,6 +771,9 @@ def get_required_fields_on_auth(req, ae, q):
                 q = q & Q(email=value)
             elif typee == 'tlf':
                 q = q & Q(userdata__tlf=value)
+            elif typee == 'password':
+                # we verify this later im post_verify_fields_on_auth
+                continue
             else:
                 q = q & Q(userdata__metadata__contains={field.get('name'): value})
 
