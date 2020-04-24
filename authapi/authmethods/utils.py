@@ -734,8 +734,8 @@ def post_verify_fields_on_auth(user, auth_event):
     Verifies fields that cannot be verified during the user orm query on the 
     database. Currently this is only password fields.
     '''
-    if ae.extra_fields:
-        for field in ae.extra_fields:
+    if auth_event.extra_fields:
+        for field in auth_event.extra_fields:
             if not field.get('required_on_authentication'):
                 continue
             
