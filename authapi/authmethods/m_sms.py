@@ -703,7 +703,7 @@ class Sms:
 
             q = get_required_fields_on_auth(req, auth_event, q)
             user = User.objects.get(q)
-            post_verify_fields_on_auth(user, auth_event)
+            post_verify_fields_on_auth(user, req, auth_event)
         except:
             LOGGER.error(\
                 "Sms.authenticate error\n"\

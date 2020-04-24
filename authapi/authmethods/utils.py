@@ -729,7 +729,7 @@ def check_metadata(req, user):
                 return "Incorrect authentication."
     return ""
 
-def post_verify_fields_on_auth(user, auth_event):
+def post_verify_fields_on_auth(user, req, auth_event):
     '''
     Verifies fields that cannot be verified during the user orm query on the 
     database. Currently this is only password fields.
