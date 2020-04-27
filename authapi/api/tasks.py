@@ -111,13 +111,13 @@ def launch_tally(auth_event):
         parent_auth_event = auth_event.parent
 
     # dump of the voter ids
-    voter_ids = User.objects\
+    valid_voters = User.objects\
         .filter(
             is_active=True,
             userdata__event=parent_auth_event
         )\
         .values('username')
-    voter_ids_list = list(voter_ids)
+    voter_ids_list = [voter['username'] for voter in valid_voters]
 
     agora_elections_request = requests.post(
         callback_url,
