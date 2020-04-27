@@ -34,7 +34,6 @@ urlpatterns = [
     url(r'^auth-event/(?P<pk>\d+)/unpublish-results/$', views.unpublish_results, name='unpublish-results'),
     url(r'^auth-event/(?P<pk>\d+)/archive/$', views.archive, name='archive'),
     url(r'^auth-event/(?P<pk>\d+)/unarchive/$', views.unarchive, name='unarchive'),
-    url(r'^auth-event/(?P<pk>\d+)/unarchive/$', views.unarchive, name='unarchive'),
     url(r'^auth-event/(?P<pk>\d+)/callback/$', views.callback, name='callback'),
     url(r'^auth-event/(?P<pk>\d+)/vote-stats/$', views.vote_stats, name='vote_stats'),
     url(r'^auth-event/(?P<pk>\d+)/activity/$', views.activity, name='activity'),
