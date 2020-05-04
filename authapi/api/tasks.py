@@ -166,7 +166,6 @@ def launch_tally(auth_event):
         action.save()
         return
 
-
     logger.info(
         "launch_tally(auth_event.id = %d): post\n" +
         "agora_elections.callback_url '%r'\n" +
@@ -272,6 +271,13 @@ def launch_virtual_tally(auth_event):
     )
     action.save()
 
+    calculate_results_task.apply_async(
+        args=[
+            None,
+            [dict(id=auth_event.pk, config=None)]
+        ]
+    )
+
 def update_tally_status(auth_event):
     '''
     Receives the status from agora-elections and updates the AuthEvent.
@@ -355,6 +361,14 @@ def update_tally_status(auth_event):
             )
         )
         action.save()
+
+        if election_state == 'tally_ok':
+            calculate_results_task.apply_async(
+            args=[
+                None,
+                [dict(id=auth_event.pk, config=None)]
+            ]
+        )
 
 @celery.task(name='tasks.process_tallies')
 def process_tallies():
@@ -515,7 +529,10 @@ def calculate_results_task(user_id, event_id_list):
             event_id_list
         )
     )
-    user = get_object_or_404(User, pk=user_id)
+    try:
+        user = User.objects.get(pk=user_id)
+    except:
+        user = None
     auth_event_id = event_id_list[0]['id']
     config = event_id_list[0]['config']
     event_id_list = event_id_list[1:]
