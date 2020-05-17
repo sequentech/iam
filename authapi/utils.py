@@ -56,7 +56,8 @@ LOGGER = getLogger('authapi.notify')
 def stack_trace_str():
   frame = inspect.currentframe()
   stack_trace = traceback.format_stack(frame)
-  return "\n".join(stack_trace[:-1])
+  return "\n".join(stack_trace[:-1]) + "\n" + traceback.format_exc()
+
 
 @unique
 class ErrorCodes(IntEnum):
