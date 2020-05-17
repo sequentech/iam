@@ -363,7 +363,7 @@ def update_tally_status(auth_event):
         action.save()
 
         if election_state == 'tally_ok':
-            auth_event_id_list = [
+            event_id_list = [
                 [dict(id=auth_event.pk, config=None)]
             ]
             def append_parents(auth_event, event_id_list):
@@ -382,7 +382,7 @@ def update_tally_status(auth_event):
             calculate_results_task.apply_async(
             args=[
                 None,
-                auth_event_id_list
+                event_id_list
             ]
         )
 
