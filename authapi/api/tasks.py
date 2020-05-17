@@ -363,10 +363,26 @@ def update_tally_status(auth_event):
         action.save()
 
         if election_state == 'tally_ok':
+            auth_event_id_list = [
+                [dict(id=auth_event.pk, config=None)]
+            ]
+            def append_parents(auth_event, event_id_list):
+                '''
+                Append to the list the parents recursively
+                '''
+                if auth_event.parent:
+                    event_id_list.append({
+                        "id": auth_event.parent.id, 
+                        "config": None
+                    })
+                    append_parents(auth_event.parent, event_id_list)
+            
+            append_parents(auth_event, event_id_list)
+            
             calculate_results_task.apply_async(
             args=[
                 None,
-                [dict(id=auth_event.pk, config=None)]
+                auth_event_id_list
             ]
         )
 
