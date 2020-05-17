@@ -277,11 +277,15 @@ CONTRACTS = dict(
       {
         'check': 'lambda',
         'lambda': lambda d: all([
-          sum([
-              sum([i['num_votes']  for i in q['answers']]),
-              q['blank_votes'],
-              q['null_votes']
-          ]) == d['num_votes']
+          (
+            sum([
+              d['num_votes'],
+              -q['blank_votes'],
+              -q['null_votes']
+            ]) * q['max']
+          ) >= sum(
+            [i['num_votes']  for i in q['answers']]
+          )
           for q in d['questions']
         ])
       },
