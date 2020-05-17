@@ -364,7 +364,7 @@ def update_tally_status(auth_event):
 
         if election_state == 'tally_ok':
             event_id_list = [
-                [dict(id=auth_event.pk, config=None)]
+                dict(id=auth_event.pk, config=None)
             ]
             def append_parents(auth_event, event_id_list):
                 '''
