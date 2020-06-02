@@ -73,10 +73,12 @@ class SmsOtp:
             ["check_whitelisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "tlf"}],
-            ["check_total_max", {"field": "tlf", "period": 3600, "max": 25}],
-            ["check_total_max", {"field": "tlf", "period": 3600*24, "max": 100}],
-            ["check_total_max", {"field": "ip", "period": 3600, "max": 25}],
-            ["check_total_max", {"field": "ip", "period": 3600*24, "max": 100}],
+            ["check_total_max", {"field": "ip", "period": 1, "max": 1}],
+            ["check_total_max", {"field": "ip", "period": 5, "max": 2}],
+            ["check_total_max", {"field": "ip", "period": 3600, "max": 10}],
+            ["check_total_max", {"field": "tlf", "period": 3600, "max": 10}],
+            ["check_total_max", {"field": "ip", "period": 3600*24, "max": 20}],
+            ["check_total_max", {"field": "tlf", "period": 3600*24, "max": 20}]
         ]
     }
     USED_TYPE_FIELDS = ['tlf']
