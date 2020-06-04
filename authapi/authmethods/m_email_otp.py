@@ -63,8 +63,10 @@ class Email:
         "resend-auth-pipeline": [
             ["check_whitelisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "ip"}],
+            ["check_total_max", {"field": "ip", "period": 1, "max": 1}],
+            ["check_total_max", {"field": "ip", "period": 5, "max": 2}],
             ["check_total_max", {"field": "ip", "period": 3600, "max": 10}],
-            ["check_total_max", {"field": "ip", "period": 3600*24, "max": 50}],
+            ["check_total_max", {"field": "ip", "period": 3600*24, "max": 20}],
         ]
     }
     USED_TYPE_FIELDS = ['email']
