@@ -442,6 +442,8 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None):
             headers = {'Reply-To': acl.user.user.email}
         )
         send_email(email)
+        m = Message(tlf=receiver, ip=ip[:15], auth_event_id=event_id)
+        m.save()
 
         # also send via sms if possible and only if there was no override (to 
         # remove infinite looping)
