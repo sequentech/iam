@@ -253,7 +253,7 @@ def check_ip_total_max(data, **kwargs):
           "len(item) '%r'\n" \
           "total_max '%r'\n" \
           "ip_addr '%r'\n" \
-          "c1.id '%r'\n"
+          "c1.id '%r'\n",
           data,
           kwargs,
           len(item),
@@ -270,7 +270,7 @@ def check_ip_total_max(data, **kwargs):
       "kwargs '%r'\n" \
       "len(item) '%r'\n" \
       "total_max '%r'\n" \
-      "ip_addr '%r'\n" \
+      "ip_addr '%r'\n",
       data,
       kwargs,
       len(item),
