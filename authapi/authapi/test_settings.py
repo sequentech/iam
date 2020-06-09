@@ -62,6 +62,8 @@ ALLOWED_HOSTS = []
 
 ADMIN_AUTH_ID = 1
 
+ALLOW_ADMIN_AUTH_REGISTRATION = False
+
 # If this option is true, when an user tries to register and the user is
 # already registered, authapi will return an error with the 'user_exists'
 # codename. Otherwise, on error, authapi will always return the same generic
