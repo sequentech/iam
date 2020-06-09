@@ -215,6 +215,14 @@ def check_ip_total_max(data, **kwargs):
     total_max = kwargs.get('max')
     period = kwargs.get('period', None)
     if data.get('whitelisted', False) == True:
+        LOGGER.debug(
+          "check_ip_total_max: whitelisted\n"\
+          "returns 'RET_PIPE_CONTINUE'\n"\
+          "data '%r'\n" \
+          "kwargs '%r'\n",
+          data,
+          kwargs
+        )
         return RET_PIPE_CONTINUE
 
     ip_addr = data['ip_addr']
@@ -230,11 +238,45 @@ def check_ip_total_max(data, **kwargs):
             auth_event_id=data['auth_event'].id)
 
     if len(item) >= total_max:
-        cl = ColorList(action=ColorList.ACTION_BLACKLIST,
-                       key=ColorList.KEY_IP, value=ip_addr[:15],
-                       auth_event_id=data['auth_event'].id)
+        cl = ColorList(
+          action=ColorList.ACTION_BLACKLIST,
+          key=ColorList.KEY_IP,
+          value=ip_addr[:15],
+          auth_event_id=data['auth_event'].id
+        )
         cl.save()
+        LOGGER.debug(
+          "check_ip_total_max: blacklisted\n"\
+          "returns 'Error Blacklisted' because len(item) >= total_max\n"\
+          "data '%r'\n" \
+          "kwargs '%r'\n" \
+          "len(item) '%r'\n" \
+          "total_max '%r'\n" \
+          "ip_addr '%r'\n" \
+          "c1.id '%r'\n"
+          data,
+          kwargs,
+          len(item),
+          total_max,
+          ip_addr[:15],
+          c1.id
+        )
         return error("Blacklisted", error_codename="blacklisted")
+    
+    LOGGER.debug(
+      "check_ip_total_max: ok\n"\
+      "returns 'RET_PIPE_CONTINUE' because len(item) < total_max\n"\
+      "data '%r'\n" \
+      "kwargs '%r'\n" \
+      "len(item) '%r'\n" \
+      "total_max '%r'\n" \
+      "ip_addr '%r'\n" \
+      data,
+      kwargs,
+      len(item),
+      total_max,
+      ip_addr[:15],
+    )
     return RET_PIPE_CONTINUE
 
 

@@ -747,6 +747,11 @@ class SmsOtp:
                 "Stack trace: \n%s",\
                 user.userdata, req.get('code').upper(), code.code, auth_event, req,\
                 stack_trace_str())
+            
+            # change created time to make it invalid next time
+            code.created=datetime.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
+            code.save()
+            
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_metadata(req, user)
