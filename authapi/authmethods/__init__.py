@@ -13,6 +13,7 @@ def auth_register(event, data):
 def auth_authenticate(event, data):
     if event == 0:
         return METHODS['user-and-password'].authenticate(event, data)
+    
     return METHODS[event.auth_method].authenticate(event, data)
 
 def auth_resend_auth_code(event, data):

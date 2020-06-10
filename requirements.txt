@@ -24,6 +24,7 @@ ptyprocess==0.5.1
 python-dateutil==2.5.3
 pytz==2016.4
 raven==5.19.0
+reportlab==3.5.34
 requests==2.22.0
 setuptools==28.8.0
 simplegeneric==0.8.1

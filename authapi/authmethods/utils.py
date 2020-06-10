@@ -17,11 +17,14 @@ import hashlib
 import json
 import re
 import os
+import copy
 import binascii
+import logging
 from base64 import decodestring
 from datetime import timedelta, datetime
 from django.conf import settings
 from django.contrib.auth.models import User, AnonymousUser
+from django.contrib.auth.signals import user_logged_in
 from django.utils import timezone
 from django.db.models import Q
 
@@ -30,9 +33,18 @@ from api.models import ACL
 from captcha.models import Captcha
 from captcha.decorators import valid_captcha
 from contracts import CheckException, JSONContractEncoder
-from utils import json_response, get_client_ip, is_valid_url, constant_time_compare
+from utils import (
+    json_response, 
+    get_client_ip, 
+    is_valid_url, 
+    constant_time_compare,
+    permission_required,
+    genhmac,
+    stack_trace_str
+)
 from pipelines.base import execute_pipeline, PipeReturnvalue
 
+LOGGER = logging.getLogger('authapi')
 
 EMAIL_RX = re.compile(
     r"(^[-!#$%&'*+/=?^_`{}|~0-9A-Z]+(\.[-!#$%&'*+/=?^_`{}|~0-9A-Z]+)*"  # dot-atom
@@ -203,6 +215,14 @@ def check_ip_total_max(data, **kwargs):
     total_max = kwargs.get('max')
     period = kwargs.get('period', None)
     if data.get('whitelisted', False) == True:
+        LOGGER.debug(
+          "check_ip_total_max: whitelisted\n"\
+          "returns 'RET_PIPE_CONTINUE'\n"\
+          "data '%r'\n" \
+          "kwargs '%r'\n",
+          data,
+          kwargs
+        )
         return RET_PIPE_CONTINUE
 
     ip_addr = data['ip_addr']
@@ -218,11 +238,45 @@ def check_ip_total_max(data, **kwargs):
             auth_event_id=data['auth_event'].id)
 
     if len(item) >= total_max:
-        cl = ColorList(action=ColorList.ACTION_BLACKLIST,
-                       key=ColorList.KEY_IP, value=ip_addr[:15],
-                       auth_event_id=data['auth_event'].id)
+        cl = ColorList(
+          action=ColorList.ACTION_BLACKLIST,
+          key=ColorList.KEY_IP,
+          value=ip_addr[:15],
+          auth_event_id=data['auth_event'].id
+        )
         cl.save()
+        LOGGER.debug(
+          "check_ip_total_max: blacklisted\n"\
+          "returns 'Error Blacklisted' because len(item) >= total_max\n"\
+          "data '%r'\n" \
+          "kwargs '%r'\n" \
+          "len(item) '%r'\n" \
+          "total_max '%r'\n" \
+          "ip_addr '%r'\n" \
+          "c1.id '%r'\n",
+          data,
+          kwargs,
+          len(item),
+          total_max,
+          ip_addr[:15],
+          c1.id
+        )
         return error("Blacklisted", error_codename="blacklisted")
+    
+    LOGGER.debug(
+      "check_ip_total_max: ok\n"\
+      "returns 'RET_PIPE_CONTINUE' because len(item) < total_max\n"\
+      "data '%r'\n" \
+      "kwargs '%r'\n" \
+      "len(item) '%r'\n" \
+      "total_max '%r'\n" \
+      "ip_addr '%r'\n",
+      data,
+      kwargs,
+      len(item),
+      total_max,
+      ip_addr[:15],
+    )
     return RET_PIPE_CONTINUE
 
 
@@ -597,6 +651,10 @@ def edit_user(user, req, ae):
                     f.write(img)
                 req[extra.get('name')] = fname
     user.save()
+
+    if ae.children_election_info is not None:
+        user.userdata.children_event_id_list = req.get('children_event_id_list')
+
     user.userdata.metadata = req
     user.userdata.save()
     return user
@@ -713,6 +771,27 @@ def check_metadata(req, user):
                 return "Incorrect authentication."
     return ""
 
+def post_verify_fields_on_auth(user, req, auth_event):
+    '''
+    Verifies fields that cannot be verified during the user orm query on the 
+    database. Currently this is only password fields.
+    '''
+    if auth_event.extra_fields:
+        for field in auth_event.extra_fields:
+            if not field.get('required_on_authentication'):
+                continue
+            
+            # Raise exception if a required field is not provided.
+            # It will be catched by parent as an error.
+            if field.get('name') not in req:
+                raise Exception()
+
+            value = req.get(field.get('name'), '')
+            typee = field.get('type')
+            if typee == 'password':
+                user.check_password(value)
+
+
 def get_required_fields_on_auth(req, ae, q):
     '''
     Modifies a Q query adding required_on_authentication fields with the values
@@ -722,6 +801,11 @@ def get_required_fields_on_auth(req, ae, q):
         for field in ae.extra_fields:
             if not field.get('required_on_authentication'):
                 continue
+            
+            # Raise exception if a required field is not provided.
+            # It will be catched by parent as an error.
+            if field.get('name') not in req:
+                raise Exception()
 
             value = req.get(field.get('name'), '')
             typee = field.get('type')
@@ -729,6 +813,9 @@ def get_required_fields_on_auth(req, ae, q):
                 q = q & Q(email=value)
             elif typee == 'tlf':
                 q = q & Q(userdata__tlf=value)
+            elif typee == 'password':
+                # we verify this later im post_verify_fields_on_auth
+                continue
             else:
                 q = q & Q(userdata__metadata__contains={field.get('name'): value})
 
@@ -747,6 +834,177 @@ def give_perms(u, ae):
         elif obj_id == 'AuthEventId':
             obj_id = ae.pk
         for perm in perms.get('perms'):
-            acl, created = ACL.objects.get_or_create(user=u.userdata, object_type=obj, perm=perm, object_id=obj_id)
+            acl, created = ACL.objects.get_or_create(
+                user=u.userdata, 
+                object_type=obj, 
+                perm=perm, 
+                object_id=obj_id
+            )
             acl.save()
     return ''
+
+def verify_children_election_info(
+    auth_event,
+    user,
+    perms,
+    children_election_info=None
+):
+    '''
+    Verify that the requesting user has permissions to edit all
+    the referred children events (and that they do, in fact, exist)
+    and the correct configuration.
+    '''
+    from api.models import AuthEvent
+
+    # Cannot have nested parents or no children_election_info
+    if children_election_info is None:
+        children_election_info = auth_event.children_election_info
+
+    # verify the children do exist and the requesting user have the 
+    # appropiate permissions and configuration
+    if children_election_info is not None:
+        for event_id in children_election_info['natural_order']:
+            children_event = AuthEvent.objects.get(
+                Q(pk=event_id) &
+                (
+                    Q(parent=auth_event) | Q(parent__parent=auth_event)
+                )
+            )
+            assert children_event.auth_method == auth_event.auth_method
+            permission_required(user, 'AuthEvent', perms, event_id)
+
+
+def verify_valid_children_elections(auth_event, census_element):
+    '''
+    Verify that the requesting census element is referring as children
+    elections only to elections who indeed are children of the parent
+    '''
+    from api.models import children_event_id_list_validator
+    assert 'children_event_id_list' in census_element
+    children_event_id_list_validator(census_element['children_event_id_list'])
+
+    for event_id in census_element['children_event_id_list']:
+        assert event_id in auth_event.children_election_info['natural_order']
+
+def return_auth_data(logger_name, req_json, request, user, auth_event=None):
+    '''
+    used at the end of the authentication process to return the required
+    authentication data, which can be:
+    - redirect to url
+    - auth-token
+    - username
+    - multiple auth-tokens and the list of available children authevents in
+      which the user can participate, including info about those where he 
+      already registered a successful authentication event.
+    '''
+    from api.models import AuthEvent
+    # register the django-way the latest login of this user
+    user_logged_in.send(sender=user.__class__, request=request, user=user)
+    user.save()
+
+    # this is the data that will be returned
+    data = {'status': 'ok'}
+
+    # return the username, ensuring it's a string
+    username = user.username
+    if isinstance(username, bytes):
+        username = user.username.decode('utf-8')
+    data['username'] = username
+
+    # generate the user auth-token
+    data['auth-token'] = genhmac(settings.SHARED_SECRET, user.username)
+    if auth_event is None:
+        auth_event = user.userdata.event
+
+    if auth_event.children_election_info is None:
+        msg = ':'.join((user.username, 'AuthEvent', str(auth_event.id), 'vote'))
+        data['vote-permission-token'] = genhmac(settings.SHARED_SECRET, msg)
+    else:
+        def get_child_info(event_id):
+            auth_event = AuthEvent.objects.get(pk=event_id)
+
+            num_successful_logins = user\
+                .userdata\
+                .successful_logins\
+                .filter(is_active=True, auth_event=auth_event)\
+                .count()
+
+            if (auth_event.num_successful_logins_allowed == 0 or\
+                num_successful_logins < auth_event.num_successful_logins_allowed) and\
+                event_id in user.userdata.children_event_id_list:
+
+                msg = ':'.join((user.username, 'AuthEvent', str(event_id), 'vote'))
+                auth_token = genhmac(settings.SHARED_SECRET, msg)
+            else:
+                auth_token = None
+            
+            return {
+                'auth-event-id': event_id,
+                'vote-permission-token': auth_token,
+                'num-successful-logins-allowed': auth_event.num_successful_logins_allowed,
+                'num-successful-logins': num_successful_logins
+            }
+
+        data['vote-children-info'] = [
+            get_child_info(child_event_id)
+            for child_event_id in auth_event.children_election_info["natural_order"]
+        ]
+             
+
+    # add redirection
+    auth_action = auth_event.auth_method_config['config']['authentication-action']
+    if auth_action['mode'] == 'go-to-url':
+        data['redirect-to-url'] = auth_action['mode-config']['url']
+
+    LOGGER.debug(\
+        "%s.authenticate success\n"\
+        "returns '%r'\n"\
+        "authevent '%r'\n"\
+        "request '%r'\n"\
+        "Stack trace: \n%s",\
+        logger_name, data, auth_event, req_json, stack_trace_str())
+    return data
+
+def verify_num_successful_logins(auth_event, logger_name, user, req_json):
+    '''
+    During authentication, verify that the user has not voted more
+    times than allowed. Only verified for non-parent elections, as
+    it is verified in return_auth_data() for parent elections.
+    '''
+    if auth_event.children_election_info is None:
+        successful_logins_count = user.userdata.successful_logins\
+            .filter(is_active=True, auth_event=auth_event).count()
+        if (auth_event.num_successful_logins_allowed > 0 and
+            successful_logins_count >= auth_event.num_successful_logins_allowed):
+            LOGGER.error(
+                "%s.authenticate error\n"\
+                "Maximum number of revotes already reached for user '%r'\n"\
+                "revotes for user '%r'\n"\
+                "maximum allowed '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",
+                logger_name,
+                user.userdata,
+                successful_logins_count,
+                auth_event.num_successful_logins_allowed,
+                auth_event, req_json, stack_trace_str()
+            )
+            return False
+    return True
+
+def get_base_auth_query(auth_event):
+    '''
+    returns the base authenticatio query for the given auth_event
+    '''
+    q = Q(
+        userdata__event=auth_event,
+        is_active=True
+    )
+    
+    if auth_event.children_election_info is not None:
+        q = q | Q(
+            userdata__event_id__in=auth_event.children_election_info['natural_order'],
+            is_active=True
+        )
+    return q

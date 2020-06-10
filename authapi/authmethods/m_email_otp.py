@@ -63,8 +63,10 @@ class Email:
         "resend-auth-pipeline": [
             ["check_whitelisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "ip"}],
+            ["check_total_max", {"field": "ip", "period": 1, "max": 1}],
+            ["check_total_max", {"field": "ip", "period": 5, "max": 2}],
             ["check_total_max", {"field": "ip", "period": 3600, "max": 10}],
-            ["check_total_max", {"field": "ip", "period": 3600*24, "max": 50}],
+            ["check_total_max", {"field": "ip", "period": 3600*24, "max": 20}],
         ]
     }
     USED_TYPE_FIELDS = ['email']
@@ -271,24 +273,63 @@ class Email:
                 e, config, stack_trace_str())
             return json.dumps(e.data, cls=JsonTypeEncoder)
 
-    def census(self, ae, request):
+    def census(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))
         validation = req.get('field-validation', 'enabled') == 'enabled'
 
         msg = ''
         current_emails = []
-        for r in req.get('census'):
-            email = r.get('email')
+        
+        # cannot add voters to an election with invalid children election info
+        if auth_event.children_election_info is not None:
+            try:
+                verify_children_election_info(auth_event, request.user, ['edit', 'census-add'])
+            except:
+                LOGGER.error(
+                    "EmailOtp.census error in verify_children_election_info"\
+                    "error '%r'\n"\
+                    "request '%r'\n"\
+                    "validation '%r'\n"\
+                    "authevent '%r'\n"\
+                    "Stack trace: \n%s",\
+                    msg, req, validation, auth_event, stack_trace_str())
+                return self.error("Incorrect data", error_codename="invalid_data")
+
+        for census_element in req.get('census'):
+            email = census_element.get('email')
+            
             if isinstance(email, str):
                 email = email.strip()
                 email = email.replace(" ", "")
+            
             msg += check_field_type(self.email_definition, email)
+            
             if validation:
                 msg += check_field_type(self.email_definition, email)
                 msg += check_field_value(self.email_definition, email)
-            msg += check_fields_in_request(r, ae, 'census', validation=validation)
+
+            msg += check_fields_in_request(
+                census_element, 
+                auth_event, 
+                'census',
+                validation=validation)
+
+            if auth_event.children_election_info is not None:
+                try:
+                    verify_valid_children_elections(auth_event, census_element)
+                except:
+                    LOGGER.error(
+                        "EmailOtp.census error in verify_valid_children_elections"\
+                        "error '%r'\n"\
+                        "request '%r'\n"\
+                        "validation '%r'\n"\
+                        "authevent '%r'\n"\
+                        "Stack trace: \n%s",\
+                        msg, req, validation, auth_event, stack_trace_str())
+                    return self.error("Incorrect data", error_codename="invalid_data")
+
             if validation:
-                msg += exist_user(r, ae)
+                msg += exist_user(census_element, auth_event)
                 if email in current_emails:
                     msg += "Email %s repeat in this census." % email
                 current_emails.append(email)
@@ -301,16 +342,16 @@ class Email:
                         "validation '%r'\n"\
                         "authevent '%r'\n"\
                         "Stack trace: \n%s",\
-                        msg, req, validation, ae, stack_trace_str())
+                        msg, req, validation, auth_event, stack_trace_str())
                     msg = ''
                     continue
-                exist = exist_user(r, ae)
+                exist = exist_user(census_element, auth_event)
                 if exist and not exist.count('None'):
                     continue
                 # By default we creates the user as active we don't check
                 # the pipeline
-                u = create_user(r, ae, True, request.user)
-                give_perms(u, ae)
+                u = create_user(census_element, auth_event, True, request.user)
+                give_perms(u, auth_event)
         if msg and validation:
             LOGGER.error(\
                 "EmailOtp.census error\n"\
@@ -319,15 +360,15 @@ class Email:
                 "validation '%r'\n"\
                 "authevent '%r'\n"\
                 "Stack trace: \n%s",\
-                msg, req, validation, ae, stack_trace_str())
+                msg, req, validation, auth_event, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         if validation:
-            for r in req.get('census'):
+            for census_element in req.get('census'):
                 # By default we creates the user as active we don't check
                 # the pipeline
-                u = create_user(r, ae, True, request.user)
-                give_perms(u, ae)
+                u = create_user(census_element, auth_event, True, request.user)
+                give_perms(u, auth_event)
         
         ret = {'status': 'ok'}
         LOGGER.debug(\
@@ -337,7 +378,7 @@ class Email:
             "authevent '%r'\n"\
             "returns '%r'\n"\
             "Stack trace: \n%s",\
-            req, validation, ae, ret, stack_trace_str())
+            req, validation, auth_event, ret, stack_trace_str())
         return ret
 
     def error(self, msg, error_codename):
@@ -621,20 +662,32 @@ class Email:
             d, stack_trace_str())
         return d
 
-    def authenticate(self, ae, request):
+    def authenticate(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))
         msg = ''
         email = req.get('email')
+
         if isinstance(email, str):
             email = email.strip()
             email = email.replace(" ", "")
 
-        email_def = self.email_definition if not ae.hide_default_login_lookup_field else self.email_opt_definition
+        if auth_event.parent is not None:
+            msg += 'you can only authenticate to parent elections'
+            LOGGER.error(\
+                "EmailOtp.authenticate error\n"\
+                "error '%r'"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, auth_event, req, stack_trace_str())
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+
+        email_def = self.email_definition if not auth_event.hide_default_login_lookup_field else self.email_opt_definition
         msg += check_field_type(email_def, email, 'authenticate')
         msg += check_field_value(email_def, email, 'authenticate')
         msg += check_field_type(self.code_definition, req.get('code'), 'authenticate')
         msg += check_field_value(self.code_definition, req.get('code'), 'authenticate')
-        msg += check_fields_in_request(req, ae, 'authenticate')
+        msg += check_fields_in_request(req, auth_event, 'authenticate')
         if msg:
             LOGGER.error(\
                 "EmailOtp.authenticate error\n"\
@@ -642,10 +695,10 @@ class Email:
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                msg, ae, req, stack_trace_str())
+                msg, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        msg = check_pipeline(request, ae, 'authenticate')
+        msg = check_pipeline(request, auth_event, 'authenticate')
         if msg:
             LOGGER.error(\
                 "EmailOtp.authenticate error\n"\
@@ -653,14 +706,14 @@ class Email:
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                msg, ae, req, stack_trace_str())
+                msg, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         try:
-            q = Q(userdata__event=ae, is_active=True)
+            q = get_base_auth_query(auth_event)
             if 'email' in req:
                 q = q & Q(email=email)
-            elif not ae.hide_default_login_lookup_field:
+            elif not auth_event.hide_default_login_lookup_field:
                 LOGGER.error(\
                     "EmailOtp.authenticate error\n"\
                     "ae.hide_default_login_lookup_field is False and email not given\n"\
@@ -668,11 +721,12 @@ class Email:
                     "authevent '%r'\n"\
                     "request '%r'\n"\
                     "Stack trace: \n%s",\
-                    msg, ae, req, stack_trace_str())
+                    msg, auth_event, req, stack_trace_str())
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
-            q = get_required_fields_on_auth(req, ae, q)
-            u = User.objects.get(q)
+            q = get_required_fields_on_auth(req, auth_event, q)
+            user = User.objects.get(q)
+            post_verify_fields_on_auth(user, req, auth_event)
         except:
             LOGGER.error(\
                 "EmailOtp.authenticate error\n"\
@@ -681,30 +735,18 @@ class Email:
                 "is_active True\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                email, ae, req, stack_trace_str())
+                email, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        successful_logins_count = u.userdata.successful_logins.filter(is_active=True).count()
-        if (ae.num_successful_logins_allowed > 0 and
-            successful_logins_count >= ae.num_successful_logins_allowed):
-            LOGGER.error(\
-                "EmailOtp.authenticate error\n"\
-                "Maximum number of revotes already reached for user '%r'\n"\
-                "revotes for user '%r'\n"\
-                "maximum allowed '%r'\n"\
-                "authevent '%r'\n"\
-                "request '%r'\n"\
-                "Stack trace: \n%s",\
-                u.userdata,\
-                successful_logins_count,\
-                ae.num_successful_logins_allowed,\
-                ae, req, stack_trace_str())
+        if not verify_num_successful_logins(auth_event, 'EmailOtp', user, req):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         code = Code.objects.filter(
-            user=u.userdata,
+            user=user.userdata,
             created__gt=datetime.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
-            ).order_by('-created').first()
+            )\
+            .order_by('-created')\
+            .first()
         if not code:       
             LOGGER.error(\
                 "EmailOtp.authenticate error\n"\
@@ -713,9 +755,9 @@ class Email:
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                u.userdata,\
+                user.userdata,\
                 settings.SMS_OTP_EXPIRE_SECONDS,\
-                ae, req, stack_trace_str())
+                auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
           
         if not constant_time_compare(req.get('code').upper(), code.code):  
@@ -727,53 +769,41 @@ class Email:
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                u.userdata, req.get('code').upper(), code.code, ae, req,\
+                user.userdata, req.get('code').upper(), code.code, auth_event, req,\
                 stack_trace_str())
+            
+            # change created time to make it invalid next time
+            code.created=datetime.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
+            code.save()
+
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        user_logged_in.send(sender=u.__class__, request=request, user=u)
-        u.save()
+        return return_auth_data('Email', req, request, user)
 
-        data = {'status': 'ok'}
-        data['username'] = u.username
-        data['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
-
-        # add redirection
-        auth_action = ae.auth_method_config['config']['authentication-action']
-        if auth_action['mode'] == 'go-to-url':
-            data['redirect-to-url'] = auth_action['mode-config']['url']
-
-        LOGGER.debug(\
-            "EmailOtp.authenticate success\n"\
-            "returns '%r'\n"\
-            "authevent '%r'\n"\
-            "request '%r'\n"\
-            "Stack trace: \n%s",\
-            data, ae, req, stack_trace_str())
-        return data
-
-    def resend_auth_code(self, ae, request):
+    def resend_auth_code(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))
 
         msg = ''
-        if 'email' in req:
-            email = req.get('email')
-            if isinstance(email, str):
-                email = email.strip()
-                email = email.replace(" ", "")
-            msg += check_field_type(self.email_definition, email)
-            msg += check_field_value(self.email_definition, email)
-            if msg:
-                LOGGER.error(\
-                    "EmailOtp.resend_auth_code error\n"\
-                    "error '%r'\n"\
-                    "authevent '%r'\n"\
-                    "request '%r'\n"\
-                    "Stack trace: \n%s",\
-                    msg, ae, req, stack_trace_str())
-                return self.error("Incorrect data", error_codename="invalid_credentials")
+        email = req.get('email')
+        if isinstance(email, str):
+            email = email.strip()
+            email = email.replace(" ", "")
+
+        if auth_event.parent is not None:
+            msg += 'you can only authenticate to parent elections'
+            LOGGER.error(\
+                "EmailOtp.authenticate error\n"\
+                "error '%r'"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, auth_event, req, stack_trace_str())
+            return self.error("Incorrect data", error_codename="invalid_credentials")
         
-        msg += check_fields_in_request(req, ae, 'resend-auth')
+        email_def = self.email_definition if not auth_event.hide_default_login_lookup_field else self.email_opt_definition
+        msg += check_field_type(email_def, email)
+        msg += check_field_value(email_def, email)
+        msg += check_fields_in_request(req, auth_event, 'resend-auth')
         if msg:
             LOGGER.error(\
                 "EmailOtp.resend_auth_code error\n"\
@@ -781,15 +811,15 @@ class Email:
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                msg, ae, req, stack_trace_str())
+                msg, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         try:
-            q = Q(userdata__event=ae, is_active=True)
+            q = get_base_auth_query(auth_event)
             if 'email' in req:
-                if not ae.hide_default_login_lookup_field:
+                if not auth_event.hide_default_login_lookup_field:
                     q = q & Q(email=email)
-            elif not ae.hide_default_login_lookup_field:
+            elif not auth_event.hide_default_login_lookup_field:
                 LOGGER.error(\
                     "EmailOtp.resend_auth_code error\n"\
                     "ae.hide_default_login_lookup_field is False and email not given\n"\
@@ -797,25 +827,25 @@ class Email:
                     "authevent '%r'\n"\
                     "request '%r'\n"\
                     "Stack trace: \n%s",\
-                    msg, ae, req, stack_trace_str())
+                    msg, auth_event, req, stack_trace_str())
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
-            q = get_required_fields_on_auth(req, ae, q)
+            q = get_required_fields_on_auth(req, auth_event, q)
             u = User.objects.get(q)
+            post_verify_fields_on_auth(u, req, auth_event)
         except:
             LOGGER.error(\
                 "EmailOtp.resend_auth_code error\n"\
                 "user not found with these characteristics: email '%r'\n"\
                 "authevent '%r'\n"\
-                "is_active True"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                email, ae, req, stack_trace_str())
+                email, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_pipeline(
           request,
-          ae,
+          auth_event,
           'resend-auth-pipeline',
           Email.PIPELINES['resend-auth-pipeline'])
 
@@ -826,7 +856,7 @@ class Email:
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                msg, ae, req, stack_trace_str())
+                msg, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         send_codes.apply_async(args=[[u.id,], get_client_ip(request),'email'])
@@ -837,7 +867,7 @@ class Email:
             "authevent '%r'\n"\
             "request '%r'\n"\
             "Stack trace: \n%s",\
-            u.id, get_client_ip(request), ae, req, stack_trace_str())
+            u.id, get_client_ip(request), auth_event, req, stack_trace_str())
         return {'status': 'ok', 'user': u}
         
 

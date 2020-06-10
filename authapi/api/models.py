@@ -14,8 +14,10 @@
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
+import itertools
 from django.db import models
 from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 
 from django.contrib.postgres import fields
@@ -28,6 +30,9 @@ from django.conf import settings
 from utils import genhmac
 from django.utils import timezone
 
+from contracts.base import check_contract
+from contracts import CheckException
+
 CENSUS = (
     ('close', 'Close census'),
     ('open', 'Open census'),
@@ -38,6 +43,212 @@ AE_STATUSES = (
     ('started', 'started'),
     ('stopped', 'stopped'),
 )
+
+AE_TALLY_STATUSES = (
+    ('notstarted', 'notstarted'),
+    ('pending', 'pending'),
+    ('started', 'started'),
+    ('success', 'success'),
+)
+
+CHILDREN_EVENT_ID_LIST_CONTRACT = [
+    {
+        'check': 'isinstance',
+        'type': list
+    },
+    {
+        'check': "iterate-list",
+        'check-list': [
+            {
+                'check': 'isinstance',
+                'type': int
+            },
+        ]
+    },
+    {
+        'check': 'lambda',
+        'lambda': lambda d: len(set(d)) == len(d) and len(d) > 0
+    }
+]
+
+CHILDREN_ELECTION_INFO_CONTRACT = [
+    {
+        'check': 'isinstance',
+        'type': dict
+    },
+    {
+        'check': 'dict-keys-exist',
+        'keys': ['natural_order', 'presentation']
+    },
+    {
+        'check': 'index-check-list',
+        'index': 'natural_order',
+        'check-list': [
+            {
+                'check': 'isinstance',
+                'type': list
+            },
+            {
+                'check': 'length',
+                'range': [1, 200]
+            },
+            {
+                'check': 'lambda',
+                'lambda': lambda d: len(set(d)) == len(d)
+            }
+        ]
+    },
+    {
+        'check': 'index-check-list',
+        'index': 'presentation',
+        'check-list': [
+            {
+                'check': 'isinstance',
+                'type': dict
+            },
+            {
+                'check': 'dict-keys-exact',
+                'keys': ['categories']
+            },
+            {
+                'check': 'index-check-list',
+                'index': 'categories',
+                'check-list': [
+                    {
+                        'check': 'isinstance',
+                        'type': list
+                    },
+                    {
+                        'check': "iterate-list",
+                        'check-list': [
+                            {
+                                'check': 'isinstance',
+                                'type': dict
+                            },
+                            {
+                                'check': 'dict-keys-exact',
+                                'keys': ['id', 'title', 'events']
+                            },
+                            {
+                                'check': 'index-check-list',
+                                'index': 'id',
+                                'check-list': [
+                                    {
+                                        'check': 'isinstance',
+                                        'type': int
+                                    },
+                                    {
+                                        'check': 'lambda',
+                                        'lambda': lambda d: d >= 1
+                                    }
+                                ]
+                            },
+                            {
+                                'check': 'index-check-list',
+                                'index': 'title',
+                                'check-list': [
+                                    {
+                                        'check': 'isinstance',
+                                        'type': str
+                                    },
+                                    {
+                                        'check': 'length',
+                                        'range': [1, 254]
+                                    }
+                                ]
+                            },
+                            {
+                                'check': 'index-check-list',
+                                'index': 'events',
+                                'check-list': [
+                                    {
+                                        'check': 'isinstance',
+                                        'type': list
+                                    },
+                                    {
+                                        'check': "iterate-list",
+                                        'check-list': [
+                                            {
+                                                'check': 'dict-keys-exact',
+                                                'keys': ['event_id', 'title']
+                                            },
+                                            {
+                                                'check': 'index-check-list',
+                                                'index': 'event_id',
+                                                'check-list': [
+                                                    {
+                                                        'check': 'isinstance',
+                                                        'type': int
+                                                    },
+                                                    {
+                                                        'check': 'lambda',
+                                                        'lambda': lambda d: d >= 1
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                'check': 'index-check-list',
+                                                'index': 'title',
+                                                'check-list': [
+                                                    {
+                                                        'check': 'isinstance',
+                                                        'type': str
+                                                    },
+                                                    {
+                                                        'check': 'length',
+                                                        'range': [1, 254]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        'check': 'lambda',
+        'lambda': lambda d: set(d['natural_order']) == set([
+            event['event_id']
+                for category in d['presentation']['categories']
+                    for event in category['events']
+        ])
+    },
+    {
+        'check': 'lambda',
+        'lambda': lambda d: len(set([
+            event['event_id']
+                for category in d['presentation']['categories']
+                    for event in category['events']
+        ])) == len([
+            event['event_id']
+                for category in d['presentation']['categories']
+                    for event in category['events']
+        ])
+    }
+]
+
+def children_election_info_validator(value):
+    if value == None:
+        return
+    else:
+        try:
+            check_contract(CHILDREN_ELECTION_INFO_CONTRACT, value)
+        except CheckException as e:
+            raise ValidationError(str(e))
+
+def children_event_id_list_validator(value):
+    if value == None:
+        return
+    else:
+        try:
+            check_contract(CHILDREN_EVENT_ID_LIST_CONTRACT, value)
+        except CheckException as e:
+            raise ValidationError(str(e))
 
 
 class AuthEvent(models.Model):
@@ -53,11 +264,63 @@ class AuthEvent(models.Model):
     auth_method_config = JSONField()
     extra_fields = JSONField(blank=True, null=True)
     status = models.CharField(max_length=15, choices=AE_STATUSES, default="notstarted")
+    
+    # used by authapi_celery to know what tallies to launch, and to serialize
+    # those launches one by one. set/get with (s|g)et_tally_status api calls
+    tally_status = models.CharField(
+        max_length=15, 
+        choices=AE_TALLY_STATUSES, 
+        default="notstarted"
+    )
+    
     created = models.DateTimeField(auto_now_add=True)
     admin_fields = JSONField(blank=True, null=True)
     has_ballot_boxes = models.BooleanField(default=True)
     allow_public_census_query = models.BooleanField(default=True)
+
+    # allows to hide default login lookup field during the authentication
+    # step. For example, in email authentication it would not show the
+    # email field.
+    #
+    # It only makes sense to use when another required_on_authentication
+    # extra_field exists that can be used to find the user to authenticate.
     hide_default_login_lookup_field = models.BooleanField(default=False)
+
+    # Contains the information related on how to show or act related to
+    # the children elections. Example:
+    # {
+    #     "natural_order": [101,102,103],
+    #     "presentation": {
+    #         "categories": [
+    #             {
+    #                 "id": 1,
+    #                 "title": "Executive Board",
+    #                 "events": [
+    #                     {
+    #                         "event_id": 101,
+    #                         "title": "Pre/Vice"
+    #                     },
+    #                     {
+    #                         "event_id": 102,
+    #                         "title": "Vocales"
+    #                     }
+    #                 ]
+    #             }
+    #         ]
+    #     }
+    # }
+    children_election_info = JSONField(
+        blank=True, 
+        null=True, 
+        validators=[children_election_info_validator])
+
+    # allow for hierarchy of elections
+    parent = models.ForeignKey(
+        'self', 
+        models.CASCADE, 
+        related_name="children", 
+        null=True
+    )
 
     # 0 means any number of logins is allowed
     num_successful_logins_allowed = models.IntegerField(
@@ -90,6 +353,7 @@ class AuthEvent(models.Model):
             'census': self.census,
             'users': self.len_census(),
             'has_ballot_boxes': self.has_ballot_boxes,
+            'tally_status': self.tally_status,
             'allow_public_census_query': self.allow_public_census_query,
             'created': (self.created.isoformat()
                         if hasattr(self.created, 'isoformat')
@@ -97,6 +361,8 @@ class AuthEvent(models.Model):
             'based_in': self.based_in,
             'num_successful_logins_allowed': self.num_successful_logins_allowed,
             'hide_default_login_lookup_field': self.hide_default_login_lookup_field,
+            'parent_id': self.parent.id if self.parent is not None else None,
+            'children_election_info': self.children_election_info,
             'auth_method_config': {
                'config': {
                  'allow_user_resend': self.check_allow_user_resend()
@@ -133,6 +399,8 @@ class AuthEvent(models.Model):
                     self.auth_method: Code.objects.filter(auth_event_id=self.id).count()
                 },
                 'admin_fields': self.admin_fields,
+                'total_votes': self.get_num_votes(),
+                'children_tally_status': self.children_tally_status()
             })
 
         return d
@@ -148,10 +416,58 @@ class AuthEvent(models.Model):
         '''
         returns a query with all the census of this event.
         '''
+        sub_query = Q(object_id=self.id)
+        if self.children_election_info:
+            children_election_ids = self.children_election_info['natural_order']
+            if self.parent is None:
+                sub_query |= Q(
+                    object_id__in=children_election_ids
+                )
+        elif self.parent_id:
+            sub_query |= Q(
+                    object_id=self.parent_id,
+                    user__children_event_id_list__contains=self.id
+                )
+
         return ACL.objects.filter(
-            object_type='AuthEvent',
-            perm='vote',
-            object_id=self.id)
+            Q(
+                object_type='AuthEvent',
+                perm='vote',
+                object_id__isnull=False
+            ) & sub_query
+        )
+
+    def get_num_votes(self):
+        '''
+        Returns the number of votes in this election and in
+        children elections (if any).
+        '''
+        if self.children_election_info:
+            children_election_ids = self.children_election_info['natural_order']
+        else:
+            children_election_ids = []
+
+        return SuccessfulLogin.objects\
+            .filter(
+                Q(auth_event_id=self.pk) |
+                Q(auth_event__parent_id=self.pk) |
+                Q(auth_event__parent_id__in=children_election_ids)
+            )\
+            .order_by('user_id', '-created')\
+            .distinct('user_id')\
+            .count()
+    
+    def children_tally_status(self):
+        '''
+        Returns the tally status of children elections
+        '''
+        return list(
+            AuthEvent.objects\
+                .filter(
+                    Q(parent_id=self.pk)
+                )\
+                .values('tally_status', 'id')
+        )
 
     def get_owners(self):
         '''
@@ -204,6 +520,12 @@ class UserData(models.Model):
     status = models.CharField(max_length=255, choices=STATUSES, default="act", db_index=True)
     draft_election = fields.JSONField(default=dict, blank=True, null=True, db_index=False)
 
+    # Stablishes in which children elections can this user vote
+    children_event_id_list = JSONField(
+        blank=True, 
+        null=True, 
+        validators=[children_event_id_list_validator])
+
     def get_perms(self, obj, permission, object_id=0):
         q = Q(object_type=obj, perm=permission)
         q2 = Q(object_id=object_id)
@@ -250,6 +572,27 @@ class UserData(models.Model):
                 metadata = self.metadata
             d.update(metadata)
         return d
+
+    def serialize_children_voted_elections(self, auth_event):
+        if auth_event.children_election_info:
+            return list(set([
+                successful_login.auth_event.pk
+                for successful_login in self.successful_logins.filter(
+                    Q(is_active=True) & 
+                    (
+                        Q(auth_event__parent_id=auth_event.pk) |
+                        Q(auth_event__parent__parent_id=auth_event.pk)
+                    )
+                )
+            ]))
+        else:
+            return list(set([
+                successful_login.auth_event.pk
+                for successful_login in self.successful_logins.filter(
+                    is_active=True, 
+                    auth_event_id=auth_event.pk
+                )
+            ]))
 
     def serialize_data(self):
         d = self.serialize()
@@ -325,9 +668,9 @@ class Action(models.Model):
     def serialize(self):
         d = {
             'id': self.id,
-            'executer_id': self.executer.id,
-            'executer_username': self.executer.username,
-            'executer_email': self.executer.email,
+            'executer_id': self.executer.id if self.executer is not None else None,
+            'executer_username': self.executer.username  if self.executer is not None else None,
+            'executer_email': self.executer.email  if self.executer is not None else None,
             'receiver_id': self.receiver.id if self.receiver else None,
             'receiver_username': (
                 self.receiver.username if self.receiver else None
@@ -390,11 +733,18 @@ class SuccessfulLogin(models.Model):
     '''
     user = models.ForeignKey(UserData, models.CASCADE, related_name="successful_logins")
     created = models.DateTimeField(default=timezone.now)
+
     # when counting the number of successful logins, only active ones count
     is_active = models.BooleanField(default=True)
+    auth_event = models.ForeignKey(
+        AuthEvent, 
+        models.CASCADE, 
+        related_name="successful_logins", 
+        null=True,
+        default=None)
 
     def __str__(self):
-        return "%d: %s - %s" % (self.id, self.user.user.username, str(self.created))
+        return "%d: %s - %s" % (self.id, self.user.user.username, str(self.created),)
 
 class BallotBox(models.Model):
     '''

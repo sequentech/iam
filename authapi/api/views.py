@@ -22,6 +22,8 @@ from datetime import datetime
 from django import forms
 from django.conf import settings
 from django.http import Http404
+from django.db.models import Q, IntegerField
+from django.db.models.functions import TruncHour, Cast
 from django.contrib.auth.models import User
 from django.views.generic import View
 from django.shortcuts import get_object_or_404
@@ -69,10 +71,17 @@ from .models import (
     User,
     UserData,
     BallotBox,
-    TallySheet
+    TallySheet,
+    children_election_info_validator
 )
-from .tasks import census_send_auth_task
-from django.db.models import Q
+from .tasks import (
+    census_send_auth_task,
+    update_ballot_boxes_config,
+    publish_results_task,
+    unpublish_results_task,
+    allow_tally_task,
+    calculate_results_task
+)
 from captcha.views import generate_captcha
 from utils import send_codes, get_client_ip, parse_json_request
 
@@ -268,11 +277,15 @@ CONTRACTS = dict(
       {
         'check': 'lambda',
         'lambda': lambda d: all([
-          sum([
-              sum([i['num_votes']  for i in q['answers']]),
-              q['blank_votes'],
-              q['null_votes']
-          ]) == d['num_votes']
+          (
+            sum([
+              d['num_votes'],
+              -q['blank_votes'],
+              -q['null_votes']
+            ]) * q['max']
+          ) >= sum(
+            [i['num_votes']  for i in q['answers']]
+          )
           for q in d['questions']
         ])
       },
@@ -408,13 +421,13 @@ class Census(View):
 
     def get(self, request, pk):
         permission_required(request.user, 'AuthEvent', ['edit', 'view-census'], pk)
-        e = get_object_or_404(AuthEvent, pk=pk)
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
 
         filter_str = request.GET.get('filter', None)
-        query = e.get_census_query()
+        query = auth_event.get_census_query()
 
         if filter_str is not None:
-            if len(e.extra_fields):
+            if len(auth_event.extra_fields):
                 filter_str = "%" + filter_str + "%"
                 raw_sql = '''
                              SELECT "api_acl"."id", "api_acl"."user_id", "api_acl"."perm",
@@ -435,7 +448,7 @@ class Census(View):
                                 OR UPPER("auth_user"."email"::text) LIKE UPPER(%s)
                                 OR UPPER("api_userdata"."tlf"::text) LIKE UPPER(%s)'''
                 params_array = [pk, filter_str, filter_str, filter_str]
-                for field in e.extra_fields:
+                for field in auth_event.extra_fields:
                     raw_sql += '''
                                 OR UPPER(api_userdata.metadata::jsonb->>%s) LIKE UPPER(%s)'''
                     params_array += [field['name'], filter_str]
@@ -446,9 +459,11 @@ class Census(View):
                 query = query.filter(id__in=id_list)
 
             else:
-                q = (Q(user__user__username__icontains=filter_str) |
-                  Q(user__user__email__icontains=filter_str) |
-                  Q(user__tlf__icontains=filter_str))
+                q = (
+                    Q(user__user__username__icontains=filter_str) |
+                    Q(user__user__email__icontains=filter_str) |
+                    Q(user__tlf__icontains=filter_str)
+                )
                 query = query.filter(q)
 
         has_voted_str = request.GET.get('has_voted__equals', None)
@@ -479,7 +494,8 @@ class Census(View):
                 order_by=[
                     'user__user__id',
                     'user__user__is_active',
-                    'user__user__date_joined']
+                    'user__user__date_joined'
+                ]
             ),
             prefix='census__',
             contraints_policy='ignore_invalid')
@@ -490,7 +506,8 @@ class Census(View):
             "username": acl.user.user.username,
             "active": acl.user.user.is_active,
             "date_joined": acl.user.user.date_joined.isoformat(),
-            "metadata": acl.user.serialize_data()
+            "metadata": acl.user.serialize_data(),
+            "voted_children_elections": acl.user.serialize_children_voted_elections(auth_event)
           }
 
         acls = paginate(
@@ -529,7 +546,7 @@ class Authenticate(View):
                 executer=user,
                 receiver=user,
                 action_name='user:authenticate',
-                event=e,
+                event=user.userdata.event,
                 metadata=dict())
             action.save()
 
@@ -606,15 +623,32 @@ class SuccessfulLoginView(View):
 
         valid_data = ["AuthEvent", pk, "RegisterSuccessfulLogin"]
 
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+
         # check everything is ok
         if (not user or
             error is not None or
-            str(user.userdata.event.id) != pk or
+            (
+                (
+                    auth_event.parent is None and 
+                    str(user.userdata.event.id) != pk
+                ) or (
+                    auth_event.parent is not None and 
+                    (
+                        int(pk) not in user.userdata.event.children_election_info.get('natural_order', []) or
+                        auth_event.parent_id != user.userdata.event.id
+                    )
+                )
+            ) or
             type(khmac_obj) != HMACToken or
             khmac_obj.get_other_values() != valid_data):
             return json_response({}, status=403)
 
-        sl = SuccessfulLogin(user=user.userdata, is_active = user.is_active)
+        sl = SuccessfulLogin(
+            user=user.userdata, 
+            is_active=user.is_active,
+            auth_event=auth_event
+        )
         sl.save()
 
         action = Action(
@@ -622,7 +656,7 @@ class SuccessfulLoginView(View):
             receiver=user,
             action_name='user:successful-login',
             event=user.userdata.event,
-            metadata=dict())
+            metadata=dict(auth_event=pk))
         action.save()
 
         return json_response({}, status=200)
@@ -734,64 +768,52 @@ class Unarchive(View):
         return json_response()
 unarchive = login_required(Unarchive.as_view())
 
-class CsvStatsView(View):
+class VoteStatsView(View):
     '''
-    Returns statistical data about votes in text/plain csv format
+    Returns statistical data about votes
 
-    This code uses raw sql and is dependent on a postgresql backend
+    This code is dependent on a postgresql backend
     '''
     def get(self, request, pk):
-        from django.db import connection
+        permission_required(request.user, 'AuthEvent', ['view-stats', 'edit'], pk)
 
-        # userid is not used, but recorded in the log
-        user, error, khmac_obj = get_login_user(request)
+        auth_event = AuthEvent.objects.get(pk=pk)
+        if auth_event.children_election_info:
+            parents2 = auth_event.children_election_info['natural_order']
+        else:
+            parents2 = []
 
-        valid_data = ["AuthEvent", pk, "CsvStats"]
-
-        # check everything is ok
-        if (not user or
-            error is not None or
-            type(khmac_obj) != HMACToken or
-            khmac_obj.get_other_values() != valid_data):
-            return json_response({}, status=403)
-
-        # the auth event for which we are querying
-        ae = get_object_or_404(AuthEvent, pk=pk)
-
-        # returns the number of votes per hour slice, disregarding overwrites
-        cursor = connection.cursor()
-
-        # first we must obtain the last date vote for every user
-        # then we join on this data to discard overwritten votes
-        # finally the data is aggregated per hour slice
-        # hour slices are obtained by truncating with DATE_TRUNC
-        query = '''
-            SELECT DATE_TRUNC('hour', created) as created_date, COUNT(id)
-            FROM api_action AS a
-            JOIN (
-                SELECT receiver_id, MAX(created)
-                FROM api_action
-                WHERE action_name='authevent:callback'
-                GROUP BY receiver_id
+        q_base = SuccessfulLogin.objects\
+            .filter(
+                Q(auth_event_id=pk) |
+                Q(auth_event__parent_id=pk) |
+                Q(auth_event__parent_id__in=parents2)
             )
-            AS b ON a.receiver_id = b.receiver_id AND a.created = b.max
-            WHERE a.action_name='authevent:callback'
-            AND a.event_id = %s
-            GROUP BY created_date
-            ORDER by created_date
-        '''
-        cursor.execute(query, [ae.pk])
+        subquery_distinct = q_base\
+            .order_by('user_id', '-created')\
+            .distinct('user_id')
 
-        # convert data to csv format
-        data = ["%s,%s" % (row[0], row[1]) for row in cursor.fetchall()]
+        q = q_base\
+            .annotate(hour=TruncHour('created'))\
+            .values('hour')\
+            .annotate(votes=Count('user_id'))\
+            .order_by('hour')\
+            .filter(id__in=subquery_distinct)
+        
+        data = dict(
+            total_votes=subquery_distinct.count(),
+            votes_per_hour = [
+                dict(
+                    hour=str(obj['hour']),
+                    votes=obj['votes']
+                )
+                for obj in q
+            ]
+        )
 
-        # return as csv attachment
-        response = HttpResponse('\n'.join(data), status=200, content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="data.csv"'
+        return json_response(data)
 
-        return response
-
-csv_stats = CsvStatsView.as_view()
+vote_stats = login_required(VoteStatsView.as_view())
 
 
 class Register(View):
@@ -799,6 +821,11 @@ class Register(View):
 
     def post(self, request, pk):
         e = get_object_or_404(AuthEvent, pk=pk)
+
+        if e.pk == settings.ADMIN_AUTH_ID and settings.ALLOW_ADMIN_AUTH_REGISTRATION:
+            return json_response(
+                status=400,
+                error_codename="REGISTER_IS_DISABLED")
 
         # find if there's any extra field of type
         match_census_on_registration  = []
@@ -843,25 +870,25 @@ class ResendAuthCode(View):
     ''' Register into the authapi '''
 
     def post(self, request, pk):
-        e = get_object_or_404(AuthEvent, pk=pk)
-        if (e.census == 'close' and not e.check_allow_user_resend()):
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        if (auth_event.census == 'close' and not auth_event.check_allow_user_resend()):
             return json_response(
                 status=400,
                 error_codename="AUTH_EVENT_NOT_STARTED")
         # registration is closed
-        if (e.census == 'open' or e.check_allow_user_resend()) and e.status != 'started':
+        if (auth_event.census == 'open' or auth_event.check_allow_user_resend()) and auth_event.status != 'started':
             return json_response(
                 status=400,
                 error_codename="AUTH_EVENT_NOT_STARTED")
 
-        data = auth_resend_auth_code(e, request)
+        data = auth_resend_auth_code(auth_event, request)
         if data['status'] == 'ok':
             if 'user' in data:
                 action = Action(
                     executer=data['user'],
                     receiver=data['user'],
                     action_name='user:resend-authcode',
-                    event=e,
+                    event=data['user'].userdata.event,
                     metadata=dict())
                 action.save()
                 del data['user']
@@ -876,7 +903,10 @@ resend_auth_code = ResendAuthCode.as_view()
 
 
 class AuthEventStatus(View):
-    ''' Change the status of auth-event '''
+    '''
+    Change the status of auth-event, its children and also calls to agora-elections
+    to reflect it.
+    '''
 
     def post(self, request, pk, status):
         alt = dict(
@@ -885,21 +915,96 @@ class AuthEventStatus(View):
             stopped='stop'
         )[status]
         permission_required(request.user, 'AuthEvent', ['edit', alt], pk)
-        e = get_object_or_404(AuthEvent, pk=pk)
-        if e.status != status:
-            e.status = status
-            e.save()
-            st = 200
-            action = Action(
-                executer=request.user,
-                receiver=None,
-                action_name='authevent:' + alt,
-                event=e,
-                metadata=dict())
-            action.save()
+        
+        main_auth_event = get_object_or_404(AuthEvent, pk=pk)
+        
+        if main_auth_event.children_election_info is not None:
+            children_ids = main_auth_event.children_election_info['natural_order']
         else:
-            st = 400
-        return json_response(status=st, message='Authevent status:  %s' % status)
+            children_ids = []
+        
+        auth_events = AuthEvent.objects.filter(
+            Q(pk=pk) |
+            Q(parent_id=pk) |
+            Q(parent_id__in=children_ids)
+        )
+        
+        for auth_event in auth_events:
+            # update AuthEvent
+
+            if auth_event.status != status:
+                auth_event.status = status
+                auth_event.save()
+
+                # trace the event
+                if auth_event.id != pk:
+                    metadata = dict(auth_event=auth_event.id)
+                else:
+                    metadata = dict()
+                action = Action(
+                    executer=request.user,
+                    receiver=None,
+                    action_name='authevent:' + alt,
+                    event=main_auth_event,
+                    metadata=metadata
+                )
+                action.save()
+            
+            # update in agora-elections
+            if alt in ['start', 'stop']:
+                for callback_base in settings.AGORA_ELECTIONS_BASE:
+                    callback_url = "%s/api/election/%s/%s" % (
+                        callback_base,
+                        auth_event.id,
+                        alt
+                    )
+                    data = "[]"
+
+                    agora_elections_request = requests.post(
+                        callback_url,
+                        json=data,
+                        headers={
+                            'Authorization': genhmac(
+                                settings.SHARED_SECRET,
+                                "1:AuthEvent:%s:%s" % (auth_event.id, alt)
+                            ),
+                            'Content-type': 'application/json'
+                        }
+                    )
+                    if agora_elections_request.status_code != 200:
+                        LOGGER.error(\
+                            "AuthEventStatus.post\n"\
+                            "agora_elections.callback_url '%r'\n"\
+                            "agora_elections.data '%r'\n"\
+                            "agora_elections.status_code '%r'\n"\
+                            "agora_elections.text '%r'\n",\
+                            callback_url, 
+                            data, 
+                            agora_elections_request.status_code, 
+                            agora_elections_request.text
+                        )
+
+                        return json_response(
+                            status=500,
+                            error_codename=ErrorCodes.GENERAL_ERROR
+                        )
+
+                    LOGGER.info(\
+                        "AuthEventStatus.post\n"\
+                        "agora_elections.callback_url '%r'\n"\
+                        "agora_elections.data '%r'\n"\
+                        "agora_elections.status_code '%r'\n"\
+                        "agora_elections.text '%r'\n",\
+                        callback_url, 
+                        data, 
+                        agora_elections_request.status_code, 
+                        agora_elections_request.text
+                    )
+
+        return json_response(
+            status=200, 
+            message='Authevent status: %s' % status
+        )
 ae_status = login_required(AuthEventStatus.as_view())
 
 
@@ -1149,6 +1254,69 @@ class Activity(View):
 
 activity = login_required(Activity.as_view())
 
+class EditChildrenParentView(View):
+    @login_required
+    def post(request, pk):
+        '''
+        Edit the Children Info or Parent info of
+        an election
+        '''
+        from authmethods.utils import verify_children_election_info
+        permission_required(request.user, 'AuthEvent', 'edit', pk)
+        auth_event = get_object_or_404(AuthEvent, pk=pk, status='notstarted')
+        try:
+            req = parse_json_request(request)
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        # check parent_id
+        parent_id = req.get('parent_id', None)
+        children_election_info = req.get('children_election_info', None)
+        parent = None
+        if parent_id is not None:
+            if (
+                type(parent_id) is not int or
+                AuthEvent.objects.filter(pk=parent_id).count() != 1
+            ):
+                return json_response(
+                    status=400,
+                    error_codename="INVALID_PARENT_ID"
+                )
+            parent = AuthEvent.objects.get(pk=parent_id)
+            auth_event.parent = parent
+        else:
+            auth_event.parent = None
+
+        # children_election_info
+        # 
+        # There's a difference here with when an election is created:
+        # children_election_info is verified to relate to valid elections
+        # that the requesting user can edit
+        if children_election_info is not None:
+            try:
+                children_election_info_validator(children_election_info)
+                verify_children_election_info(
+                    auth_event, 
+                    request.user, 
+                    ['edit'],
+                    children_election_info
+                )
+            except:
+                return json_response(
+                    status=400,
+                    error_codename="INVALID_CHILDREN_ELECTION_INFO"
+                )
+            auth_event.children_election_info = children_election_info
+        else: 
+            auth_event.children_election_info = None
+        
+        auth_event.save()
+        data = {'status': 'ok', 'id': auth_event.pk}
+        return json_response(data)
+
+edit_children_parent = EditChildrenParentView.as_view()
 
 class AuthEventView(View):
     @login_required
@@ -1173,7 +1341,11 @@ class AuthEventView(View):
 
             # check if send code method is authorized
             disable_auth_method = False
-            extend_info = plugins.call("extend_disable_auth_method", auth_method, None)
+            extend_info = plugins.call(
+                "extend_disable_auth_method",
+                auth_method,
+                None
+            )
             if extend_info:
                 for info in extend_info:
                      disable_auth_method = info
@@ -1202,7 +1374,9 @@ class AuthEventView(View):
                 slug_set = set()
                 for field in extra_fields:
                     if 'name' in field:
-                        field['slug'] = slugify(field['name']).replace("-","_").upper()
+                        field['slug'] = slugify(field['name'])\
+                            .replace("-","_")\
+                            .upper()
                         slug_set.add(field['slug'])
                     else:
                         msg += "some extra_fields have no name\n"
@@ -1232,8 +1406,11 @@ class AuthEventView(View):
                     status=400,
                     error_codename="INVALID_BALLOT_BOXES")
 
-            # check if it has ballot boxes
-            hide_default_login_lookup_field = req.get('hide_default_login_lookup_field', False)
+            # check if it has hide_default_login_lookup_field
+            hide_default_login_lookup_field = req.get(
+                'hide_default_login_lookup_field',
+                False
+            )
             if not isinstance(hide_default_login_lookup_field, bool):
                 return json_response(
                     status=400,
@@ -1247,9 +1424,40 @@ class AuthEventView(View):
                     error_codename="INVALID_PUBLIC_CENSUS_QUERY")
 
             based_in = req.get('based_in', None)
-            if based_in and not ACL.objects.filter(user=request.user.userdata, perm='edit',
-                    object_type='AuthEvent', object_id=based_in):
+            if (
+                based_in and 
+                not ACL.objects.filter(
+                    user=request.user.userdata,
+                    perm='edit',
+                    object_type='AuthEvent',
+                    object_id=based_in
+                )
+            ):
                 msg += "Invalid id to based_in"
+            
+            # check parent_id
+            parent_id = req.get('parent_id', None)
+            parent = None
+            if parent_id:
+                if (
+                    type(parent_id) is not int or
+                    AuthEvent.objects.filter(pk=parent_id).count() != 1
+                ):
+                    return json_response(
+                        status=400,
+                        error_codename="INVALID_PARENT_ID")
+                parent = AuthEvent.objects.get(pk=parent_id)
+            
+            # children_election_info
+            children_election_info = req.get('children_election_info', None)
+            if children_election_info:
+                try:
+                    children_election_info_validator(children_election_info)
+                except:
+                    return json_response(
+                        status=400,
+                        error_codename="INVALID_CHILDREN_ELECTION_INFO")
+
 
             # Note that a login is only complete if a call has been received and
             # accepted at /authevent/<ID>/successful_login
@@ -1272,8 +1480,10 @@ class AuthEventView(View):
                 auth_method_config=auth_method_config,
                 extra_fields=extra_fields,
                 admin_fields=admin_fields,
+                parent=parent,
                 census=census,
                 num_successful_logins_allowed=num_successful_logins_allowed,
+                children_election_info=children_election_info,
                 based_in=based_in,
                 has_ballot_boxes=has_ballot_boxes,
                 hide_default_login_lookup_field=hide_default_login_lookup_field,
@@ -1283,14 +1493,18 @@ class AuthEventView(View):
             # Save before the acl creation to get the ae id
             ae.save()
             acl = ACL(
-                user=request.user.userdata, 
+                user=request.user.userdata,
                 perm='edit', 
                 object_type='AuthEvent',
                 object_id=ae.id
             )
             acl.save()
-            acl = ACL(user=request.user.userdata, perm='create',
-                    object_type='UserData', object_id=ae.id)
+            acl = ACL(
+                user=request.user.userdata,
+                perm='create',
+                object_type='UserData',
+                object_id=ae.id
+            )
             acl.save()
 
             action = Action(
@@ -1399,10 +1613,61 @@ class AuthEventView(View):
 
             data['events'] = aes
         else:
-            events = AuthEvent.objects.all()
-            aes = paginate(request, events,
-                           serialize_method='serialize_restrict',
-                           elements_name='events')
+            ids = request.GET.get('ids', None)
+            only_parent_elections = request.GET.get('only_parent_elections', None)
+            has_perms = request.GET.get('has_perms', None)
+            q = Q()
+            if ids is not None:
+                try:
+                    ids = ids.split('|')
+                    ids = [int(id) for id in ids]
+                    q &= Q(id__in=ids)
+                except:
+                    ids = None
+            
+            if only_parent_elections is not None:
+                q &= (
+                    Q(parent_id=None) |
+                    Q(parent_id__isnull=False, children_election_info__isnull=False)
+                )
+
+            serialize_method = 'serialize_restrict'
+            if (
+                user is not None and
+                user.is_authenticated and
+                user.userdata is not None
+            ):
+                if has_perms is not None:
+                    perms_split = has_perms.split('|')
+                    q &= Q(
+                        id__in=user.userdata.acls\
+                            .filter(
+                                object_type='AuthEvent',
+                                perm__in=perms_split
+                            )\
+                            .annotate(
+                                object_id_int=Cast(
+                                    'object_id',
+                                    output_field=IntegerField()
+                                )
+                            )\
+                            .values('object_id_int')
+                    )
+            
+                    if (
+                        'view' in perms_split or
+                        'edit' in perms_split or
+                        'view-archived' in perms_split
+                    ):
+                        serialize_method = 'serialize'
+
+            events = AuthEvent.objects.filter(q)
+            aes = paginate(
+                request, 
+                events,
+                serialize_method=serialize_method,
+                elements_name='events'
+            )
             data.update(aes)
         return json_response(data)
 
@@ -1851,16 +2116,28 @@ class BallotBoxView(View):
         permission_required(request.user, 'AuthEvent', ['edit', 'list-ballot-boxes'], pk)
         e = get_object_or_404(AuthEvent, pk=pk)
 
+        if e.children_election_info:
+            parents2 = e.children_election_info['natural_order']
+        else:
+            parents2 = []
+
         filter_str = request.GET.get('filter', None)
         subq = TallySheet.objects\
             .filter(ballot_box=OuterRef('pk'))\
             .order_by('-created', '-id')
-        query = e.ballot_boxes.annotate(
-            last_updated=Subquery(subq.values('created')[:1]),
-            creator_id=Subquery(subq.values('creator_id')[:1]),
-            creator_username=Subquery(subq.values('creator__username')[:1]),
-            num_tally_sheets=Count('tally_sheets')
-        )
+        query = BallotBox.objects\
+            .filter(
+                Q(auth_event_id=pk) |
+                Q(auth_event__parent_id=pk) |
+                Q(auth_event__parent_id__in=parents2)
+            )\
+            .annotate(
+                last_updated=Subquery(subq.values('created')[:1]),
+                creator_id=Subquery(subq.values('creator_id')[:1]),
+                creator_username=Subquery(subq.values('creator__username')[:1]),
+                num_tally_sheets=Count('tally_sheets')
+            )
+        
         if filter_str:
             query = query.filter(name__icontains=filter_str)
 
@@ -1953,7 +2230,12 @@ class TallySheetView(View):
     '''
 
     def post(self, request, pk, ballot_box_pk):
-        permission_required(request.user, 'AuthEvent', ['edit', 'add-tally-sheets'], pk)
+        permission_required(
+            request.user, 
+            'AuthEvent', 
+            ['edit', 'add-tally-sheets'], 
+            pk
+        )
 
         # parse input
         try:
@@ -1974,10 +2256,14 @@ class TallySheetView(View):
         # require extra permissions to override tally sheet
         num_versions = ballot_box_obj.tally_sheets.count()
         if num_versions > 0:
-            permission_required(request.user, 'AuthEvent', ['edit', 'override-tally-sheets'], pk)
+            permission_required(
+                request.user, 
+                'AuthEvent', 
+                ['edit', 'override-tally-sheets'], 
+                pk
+            )
 
         # validate input
-
         try:
             check_contract(CONTRACTS['tally_sheet'], req)
         except CheckException as error:
@@ -1989,7 +2275,8 @@ class TallySheetView(View):
                 req, error, stack_trace_str())
             return json_response(
                 status=400,
-                error_codename=ErrorCodes.BAD_REQUEST)
+                error_codename=ErrorCodes.BAD_REQUEST
+            )
 
         # try to create new object in the db
         try:
@@ -1999,80 +2286,37 @@ class TallySheetView(View):
                 creator=request.user)
             tally_sheet_obj.save()
 
+            auth_event = ballot_box_obj.auth_event
+            if auth_event.parent is None:
+                parent_auth_event = auth_event
+            else:
+                parent_auth_event = auth_event.parent
+
             action = Action(
                 executer=request.user,
                 receiver=None,
                 action_name="tally-sheet:create",
-                event=ballot_box_obj.auth_event,
+                event=parent_auth_event,
                 metadata=dict(
                     ballot_box_id=ballot_box_obj.id,
                     ballot_box_name=ballot_box_obj.name,
                     num_versions=num_versions,
                     comment=tally_sheet_obj.data['observations'],
                     tally_sheet_id=tally_sheet_obj.id,
-                    data=req)
+                    data=req
+                )
             )
             action.save()
 
         except Exception as e:
             return json_response(
                 status=400,
-                error_codename=ErrorCodes.BAD_REQUEST)
-
-        # A. try to do a call to agora_elections to update the election results
-        # A.1 get all the tally sheets for this election, last per ballot box
-        subq = TallySheet.objects\
-          .filter(ballot_box=OuterRef('pk'))\
-          .order_by('-created', '-id')
-
-        tally_sheets = AuthEvent.objects.get(pk=pk).ballot_boxes.annotate(
-            data=Subquery(subq.values('data')[:1]), num_tally_sheets=Count('tally_sheets')
-        ).filter(num_tally_sheets__gt=0)
-
-        data = reproducible_json_dumps([
-            json.loads(tally_sheet.data, encoding='utf-8')
-            for tally_sheet in tally_sheets
-        ])
-        # A.2 call to agora-elections
-        for callback_base in settings.AGORA_ELECTIONS_BASE:
-            callback_url = "%s/api/election/%s/update-ballot-boxes-config" % (
-                callback_base,
-                pk
+                error_codename=ErrorCodes.BAD_REQUEST
             )
 
-            r = requests.post(
-                callback_url,
-                json=data,
-                headers={
-                    'Authorization': genhmac(
-                        settings.SHARED_SECRET,
-                        "1:AuthEvent:%s:update-ballot-boxes-results-config" % pk
-                    ),
-                    'Content-type': 'application/json'
-                }
-            )
-            if r.status_code != 200:
-                LOGGER.error(\
-                    "TallySheetView.post\n"\
-                    "agora_elections.callback_url '%r'\n"\
-                    "agora_elections.data '%r'\n"\
-                    "agora_elections.status_code '%r'\n"\
-                    "agora_elections.text '%r'\n",\
-                    callback_url, data, r.status_code, r.text
-                )
+        # send update to agora-elections asynchronously
+        update_ballot_boxes_config.apply_async(args=[pk])
 
-                return json_response(
-                    status=500,
-                    error_codename=ErrorCodes.GENERAL_ERROR)
-
-            LOGGER.info(\
-                "TallySheetView.post\n"\
-                "agora_elections.callback_url '%r'\n"\
-                "agora_elections.data '%r'\n"\
-                "agora_elections.status_code '%r'\n"\
-                "agora_elections.text '%r'\n",\
-                callback_url, data, r.status_code, r.text
-            )
         # success!
         data = {'status': 'ok', 'id': tally_sheet_obj.pk}
         return json_response(data)
@@ -2120,11 +2364,17 @@ class TallySheetView(View):
             ballot_box__auth_event__pk=pk
         )
 
+        auth_event = tally_sheet_obj.ballot_box.auth_event
+        if auth_event.parent is None:
+            parent_auth_event = auth_event
+        else:
+            parent_auth_event = auth_event.parent
+
         action = Action(
             executer=request.user,
             receiver=None,
             action_name="tally-sheet:delete",
-            event=tally_sheet_obj.ballot_box.auth_event,
+            event=parent_auth_event,
             metadata=dict(
                 id=tally_sheet_obj.id,
                 created=tally_sheet_obj.created.isoformat(),
@@ -2139,8 +2389,322 @@ class TallySheetView(View):
         action.save()
         tally_sheet_obj.delete()
 
+        # send update to agora-elections asynchronously
+        update_ballot_boxes_config.apply_async(args=[pk])
+
         data = {'status': 'ok'}
         return json_response(data)
 
 tally_sheet = login_required(TallySheetView.as_view())
 
+
+class TallyStatusView(View):
+
+    def post(self, request, pk):
+        '''
+        Launches the tallly in a celery background task. If the
+        election has children, also launches the tally for them.
+        '''
+        # check permissions
+        permission_required(
+            request.user, 
+            'AuthEvent', 
+            ['edit', 'tally'], 
+            pk
+        )
+
+        # get AuthEvent and parse request json
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        req = parse_json_request(request)
+
+        # cannot launch tally on an election whose voting period is still open
+        # or has not even started.
+        if auth_event.status != 'stopped':
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST
+            )
+
+        # Stablishes the tally force type. It can be eith:
+        # - 'do-not-force': only initiates the tally for an election if it
+        #   didn't start.
+        # - 'force-untallied': starts again the tally of any pending or
+        #   untallied  election.
+        # - 'force-all': starts again the tally of all the elections, even 
+        #   those already tallied.
+        force_tally = req.get('force_tally', 'do-not-force')
+        if force_tally not in ['do-not-force', 'force-untallied', 'force-all']:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST
+            )
+        
+        # allows to launch only the tally of specific children elections
+        # when an election is a parent election
+        children_election_ids = req.get('children_election_ids', None)
+        if children_election_ids is not None:
+            if (
+                type(children_election_ids) != list or
+                (
+                    len(children_election_ids) > 0 and
+                    auth_event.children_election_info is None
+                )
+            ):
+                return json_response(
+                    status=400,
+                    error_codename=ErrorCodes.BAD_REQUEST
+                )
+            for election_id in children_election_ids:
+                if (
+                    type(election_id) != int or
+                    election_id not in auth_event.children_election_info['natural_order']
+                ):
+                    return json_response(
+                        status=400,
+                        error_codename=ErrorCodes.BAD_REQUEST
+                    )
+        
+        # list with all the elections to be tallied. Parent elections
+        # are also tallied, although as virtual
+        if auth_event.children_election_info is None:
+            auth_events = [auth_event]
+        else:
+            auth_events = [
+                get_object_or_404(AuthEvent, pk=election_id)
+                for election_id in auth_event.children_election_info['natural_order']
+                if (
+                    election_id in children_election_ids or
+                    children_election_ids is None
+                )
+            ] + [auth_event]
+        
+        # set the pending status accordingly
+        for auth_event_to_tally in auth_events:
+            if (
+                auth_event_to_tally.tally_status == 'notstarted' or
+                (
+                    auth_event_to_tally.tally_status == 'pending' and
+                    force_tally in ['force-untallied', 'force-all']
+                ) or (
+                    auth_event_to_tally.tally_status == 'started' and
+                    force_tally in ['force-all']
+                )
+            ):
+                # set tally status to pending
+                previous_tally_status = auth_event_to_tally.tally_status
+                auth_event_to_tally.tally_status = 'pending'
+                auth_event_to_tally.save()
+
+                # log the action
+                action = Action(
+                    executer=request.user,
+                    receiver=None,
+                    action_name='authevent:tally',
+                    event=auth_event,
+                    metadata=dict(
+                        auth_event=auth_event_to_tally.pk,
+                        previous_tally_status=previous_tally_status,
+                        force_tally=force_tally,
+                        forced=(previous_tally_status != 'notstarted')
+                    )
+                )
+                action.save()
+
+        # we don't launch the tally here, it will be catched by
+        # celery task
+        return json_response()
+
+    def get(self, request, pk):
+        '''
+        Returns the tally status of an election and its children
+        '''
+        permission_required(
+            request.user, 
+            'AuthEvent', 
+            ['edit', 'view-stats'], 
+            pk
+        )
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        if election.children_election_info is not None:
+            children_election_info = [
+                dict(
+                    election_id=election_id,
+                    tally_status=AuthEvent.objects\
+                        .get(pk=election_id)\
+                        .tally_status
+                )
+                for election_id in election.children_election_info
+            ]
+        else:
+            children_election_info = None
+
+        data = dict(
+            auth_event_id=auth_event.id,
+            tally_status=auth_event.tally_status,
+            children_election_info=children_election_info
+        )
+        return json_response(data)
+
+tally_status = login_required(TallyStatusView.as_view())
+
+
+class CalculateResultsView(View):
+
+    def post(self, request, pk):
+        '''
+        Launches the results calculation in a celery background task. 
+        If the election has parents and children, also launches the results 
+        calculation there.
+        '''
+        # check permissions
+        permission_required(
+            request.user, 
+            'AuthEvent', 
+            ['edit', 'calculate-results'], 
+            pk
+        )
+
+        # calculate this and parent elections
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        event_id_list = []
+        config = request.body.decode('utf-8')
+
+        def append_children(auth_event, event_id_list, config):
+            '''
+            It appends first the leaves in the tree, then its parents
+            '''
+            if auth_event.children_election_info is not None:
+                for child_id in auth_event.children_election_info['natural_order']:
+                    child_obj = AuthEvent.objects.get(pk=child_id)
+                    
+                    # config is only for current auth_event, set to None for
+                    # the others so that we don't change other's config
+                    append_children(child_obj, event_id_list, None)
+
+            event_id_list.append({"id": auth_event.id, "config": config})
+
+        def append_parents(auth_event, event_id_list):
+            '''
+            Append to the list the parents recursively
+            '''
+            if auth_event.parent:
+                event_id_list.append({"id": auth_event.parent.id, "config": None})
+                append_parents(auth_event.parent, event_id_list)
+
+        append_children(auth_event, event_id_list, config)
+        append_parents(auth_event, event_id_list)
+
+        calculate_results_task.apply_async(
+            args=[
+                request.user.id,
+                event_id_list
+            ]
+        )
+
+        return json_response()
+calculate_results = login_required(CalculateResultsView.as_view())
+
+
+class PublishResultsView(View):
+
+    def post(self, request, pk):
+        '''
+        Launches the results publication in a celery background task. 
+        If the election has children, also launches the results 
+        publication there.
+        '''
+        # check permissions
+        permission_required(
+            request.user, 
+            'AuthEvent', 
+            ['edit', 'publish-results'], 
+            pk
+        )
+        
+        # publish this and children elections
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        publish_results_task.apply_async(
+            args=[
+                request.user.id,
+                auth_event.id,
+                True # visit_children
+            ]
+        )
+
+        if auth_event.parent:
+            publish_results_task.apply_async(
+                args=[
+                    request.user.id,
+                    auth_event.parent.id,
+                    False # visit_children
+                ]
+            )
+            if auth_event.parent.parent:
+                publish_results_task.apply_async(
+                    args=[
+                        request.user.id,
+                        auth_event.parent.parent.id,
+                        False # visit_children
+                    ]
+                )
+
+        return json_response()
+publish_results = login_required(PublishResultsView.as_view())
+
+
+class UnpublishResultsView(View):
+
+    def post(self, request, pk):
+        '''
+        Launches the results depublication in a celery background task. 
+        If the election has children, also launches the results 
+        depublication there.
+        '''
+        # check permissions
+        permission_required(
+            request.user, 
+            'AuthEvent', 
+            ['edit', 'publish-results'], 
+            pk
+        )
+        
+        # unpublish this and children elections
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        unpublish_results_task.apply_async(
+            args=[
+                request.user.id,
+                auth_event.id
+            ]
+        )
+
+        return json_response()
+unpublish_results = login_required(UnpublishResultsView.as_view())
+
+
+class AllowTallyView(View):
+
+    def post(self, request, pk):
+        '''
+        Launches the results publication in a celery background task. 
+        If the election has children, also launches the results 
+        publication there.
+        '''
+        # check permissions
+        permission_required(
+            request.user, 
+            'AuthEvent', 
+            ['edit', 'allow-tally'], 
+            pk
+        )
+        
+        # allow tally of this and children elections
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        allow_tally_task.apply_async(
+            args=[
+                request.user.id,
+                auth_event.id
+            ]
+        )
+
+        return json_response()
+allow_tally = login_required(AllowTallyView.as_view())

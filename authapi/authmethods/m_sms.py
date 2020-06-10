@@ -277,25 +277,65 @@ class Sms:
                 e, config, stack_trace_str())
             return json.dumps(e.data, cls=JsonTypeEncoder)
 
-    def census(self, ae, request):
+    def census(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))
         validation = req.get('field-validation', 'enabled') == 'enabled'
         data = {'status': 'ok'}
 
         msg = ''
         current_tlfs = []
-        for r in req.get('census'):
-            if r.get('tlf'):
-                r['tlf'] = get_cannonical_tlf(r.get('tlf'))
-            tlf = r.get('tlf')
+
+        # cannot add voters to an election with invalid children election info
+        if auth_event.children_election_info is not None:
+            try:
+                verify_children_election_info(auth_event, request.user, ['edit', 'census-add'])
+            except:
+                LOGGER.error(
+                    "Sms.census error in verify_children_election_info"\
+                    "error '%r'\n"\
+                    "request '%r'\n"\
+                    "validation '%r'\n"\
+                    "authevent '%r'\n"\
+                    "Stack trace: \n%s",\
+                    msg, req, validation, auth_event, stack_trace_str())
+                return self.error("Incorrect data", error_codename="invalid_data")
+
+        for census_element in req.get('census'):
+            if census_element.get('tlf'):
+                census_element['tlf'] = get_cannonical_tlf(census_element.get('tlf'))
+            tlf = census_element.get('tlf')
+            
             if isinstance(tlf, str):
                 tlf = tlf.strip()
+            
             msg += check_field_type(self.tlf_definition, tlf)
+            
             if validation:
                 msg += check_field_value(self.tlf_definition, tlf)
-            msg += check_fields_in_request(r, ae, 'census', validation=validation)
+            
+            msg += check_fields_in_request(
+                census_element, 
+                auth_event, 
+                'census', 
+                validation=validation
+            )
+
+            if auth_event.children_election_info is not None:
+                try:
+                    verify_valid_children_elections(auth_event, census_element)
+                except:
+                    LOGGER.error(
+                        "Sms.census error in verify_valid_children_elections"\
+                        "error '%r'\n"\
+                        "request '%r'\n"\
+                        "validation '%r'\n"\
+                        "authevent '%r'\n"\
+                        "Stack trace: \n%s",\
+                        msg, req, validation, auth_event, stack_trace_str())
+                    return self.error("Incorrect data", error_codename="invalid_data")
+            
             if validation:
-                msg += exist_user(r, ae)
+                msg += exist_user(census_element, auth_event)
                 if tlf in current_tlfs:
                     msg += "Tlf %s repeat." % tlf
                 current_tlfs.append(tlf)
@@ -303,13 +343,13 @@ class Sms:
                 if msg:
                     msg = ''
                     continue
-                exist = exist_user(r, ae)
+                exist = exist_user(census_element, auth_event)
                 if exist and not exist.count('None'):
                     continue
                 # By default we creates the user as active we don't check
                 # the pipeline
-                u = create_user(r, ae, True, request.user)
-                give_perms(u, ae)
+                u = create_user(census_element, auth_event, True, request.user)
+                give_perms(u, auth_event)
         if msg and validation:
             LOGGER.error(\
                 "Sms.census error\n"\
@@ -318,15 +358,15 @@ class Sms:
                 "request '%r'\n"\
                 "authevent '%r'\n"\
                 "Stack trace: \n%s",\
-                msg, validation, req, ae, stack_trace_str())
+                msg, validation, req, auth_event, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         if validation:
-            for r in req.get('census'):
+            for census_element in req.get('census'):
                 # By default we creates the user as active we don't check
                 # the pipeline
-                u = create_user(r, ae, True, request.user)
-                give_perms(u, ae)
+                u = create_user(census_element, auth_event, True, request.user)
+                give_perms(u, auth_event)
 
         LOGGER.debug(\
             "Sms.census success\n"\
@@ -336,7 +376,7 @@ class Sms:
             "request '%r'\n"\
             "authevent '%r'\n"\
             "Stack trace: \n%s",\
-            data, validation, msg, req, ae, stack_trace_str())
+            data, validation, msg, req, auth_event, stack_trace_str())
         return data
 
     def register(self, ae, request):
@@ -617,7 +657,7 @@ class Sms:
         response['user'] = u
         return response
 
-    def authenticate(self, ae, request):
+    def authenticate(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))
 
         msg = ''
@@ -627,12 +667,23 @@ class Sms:
         if isinstance(tlf, str):
             tlf = tlf.strip()
 
-        tlf_def = self.tlf_definition if not ae.hide_default_login_lookup_field else self.tlf_opt_definition
+        if auth_event.parent is not None:
+            msg += 'you can only authenticate to parent elections'
+            LOGGER.error(\
+                "Sms.authenticate error\n"\
+                "error '%r'"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, auth_event, req, stack_trace_str())
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+
+        tlf_def = self.tlf_definition if not auth_event.hide_default_login_lookup_field else self.tlf_opt_definition
         msg += check_field_type(tlf_def, tlf, 'authenticate')
         msg += check_field_value(tlf_def, tlf, 'authenticate')
         msg += check_field_type(self.code_definition, req.get('code'), 'authenticate')
         msg += check_field_value(self.code_definition, req.get('code'), 'authenticate')
-        msg += check_fields_in_request(req, ae, 'authenticate')
+        msg += check_fields_in_request(req, auth_event, 'authenticate')
         if msg:
             LOGGER.error(\
                 "Sms.authenticate error\n"\
@@ -640,18 +691,19 @@ class Sms:
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                msg, ae, req, stack_trace_str())
+                msg, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         try:
-            q = Q(userdata__event=ae, is_active=True)
+            q = get_base_auth_query(auth_event)
             if 'tlf' in req:
                 q = q & Q(userdata__tlf=tlf)
-            elif not ae.hide_default_login_lookup_field:
+            elif not auth_event.hide_default_login_lookup_field:
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
-            q = get_required_fields_on_auth(req, ae, q)
-            u = User.objects.get(q)
+            q = get_required_fields_on_auth(req, auth_event, q)
+            user = User.objects.get(q)
+            post_verify_fields_on_auth(user, req, auth_event)
         except:
             LOGGER.error(\
                 "Sms.authenticate error\n"\
@@ -660,27 +712,13 @@ class Sms:
                 "is_active True\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                tlf, ae, req, stack_trace_str())
+                tlf, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        successful_logins_count =  u.userdata.successful_logins.filter(is_active=True).count()
-        if (ae.num_successful_logins_allowed > 0 and
-            successful_logins_count >= ae.num_successful_logins_allowed):
-            LOGGER.error(\
-                "Sms.authenticate error\n"\
-                "Maximum number of revotes already reached for user '%r'\n"\
-                "revotes for user '%r'\n"\
-                "maximum allowed '%r'\n"\
-                "authevent '%r'\n"\
-                "request '%r'\n"\
-                "Stack trace: \n%s",\
-                u.userdata,\
-                successful_logins_count,\
-                ae.num_successful_logins_allowed,\
-                ae, req, stack_trace_str())
+        if not verify_num_successful_logins(auth_event, 'Sms', user, req):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        code = Code.objects.filter(user=u.userdata,
+        code = Code.objects.filter(user=user.userdata,
                 code=req.get('code').upper()).order_by('-created').first()
         if not code:            
             LOGGER.error(\
@@ -690,12 +728,12 @@ class Sms:
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                u.userdata,\
+                user.userdata,\
                 req.get('code').upper(),\
-                ae, req, stack_trace_str())
+                auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        msg = check_pipeline(request, ae, 'authenticate')
+        msg = check_pipeline(request, auth_event, 'authenticate')
         if msg:
             LOGGER.error(\
                 "Sms.authenticate error\n"\
@@ -703,67 +741,76 @@ class Sms:
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                msg, ae, req, stack_trace_str())
+                msg, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        user_logged_in.send(sender=u.__class__, request=request, user=u)
-        u.save()
+        return return_auth_data('Sms', req, request, user)
 
-        data = {'status': 'ok'}
-        data['username'] = u.username
-        data['auth-token'] = genhmac(settings.SHARED_SECRET, u.username)
-
-        # add redirection
-        auth_action = ae.auth_method_config['config']['authentication-action']
-        if auth_action['mode'] == 'go-to-url':
-            data['redirect-to-url'] = auth_action['mode-config']['url']
-
-        LOGGER.debug(\
-            "Sms.authenticate success\n"\
-            "returns '%r'\n"\
-            "authevent '%r'\n"\
-            "request '%r'\n"\
-            "Stack trace: \n%s",\
-            data, ae, req, stack_trace_str())
-        return data
-
-    def resend_auth_code(self, ae, request):
+    def resend_auth_code(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))
-
         msg = ''
         if req.get('tlf'):
             req['tlf'] = get_cannonical_tlf(req.get('tlf'))
         tlf = req.get('tlf')
         if isinstance(tlf, str):
             tlf = tlf.strip()
-        msg += check_field_type(self.tlf_definition, tlf, 'authenticate')
-        msg += check_field_value(self.tlf_definition, tlf, 'authenticate')
-        if msg:
+
+        if auth_event.parent is not None:
+            msg += 'you can only authenticate to parent elections'
             LOGGER.error(\
-                "Sms.resend_auth_code error\n"\
-                "error '%r'\n"\
+                "Sms.authenticate error\n"\
+                "error '%r'"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                msg, ae, req, stack_trace_str())
+                msg, auth_event, req, stack_trace_str())
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+
+
+        msg += check_field_type(self.tlf_definition, tlf, 'authenticate')
+        msg += check_field_value(self.tlf_definition, tlf, 'authenticate')
+        msg += check_fields_in_request(req, auth_event, 'resend-auth')
+        if msg:
+            LOGGER.error(\
+                "Sms.resend_auth_code error\n"\
+                "error '%r'"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                msg, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         try:
-            u = User.objects.get(userdata__tlf=tlf, userdata__event=ae, is_active=True)
+            q = get_base_auth_query(auth_event)
+            if 'tlf' in req:
+                if not auth_event.hide_default_login_lookup_field:
+                    q = q & Q(userdata__tlf=tlf)
+            elif not auth_event.hide_default_login_lookup_field:
+                LOGGER.error(\
+                    "Sms.resend_auth_code error\n"\
+                    "ae.hide_default_login_lookup_field is False and tlf not given\n"\
+                    "error '%r'\n"\
+                    "authevent '%r'\n"\
+                    "request '%r'\n"\
+                    "Stack trace: \n%s",\
+                    msg, auth_event, req, stack_trace_str())
+                return self.error("Incorrect data", error_codename="invalid_credentials")
+
+            q = get_required_fields_on_auth(req, auth_event, q)
+            u = User.objects.get(q)
         except:
             LOGGER.error(\
                 "Sms.resend_auth_code error\n"\
                 "user not found with these characteristics: tlf '%r'\n"\
                 "authevent '%r'\n"\
-                "is_active True"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                tlf, ae, req, stack_trace_str())
+                tlf, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_pipeline(
           request,
-          ae,
+          auth_event,
           'resend-auth-pipeline',
           Sms.PIPELINES['resend-auth-pipeline'])
 
@@ -774,10 +821,10 @@ class Sms:
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                msg, ae, req, stack_trace_str())
+                msg, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        result = plugins.call("extend_send_sms", ae, 1)
+        result = plugins.call("extend_send_sms", auth_event, 1)
         if result:
             LOGGER.error(\
                 "Sms.resend_auth_code error\n"\
@@ -786,7 +833,7 @@ class Sms:
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                result, ae, req, stack_trace_str())
+                result, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
         send_codes.apply_async(args=[[u.id,], get_client_ip(request),'sms'])
         LOGGER.info(\
@@ -796,7 +843,7 @@ class Sms:
             "authevent '%r'\n"\
             "request '%r'\n"\
             "Stack trace: \n%s",\
-            u.id, get_client_ip(request), ae, req, stack_trace_str())
+            u.id, get_client_ip(request), auth_event, req, stack_trace_str())
         return {'status': 'ok', 'user': u}
 
 register_method('sms', Sms)

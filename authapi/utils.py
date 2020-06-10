@@ -56,7 +56,8 @@ LOGGER = getLogger('authapi.notify')
 def stack_trace_str():
   frame = inspect.currentframe()
   stack_trace = traceback.format_stack(frame)
-  return "\n".join(stack_trace[:-1])
+  return "\n".join(stack_trace[:-1]) + "\n" + traceback.format_exc()
+
 
 @unique
 class ErrorCodes(IntEnum):
@@ -167,7 +168,6 @@ def paginate(request, queryset, serialize_method=None, elements_name='elements')
         'has_next': page.has_next(),
         'has_previous': page.has_previous(),
     }
-
 
 def genhmac(key, msg):
     timestamp = int(datetime.datetime.now().timestamp())
@@ -310,7 +310,7 @@ def template_replace_data(templ, data):
         ret = ret.replace("__%s__" % key.upper(), str(value))
     return ret
 
-def send_code(user, ip, config=None, auth_method_override=None, code=None):
+def send_code(user, ip, config=None, auth_method_override=None, code=None, save_message=True):
     '''
     Sends the code for authentication in the related auth event, to the user
     in a message sent via sms and/or email, depending on the authentication 
@@ -417,20 +417,24 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None):
 
     if auth_method in ["sms", "sms-otp"]:
         send_sms_code(receiver, msg)
-        m = Message(tlf=receiver, ip=ip[:15], auth_event_id=event_id)
-        m.save()
+        if save_message:
+          m = Message(tlf=receiver, ip=ip[:15], auth_event_id=event_id)
+          m.save()
 
         # also send via email if possible and only if there was no override (to 
-        # remove infinite looping)
+        # remove infinite looping). Do not save message twice.
         if user.userdata.event.auth_method in ["sms", "sms-otp"] and\
             user.email:
-            send_code(user, ip, config, 'email', code)
+            send_code(user, ip, config, 'email', code, save_message=False)
             
     else: # email or email-otp
         # TODO: Allow HTML messages for emails
         from api.models import ACL
-        acl = ACL.objects.filter(object_type='AuthEvent', perm='edit',
-                object_id=event_id).first()
+        acl = ACL.objects.filter(
+            object_type='AuthEvent',
+            perm__in=['edit', 'unarchive'],
+            object_id=event_id
+        ).first()
         email = EmailMessage(
             subject,
             msg,
@@ -439,12 +443,15 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None):
             headers = {'Reply-To': acl.user.user.email}
         )
         send_email(email)
+        if save_message:
+          m = Message(tlf=receiver, ip=ip[:15], auth_event_id=event_id)
+          m.save()
 
         # also send via sms if possible and only if there was no override (to 
-        # remove infinite looping)
+        # remove infinite looping). Do not save message twice.
         if user.userdata.event.auth_method in ["email", "email-otp"] and\
             user.email:
-            send_code(user, ip, config, 'sms', code)
+            send_code(user, ip, config, 'sms', code, save_message=False)
 
 
 def send_msg(data, msg, subject=''):

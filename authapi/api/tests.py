@@ -26,7 +26,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 
 from . import test_data
-from .models import ACL, AuthEvent, Action, BallotBox, TallySheet
+from .models import ACL, AuthEvent, Action, BallotBox, TallySheet, SuccessfulLogin
 from authmethods.models import Code, MsgLog
 from utils import verifyhmac, reproducible_json_dumps
 from authmethods.utils import get_cannonical_tlf
@@ -130,7 +130,6 @@ class JClient(Client):
         jdata = json.dumps(data)
         return super(JClient, self).delete(url, jdata,
             content_type="application/json", HTTP_AUTH=self.auth_token)
-
 
 
 class ApiTestCreateNotReal(TestCase):
@@ -362,7 +361,7 @@ class ApiTestCase(TestCase):
         response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'stopped'), {})
         self.assertEqual(response.status_code, 200)
         response = c.post('/api/auth-event/%d/%s/' % (self.aeid, 'stopped'), {})
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
 
     def test_authenticate(self):
         c = JClient()
@@ -934,7 +933,12 @@ class TestAuthEvent(TestCase):
                 'users': 0,
                 'num_successful_logins_allowed': 0,
                 'hide_default_login_lookup_field': False,
+                'parent_id': None,
+                'children_election_info': None,
                 'openid_connect_providers': [],
+                'total_votes': 0,
+                'tally_status': 'notstarted',
+                'children_tally_status': []
             },
             'status': 'ok'
         }
@@ -2123,39 +2127,72 @@ class TestCallback(TestCase):
         self.assertEqual(response.status_code, 403)
 
 
-class TestCsvStats(TestCase):
+class TestVoteStats(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
 
     def setUp(self):
         from datetime import datetime, timedelta
 
-        ae = AuthEvent(auth_method="email",
-                auth_method_config=test_data.authmethod_config_email_default,
-                status='started',
-                census="open")
-        ae.save()
-        self.ae = ae
-        self.aeid = ae.pk
+        auth_event = AuthEvent(
+            auth_method="email",
+            auth_method_config=test_data.authmethod_config_email_default,
+            status='started',
+            census="open"
+        )
+        auth_event.save()
+        self.auth_event = auth_event
+        self.auth_event_id = auth_event.pk
+        self.aeid_special = 1
+
+        admin = User(
+            username=test_data.admin['username'], 
+            email=test_data.admin['email']
+        )
+        admin.set_password(test_data.admin['password'])
+        admin.save()
+        admin.userdata.event = AuthEvent.objects.get(pk=self.aeid_special)
+        admin.userdata.save()
+        self.uid_admin = admin.id
+        
+        self.admin_auth_data = dict(
+            email=test_data.admin['email'],
+            code="ERGERG")
+        
+        c = Code(
+            user=admin.userdata,
+            code=self.admin_auth_data['code'],
+            auth_event_id=self.aeid_special)
+        c.save()
+
+        acl = ACL(
+            user=admin.userdata, 
+            object_type='AuthEvent', 
+            perm='edit',
+            object_id=self.auth_event_id
+        )
+        acl.save()
 
         # convenience methods to create users and vote data
 
-        def newUser(name):
-            u = User(username=name, email=test_data.auth_email_default['email'])
-            u.save()
-            u.userdata.event = ae
-            u.userdata.save()
-            return u
+        def new_user(name):
+            user = User(
+                username=name, 
+                email=test_data.auth_email_default['email']
+            )
+            user.save()
+            user.userdata.event = auth_event
+            user.userdata.save()
+            return user
 
-        def newAction(user, date):
-            action = Action(
+        def add_vote(user, date):
+            vote = SuccessfulLogin(
                 created=date,
-                executer=user,
-                receiver=user,
-                action_name="authevent:callback",
-                event=ae)
-            action.save()
-            return action
+                user=user.userdata,
+                auth_event=auth_event
+            )
+            vote.save()
+            return vote
 
         # Create the data from which to run the query
         # the expected result is defined below the data, then used in an
@@ -2171,59 +2208,62 @@ class TestCsvStats(TestCase):
         # these votes will be overwritten later
         # the first hour slice will therefore have 0 votes
         for i in range(0, 4):
-            user = newUser("user%s" % i)
-            newAction(user, date)
+            user = new_user("user%s" % i)
+            add_vote(user, date)
             self.users.append(user)
 
         # in the second hour we have 3 votes
         date = date + timedelta(hours=1)
         for i in range(4, 7):
-            user = newUser("user%s" % i)
-            newAction(user, date)
+            user = new_user("user%s" % i)
+            add_vote(user, date)
 
         # here we cast votes for the same users as in the first hour,
         # effectively invalidating them
         # the third hour slice will therefore have 4 votes
         date = date + timedelta(hours=1)
         for i in range(0, 4):
-            newAction(self.users[i], date)
+            add_vote(self.users[i], date)
 
         # in the third hour we have 5 votes
         date = date + timedelta(hours=1)
         for i in range(7, 12):
-            user = newUser("user%s" % i)
-            newAction(user, date)
-
-        # the expected result as a csv string
-        # corresponds to 0 votes in first hour (no data)
-        # 3 votes in second hour
-        # 4 votes in third hour
-        # 5 votes in fourth hour
-        self.expected = b"2010-10-10 01:00:00+00:00,3\n2010-10-10 02:00:00+00:00,4\n2010-10-10 03:00:00+00:00,5"
-
-    def genhmac(self, key, msg):
-        import hmac
-        import datetime
-
-        if not key or not msg:
-           return
-
-        timestamp = int(datetime.datetime.now().timestamp())
-        msg = "%s:%s" % (msg, str(timestamp))
-
-        h = hmac.new(key, msg.encode('utf-8'), "sha256")
-        return 'khmac:///sha-256;' + h.hexdigest() + '/' + msg
+            user = new_user("user%s" % i)
+            add_vote(user, date)
 
     @override_settings(**override_celery_data)
-    def test_csv_stats(self):
-        c = JClient()
-        timed_auth = "%s:AuthEvent:%d:CsvStats" % (self.users[0].username, self.aeid)
-        hmac = self.genhmac(settings.SHARED_SECRET, timed_auth)
-        c.set_auth_token(hmac)
-
-        response = c.get('/api/auth-event/%d/csv-stats/' % self.aeid, {})
+    def test_vote_stats(self):
+        client = JClient()
+        response = client.authenticate(
+            self.aeid_special, 
+            self.admin_auth_data
+        )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.content, self.expected)
+
+        response = client.get(
+            '/api/auth-event/%d/vote-stats/' % self.auth_event_id, 
+            {}
+        )
+        self.assertEqual(response.status_code, 200)
+    
+        # the expected response should be:
+        # 0 votes in  hour 0 (no data)
+        # 3 votes in hour 1
+        # 4 votes in hour 2
+        # 5 votes in hour 3
+        
+        self.assertEqual(
+            reproducible_json_dumps(parse_json_response(response)),
+            reproducible_json_dumps({
+                "total_votes": 12, 
+                "votes_per_hour": [
+                    {"hour": "2010-10-10 01:00:00+00:00", "votes": 3}, 
+                    {"hour": "2010-10-10 02:00:00+00:00", "votes": 4}, 
+                    {"hour": "2010-10-10 03:00:00+00:00", "votes": 5}
+                ]
+            })
+        )
+            
 
 # Check the allowed number of revotes, using AuthEvent's
 # num_successful_logins_allowed field and calls to successful_login
@@ -3863,7 +3903,6 @@ class ApiTestRequiredOnAuthentication(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-
         self.ae = AuthEvent(
             auth_method='email',
             auth_method_config=test_data.authmethod_config_email_default,
@@ -3893,6 +3932,18 @@ class ApiTestRequiredOnAuthentication(TestCase):
             perm='vote',
             object_id=self.ae.id)
         acl.save()
+
+        # in this test we need two user so that the narrowing of
+        # finding users cannot be done simply because there's only
+        # one
+        self.user2 = User(
+            username='foo2',
+            email='foo2@bar.com')
+        self.user2.set_password('qwerty2')
+        self.user2.save()
+        self.user2.userdata.event = self.ae
+        self.user2.userdata.metadata = {'dni':'DNI34534534B'}
+        self.user2.userdata.save()
 
     def test_required_on_authentication(self):
         c = JClient()
@@ -3938,6 +3989,115 @@ class ApiTestRequiredOnAuthentication(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
+class ApiTestHideDefaultLoginLookupField(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        self.ae = AuthEvent(
+            auth_method='email',
+            auth_method_config=copy.deepcopy(test_data.authmethod_config_email_default),
+            extra_fields=copy.deepcopy(test_data.auth_event6['extra_fields']),
+            status='started',
+            census='open')
+        self.ae.save()
+
+        self.user = User(
+            username='foo',
+            email='foo@bar.com')
+        self.user.set_password('qwerty')
+        self.user.save()
+        self.user.userdata.event = self.ae
+        self.user.userdata.metadata = {'dni':'DNI1234567L'}
+        self.user.userdata.save()
+
+        c = Code(
+            user=self.user.userdata,
+            code='ERGERG',
+            auth_event_id=self.ae.id)
+        c.save()
+
+        acl = ACL(
+            user=self.user.userdata,
+            object_type='AuthEvent',
+            perm='vote',
+            object_id=self.ae.id)
+        acl.save()
+
+        # in this test we need two user so that the narrowing of
+        # finding users cannot be done simply because there's only
+        # one
+        self.user2 = User(
+            username='foo2',
+            email='foo2@bar.com')
+        self.user2.set_password('qwerty2')
+        self.user2.save()
+        self.user2.userdata.event = self.ae
+        self.user2.userdata.metadata = {'dni':'DNI34534534B'}
+        self.user2.userdata.save()
+
+    def _hide_default_login_lookup_field(self, is_resend=False):
+        # reset data
+        self.ae.extra_fields[0]["required_on_authentication"] = True
+        self.ae.hide_default_login_lookup_field = False
+
+        if is_resend:
+            user_data_good = dict(dni='01234567L')
+            user_data_bad = dict(dni='00011111W')
+            url_auth = '/api/auth-event/%d/resend_auth_code/' % self.ae.id
+        else:
+            user_data_good = dict(code='ERGERG', dni='01234567L')
+            user_data_bad = dict(code='ERGERG', dni='00011111W')
+            url_auth = '/api/auth-event/%d/authenticate/' % self.ae.id
+
+        # without email, it fails
+        c = JClient()
+        response = c.post(url_auth, user_data_good)
+        self.assertEqual(response.status_code, 400)
+
+        self.ae.hide_default_login_lookup_field = True
+        self.ae.save()
+                
+        # now that hide_default_login_lookup_field auth without email works
+        response = c.post(url_auth, user_data_good)
+        self.assertEqual(response.status_code, 200)
+
+        # using bad dni doesn't work
+        response = c.post(url_auth, user_data_bad)
+        self.assertEqual(response.status_code, 400)
+
+        # if dni is not required_on_authentication it doesn't work
+        self.ae.extra_fields[0]["required_on_authentication"] = False
+        self.ae.hide_default_login_lookup_field = True
+        self.ae.save()
+        response = c.post(url_auth, user_data_good)
+        self.assertEqual(response.status_code, 400)
+
+    def test_hide_default_login_lookup_field_email(self):
+        self.ae.auth_method = 'email'
+        self.ae.save()
+        self._hide_default_login_lookup_field()
+
+    @override_settings(CELERY_ALWAYS_EAGER=True)
+    def test_hide_default_login_lookup_field_email_otp(self):
+        self.ae.auth_method = 'email-otp'
+        self.ae.save()
+        self._hide_default_login_lookup_field()
+        self._hide_default_login_lookup_field(is_resend=True)
+
+    def test_hide_default_login_lookup_field_sms(self):
+        self.ae.auth_method = 'sms'
+        self.ae.save()
+        self._hide_default_login_lookup_field()
+
+    @override_settings(CELERY_ALWAYS_EAGER=True)
+    def test_hide_default_login_lookup_field_sms_otp(self):
+        self.ae.auth_method = 'sms-otp'
+        self.ae.save()
+        self._hide_default_login_lookup_field()
+        self._hide_default_login_lookup_field(is_resend=True)
+
+
 class ApiTestUserIdField(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
@@ -3968,3 +4128,622 @@ class ApiTestUserIdField(TestCase):
             u.username,
             "65d208b58bed19558591967ea937799b5a7f266310e27d31f5209bf7e788bfdf"
         )
+
+
+class ApitTestCreateParentElection(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        self.aeid_special = 1
+        u = User(
+            username=test_data.admin['username'], 
+            email=test_data.admin['email']
+        )
+        u.set_password(test_data.admin['password'])
+        u.save()
+        u.userdata.event = AuthEvent.objects.get(pk=1)
+        u.userdata.save()
+        self.user = u
+
+        self.admin_auth_data = dict(
+            email=test_data.admin['email'],
+            code="ERGERG"
+        )
+        c = Code(
+            user=self.user.userdata,
+            code=self.admin_auth_data['code'],
+            auth_event_id=self.aeid_special
+        )
+        c.save()
+        
+        acl = ACL(
+            user=self.user.userdata, 
+            object_type='AuthEvent', 
+            perm='create',
+            object_id=0
+        )
+        acl.save()
+
+    def test_create_parent_authevent(self):
+        c = JClient()
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+        response = c.post('/api/auth-event/', test_data.auth_event18)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        rid = r['id']
+
+        response = c.get('/api/auth-event/%d/' % rid, {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(
+            reproducible_json_dumps(r['events']['children_election_info']),
+            reproducible_json_dumps(test_data.auth_event18['children_election_info'])
+        )
+
+    def test_create_children_authevent(self):
+        c = JClient()
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        auth_event = copy.deepcopy(test_data.auth_event1)
+        auth_event['parent_id'] = 3463453 # does not exist
+        response = c.post('/api/auth-event/', auth_event)
+        self.assertEqual(response.status_code, 400)
+
+        auth_event['parent_id'] = 1 # does exist
+        response = c.post('/api/auth-event/', auth_event)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        rid = r['id']
+
+        response = c.get('/api/auth-event/%d/' % rid, {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(r['events']['parent_id'], 1)
+
+
+class ApitTestCensusManagementInElectionWithChildren(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        self.aeid_special = 1
+        u = User(
+            username=test_data.admin['username'], 
+            email=test_data.admin['email']
+        )
+        u.set_password(test_data.admin['password'])
+        u.save()
+        u.userdata.event = AuthEvent.objects.get(pk=1)
+        u.userdata.save()
+        self.user = u
+
+        self.admin_auth_data = dict(
+            email=test_data.admin['email'],
+            code="ERGERG"
+        )
+        c = Code(
+            user=self.user.userdata,
+            code=self.admin_auth_data['code'],
+            auth_event_id=self.aeid_special
+        )
+        c.save()
+        
+        acl = ACL(
+            user=self.user.userdata, 
+            object_type='AuthEvent', 
+            perm='create',
+            object_id=0
+        )
+        acl.save()
+
+    def _add_to_census(self, auth_method):
+        c = JClient()
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # create the child election1
+        event_data = copy.deepcopy(test_data.auth_event19)
+        event_data['auth_method'] = auth_method
+        response = c.post('/api/auth-event/', event_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        child_id_1 = r['id']
+
+        # create the child election2
+        event_data = copy.deepcopy(test_data.auth_event19)
+        event_data['auth_method'] = auth_method
+        response = c.post('/api/auth-event/', event_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        child_id_2 = r['id']
+
+        # create the parent election
+        event_data = test_data.get_auth_event_20(child_id_1, child_id_2)
+        event_data['auth_method'] = auth_method
+        response = c.post('/api/auth-event/', event_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        parent_id = r['id']
+
+        # set the parent in children. We do not set at the begining
+        # because we do not know the children election ids..
+        parent_election = AuthEvent.objects.get(pk=parent_id)
+        
+        children_1 = AuthEvent.objects.get(pk=child_id_1)
+        children_1.parent = parent_election
+        children_1.save()
+        
+        children_2 = AuthEvent.objects.get(pk=child_id_2)
+        children_2.parent = parent_election
+        children_2.save()
+        
+        # try to add otherwise "valid-looking" census to the children 
+        # should fail
+        response = c.census(child_id_1, test_data.get_auth_event19_census(auth_method))
+        self.assertEqual(response.status_code, 400)
+        
+        # try to add valid census to the parent should work
+        response = c.census(
+            parent_id, 
+            test_data.get_auth_event20_census_ok(child_id_1, child_id_2, auth_method)
+        )
+        self.assertEqual(response.status_code, 200)
+        
+        # try to add census linking to other elections should fail
+        response = c.census(
+            parent_id, 
+            test_data.get_auth_event20_census_invalid(auth_method)
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_add_to_census_email(self):
+        self._add_to_census('email')
+
+    def test_add_to_census_email_otp(self):
+        self._add_to_census('email-otp')
+
+    def test_add_to_census_sms(self):
+        self._add_to_census('sms')
+
+    def test_add_to_census_email(self):
+        self._add_to_census('sms-otp')
+
+
+class ApitTestAuthenticateInElectionWithChildren(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        self.aeid_special = 1
+        u = User(
+            username=test_data.admin['username'], 
+            email=test_data.admin['email']
+        )
+        u.set_password(test_data.admin['password'])
+        u.save()
+        u.userdata.event = AuthEvent.objects.get(pk=1)
+        u.userdata.save()
+        self.user = u
+
+        self.admin_auth_data = dict(
+            email=test_data.admin['email'],
+            code="ERGERG"
+        )
+        c = Code(
+            user=self.user.userdata,
+            code=self.admin_auth_data['code'],
+            auth_event_id=self.aeid_special
+        )
+        c.save()
+        
+        acl = ACL(
+            user=self.user.userdata, 
+            object_type='AuthEvent', 
+            perm='create',
+            object_id=0
+        )
+        acl.save()
+
+    def _auth_and_vote(self, auth_method):
+        client = JClient()
+        response = client.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # create the child election1
+        event_data = copy.deepcopy(test_data.auth_event19)
+        event_data['auth_method'] = auth_method
+        response = client.post('/api/auth-event/', event_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        child_id_1 = r['id']
+
+        # create the child election2
+        event_data = copy.deepcopy(test_data.auth_event19)
+        event_data['auth_method'] = auth_method
+        response = client.post('/api/auth-event/', event_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        child_id_2 = r['id']
+
+        # create the parent election
+        event_data = test_data.get_auth_event_20(child_id_1, child_id_2)
+        event_data['auth_method'] = auth_method
+        response = client.post('/api/auth-event/', event_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        parent_id = r['id']
+
+        # set the parent in children. We do not set at the begining
+        # because we do not know the children election ids..
+        parent_election = AuthEvent.objects.get(pk=parent_id)
+        
+        children_1 = AuthEvent.objects.get(pk=child_id_1)
+        children_1.parent = parent_election
+        children_1.save()
+        
+        children_2 = AuthEvent.objects.get(pk=child_id_2)
+        children_2.parent = parent_election
+        children_2.save()
+        
+        # add valid census to the parent should work
+        census_data = test_data.get_auth_event20_census_ok(
+            child_id_1, 
+            child_id_2, 
+            auth_method
+        )
+        response = client.census(
+            parent_id, 
+            census_data
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # create authentication code for user in census
+        voter = User.objects.get(
+            email=census_data['census'][0]['email'],
+            userdata__event=parent_election
+        )
+        code = Code(
+            user=voter.userdata, 
+            code=test_data.auth_email_default['code'], 
+            auth_event_id=parent_election.pk
+        )
+        code.save()
+
+        # start the election
+        response = client.post(
+            '/api/auth-event/%d/%s/' % (parent_election.pk, 'started'), 
+            {}
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # authenticate in parent election
+        response = client.authenticate(
+            parent_election.id, 
+            {
+                "email": census_data['census'][0]['email'],
+                "dni": census_data['census'][0]['dni'],
+                "code": test_data.auth_email_default['code']
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # verify answer data
+        resp_json = parse_json_response(response)
+        self.assertEqual(type(resp_json), dict)
+        self.assertEqual(resp_json['status'], 'ok')
+        assert 'username' in resp_json
+        self.assertEqual(type(resp_json['username']), str)
+        assert 'auth-token' in resp_json
+        self.assertEqual(type(resp_json['auth-token']), str)
+        assert 'vote-children-info' in resp_json
+        self.assertEqual(type(resp_json['vote-children-info']), list)
+        self.assertEqual(len(resp_json['vote-children-info']), 2)
+        
+        child_info_1 = resp_json['vote-children-info'][0]
+        self.assertEqual(type(child_info_1), dict)
+        assert 'auth-event-id' in child_info_1
+        self.assertEqual(child_info_1['auth-event-id'], child_id_1)
+        assert 'vote-permission-token' in child_info_1
+        self.assertEqual(type(child_info_1['vote-permission-token']), str)
+        self.assertTrue(re.match(
+            "^khmac:\/\/\/sha-256;[a-f0-9]{64}\/[a-f0-9]+:AuthEvent:[0-9]:vote:[0-9]+$",
+            child_info_1['vote-permission-token']
+        ))
+        self.assertEqual(child_info_1.get('num-successful-logins-allowed'), 0)
+        self.assertEqual(child_info_1.get('num-successful-logins'), 0)
+
+        # verify the second user is not allowed to authenticate in child_election_2
+        voter = User.objects.get(
+            email=census_data['census'][1]['email'],
+            userdata__event=parent_election
+        )
+        code = Code(
+            user=voter.userdata, 
+            code=test_data.auth_email_default['code'], 
+            auth_event_id=parent_election.pk
+        )
+        code.save()
+
+        # authenticate in parent election
+        response = client.authenticate(
+            parent_election.id, 
+            {
+                "email": census_data['census'][1]['email'],
+                "dni": census_data['census'][1]['dni'],
+                "code": test_data.auth_email_default['code']
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # verify answer data
+        resp_json = parse_json_response(response)
+        resp_json['vote-children-info']
+        self.assertEqual(len(resp_json['vote-children-info']), 2)
+        child_info_1 = resp_json['vote-children-info'][0]
+        child_info_2 = resp_json['vote-children-info'][1]
+        self.assertEqual(type(child_info_1), dict)
+        assert 'auth-event-id' in child_info_1
+        self.assertEqual(child_info_1['auth-event-id'], child_id_1)
+        assert 'vote-permission-token' in child_info_1
+        self.assertEqual(type(child_info_1['vote-permission-token']), str)
+        self.assertTrue(re.match(
+            "^khmac:\/\/\/sha-256;[a-f0-9]{64}\/[a-f0-9]+:AuthEvent:[0-9]:vote:[0-9]+$",
+            child_info_1['vote-permission-token']
+        ))
+        self.assertEqual(type(child_info_2), dict)
+        assert 'auth-event-id' in child_info_2
+        self.assertEqual(child_info_2['auth-event-id'], child_id_2)
+        assert 'vote-permission-token' in child_info_2
+        self.assertEqual(child_info_2['vote-permission-token'], None)
+
+    def _auth_and_vote_with_edit_children_parent(self, auth_method):
+        client = JClient()
+        response = client.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # create the child election1
+        event_data = copy.deepcopy(test_data.auth_event19)
+        event_data['auth_method'] = auth_method
+        response = client.post('/api/auth-event/', event_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        child_id_1 = r['id']
+        self.assertEqual(
+            AuthEvent.objects.get(pk=child_id_1).parent_id,
+            None
+        )
+
+        # create the child election2
+        event_data = copy.deepcopy(test_data.auth_event19)
+        event_data['auth_method'] = auth_method
+        response = client.post('/api/auth-event/', event_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        child_id_2 = r['id']
+        self.assertEqual(
+            AuthEvent.objects.get(pk=child_id_2).parent_id,
+            None
+        )
+
+        # create the parent election, but not yet with children_election_info
+        event_data = test_data.get_auth_event_20(child_id_1, child_id_2)
+        children_election_info = event_data['children_election_info']
+        del event_data['children_election_info']
+        event_data['auth_method'] = auth_method
+        response = client.post('/api/auth-event/', event_data)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        parent_id = r['id']
+
+        # set the parent and children election info in the elections
+        update_data = {
+            'parent_id': parent_id
+        }
+        response = client.post(
+            '/api/auth-event/%d/edit-children-parent/' % child_id_1, 
+            update_data
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            AuthEvent.objects.get(pk=child_id_1).parent_id,
+            parent_id
+        )
+        response = client.post(
+            '/api/auth-event/%d/edit-children-parent/' % child_id_2, 
+            update_data
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            AuthEvent.objects.get(pk=child_id_2).parent_id,
+            parent_id
+        )
+
+        response = client.post(
+            '/api/auth-event/%d/edit-children-parent/' % parent_id, 
+            {
+                'children_election_info': children_election_info
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            reproducible_json_dumps(
+                AuthEvent\
+                    .objects\
+                    .get(pk=parent_id)\
+                    .children_election_info
+            ),
+            reproducible_json_dumps(children_election_info)
+        )
+        
+        # add valid census to the parent should work
+        census_data = test_data.get_auth_event20_census_ok(
+            child_id_1, 
+            child_id_2, 
+            auth_method
+        )
+        response = client.census(
+            parent_id, 
+            census_data
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # create authentication code for user in census
+        voter = User.objects.get(
+            email=census_data['census'][0]['email'],
+            userdata__event_id=parent_id
+        )
+        code = Code(
+            user=voter.userdata, 
+            code=test_data.auth_email_default['code'], 
+            auth_event_id=parent_id
+        )
+        code.save()
+
+        # start the election
+        response = client.post(
+            '/api/auth-event/%d/%s/' % (parent_id, 'started'), 
+            {}
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # authenticate in parent election
+        response = client.authenticate(
+            parent_id, 
+            {
+                "email": census_data['census'][0]['email'],
+                "dni": census_data['census'][0]['dni'],
+                "code": test_data.auth_email_default['code']
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # verify census
+        response = client.authenticate(self.aeid_special, self.admin_auth_data)
+        response = client.get('/api/auth-event/%d/census/' % parent_id, {})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            reproducible_json_dumps(parse_json_response(response)['object_list'][0]['voted_children_elections']),
+            reproducible_json_dumps([])
+        )
+
+        successful_login = SuccessfulLogin(user=voter.userdata, auth_event_id=child_id_1)
+        successful_login.save()
+        response = client.get('/api/auth-event/%d/census/' % parent_id, {})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            reproducible_json_dumps(parse_json_response(response)['object_list'][0]['voted_children_elections']),
+            reproducible_json_dumps([child_id_1])
+        )
+
+    """ def test_auth_and_vote_email(self):
+        self._auth_and_vote('email')
+
+    def test_auth_and_vote_email_otp(self):
+        self._auth_and_vote('email-otp')
+
+    def test_auth_and_vote_with_edit_children_parent_email(self):
+        self._auth_and_vote_with_edit_children_parent('email') """
+
+    def test_auth_and_vote_with_edit_children_parent_email_otp(self):
+        self._auth_and_vote_with_edit_children_parent('email-otp')
+
+
+class TestAuthEventList(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        ae = AuthEvent(
+            auth_method=test_data.auth_event4['auth_method'],
+            auth_method_config=test_data.authmethod_config_email_default
+        )
+        ae.save()
+        ae2 = AuthEvent(
+            auth_method=test_data.auth_event4['auth_method'],
+            auth_method_config=test_data.authmethod_config_email_default,
+            parent_id=ae.pk
+        )
+        ae2.save()
+
+        self.aeid_special = 1
+        u = User(
+            username=test_data.admin['username'], 
+            email=test_data.admin['email']
+        )
+        u.set_password('smith')
+        u.save()
+        u.userdata.event = AuthEvent.objects.get(pk=1)
+        u.userdata.save()
+
+        self.admin_auth_data = dict(
+            email=test_data.admin['email'],
+            code="ERGERG"
+        )
+        c = Code(
+            user=u.userdata,
+            code=self.admin_auth_data['code'],
+            auth_event_id=self.aeid_special
+        )
+        c.save()
+
+        self.userid = u.pk
+        self.testuser = u
+        self.aeid = ae.pk
+        self.ae = ae
+        self.ae2 = ae2
+
+        acl = ACL(
+            user=u.userdata, 
+            object_type='AuthEvent', 
+            perm='view',
+            object_id=self.ae.id
+        )
+        acl.save()
+        acl2 = ACL(
+            user=u.userdata, 
+            object_type='AuthEvent', 
+            perm='view',
+            object_id=self.ae2.id
+        )
+        acl2.save()
+    
+    def test_list_and_filter(self):
+        client = JClient()
+        response = client.authenticate(
+            self.aeid_special, 
+            self.admin_auth_data
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # list all
+        response = client.get('/api/auth-event/', {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(len(r['events']), 3)
+
+        # list my elections
+        response = client.get('/api/auth-event/?has_perms=edit|view', {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(len(r['events']), 2)
+
+        # list my elections with no parents
+        response = client.get('/api/auth-event/?has_perms=edit|view&only_parent_elections=true', {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(len(r['events']), 1)
+
+        # list my elections with no parents and archived
+        response = client.get('/api/auth-event/?has_perms=unarchive|view-archived&only_parent_elections=true', {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(len(r['events']), 0)
+
+        # list my elections with specific ids
+        response = client.get('/api/auth-event/?has_perms=edit|view&ids=%d' % self.ae2.id, {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(len(r['events']), 1)
