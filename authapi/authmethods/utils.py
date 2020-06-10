@@ -253,13 +253,13 @@ def check_ip_total_max(data, **kwargs):
           "len(item) '%r'\n" \
           "total_max '%r'\n" \
           "ip_addr '%r'\n" \
-          "c1.id '%r'\n",
+          "cl.id '%r'\n",
           data,
           kwargs,
           len(item),
           total_max,
           ip_addr[:15],
-          c1.id
+          cl.id
         )
         return error("Blacklisted", error_codename="blacklisted")
     
