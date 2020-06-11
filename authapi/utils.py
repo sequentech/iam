@@ -418,7 +418,7 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None, save_
     if auth_method in ["sms", "sms-otp"]:
         send_sms_code(receiver, msg)
         if save_message:
-          m = Message(tlf=receiver, ip=ip[:15], auth_event_id=event_id)
+          m = Message(tlf=receiver[:20], ip=ip[:15], auth_event_id=event_id)
           m.save()
 
         # also send via email if possible and only if there was no override (to 
@@ -444,7 +444,7 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None, save_
         )
         send_email(email)
         if save_message:
-          m = Message(tlf=receiver, ip=ip[:15], auth_event_id=event_id)
+          m = Message(tlf=receiver[:20], ip=ip[:15], auth_event_id=event_id)
           m.save()
 
         # also send via sms if possible and only if there was no override (to 
