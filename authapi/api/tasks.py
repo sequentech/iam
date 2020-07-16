@@ -639,7 +639,8 @@ def calculate_results_task(user_id, event_id_list):
                 args=[
                     user_id,
                     event_id_list
-                ]
+                ],
+                countdown=1
             )
 
 @celery.task(name='tasks.publish_results')
