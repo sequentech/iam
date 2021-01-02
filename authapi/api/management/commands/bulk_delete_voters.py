@@ -1,5 +1,5 @@
 # This file is part of authapi.
-# Copyright (C) 2020  Agora Voting SL <agora@agoravoting.com>
+# Copyright (C) 2021  Agora Voting SL <agora@agoravoting.com>
 
 # authapi is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -15,10 +15,19 @@
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
+import time
 
-# Delete all the voters (manually cascading on related tables) in authapi
-# for a specific election (event-id)
+
 class Command(BaseCommand):
+  '''
+  Delete all the voters (manually cascading on related tables) in authapi
+  for a specific election (event-id)
+  '''
+  # NOTES:
+  #
+  # How to do something like DELETE JOIN in PostgreSQL with USING clause:
+  # https://www.postgresqltutorial.com/postgresql-delete-join/
+  
   help = 'delete all voters for a specific election'
 
   def add_arguments(self, parser):
@@ -27,52 +36,68 @@ class Command(BaseCommand):
       nargs=1,
       type=int
     )
+  def exec_sql(self, sql = "", params = [], exec_lambda = None):
+    '''
+    Executes an SQL statement
+    '''
+    timer = None
+    
+    if exec_lambda is not None:
+      print("\nExecuting lambda SQL statement: %s" % sql)
+      timer = time.perf_counter()
+      ret = exec_lambda()
+    else:
+      print("\nExecuting SQL statement: %s, params = %r" % (sql, params))
+      timer = time.perf_counter()
+      ret =  self.connection.execute(sql, params)
+    timer2 = time.perf_counter()
+    print("... done in %.2f secs" % (timer2 - timer))
+    return ret
 
   def handle(self, *args, **options):
-    event_id = options['event-id'][0]
-    with connection.cursor() as conn:
-      delete_acls = '''
-      DELETE FROM api_acl A
-      WHERE EXISTS (
-      SELECT FROM api_userdata M
+    event_id = int(options['event-id'][0])
+    self.connection = connection.cursor()
+    delete_acls = '''
+    START TRANSACTION;
+
+    SET CONSTRAINTS ALL DEFERRED;
+
+    WITH users_to_delete AS (
+      SELECT
+      M.id AS userdata_id,
+      U.id AS user_id
+      FROM api_userdata M
       INNER JOIN auth_user U
       ON U.id = M.user_id
-      WHERE M.event_id=%s AND M.status = 'act' AND A.user_id = U.id
-      )'''
-      print('deleting acls for election %s..' % event_id)
-      conn.execute(delete_acls, [event_id])
-      print('deleted %d acls' % conn.rowcount)
+      WHERE M.event_id=%(event_id)d
+    ),
+    delete_acls AS (
+      DELETE FROM api_acl
+      USING users_to_delete
+      WHERE api_acl.user_id = users_to_delete.userdata_id
+    ),
+    delete_actions AS (
+      DELETE FROM api_action
+      USING users_to_delete
+      WHERE
+        api_action.event_id=%(event_id)d
+        AND (
+          api_action.executer_id = users_to_delete.user_id
+          OR api_action.receiver_id = users_to_delete.user_id
+        )
+    ),
+    delete_userdata AS (
+      DELETE FROM api_userdata
+      USING users_to_delete
+      WHERE api_userdata.id = users_to_delete.userdata_id
+    )
+    DELETE FROM auth_user
+    USING users_to_delete
+    WHERE auth_user.id = users_to_delete.user_id;
 
-      delete_actions = '''
-      DELETE FROM api_action M
-      WHERE EXISTS (
-          SELECT FROM auth_user U
-          WHERE (U.id = M.executer_id OR U.id = M.receiver_id) AND M.event_id=%s
-      )'''
-      print('deleting actions for election %s..' % event_id)
-      conn.execute(delete_actions, [event_id])
-      print('deleted %d actions' % conn.rowcount)
+    COMMIT TRANSACTION;
+    ''' % dict(event_id=event_id)
+    self.exec_sql(delete_acls)
 
-      delete_userdatas = '''
-      DELETE FROM api_userdata M
-      WHERE EXISTS (
-          SELECT FROM auth_user U
-          WHERE U.id = M.user_id AND M.event_id=%s
-      )'''
-      print('deleting userdatas for election %s..' % event_id)
-      conn.execute(delete_userdatas, [event_id])
-      print('deleted %d userdatas' % conn.rowcount)
-
-      # Every user needs to have an user data. As we deleted the user data at this
-      # stage, we lost the connection with the event_id (the election), so the way
-      # to remove the users related to the election is to remove all users with no
-      # corresponding userdata.
-      delete_users = '''
-      DELETE FROM auth_user U
-      WHERE not exists (
-          SELECT FROM api_userdata M
-          WHERE U.id = M.user_id
-      )'''
-      print('deleting users for election %s..' % event_id)
-      conn.execute(delete_users, [event_id])
-      print('deleted %d users' % conn.rowcount)
+    vacuum_statement = "VACUUM FULL ANALYZE VERBOSE;"
+    self.exec_sql(vacuum_statement)
