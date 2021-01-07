@@ -16,7 +16,10 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
 from django.contrib.auth.models import User
-from django.contrib.auth.hashers import UNUSABLE_PASSWORD_PREFIX
+from django.contrib.auth.hashers import (
+  UNUSABLE_PASSWORD_PREFIX,
+  PBKDF2PasswordHasher
+)
 from api.models import AuthEvent
 import csv
 import time
@@ -44,23 +47,28 @@ class Command(BaseCommand):
   help = 'Bulk insert voters in an election'
 
   event_id = None
+  iterations = None
   voters_csv = None
   columns = []
-  connection = None
+  cursor = None
 
   def add_arguments(self, parser):
     parser.add_argument(
       'event-id',
-      nargs=1,
       type=int
     )
     parser.add_argument(
       'voters-csv',
-      nargs=1,
       type=str
     )
+    parser.add_argument(
+      '--iterations',
+      type=int,
+      default=PBKDF2PasswordHasher.iterations,
+      help="Number of PBKDF2 to use for passwords, defaults to %d" % PBKDF2PasswordHasher.iterations
+    )
   
-  def exec_sql(self, sql = "", params = [], exec_lambda = None):
+  def exec_sql(self, sql = "", params = None, exec_lambda = None):
     '''
     Executes an SQL statement
     '''
@@ -73,19 +81,25 @@ class Command(BaseCommand):
     else:
       print("\nExecuting SQL statement: %s, params = %r" % (sql, params))
       timer = time.perf_counter()
-      ret =  self.connection.execute(sql, params)
+      ret =  self.cursor.execute(sql, params)
     timer2 = time.perf_counter()
     print("... done in %.2f secs" % (timer2 - timer))
     return ret
   
-  def init(self, event_id, voters_csv):
+  def init(self, event_id, voters_csv, iterations):
     '''
     Initializes the class, setting its class members and doing some initial
     minor verifications.
     '''
     self.event_id = int(event_id)
     self.voters_csv = voters_csv
-    self.connection = connection.cursor()
+    self.iterations = int(iterations)
+    self.cursor = connection.cursor()
+
+    # verify positive event_id and number of iterations
+    assert(self.event_id >= 0)
+    assert(self.iterations > 0)
+
     with open(voters_csv, 'r') as csv_file:
       csv_reader = csv.reader(csv_file)
       self.columns = [column.strip() for column in csv_reader.__next__()]
@@ -122,23 +136,170 @@ class Command(BaseCommand):
       # ignore the first line, which contains the column headers
       csv_file.readline()
       self.exec_sql(
-        sql="self.connection.copy_from(csv_file, 'voters_csv_table')",
+        sql="self.cursor.copy_from(csv_file, 'voters_csv_table', sep=',')",
         exec_lambda=lambda: 
-          self.connection.copy_from(csv_file, 'voters_csv_table')
+          self.cursor.copy_from(csv_file, 'voters_csv_table', sep=',')
       )
+  
+  def load_password_function(self):
+    '''
+    Creates or updates the password function (PBKDF2)
+    '''
+    password_function = '''
+    CREATE OR REPLACE FUNCTION PBKDF2 
+      (salt bytea, pw text, count integer, desired_length integer, algorithm text)
+      returns bytea
+      immutable
+      language plpgsql
+    as $$
+    declare 
+      hash_length integer;
+      block_count integer;
+      output bytea;
+      the_last bytea;
+      xorsum bytea;
+      i_as_int32 bytea;
+      i integer;
+      j integer;
+      k integer;
+    begin
+      algorithm := lower(algorithm);
+      case algorithm
+      when 'md5' then
+        hash_length := 16;
+      when 'sha1' then
+        hash_length = 20;
+      when 'sha256' then
+        hash_length = 32;
+      when 'sha512' then
+        hash_length = 64;
+      else
+        raise exception 'Unknown algorithm "%"', algorithm;
+      end case;
+
+      block_count := ceil(desired_length::real / hash_length::real);
+
+      for i in 1 .. block_count loop    
+        i_as_int32 := E'\\\\000\\\\000\\\\000'::bytea || chr(i)::bytea;
+        i_as_int32 := substring(i_as_int32, length(i_as_int32) - 3);
+
+        the_last := salt::bytea || i_as_int32;
+
+        xorsum := HMAC(the_last, pw::bytea, algorithm);
+        the_last := xorsum;
+
+        for j in 2 .. count loop
+          the_last := HMAC(the_last, pw::bytea, algorithm);
+
+          --
+          -- xor the two
+          --
+          for k in 1 .. length(xorsum) loop
+            xorsum := set_byte(xorsum, k - 1, get_byte(xorsum, k - 1) # get_byte(the_last, k - 1));
+          end loop;
+        end loop;
+
+        if output is null then
+          output := xorsum;
+        else
+          output := output || xorsum;
+        end if;
+      end loop;
+
+      return substring(output from 1 for desired_length);
+    end $$;
+    '''
+    self.exec_sql(password_function)
+
+  def get_loader_sql_options(self):
+    sql_options = dict()
+
+    if 'email' in self.columns:
+      base_salt_field = 'email'
+    elif 'tlf' in self.columns:
+      base_salt_field = 'tlf'
+    else:
+      base_salt_field = self.columns[0]
+    sql_options['base_salt_field'] = base_salt_field
+
+    if 'password' in self.columns:
+      # assign password encoded in django format with PBKDF2:
+      #
+      # <algorithm>$<iterations>$<salt>$<hash>
+
+      self.load_password_function()
+
+      sql_options['password_function'] = """
+        concat(
+          'pbkdf2_sha256$%(iterations)d$',
+          substr(md5(csv_data.%(base_salt_field)s), 0, 12),
+          '$',
+          encode(
+            PBKDF2(
+              substr(md5(csv_data.%(base_salt_field)s), 0, 12)::bytea,
+              csv_data.password,
+              %(iterations)d,
+              32,
+              'sha256'
+            ),
+            'base64'
+          )
+        ) AS password
+      """ % dict(
+        iterations = self.iterations,
+        base_salt_field = base_salt_field
+      )
+    else:
+      # assign a random invalid password (in django format) if no password is supplied
+      sql_options['password_function'] = """
+        concat(
+          '%(password_prefix)s', 
+          substr(md5(random()::text), 0, 25)
+        ) AS password
+      """ % dict (password_prefix = UNUSABLE_PASSWORD_PREFIX)
+
+    if 'tlf' in self.columns:
+      sql_options['tlf'] = 'csv_data.tlf'
+    else:
+      sql_options['tlf'] = 'NULL'
+
+    # metadata will be a collection of data from the CSV fields, just without
+    # tlf or email fields
+    sql_options['metadata'] = "concat('{'"
+    first = True
+    for column in self.columns:
+      if column in ['tlf', 'email', 'password']:
+        continue
+      if first:
+        first = False
+        sql_options['metadata'] += """
+        , '"%(column)s": "', csv_data.%(column)s, '"'
+        """ % dict(column=column)
+      else:
+        sql_options['metadata'] += """
+        , ', "%(column)s": "', csv_data.%(column)s, '"'
+        """ % dict(column=column)
+      
+    sql_options['metadata'] += ", '}')::jsonb AS metadata"
+
+    return sql_options
   
   def load_voters_into_django_tables(self):
     '''
     With a single composite SQL statement, insert the voters into the django
     tables from the temporal voters_csv_table
     '''
+    sql_options = self.get_loader_sql_options()
     load_voters_statement = '''
     START TRANSACTION;
 
     SET CONSTRAINTS ALL DEFERRED;
 
-    WITH csv_data(email) AS (
-      SELECT email FROM voters_csv_table
+    WITH csv_data(%(all_fields)s) AS (
+      SELECT 
+        %(all_fields)s,
+        substr(md5(concat(random()::text, %(base_salt_field)s)), 0, 25) AS username
+      FROM voters_csv_table
     ),
     user_insert AS (
       INSERT INTO auth_user (
@@ -153,9 +314,9 @@ class Command(BaseCommand):
         date_joined
       )
       SELECT
-        concat('%(password_prefix)s', substr(md5(random()::text), 0, 25)) AS password,
+        %(password_function)s,
         FALSE AS is_superuser,
-        substr(md5(concat(random()::text, csv_data.email)), 0, 25) AS username,
+        csv_data.username as username,
         '' AS first_name,
         '' AS last_name,
         csv_data.email AS email,
@@ -175,13 +336,14 @@ class Command(BaseCommand):
         children_event_id_list
       )
       SELECT
-        '{}' AS metadata,
+        %(metadata)s,
         'act' AS status,
         %(event_id)d AS event_id,
         user_insert.user_id AS user_id,
-        NULL AS tlf,
+        %(tlf)s AS tlf,
         NULL AS children_event_id_list
       FROM user_insert
+      LEFT JOIN csv_data ON csv_data.username = user_insert.username
       RETURNING id AS userdata_id
     ),
     vote_perm AS (
@@ -218,8 +380,12 @@ class Command(BaseCommand):
 
     COMMIT TRANSACTION;
     ''' % dict(
-      password_prefix=UNUSABLE_PASSWORD_PREFIX,
-      event_id=self.event_id
+      all_fields=", ".join(self.columns),
+      event_id=self.event_id,
+      password_function=sql_options['password_function'],
+      base_salt_field=sql_options['base_salt_field'],
+      metadata=sql_options['metadata'],
+      tlf=sql_options['tlf']
     )
     self.exec_sql(load_voters_statement)
   
@@ -238,8 +404,9 @@ class Command(BaseCommand):
     Handles the whole command execution
     '''
     self.init(
-      event_id = options['event-id'][0],
-      voters_csv = options['voters-csv'][0]
+      event_id = options['event-id'],
+      voters_csv = options['voters-csv'],
+      iterations = options['iterations']
     )
 
     try:
@@ -248,9 +415,3 @@ class Command(BaseCommand):
       self.load_voters_into_django_tables()
     finally:
       self.clean_up()
-
-    '''with connection.cursor() as conn:
-      u = User()
-      for i in range(1,10000):
-        u.set_password('egergergEGegY21')
-        print(u.password)'''
