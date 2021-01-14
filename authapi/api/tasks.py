@@ -110,18 +110,9 @@ def launch_tally(auth_event):
     else:
         parent_auth_event = auth_event.parent
 
-    # dump of the voter ids
-    valid_voters = User.objects\
-        .filter(
-            is_active=True,
-            userdata__event=parent_auth_event
-        )\
-        .values('username')
-    voter_ids_list = [voter['username'] for voter in valid_voters]
-
     agora_elections_request = requests.post(
         callback_url,
-        json=voter_ids_list,
+        json=[],
         headers={
             'Authorization': genhmac(
                 settings.SHARED_SECRET,
@@ -134,12 +125,10 @@ def launch_tally(auth_event):
         logger.error(
             "launch_tally(auth_event.id = %d): post\n" +
             "agora_elections.callback_url '%r'\n" +
-            "agora_elections.data.len = '%r'\n" +
             "agora_elections.status_code '%r'\n" +
             "agora_elections.text '%r'\n",
             auth_event.id,
             callback_url, 
-            len(voter_ids_list), 
             agora_elections_request.status_code, 
             agora_elections_request.text
         )
@@ -169,12 +158,10 @@ def launch_tally(auth_event):
     logger.info(
         "launch_tally(auth_event.id = %d): post\n" +
         "agora_elections.callback_url '%r'\n" +
-        "agora_elections.data.len = '%r'\n" +
         "agora_elections.status_code '%r'\n" +
         "agora_elections.text '%r'\n",
         auth_event.id,
         callback_url, 
-        len(voter_ids_list), 
         agora_elections_request.status_code, 
         agora_elections_request.text
     )
