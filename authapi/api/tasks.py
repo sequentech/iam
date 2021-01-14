@@ -125,12 +125,10 @@ def launch_tally(auth_event):
         logger.error(
             "launch_tally(auth_event.id = %d): post\n" +
             "agora_elections.callback_url '%r'\n" +
-            "agora_elections.data.len = '%r'\n" +
             "agora_elections.status_code '%r'\n" +
             "agora_elections.text '%r'\n",
             auth_event.id,
             callback_url, 
-            len(voter_ids_list), 
             agora_elections_request.status_code, 
             agora_elections_request.text
         )
@@ -160,12 +158,10 @@ def launch_tally(auth_event):
     logger.info(
         "launch_tally(auth_event.id = %d): post\n" +
         "agora_elections.callback_url '%r'\n" +
-        "agora_elections.data.len = '%r'\n" +
         "agora_elections.status_code '%r'\n" +
         "agora_elections.text '%r'\n",
         auth_event.id,
         callback_url, 
-        len(voter_ids_list), 
         agora_elections_request.status_code, 
         agora_elections_request.text
     )
