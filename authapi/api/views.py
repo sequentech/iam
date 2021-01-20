@@ -1337,6 +1337,17 @@ class AuthEventView(View):
             # requires create perm
             permission_required(request.user, 'AuthEvent', 'create')
 
+            # we allow to request a specific AuthEvent id, and we allow to do an
+            # "upsert", i.e. if the AuthEvent exists, update it instead of 
+            # create it. But we need to verify permissions in that case.
+            requested_id = req.get('id', None)
+            if requested_id and isinstance(requested_id, int):
+              existing_election = AuthEvent.objects.get(pk=requested_id)
+              if existing_election:
+                permission_required(request.user, 'AuthEvent', 'edit', pk)
+            else:
+              requested_id = None
+
             auth_method = req.get('auth_method', '')
 
             # check if send code method is authorized
@@ -1476,6 +1487,8 @@ class AuthEventView(View):
                 auth_method_config.get('config').update(config)
 
             ae = AuthEvent(
+                # if requested_id is None, it will be automatically assigned
+                id=requested_id,
                 auth_method=auth_method,
                 auth_method_config=auth_method_config,
                 extra_fields=extra_fields,
