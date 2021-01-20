@@ -995,7 +995,7 @@ def verify_num_successful_logins(auth_event, logger_name, user, req_json):
 
 def get_base_auth_query(auth_event):
     '''
-    returns the base authenticatio query for the given auth_event
+    returns the base authentication query for the given auth_event
     '''
     q = Q(
         userdata__event=auth_event,

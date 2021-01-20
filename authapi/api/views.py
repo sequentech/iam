@@ -1342,8 +1342,8 @@ class AuthEventView(View):
             # create it. But we need to verify permissions in that case.
             requested_id = req.get('id', None)
             if requested_id and isinstance(requested_id, int):
-              existing_election = AuthEvent.objects.get(pk=requested_id)
-              if existing_election:
+              existing_election = AuthEvent.objects.find(pk=requested_id).count()
+              if existing_election != 0:
                 permission_required(request.user, 'AuthEvent', 'edit', pk)
             else:
               requested_id = None
