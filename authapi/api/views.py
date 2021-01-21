@@ -1341,10 +1341,12 @@ class AuthEventView(View):
             # "upsert", i.e. if the AuthEvent exists, update it instead of 
             # create it. But we need to verify permissions in that case.
             requested_id = req.get('id', None)
+            election_exists = False
             if requested_id and isinstance(requested_id, int):
               count_existing_elections = AuthEvent.objects.filter(pk=requested_id).count()
               if count_existing_elections != 0:
                 permission_required(request.user, 'AuthEvent', 'edit', requested_id)
+                election_exists = True
             else:
               requested_id = None
 
@@ -1500,11 +1502,11 @@ class AuthEventView(View):
                 hide_default_login_lookup_field=hide_default_login_lookup_field,
                 allow_public_census_query=allow_public_census_query
             )
-            # If the requested_id is not none, we are doing an update. Else, 
-            # we are doing an insert. We use this update method instead of just
+            # If the election exists, we are doing an update. Else, we are 
+            # doing an insert. We use this update method instead of just 
             # creating an AuthEvent with the election id set because it would
             # fail to set some properties like the AuthEvent.created attribute.
-            if requested_id is not None:
+            if election_exists:
               AuthEvent.objects\
                 .filter(pk=requested_id)\
                 .update(**election_options)
