@@ -1512,7 +1512,12 @@ class AuthEventView(View):
                 .update(**election_options)
               ae = AuthEvent.objects.get(pk=requested_id)
             else:
-              ae = AuthEvent(**election_options)
+              ae = AuthEvent(
+                # this is needed to set the election id if election id is 
+                # supplied but the election doesn't exist
+                pk=requested_id,
+                **election_options
+              )
               ae.save()
 
             acl = ACL(
