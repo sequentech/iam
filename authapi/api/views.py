@@ -1342,9 +1342,9 @@ class AuthEventView(View):
             # create it. But we need to verify permissions in that case.
             requested_id = req.get('id', None)
             if requested_id and isinstance(requested_id, int):
-              existing_election = AuthEvent.objects.filter(pk=requested_id).count()
-              if existing_election != 0:
-                permission_required(request.user, 'AuthEvent', 'edit', pk)
+              count_existing_elections = AuthEvent.objects.filter(pk=requested_id).count()
+              if count_existing_elections != 0:
+                permission_required(request.user, 'AuthEvent', 'edit', requested_id)
             else:
               requested_id = None
 
@@ -1486,9 +1486,7 @@ class AuthEventView(View):
             if config:
                 auth_method_config.get('config').update(config)
 
-            ae = AuthEvent(
-                # if requested_id is None, it will be automatically assigned
-                id=requested_id,
+            election_options = dict(
                 auth_method=auth_method,
                 auth_method_config=auth_method_config,
                 extra_fields=extra_fields,
@@ -1502,9 +1500,19 @@ class AuthEventView(View):
                 hide_default_login_lookup_field=hide_default_login_lookup_field,
                 allow_public_census_query=allow_public_census_query
             )
+            # If the requested_id is not none, we are doing an update. Else, 
+            # we are doing an insert. We use this update method instead of just
+            # creating an AuthEvent with the election id set because it would
+            # fail to set some properties like the AuthEvent.created attribute.
+            if requested_id is not None:
+              AuthEvent.objects\
+                .filter(pk=requested_id)\
+                .update(**election_options)
+              ae = AuthEvent.objects.get(pk=requested_id)
+            else:
+              ae = AuthEvent(**election_options)
+              ae.save()
 
-            # Save before the acl creation to get the ae id
-            ae.save()
             acl = ACL(
                 user=request.user.userdata,
                 perm='edit', 
