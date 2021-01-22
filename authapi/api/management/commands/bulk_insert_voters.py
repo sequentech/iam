@@ -268,7 +268,7 @@ class Command(BaseCommand):
     sql_options['metadata'] = "concat('{'"
     first = True
     for column in self.columns:
-      if column in ['tlf', 'email', 'password']:
+      if column in ['tlf', 'email', 'password', 'children_event_id_list']:
         continue
       if first:
         first = False
@@ -281,6 +281,12 @@ class Command(BaseCommand):
         """ % dict(column=column)
       
     sql_options['metadata'] += ", '}')::jsonb AS metadata"
+
+    # Allow to set children_event_id_list
+    if 'children_event_id_list'in self.columns:
+      sql_options['children_event_id_list'] = 'csv_data.children_event_id_list'
+    else:
+      sql_options['children_event_id_list'] = 'NULL'
 
     return sql_options
   
@@ -341,7 +347,7 @@ class Command(BaseCommand):
         %(event_id)d AS event_id,
         user_insert.user_id AS user_id,
         %(tlf)s AS tlf,
-        NULL AS children_event_id_list
+        %(children_event_id_list)s AS children_event_id_list
       FROM user_insert
       LEFT JOIN csv_data ON csv_data.username = user_insert.username
       RETURNING id AS userdata_id
@@ -385,6 +391,7 @@ class Command(BaseCommand):
       password_function=sql_options['password_function'],
       base_salt_field=sql_options['base_salt_field'],
       metadata=sql_options['metadata'],
+      children_event_id_list=sql_options['children_event_id_list']
       tlf=sql_options['tlf']
     )
     self.exec_sql(load_voters_statement)

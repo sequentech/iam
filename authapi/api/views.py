@@ -1337,6 +1337,19 @@ class AuthEventView(View):
             # requires create perm
             permission_required(request.user, 'AuthEvent', 'create')
 
+            # we allow to request a specific AuthEvent id, and we allow to do an
+            # "upsert", i.e. if the AuthEvent exists, update it instead of 
+            # create it. But we need to verify permissions in that case.
+            requested_id = req.get('id', None)
+            election_exists = False
+            if requested_id and isinstance(requested_id, int):
+              count_existing_elections = AuthEvent.objects.filter(pk=requested_id).count()
+              if count_existing_elections != 0:
+                permission_required(request.user, 'AuthEvent', 'edit', requested_id)
+                election_exists = True
+            else:
+              requested_id = None
+
             auth_method = req.get('auth_method', '')
 
             # check if send code method is authorized
@@ -1475,7 +1488,7 @@ class AuthEventView(View):
             if config:
                 auth_method_config.get('config').update(config)
 
-            ae = AuthEvent(
+            election_options = dict(
                 auth_method=auth_method,
                 auth_method_config=auth_method_config,
                 extra_fields=extra_fields,
@@ -1489,9 +1502,24 @@ class AuthEventView(View):
                 hide_default_login_lookup_field=hide_default_login_lookup_field,
                 allow_public_census_query=allow_public_census_query
             )
+            # If the election exists, we are doing an update. Else, we are 
+            # doing an insert. We use this update method instead of just 
+            # creating an AuthEvent with the election id set because it would
+            # fail to set some properties like the AuthEvent.created attribute.
+            if election_exists:
+              AuthEvent.objects\
+                .filter(pk=requested_id)\
+                .update(**election_options)
+              ae = AuthEvent.objects.get(pk=requested_id)
+            else:
+              ae = AuthEvent(
+                # this is needed to set the election id if election id is 
+                # supplied but the election doesn't exist
+                pk=requested_id,
+                **election_options
+              )
+              ae.save()
 
-            # Save before the acl creation to get the ae id
-            ae.save()
             acl = ACL(
                 user=request.user.userdata,
                 perm='edit', 
