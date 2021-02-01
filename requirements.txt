@@ -1,6 +1,6 @@
-amqp==1.4.9
+amqp==5.0.5
 anyjson==0.3.3
-billiard==3.3.0.23
+billiard==3.6.3.0
 celery==5.0.5
 contextlib2==0.5.3
 decorator==4.0.10
@@ -16,7 +16,6 @@ nose==1.3.7
 pexpect==4.8.0
 pickleshare==0.7.2
 Pillow==7.1.0
-pip==20.0.2
 psycopg2==2.8.6
 ptyprocess==0.5.1
 python-dateutil==2.5.3
@@ -24,7 +23,6 @@ pytz==2016.4
 raven==5.19.0
 reportlab==3.5.34
 requests==2.22.0
-setuptools==28.8.0
 simplegeneric==0.8.1
 traitlets==4.3.3
 twilio==6.6.1
