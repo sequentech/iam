@@ -27,7 +27,7 @@ from logging import getLogger
 import inspect
 import traceback
 
-from djcelery import celery
+from authapi import celery_app
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
@@ -275,7 +275,7 @@ def send_email(email):
         LOGGER.error('Email NOT sent: \n%s', email_to_str(email))
 
 
-@celery.task
+@celery_app.task
 def send_mail(subject, msg, receiver):
     email = EmailMessage(
         subject,
@@ -484,7 +484,7 @@ def get_client_ip(request):
     return ip
 
 
-@celery.task
+@celery_app.task
 def send_codes(users, ip, auth_method, config=None, sender_uid=None, eid=None):
     from api.models import Action, AuthEvent
 

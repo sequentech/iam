@@ -25,12 +25,9 @@ https://docs.djangoproject.com/en/1.7/ref/settings/
 
 import os
 from datetime import timedelta
-import djcelery
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-
-djcelery.setup_loader()
 
 # Celery config
 
@@ -89,7 +86,6 @@ INSTALLED_APPS = (
 
     #3rd party
     'corsheaders',
-    'djcelery',
     'django_nose',
 )
 
@@ -111,7 +107,6 @@ MIDDLEWARE = (
 
 # change the test runner to the one provided by celery so that the tests that
 # make use of celery work when ./manage.py test is executed
-TEST_RUNNER = 'djcelery.contrib.test_runner.CeleryTestSuiteRunner'
 TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
 
 ROOT_URLCONF = 'authapi.urls'

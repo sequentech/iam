@@ -15,13 +15,13 @@
 
 import requests
 import json
-from djcelery import celery
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db.models import Count, OuterRef, Subquery, Q
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
 from celery.utils.log import get_task_logger
+from celery import shared_task
 
 import plugins
 from authmethods.sms_provider import SMSProvider
@@ -373,7 +373,7 @@ def update_tally_status(auth_event):
             ]
         )
 
-@celery.task(name='tasks.process_tallies')
+@shared_task(name='tasks.process_tallies')
 def process_tallies():
     '''
     Process tallies does two tasks:
@@ -409,7 +409,7 @@ def process_tallies():
         else:
             launch_virtual_tally(next_auth_event)
 
-@celery.task(name='tasks.update_ballot_boxes_config')
+@shared_task(name='tasks.update_ballot_boxes_config')
 def update_ballot_boxes_config(auth_event_id):
     '''
     Updates in Agora-elections the ballot boxes configuration
@@ -519,7 +519,7 @@ def update_ballot_boxes_config(auth_event_id):
             r.text
         )
 
-@celery.task(name='tasks.calculate_results_task')
+@shared_task(name='tasks.calculate_results_task')
 def calculate_results_task(user_id, event_id_list):
     '''
     Launches the results calculation in a celery background task. 
@@ -630,7 +630,7 @@ def calculate_results_task(user_id, event_id_list):
                 countdown=1
             )
 
-@celery.task(name='tasks.publish_results')
+@shared_task(name='tasks.publish_results')
 def publish_results_task(user_id, auth_event_id, visit_children, parent_auth_event=None):
     '''
     Launches the publish results agora-elections call in a task. 
@@ -734,7 +734,7 @@ def publish_results_task(user_id, auth_event_id, visit_children, parent_auth_eve
         action.save()
 
 
-@celery.task(name='tasks.unpublish_results')
+@shared_task(name='tasks.unpublish_results')
 def unpublish_results_task(user_id, auth_event_id, parent_auth_event=None):
     '''
     Launches the unpublish results agora-elections call in a task. 
@@ -836,7 +836,7 @@ def unpublish_results_task(user_id, auth_event_id, parent_auth_event=None):
         action.save()
 
 
-@celery.task(name='tasks.allow_tally')
+@shared_task(name='tasks.allow_tally')
 def allow_tally_task(user_id, auth_event_id, parent_auth_event=None):
     '''
     Launches the allow tally agora-elections call in a task. 
