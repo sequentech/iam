@@ -19,7 +19,7 @@ pexpect==4.8.0
 pickleshare==0.7.2
 Pillow==7.1.0
 pip==20.0.2
-psycopg2==2.7.3
+psycopg2==2.8.6
 ptyprocess==0.5.1
 python-dateutil==2.5.3
 pytz==2016.4
