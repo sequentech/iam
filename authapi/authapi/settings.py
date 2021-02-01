@@ -44,6 +44,7 @@ CELERYBEAT_SCHEDULE = {
         'args': []
     },
 }
+CELERY_RESULT_BACKEND = 'django-db'
 
 
 # Quick-start development settings - unsuitable for production
@@ -85,6 +86,7 @@ INSTALLED_APPS = (
     'captcha',
 
     #3rd party
+    'django_celery_results',
     'corsheaders',
     'django_nose',
 )
