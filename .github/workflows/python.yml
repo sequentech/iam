@@ -1,0 +1,50 @@
+name: Test python
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  py:
+    runs-on: ubuntu-20.04
+    container: ubuntu:20.04
+    services:
+      postgres:
+        image: postgres:12
+        env:
+          POSTGRES_USER: authapi
+          POSTGRES_PASSWORD: authapi
+          POSTGRES_DB: authapi
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+    - name: Install dependencies
+      run: |
+        apt update
+        apt install -y libfreetype6-dev python3-dev libjpeg-dev zlib1g-dev libpq-dev libssl-dev git gcc
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
+        python -m pip install coveralls
+
+
+    - name: coverage
+      run: |
+        cd authapi
+        python manage.py migrate --settings=authapi.test_settings
+        python manage.py loaddata --settings=authapi.test_settings initial
+        python manage.py test --settings=authapi.test_settings
+        python -m coverage run --source='.' manage.py test --settings=authapi.test_settings
+      env:
+          POSTGRES_HOST: postgres
+          POSTGRES_PORT: 5432
