@@ -30,6 +30,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 # Celery config
 
 BROKER_URL = "amqp://guest:guest@localhost:5672//"
+BROKER_BACKEND = 'memory'
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True
 
 USE_TZ = True
 
