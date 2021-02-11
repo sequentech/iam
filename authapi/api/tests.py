@@ -3582,6 +3582,7 @@ class ApiTestTallySheets(TestCase):
                     title="Do you want Foo Bar to be president?",
                     blank_votes=1,
                     null_votes=1,
+                    max=1,
                     tally_type="plurality-at-large",
                     answers=[
                       dict(text="Yes", num_votes=200),
