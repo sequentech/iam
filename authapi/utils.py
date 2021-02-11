@@ -435,12 +435,17 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None, save_
             perm__in=['edit', 'unarchive'],
             object_id=event_id
         ).first()
+
+        headers = {}
+        if acl:
+            headers['Reply-To'] = acl.user.user.email
+
         email = EmailMessage(
             subject,
             msg,
             settings.DEFAULT_FROM_EMAIL,
             [receiver],
-            headers = {'Reply-To': acl.user.user.email}
+            headers=headers,
         )
         send_email(email)
         if save_message:
