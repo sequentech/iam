@@ -28,6 +28,7 @@ from django.contrib.auth.models import User
 from . import test_data
 from .models import ACL, AuthEvent, Action, BallotBox, TallySheet, SuccessfulLogin
 from authmethods.models import Code, MsgLog
+from authmethods import m_sms_otp
 from utils import verifyhmac, reproducible_json_dumps
 from authmethods.utils import get_cannonical_tlf
 
@@ -2472,6 +2473,20 @@ class TestAdminDeregister(TestCase):
 
     def setUp(self):
         self.aeid_special = 1
+
+        # Override the pipeline max time to avoid ip blacklist
+        self.sms_otp_pipeline = m_sms_otp.SmsOtp.PIPELINES["resend-auth-pipeline"]
+        m_sms_otp.SmsOtp.PIPELINES["resend-auth-pipeline"] = [
+            ["check_whitelisted", {"field": "tlf"}],
+            ["check_whitelisted", {"field": "ip"}],
+            ["check_blacklisted", {"field": "ip"}],
+            ["check_blacklisted", {"field": "tlf"}],
+            ["check_total_max", {"field": "ip", "period": 3600*24, "max": 20}],
+            ["check_total_max", {"field": "tlf", "period": 3600*24, "max": 20}]
+        ]
+
+    def tearDown(self):
+        m_sms_otp.SmsOtp.PIPELINES["resend-auth-pipeline"] = self.sms_otp_pipeline
 
     @override_settings(**override_celery_data)
     def test_deregister_email(self):
