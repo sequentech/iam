@@ -20,7 +20,8 @@ import string
 from django.views.generic import View
 from django.conf import settings
 from django.db import transaction
-from djcelery import celery
+
+from authapi import celery_app
 
 try:
     from PIL import Image, ImageDraw, ImageFont, ImageFilter
@@ -46,7 +47,7 @@ def newcaptcha():
     return c
 
 
-@celery.task
+@celery_app.task
 def generate_captcha(amount=1):
     from captcha.views import newcaptcha
     repeat = 0
