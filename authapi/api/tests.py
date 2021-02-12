@@ -32,9 +32,6 @@ from authmethods import m_sms_otp
 from utils import verifyhmac, reproducible_json_dumps
 from authmethods.utils import get_cannonical_tlf
 
-from celery.contrib.testing.worker import start_worker
-from authapi.celery import app
-
 def flush_db_load_fixture(ffile="initial.json"):
     from django.core import management
     management.call_command("flush", verbosity=0, interactive=False)
@@ -1097,16 +1094,9 @@ class TestRegisterAndAuthenticateEmail(TestCase):
     def setUpClass(cls):
         super().setUpClass()
 
-        # Start up celery worker
-        cls.celery_worker = start_worker(app)
-        cls.celery_worker.__enter__()
-
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
-
-        # Close worker
-        cls.celery_worker.__exit__(None, None, None)
 
     def setUp(self):
         ae = AuthEvent(auth_method="email",
