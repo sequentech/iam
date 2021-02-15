@@ -22,5 +22,6 @@ jobs:
 
     - name: Lint
       run: |
-        pre-commit install -f --install-hooks
-        pre-commit run --all-files
+        # pre-commit install -f --install-hooks
+        # pre-commit run --all-files
+        echo "TODO"
