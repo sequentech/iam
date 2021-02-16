@@ -28,6 +28,7 @@ from django.contrib.auth.models import User
 from . import test_data
 from .models import ACL, AuthEvent, Action, BallotBox, TallySheet, SuccessfulLogin
 from authmethods.models import Code, MsgLog
+from authmethods import m_sms_otp
 from utils import verifyhmac, reproducible_json_dumps
 from authmethods.utils import get_cannonical_tlf
 
@@ -1088,6 +1089,14 @@ class TestExtraFields(TestCase):
 class TestRegisterAndAuthenticateEmail(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
 
     def setUp(self):
         ae = AuthEvent(auth_method="email",
@@ -2455,6 +2464,20 @@ class TestAdminDeregister(TestCase):
     def setUp(self):
         self.aeid_special = 1
 
+        # Override the pipeline max time to avoid ip blacklist
+        self.sms_otp_pipeline = m_sms_otp.SmsOtp.PIPELINES["resend-auth-pipeline"]
+        m_sms_otp.SmsOtp.PIPELINES["resend-auth-pipeline"] = [
+            ["check_whitelisted", {"field": "tlf"}],
+            ["check_whitelisted", {"field": "ip"}],
+            ["check_blacklisted", {"field": "ip"}],
+            ["check_blacklisted", {"field": "tlf"}],
+            ["check_total_max", {"field": "ip", "period": 3600*24, "max": 20}],
+            ["check_total_max", {"field": "tlf", "period": 3600*24, "max": 20}]
+        ]
+
+    def tearDown(self):
+        m_sms_otp.SmsOtp.PIPELINES["resend-auth-pipeline"] = self.sms_otp_pipeline
+
     @override_settings(**override_celery_data)
     def test_deregister_email(self):
         data = {"email": "asd@asd.com", "captcha": "asdasd"}
@@ -3564,6 +3587,7 @@ class ApiTestTallySheets(TestCase):
                     title="Do you want Foo Bar to be president?",
                     blank_votes=1,
                     null_votes=1,
+                    max=1,
                     tally_type="plurality-at-large",
                     answers=[
                       dict(text="Yes", num_votes=200),

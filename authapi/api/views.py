@@ -406,6 +406,11 @@ class Census(View):
         permission_required(request.user, 'AuthEvent', ['edit', 'census-add'], pk)
         e = get_object_or_404(AuthEvent, pk=pk)
         error_kwargs = plugins.call("extend_add_census", e, request)
+
+        if e.parent is not None:
+            # Child authevents can't have census
+            return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
+
         if error_kwargs:
             return json_response(**error_kwargs[0])
         try:
