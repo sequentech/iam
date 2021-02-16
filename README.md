@@ -1,7 +1,4 @@
-# authapi [![Build Status][1]][2] [![Coverage Status](https://coveralls.io/repos/agoravoting/authapi/badge.svg?branch=master)](https://coveralls.io/r/agoravoting/authapi?branch=master)
-
-[1]: https://travis-ci.org/agoravoting/authapi.svg?branch=next
-[2]: https://travis-ci.org/agoravoting/authapi
+# authapi [![Tests Status][tests_badge]](tests_link) [![Coverage Status](coveralls_badge)](coveralls_link)
 
 # Introduction
 
@@ -431,3 +428,8 @@ External libraries
 This program distributes libraries from external sources. If you follow the
 compilation process you'll download these libraries and their respective
 licenses, which are compatible with our licensing.
+
+[coveralls_badge]: https://coveralls.io/repos/agoravoting/authapi/badge.svg?branch=master
+[coveralls_link]: https://coveralls.io/r/agoravoting/authapi?branch=master
+[tests_badge]: https://github.com/agoravoting/authapi/workflows/github/workflows/Test%20python/badge.svg
+[tests_link]: https://github.com/agoravoting/authapi/actions?query=workflow%3A%22Test+python%22
