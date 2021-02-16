@@ -1,7 +1,9 @@
-# authapi [![Build Status][1]][2] [![Coverage Status](https://coveralls.io/repos/agoravoting/authapi/badge.svg?branch=master)](https://coveralls.io/r/agoravoting/authapi?branch=master)
+# authapi [![tests_badge]][tests_link] [![coverage_badge]][coverage_link]
 
-[1]: https://travis-ci.org/agoravoting/authapi.svg?branch=next
-[2]: https://travis-ci.org/agoravoting/authapi
+[tests_badge]: https://github.com/agoravoting/authapi/workflows/Test%20python/badge.svg
+[tests_link]: https://github.com/agoravoting/authapi/actions?query=workflow%3A%22Test+python%22
+[coverage_badge]: https://coveralls.io/repos/agoravoting/authapi/badge.svg?branch=master
+[coverage_link]: https://coveralls.io/r/agoravoting/authapi?branch=master
 
 # Introduction
 
