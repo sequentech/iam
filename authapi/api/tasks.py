@@ -837,29 +837,35 @@ def unpublish_results_task(user_id, auth_event_id, parent_auth_event=None):
 
 
 @shared_task(name='tasks.allow_tally')
-def allow_tally_task(user_id, auth_event_id, parent_auth_event=None):
+def allow_tally_task(user_id, auth_event_id, parent_auth_event_id=None):
     '''
     Launches the allow tally agora-elections call in a task. 
     If the election has children, also launches the call for
     those.
     '''
     logger.info(
-        '\n\nallow_tally_task(user_id=%r, auth_event_id=%r)' % (
+        '\n\nallow_tally_task(user_id=%r, auth_event_id=%r, parent_auth_event_id=%r)' % (
             user_id,
-            auth_event_id
+            auth_event_id,
+            parent_auth_event_id
         )
     )
     user = get_object_or_404(User, pk=user_id)
     auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
 
     # if this auth event has children, update also them
-    if parent_auth_event is None:
+    if parent_auth_event_id is None:
         parent_auth_event = auth_event
+    else:
+        parent_auth_event = get_object_or_404(
+            AuthEvent, 
+            pk=parent_auth_event_id
+        )
     
     if auth_event.children_election_info is not None:
         for child_id in auth_event.children_election_info['natural_order']:
             allow_tally_task.apply_async(
-                args=[user_id, child_id, parent_auth_event]
+                args=[user_id, child_id, parent_auth_event_id]
             )
 
     # A.2 call to agora-elections
