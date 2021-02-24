@@ -29,23 +29,23 @@ from datetime import timedelta
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
-# Celery config
+class CeleryConfig:
+    broker_url = "amqp://guest:guest@localhost:5672//"
+    timezone = 'Europe/Madrid'
+    beat_schedule = {
+        'review_tallies': {
+            'task': 'tasks.process_tallies',
+            'schedule': timedelta(seconds=5),
+            'args': []
+        },
+    }
+    result_backend = 'django-db'
 
-BROKER_URL = "amqp://guest:guest@localhost:5672//"
+CELERY_CONFIG = CeleryConfig
 
 USE_TZ = True
 
 TIME_ZONE = 'Europe/Madrid'
-
-CELERYBEAT_SCHEDULE = {
-    'review_tallies': {
-        'task': 'tasks.process_tallies',
-        'schedule': timedelta(seconds=5),
-        'args': []
-    },
-}
-CELERY_RESULT_BACKEND = 'django-db'
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.7/howto/deployment/checklist/
