@@ -38,7 +38,8 @@ class CeleryConfig:
             'args': []
         },
     }
-    result_backend = 'memory'
+    result_backend = 'cache'
+    cache_backend = 'memory'
     task_always_eager = True
     task_eager_propagates = True
 
