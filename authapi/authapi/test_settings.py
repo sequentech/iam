@@ -28,24 +28,25 @@ from datetime import timedelta
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 # Celery config
+class CeleryConfig:
+    broker_url = "amqp://guest:guest@localhost:5672//"
+    timezone = 'Europe/Madrid'
+    beat_schedule = {
+        'review_tallies': {
+            'task': 'tasks.process_tallies',
+            'schedule': timedelta(seconds=5),
+            'args': []
+        },
+    }
+    result_backend = 'memory'
+    task_always_eager = True
+    task_eager_propagates = True
 
-BROKER_URL = "amqp://guest:guest@localhost:5672//"
-BROKER_BACKEND = 'memory'
-CELERY_TASK_ALWAYS_EAGER = True
-CELERY_TASK_EAGER_PROPAGATES = True
+CELERY_CONFIG = CeleryConfig
 
 USE_TZ = True
 
 TIME_ZONE = 'Europe/Madrid'
-
-CELERYBEAT_SCHEDULE = {
-    'review_tallies': {
-        'task': 'tasks.process_tallies',
-        'schedule': timedelta(seconds=5),
-        'args': []
-    },
-}
-
 
 ALLOW_DEREGISTER = True
 
