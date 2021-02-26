@@ -15,7 +15,7 @@ def reset_tallies_task(sender=None, conf=None, **kwargs):
     from api.models import AuthEvent
     AuthEvent\
         .objects\
-        .filter(tally_status__in=['pending','started'])
+        .filter(tally_status__in=['pending','started'])\
         .update(tally_status='notstarted')
 
 # set the default Django settings module for the 'celery' program.
