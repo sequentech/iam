@@ -2519,7 +2519,7 @@ class TallyStatusView(View):
                     auth_event_to_tally.tally_status == 'pending' and
                     force_tally in ['force-untallied', 'force-all']
                 ) or (
-                    auth_event_to_tally.tally_status == 'started' and
+                    auth_event_to_tally.tally_status in ['started', 'success'] and
                     force_tally in ['force-all']
                 )
             ):
