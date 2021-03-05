@@ -152,6 +152,27 @@ class AuthMethodEmailTestCase(TestCase):
         response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
 
+    def test_method_email_authenticate_tilde(self):
+        email = "brüggemann@mail.com"
+
+        # Register
+        c = JClient()
+        data = { "email": email, "user": "tilde" }
+        response = c.register(self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode("utf-8"))
+        self.assertEqual(r["status"], "ok")
+
+        code = Code.objects.get(user__user__email=email).code
+
+        data = { "email": email, "code": code }
+        response = c.authenticate(self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode("utf-8"))
+        self.assertTrue(isinstance(r["username"], str))
+        self.assertTrue(len(r["username"]) > 0)
+        self.assertTrue(r["auth-token"].startswith("khmac:///sha-256"))
+
 
 class AuthMethodSmsTestCase(TestCase):
     def setUpTestData():

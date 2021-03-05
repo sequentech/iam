@@ -80,6 +80,9 @@ def email_constraint(val):
     ''' check that the input is an email string '''
     if not isinstance(val, str):
         return False
+    # Convert to punycode to allow tilde characters:
+    # https://en.wikipedia.org/wiki/Punycode
+    val = val.encode("idna").decode("ascii")
     return EMAIL_RX.match(val)
 
 def date_constraint(val):
