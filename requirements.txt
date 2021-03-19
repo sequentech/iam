@@ -4,7 +4,7 @@ billiard==3.6.3.0
 celery==5.0.5
 contextlib2==0.5.3
 decorator==4.0.10
-Django==2.2.13
+Django==2.2.18
 django-celery-results==2.0.1
 django-cors-headers==3.2.1
 django-nose==1.4.5
@@ -17,7 +17,7 @@ jsonfield==2.0.2
 nose==1.3.7
 pexpect==4.8.0
 pickleshare==0.7.2
-Pillow==7.1.0
+Pillow==8.1.2
 pre-commit==2.10.1
 psycopg2==2.8.6
 ptyprocess==0.5.1
