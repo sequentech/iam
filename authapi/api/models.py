@@ -636,7 +636,6 @@ ALLOWED_ACTIONS = (
     ('user:resend-authcode', 'user:resend-authcode'),
 )
 
-
 class Action(models.Model):
     '''
     Registers (potentially) any action performed by an user for traceability
