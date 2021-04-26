@@ -631,29 +631,32 @@ def calculate_results_task(user_id, event_id_list):
             )
 
 @shared_task(name='tasks.publish_results')
-def publish_results_task(user_id, auth_event_id, visit_children, parent_auth_event=None):
+def publish_results_task(user_id, auth_event_id, visit_children, parent_auth_event_id=None):
     '''
     Launches the publish results agora-elections call in a task. 
     If the election has children, also launches the call  for
     those.
     '''
     logger.info(
-        '\n\npublish_results_task(user_id=%r, auth_event_id=%r, visit_children=%r)' % (
+        '\n\npublish_results_task(user_id=%r, auth_event_id=%r, visit_children=%r,parent_auth_event_id=%r)' % (
             user_id,
             auth_event_id,
-            visit_children
+            visit_children,
+            parent_auth_event_id
         )
     )
     user = get_object_or_404(User, pk=user_id)
     auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
 
     # if this auth event has children, update also them
-    if parent_auth_event is None:
+    if parent_auth_event_id is None:
         parent_auth_event = auth_event
+    else:
+      parent_auth_event = get_object_or_404(AuthEvent, pk=parent_auth_event_id)
     if auth_event.children_election_info is not None and visit_children:
         for child_id in auth_event.children_election_info['natural_order']:
             publish_results_task.apply_async(
-                args=[user_id, child_id, True, parent_auth_event]
+                args=[user_id, child_id, True, parent_auth_event_id]
             )
 
     # A.2 call to agora-elections
@@ -677,7 +680,7 @@ def publish_results_task(user_id, auth_event_id, visit_children, parent_auth_eve
         )
         if req.status_code != 200:
             logger.error(
-                "publish_results_task(user_id=%r, auth_event_id=%r, visit_children=%r): post\n"\
+                "publish_results_task(user_id=%r, auth_event_id=%r, visit_children=%r,parent_auth_event_id=%r): post\n"\
                 "agora_elections.callback_url '%r'\n"\
                 "agora_elections.data '%r'\n"\
                 "agora_elections.status_code '%r'\n"\
@@ -685,6 +688,7 @@ def publish_results_task(user_id, auth_event_id, visit_children, parent_auth_eve
                 user_id,
                 auth_event_id,
                 visit_children,
+                parent_auth_event_id,
                 callback_url,
                 data,
                 req.status_code, 
@@ -707,7 +711,7 @@ def publish_results_task(user_id, auth_event_id, visit_children, parent_auth_eve
             return
 
         logger.info(
-            "publish_results_task(user_id=%r, auth_event_id=%r, visit_children=%r): post\n"\
+            "publish_results_task(user_id=%r, auth_event_id=%r, visit_children=%r,parent_auth_event_id=%r): post\n"\
             "agora_elections.callback_url '%r'\n"\
             "agora_elections.data '%r'\n"\
             "agora_elections.status_code '%r'\n"\
@@ -715,6 +719,7 @@ def publish_results_task(user_id, auth_event_id, visit_children, parent_auth_eve
             user_id,
             auth_event_id,
             visit_children,
+            parent_auth_event_id,
             callback_url,
             data,
             req.status_code,
@@ -735,16 +740,17 @@ def publish_results_task(user_id, auth_event_id, visit_children, parent_auth_eve
 
 
 @shared_task(name='tasks.unpublish_results')
-def unpublish_results_task(user_id, auth_event_id, parent_auth_event=None):
+def unpublish_results_task(user_id, auth_event_id, parent_auth_event_id=None):
     '''
     Launches the unpublish results agora-elections call in a task. 
     If the election has children, also launches the call for
     those.
     '''
     logger.info(
-        '\n\nunpublish_results_task(user_id=%r, auth_event_id=%r)' % (
+        '\n\nunpublish_results_task(user_id=%r, auth_event_id=%r,parent_auth_event_id=%r)' % (
             user_id,
-            auth_event_id
+            auth_event_id,
+            parent_auth_event_id
         )
     )
     user = get_object_or_404(User, pk=user_id)
@@ -753,6 +759,8 @@ def unpublish_results_task(user_id, auth_event_id, parent_auth_event=None):
     # if this auth event has children, update also them
     if parent_auth_event is None:
         parent_auth_event = auth_event
+    else:
+      parent_auth_event = get_object_or_404(AuthEvent, pk=parent_auth_event_id)
     
     if auth_event.children_election_info is not None:
         for child_id in auth_event.children_election_info['natural_order']:
@@ -781,13 +789,14 @@ def unpublish_results_task(user_id, auth_event_id, parent_auth_event=None):
         )
         if req.status_code != 200:
             logger.error(
-                "unpublish_results_task(user_id=%r, auth_event_id=%r): post\n"\
+                "unpublish_results_task(user_id=%r, auth_event_id=%r,parent_auth_event_id=%r): post\n"\
                 "agora_elections.callback_url '%r'\n"\
                 "agora_elections.data '%r'\n"\
                 "agora_elections.status_code '%r'\n"\
                 "agora_elections.text '%r'\n",\
                 user_id,
                 auth_event_id,
+                parent_auth_event_id,
                 callback_url,
                 data,
                 req.status_code, 
@@ -810,13 +819,14 @@ def unpublish_results_task(user_id, auth_event_id, parent_auth_event=None):
             return
 
         logger.info(
-            "publish_results_task(user_id=%r, auth_event_id=%r): post\n"\
+            "publish_results_task(user_id=%r, auth_event_id=%r,parent_auth_event_id=%r): post\n"\
             "agora_elections.callback_url '%r'\n"\
             "agora_elections.data '%r'\n"\
             "agora_elections.status_code '%r'\n"\
             "agora_elections.text '%r'\n",\
             user_id,
             auth_event_id,
+            parent_auth_event_id,
             callback_url,
             data,
             req.status_code,
