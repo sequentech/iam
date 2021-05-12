@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core import mail
 from django.test import TestCase
@@ -26,6 +27,7 @@ from api.models import AuthEvent, ACL, UserData
 from .m_email import Email
 from .m_sms import Sms
 from .models import Message, Code, Connection
+from utils import genhmac
 
 
 class AuthMethodTestCase(TestCase):
@@ -172,6 +174,96 @@ class AuthMethodEmailTestCase(TestCase):
         self.assertTrue(isinstance(r["username"], str))
         self.assertTrue(len(r["username"]) > 0)
         self.assertTrue(r["auth-token"].startswith("khmac:///sha-256"))
+
+
+class AuthMethodSmartLinkTestCase(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        auth_method_config = test_data.authmethod_config_smart_link_default
+        auth_event = AuthEvent(
+          auth_method='smart-link',
+          auth_method_config=auth_method_config,
+          status='started',
+          census='open'
+        )
+        auth_event.save()
+        self.auth_event = auth_event
+
+        user = User(username='test1')
+        user.save()
+        user.userdata.event = auth_event
+        user.userdata.metadata = {
+          'user_id': 'test@example.com'
+        }
+        user.userdata.save()
+        self.user = user
+
+        acl = ACL(
+          user=user.userdata,
+          object_type='AuthEvent',
+          perm='edit',
+          object_id=auth_event.pk
+        )
+        acl.save()
+
+        user2 = User(username='test2')
+        user2.save()
+        user2.userdata.event = auth_event
+        user2.userdata.metadata = {
+          'user_id': 'brüggemann@example.com'
+        }
+        user2.userdata.save()
+        self.user2 = user2
+
+    def test_authenticate_valid_auth_token(self):
+        c = JClient()
+        message = ':'.join([
+          self.user.userdata.metadata['user_id'], 
+          'AuthEvent', 
+          str(self.auth_event.id), 
+          'vote'
+        ])
+        data = {
+          'auth-token': genhmac(
+            key=settings.SHARED_SECRET,
+            msg=message
+          )
+        }
+        response = c.authenticate(self.auth_event.id, data)
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['username'], self.user.username)
+        self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
+
+    def test_authenticate_invvalid_khmac(self):
+        c = JClient()
+        data = {
+          'auth-token': 'this is an invalid khmac'
+        }
+        response = c.authenticate(self.auth_event.id, data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_authenticate_valid_auth_token_tilde(self):
+        c = JClient()
+        message = ':'.join([
+          self.user2.userdata.metadata['user_id'], 
+          'AuthEvent', 
+          str(self.auth_event.id), 
+          'vote'
+        ])
+        data = {
+          'auth-token': genhmac(
+            key=settings.SHARED_SECRET,
+            msg=message
+          )
+        }
+        response = c.authenticate(self.auth_event.id, data)
+        self.assertEqual(response.status_code, 200)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['username'], self.user2.username)
+        self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
 
 
 class AuthMethodSmsTestCase(TestCase):

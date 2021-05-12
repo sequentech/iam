@@ -754,6 +754,20 @@ authmethod_config_sms_default = {
         }
 }
 
+authmethod_config_smart_link_default = {
+  "config": {
+    "authentication-action": {"mode": ""}
+  },
+  "pipeline": {
+    'give_perms': [
+      {'object_type': 'UserData', 'perms': ['edit',], 'object_id': 'UserDataId' },
+      {'object_type': 'AuthEvent', 'perms': ['vote',], 'object_id': 'AuthEventId' }
+    ],
+    "register-pipeline": [],
+    "authenticate-pipeline": []
+  }
+}
+
 # Authevent
 ae_email_default = {
     "auth_method": "email",
