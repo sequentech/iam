@@ -27,6 +27,10 @@ from utils import stack_trace_str
 from authmethods.utils import *
 from django.contrib.auth.signals import user_logged_in
 
+from contracts.base import check_contract
+from contracts import CheckException
+
+
 
 LOGGER = logging.getLogger('authapi')
 
@@ -50,6 +54,24 @@ class SmartLink:
     ]
   }
   USED_TYPE_FIELDS = ['user_id']
+  CONFIG_CONTRACT = [
+    {
+      'check': 'isinstance',
+      'type': dict
+    },
+    {
+      'check': 'lambda',
+      'lambda': lambda data: (
+        'shared_secret' not in data or
+        (
+          isinstance(data['shared_secret'], str) and
+          len(data['shared_secret']) > 0 and
+          len(data['shared_secret']) < 1000
+        )
+      )
+    }
+  ]
+
 
   user_id_definition = dict(
     name="user_id",
@@ -61,6 +83,11 @@ class SmartLink:
   )
 
   def check_config(self, config):
+    if config is not None:
+      try:
+        check_contract(self.CONFIG_CONTRACT, config)
+      except CheckException as e:
+        return str(e)
     return ''
 
   def resend_auth_code(self, config):
@@ -77,7 +104,8 @@ class SmartLink:
     if auth_event.children_election_info is not None:
       try:
         verify_children_election_info(
-            auth_event, request.user, ['edit', 'census-add'])
+          auth_event, request.user, ['edit', 'census-add']
+        )
       except:
         LOGGER.error(
           "SmartLink.census error in verify_children_election_info"\
@@ -188,7 +216,7 @@ class SmartLink:
       "SmartLink.error\n"\
       "error '%r'\n"\
       "Stack trace: \n%s",\
-      internal_error, data, stack_trace_str()
+      data, stack_trace_str()
     )
     return data
 
@@ -263,9 +291,16 @@ class SmartLink:
           msg="Incorrect data",
           error_codename="invalid_credentials"
         )
+      
+      shared_secret = settings.SHARED_SECRET
+      if (
+        isinstance(auth_event.auth_method_config, dict) and 
+        'shared_secret' in auth_event.auth_method_config
+      ):
+        shared_secret = auth_event.auth_method_config['shared_secret']
 
       verified = verifyhmac(
-        key=settings.SHARED_SECRET,
+        key=shared_secret,
         msg=hmac_token.msg,
         seconds=settings.TIMEOUT,
         at=hmac_token
