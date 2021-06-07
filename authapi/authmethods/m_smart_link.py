@@ -299,6 +299,12 @@ class SmartLink:
       ):
         shared_secret = auth_event.auth_method_config['shared_secret']
 
+      shared_secret = auth_event\
+        .auth_method_config\
+        .get('config', dict())\
+        .get('shared_secret', settings.SHARED_SECRET.decode('utf-8'))\
+        .encode('utf-8')
+
       verified = verifyhmac(
         key=shared_secret,
         msg=hmac_token.msg,
