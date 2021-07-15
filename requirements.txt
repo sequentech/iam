@@ -31,4 +31,4 @@ traitlets==4.3.3
 twilio==6.6.1
 xmltodict==0.10.2
 oic==1.2.1
-git+git://github.com/wadobo/suds.git
+suds-py3==1.4.4.1
