@@ -391,7 +391,7 @@ class Command(BaseCommand):
       password_function=sql_options['password_function'],
       base_salt_field=sql_options['base_salt_field'],
       metadata=sql_options['metadata'],
-      children_event_id_list=sql_options['children_event_id_list']
+      children_event_id_list=sql_options['children_event_id_list'],
       tlf=sql_options['tlf']
     )
     self.exec_sql(load_voters_statement)
