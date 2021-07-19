@@ -19,7 +19,7 @@ pexpect==4.8.0
 pickleshare==0.7.2
 Pillow==8.2.0
 pre-commit==2.10.1
-psycopg2==2.8.6
+psycopg2-binary==2.8.6
 ptyprocess==0.5.1
 python-dateutil==2.5.3
 pytz==2016.4
@@ -31,4 +31,4 @@ traitlets==4.3.3
 twilio==6.6.1
 xmltodict==0.10.2
 oic==1.2.1
-git+git://github.com/wadobo/suds.git
+suds-py3==1.4.4.1
