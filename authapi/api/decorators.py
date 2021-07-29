@@ -37,15 +37,22 @@ def get_login_user(request):
 
     try:
       hmac_token = HMACToken(key)
-      if not hmac_token.check_expiration(settings.TIMEOUT):
-          return None, dict(error_codename="expired_hmac_key"), hmac_token
+      user = User.objects.get(username=hmac_token.get_userid())
 
-      v = verifyhmac(settings.SHARED_SECRET, key, settings.TIMEOUT, at=hmac_token)
+      # admin auth event has a different timeout
+      if user.userdata.event_id == settings.ADMIN_AUTH_ID:
+          timeout = settings.ADMIN_TIMEOUT
+      else:
+          timeout = settings.TIMEOUT
+
+      print("timeout = %r event_id = %r" % (timeout, user.userdata.event_id))
+      v = verifyhmac(settings.SHARED_SECRET, key, timeout, at=hmac_token)
 
       if not v:
           return None, dict(error_codename="invalid_hmac"), hmac_token
 
-      user = User.objects.get(username=hmac_token.get_userid())
+      if not hmac_token.check_expiration(timeout):
+          return None, dict(error_codename="expired_hmac_key"), hmac_token
     except:
         return None, dict(error_codename="invalid_hmac_userid"), hmac_token
 

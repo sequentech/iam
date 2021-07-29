@@ -43,10 +43,6 @@ class CeleryConfig:
 
 CELERY_CONFIG = CeleryConfig
 
-USE_TZ = True
-
-TIME_ZONE = 'Europe/Madrid'
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.7/howto/deployment/checklist/
 
@@ -59,6 +55,10 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 ADMIN_AUTH_ID = 1
+
+TIMEOUT = 300
+
+ADMIN_TIMEOUT = 3000
 
 ALLOW_ADMIN_AUTH_REGISTRATION = False
 
