@@ -104,6 +104,16 @@ def gen_text(
 #       {
 #           "auth_event_ids": [27, 28, 29],
 #           "title": "Candidatos para Consejeros por Sector 2"
+#       },
+#       {
+#           "auth_event_ids": [27, 28, 29],
+#           "title": "Candidatos para Consejeros por Sector 2 - young",
+#           "extra_filters": {"user__metadata__age__lt": 18}
+#       },
+#       {
+#           "auth_event_ids": [27, 28, 29],
+#           "title": "Candidatos para Consejeros por Sector 2 - adult",
+#           "extra_filters": {"user__metadata__age__gte": 18}
 #       }
 #   ]
 # }
@@ -201,8 +211,20 @@ class Command(BaseCommand):
             votes = 0
             for auth_event_id in group['auth_event_ids']:
                 auth_event = AuthEvent.objects.get(pk=auth_event_id)
-                census += auth_event.get_census_query().count()
-                votes += auth_event.get_num_votes()
+
+                census_query = auth_event.get_census_query()
+                if 'extra_filters' in group:
+                    census_query = census_query.filter(
+                        **group['extra_filters']
+                    )
+                census += census_query.count()
+
+                votes_query = auth_event.get_num_votes_query()
+                if 'extra_filters' in group:
+                    votes_query = votes_query.filter(
+                        **group['extra_filters']
+                    )
+                votes += votes_query.count()
 
             row = [
                 group['title'],
