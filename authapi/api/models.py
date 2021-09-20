@@ -437,7 +437,7 @@ class AuthEvent(models.Model):
             ) & sub_query
         )
 
-    def get_num_votes(self):
+    def get_num_votes_query(self):
         '''
         Returns the number of votes in this election and in
         children elections (if any).
@@ -454,8 +454,14 @@ class AuthEvent(models.Model):
                 Q(auth_event__parent_id__in=children_election_ids)
             )\
             .order_by('user_id', '-created')\
-            .distinct('user_id')\
-            .count()
+            .distinct('user_id')
+
+    def get_num_votes(self):
+        '''
+        Returns the number of votes in this election and in
+        children elections (if any).
+        '''
+        return self.get_num_votes_query().count()
     
     def children_tally_status(self):
         '''
