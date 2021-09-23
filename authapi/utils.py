@@ -203,7 +203,10 @@ class HMACToken:
     def check_expiration(self, seconds=300):
         t = self.timestamp
         n = timezone.now()
-        d = datetime.datetime.fromtimestamp(int(t))
+        d = datetime.datetime.fromtimestamp(
+            int(t),
+            tz=timezone.get_current_timezone()
+        )
         d = d + datetime.timedelta(seconds=seconds)
         return d > n
 
