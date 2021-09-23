@@ -18,6 +18,7 @@ import time
 import json
 import copy
 from datetime import datetime
+from django.utils import timezone
 from django.core import mail
 from django.test import TestCase
 from django.test import Client
@@ -2113,7 +2114,7 @@ class TestCallback(TestCase):
         if not key or not msg:
            return
 
-        timestamp = int(datetime.datetime.now().timestamp())
+        timestamp = int(timezone.now().timestamp())
         msg = "%s:%s" % (msg, str(timestamp))
 
         h = hmac.new(key, msg.encode('utf-8'), "sha256")
@@ -2283,7 +2284,7 @@ class TestRevotes(TestCase):
     def genhmac(self, key, msg):
         import hmac
         import datetime
-        timestamp = int(datetime.datetime.now().timestamp())
+        timestamp = int(timezone.now().timestamp())
         msg = "%s:%s" % (msg, str(timestamp))
 
         h = hmac.new(key, msg.encode('utf-8'), "sha256")

@@ -18,6 +18,7 @@
 
 from api.models import AuthEvent
 
+from django.utils import timezone
 from django.core.mail import send_mail, EmailMessage
 from django.core.management.base import BaseCommand, CommandError
 import tempfile
@@ -138,7 +139,7 @@ class Command(BaseCommand):
 
         pdf_path = options['path'][0]
 
-        now = datetime.datetime.now()
+        now = timezone.now()
         styleSheet = getSampleStyleSheet()
         doc = SimpleDocTemplate(
             pdf_path, 
