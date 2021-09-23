@@ -344,7 +344,7 @@ def normalize_dni(dni):
     last_char = ""
     dni3 = ""
     for c in dni2:
-      if (last_char is "" or last_char not in '1234567890XY') and c == '0':
+      if (last_char == "" or last_char not in '1234567890XY') and c == '0':
         continue
       dni3 += c
       last_char = c
