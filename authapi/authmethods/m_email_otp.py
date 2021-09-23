@@ -16,9 +16,16 @@
 import json
 import logging
 from django.conf import settings
+from django.utils import timezone
 from django.conf.urls import url
 from django.contrib.auth.models import User
-from utils import genhmac, constant_time_compare, send_codes, get_client_ip, is_valid_url
+from utils import (
+    genhmac,
+    constant_time_compare,
+    send_codes,
+    get_client_ip,
+    is_valid_url
+)
 
 from . import register_method
 from authmethods.utils import *
@@ -743,7 +750,7 @@ class Email:
 
         code = Code.objects.filter(
             user=user.userdata,
-            created__gt=datetime.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
+            created__gt=timezone.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
             )\
             .order_by('-created')\
             .first()
@@ -773,7 +780,7 @@ class Email:
                 stack_trace_str())
             
             # change created time to make it invalid next time
-            code.created=datetime.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
+            code.created=timezone.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
             code.save()
 
             return self.error("Incorrect data", error_codename="invalid_credentials")

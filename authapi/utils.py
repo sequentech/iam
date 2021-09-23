@@ -17,6 +17,7 @@
 
 import hmac
 import datetime
+from django.utils import timezone
 import dateutil.parser
 import json
 import types
@@ -170,7 +171,7 @@ def paginate(request, queryset, serialize_method=None, elements_name='elements')
     }
 
 def genhmac(key, msg):
-    timestamp = int(datetime.datetime.now().timestamp())
+    timestamp = int(timezone.now().timestamp())
     msg = "%s:%s" % (msg, str(timestamp))
 
     h = hmac.new(key, msg.encode('utf-8'), "sha256")
@@ -201,8 +202,11 @@ class HMACToken:
 
     def check_expiration(self, seconds=300):
         t = self.timestamp
-        n = datetime.datetime.now()
-        d = datetime.datetime.fromtimestamp(int(t))
+        n = timezone.now()
+        d = datetime.datetime.fromtimestamp(
+            int(t),
+            tz=timezone.get_current_timezone()
+        )
         d = d + datetime.timedelta(seconds=seconds)
         return d > n
 

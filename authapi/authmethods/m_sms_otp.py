@@ -21,6 +21,7 @@ from django.db.models import Q
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 from datetime import datetime, timedelta
+from django.utils import timezone
 from utils import (
   genhmac, send_codes, get_client_ip, is_valid_url, constant_time_compare
 )
@@ -721,7 +722,7 @@ class SmsOtp:
 
         code = Code.objects.filter(
             user=user.userdata,
-            created__gt=datetime.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
+            created__gt=timezone.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
             ).order_by('-created').first()
         if not code:       
             LOGGER.error(\
@@ -749,7 +750,7 @@ class SmsOtp:
                 stack_trace_str())
             
             # change created time to make it invalid next time
-            code.created=datetime.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
+            code.created=timezone.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
             code.save()
             
             return self.error("Incorrect data", error_codename="invalid_credentials")
