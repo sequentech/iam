@@ -678,9 +678,6 @@ class Email:
                 msg, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        email_def = self.email_definition if not auth_event.hide_default_login_lookup_field else self.email_opt_definition
-        msg += check_field_type(email_def, email, 'authenticate')
-        msg += check_field_value(email_def, email, 'authenticate')
         msg += check_field_type(self.code_definition, req.get('code'), 'authenticate')
         msg += check_field_value(self.code_definition, req.get('code'), 'authenticate')
         msg += check_fields_in_request(req, auth_event, 'authenticate')
@@ -707,12 +704,6 @@ class Email:
 
         try:
             q = get_base_auth_query(auth_event)
-            
-            if 'email' in req:
-                q = q & Q(email=email)
-            elif not auth_event.hide_default_login_lookup_field:
-                return self.error("Incorrect data", error_codename="invalid_credentials")
-
             q = get_required_fields_on_auth(req, auth_event, q)
             user = User.objects.get(q)
             post_verify_fields_on_auth(user, req, auth_event)
@@ -758,7 +749,7 @@ class Email:
         req = json.loads(request.body.decode('utf-8'))
 
         msg = ''
-        email = req.get('email')
+        email = req.get('email', '')
         if isinstance(email, str):
             email = email.strip()
             email = email.replace(" ", "")
@@ -789,20 +780,6 @@ class Email:
 
         try:
             q = get_base_auth_query(auth_event)
-            if 'email' in req:
-                if not auth_event.hide_default_login_lookup_field:
-                    q = q & Q(email=email)
-            elif not auth_event.hide_default_login_lookup_field:
-                LOGGER.error(\
-                    "Email.resend_auth_code error\n"\
-                    "ae.hide_default_login_lookup_field is False and email not given\n"\
-                    "error '%r'\n"\
-                    "authevent '%r'\n"\
-                    "request '%r'\n"\
-                    "Stack trace: \n%s",\
-                    msg, auth_event, req, stack_trace_str())
-                return self.error("Incorrect data", error_codename="invalid_credentials")
-
             q = get_required_fields_on_auth(req, auth_event, q)
             u = User.objects.get(q)
         except:

@@ -4065,7 +4065,7 @@ class ApiTestHideDefaultLoginLookupField(TestCase):
 
     def _hide_default_login_lookup_field(self, is_resend=False):
         # reset data
-        self.ae.extra_fields[0]["required_on_authentication"] = True
+        self.ae.extra_fields[1]["required_on_authentication"] = True
         self.ae.hide_default_login_lookup_field = False
 
         if is_resend:
