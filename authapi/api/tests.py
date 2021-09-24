@@ -263,8 +263,11 @@ class ApiTestCase(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-        ae = AuthEvent(auth_method=test_data.auth_event4['auth_method'],
-                auth_method_config=test_data.authmethod_config_email_default)
+        ae = AuthEvent(
+            auth_method=test_data.auth_event4['auth_method'],
+            extra_fields=test_data.auth_event4['extra_fields'],
+            auth_method_config=test_data.authmethod_config_email_default
+        )
         ae.save()
 
         self.aeid_special = 1
@@ -696,8 +699,11 @@ class TestAuthEvent(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-        self.ae = AuthEvent(auth_method=test_data.auth_event4['auth_method'],
-                auth_method_config=test_data.authmethod_config_email_default)
+        self.ae = AuthEvent(
+            auth_method=test_data.auth_event4['auth_method'],
+            extra_fields=test_data.auth_event4['extra_fields'],
+            auth_method_config=test_data.authmethod_config_email_default
+        )
         self.ae.save()
 
         self.aeid_special = 1
@@ -977,10 +983,13 @@ class TestExtraFields(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-        ae = AuthEvent(auth_method="email",
-                auth_method_config=test_data.authmethod_config_email_default,
-                status='started',
-                census="open")
+        ae = AuthEvent(
+            auth_method="email",
+            auth_method_config=test_data.authmethod_config_email_default,
+            extra_fields=test_data.ae_email_default['extra_fields'],
+            status='started',
+            census="open"
+        )
         ae.save()
         self.ae = ae
         self.aeid = ae.pk
@@ -1102,10 +1111,12 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         super().tearDownClass()
 
     def setUp(self):
-        ae = AuthEvent(auth_method="email",
-                auth_method_config=test_data.authmethod_config_email_default,
-                status='started',
-                census="open")
+        ae = AuthEvent(
+            auth_method_config=test_data.authmethod_config_email_default,
+            extra_fields=test_data.ae_email_default['extra_fields'],
+            status='started',
+            census="open"
+        )
         ae.save()
         self.ae = ae
         self.aeid = ae.pk
@@ -1484,10 +1495,13 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-        ae = AuthEvent(auth_method="sms",
-                auth_method_config=test_data.authmethod_config_sms_default,
-                status='started',
-                census="open")
+        ae = AuthEvent(
+            auth_method="sms",
+            extra_fields=test_data.ae_sms_default['extra_fields'],
+            auth_method_config=test_data.authmethod_config_sms_default,
+            status='started',
+            census="open"
+        )
         ae.save()
         self.ae = ae
         self.aeid = ae.pk
@@ -1834,10 +1848,13 @@ class TestSmallCensusSearch(TestCase):
                 "config": Email.CONFIG,
                 "pipeline": Email.PIPELINES
         }
-        ae = AuthEvent(auth_method=test_data.auth_event9['auth_method'],
-                auth_method_config=auth_method_config,
-                extra_fields=test_data.auth_event9['extra_fields'],
-                status='started', census=test_data.auth_event9['census'])
+        ae = AuthEvent(
+            auth_method=test_data.auth_event9['auth_method'],
+            extra_fields=test_data.auth_event9['extra_fields'],
+            auth_method_config=auth_method_config,
+            status='started',
+            census=test_data.auth_event9['census']
+        )
         ae.save()
         self.ae = ae
         self.aeid = ae.pk
@@ -1918,10 +1935,13 @@ class TestSlugMessages(TestCase):
                 "config": Email.CONFIG,
                 "pipeline": Email.PIPELINES
         }
-        ae = AuthEvent(auth_method=test_data.auth_event12['auth_method'],
-                auth_method_config=auth_method_config,
-                extra_fields=test_data.auth_event12['extra_fields'],
-                status='started', census=test_data.auth_event12['census'])
+        ae = AuthEvent(
+            auth_method=test_data.auth_event12['auth_method'],
+            extra_fields=test_data.auth_event12['extra_fields'],
+            auth_method_config=auth_method_config,
+            status='started', 
+            census=test_data.auth_event12['census']
+        )
         ae.save()
         self.ae = ae
         self.aeid = ae.pk
@@ -2010,10 +2030,13 @@ class TestUserExtra(TestCase):
         self.admin_ae.extra_fields = test_data.extra_fields16
         self.admin_ae.save()
 
-        ae = AuthEvent(auth_method=test_data.auth_event12['auth_method'],
-                auth_method_config=auth_method_config,
-                extra_fields=test_data.auth_event12['extra_fields'],
-                status='started', census=test_data.auth_event12['census'])
+        ae = AuthEvent(
+            auth_method=test_data.auth_event12['auth_method'],
+            extra_fields=test_data.auth_event12['extra_fields'],
+            auth_method_config=auth_method_config,
+            status='started',
+            census=test_data.auth_event12['census']
+        )
         ae.save()
         self.ae = ae
         self.aeid = ae.pk
@@ -2094,10 +2117,13 @@ class TestCallback(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-        ae = AuthEvent(auth_method="email",
-                auth_method_config=test_data.authmethod_config_email_default,
-                status='started',
-                census="open")
+        ae = AuthEvent(
+            auth_method="email",
+            extra_fields=test_data.ae_email_default['extra_fields'],
+            auth_method_config=test_data.authmethod_config_email_default,
+            status='started',
+            census="open"
+        )
         ae.save()
         self.ae = ae
         self.aeid = ae.pk
@@ -2148,6 +2174,7 @@ class TestVoteStats(TestCase):
 
         auth_event = AuthEvent(
             auth_method="email",
+            extra_fields=test_data.ae_email_default['extra_fields'],
             auth_method_config=test_data.authmethod_config_email_default,
             status='started',
             census="open"
@@ -2293,11 +2320,14 @@ class TestRevotes(TestCase):
         return 'khmac:///sha-256;' + h.hexdigest() + '/' + msg
 
     def setUp(self):
-        ae = AuthEvent(auth_method="email",
-                auth_method_config=test_data.authmethod_config_email_default,
-                status='started',
-                census="open",
-                num_successful_logins_allowed = 0)
+        ae = AuthEvent(
+            auth_method="email",
+            extra_fields=test_data.ae_email_default['extra_fields'],
+            auth_method_config=test_data.authmethod_config_email_default,
+            status='started',
+            census="open",
+            num_successful_logins_allowed=0
+        )
         ae.save()
         self.ae = ae
         self.aeid = ae.pk
@@ -2407,8 +2437,11 @@ class TestAdminFields(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-        self.ae = AuthEvent(auth_method=test_data.auth_event4['auth_method'],
-                auth_method_config=test_data.authmethod_config_email_default)
+        self.ae = AuthEvent(
+            auth_method=test_data.auth_event4['auth_method'],
+            extra_fields=test_data.auth_event4['extra_fields'],
+            auth_method_config=test_data.authmethod_config_email_default
+        )
         self.ae.save()
 
         self.aeid_special = 1
@@ -2665,11 +2698,14 @@ class ApiTestActivationAndActivity(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-        ae = AuthEvent(auth_method="email",
-                auth_method_config=test_data.authmethod_config_email_default,
-                status='started',
-                census="open",
-                num_successful_logins_allowed = 1)
+        ae = AuthEvent(
+            auth_method="email",
+            auth_method_config=test_data.authmethod_config_email_default,
+            extra_fields=test_data.ae_email_default['extra_fields'],
+            status='started',
+            census="open",
+            num_successful_logins_allowed = 1
+        )
         ae.save()
         self.ae = ae
         self.aeid = ae.pk
@@ -3031,10 +3067,12 @@ class ApiTestBallotBoxes(TestCase):
         ae = AuthEvent(
             auth_method="email",
             auth_method_config=test_data.authmethod_config_email_default,
+            extra_fields=test_data.ae_email_default['extra_fields'],
             status='stopped',
             census="open",
             num_successful_logins_allowed = 1,
-            has_ballot_boxes=True)
+            has_ballot_boxes=True
+        )
         ae.save()
         self.ae = ae
         self.aeid = ae.pk
@@ -3543,6 +3581,7 @@ class ApiTestTallySheets(TestCase):
         ae = AuthEvent(
             auth_method="email",
             auth_method_config=test_data.authmethod_config_email_default,
+            extra_fields=test_data.ae_email_default['extra_fields'],
             status='stopped',
             census="open",
             num_successful_logins_allowed = 1,
@@ -3853,16 +3892,20 @@ class ApiTestPublicQuery(TestCase):
 
     def setUp(self):
         self.ae1 = AuthEvent(
-          auth_method=test_data.auth_event4['auth_method'],
-          auth_method_config=test_data.authmethod_config_email_default,
-          allow_public_census_query=True,
-          status="notstarted")
+            auth_method=test_data.auth_event4['auth_method'],
+            extra_fields=test_data.auth_event4['extra_fields'],
+            auth_method_config=test_data.authmethod_config_email_default,
+            allow_public_census_query=True,
+            status="notstarted"
+        )
         self.ae1.save()
 
         self.ae2 = AuthEvent(
-          auth_method=test_data.auth_event4['auth_method'],
-          auth_method_config=test_data.authmethod_config_email_default,
-          allow_public_census_query=False)
+            auth_method=test_data.auth_event4['auth_method'],
+            extra_fields=test_data.auth_event4['extra_fields'],
+            auth_method_config=test_data.authmethod_config_email_default,
+            allow_public_census_query=False
+        )
         self.ae2.save()
 
         u2 = User(username='test1', email="noperm@agoravoting.com")
@@ -4685,11 +4728,13 @@ class TestAuthEventList(TestCase):
     def setUp(self):
         ae = AuthEvent(
             auth_method=test_data.auth_event4['auth_method'],
+            extra_fields=test_data.auth_event4['extra_fields'],
             auth_method_config=test_data.authmethod_config_email_default
         )
         ae.save()
         ae2 = AuthEvent(
             auth_method=test_data.auth_event4['auth_method'],
+            extra_fields=test_data.auth_event4['extra_fields'],
             auth_method_config=test_data.authmethod_config_email_default,
             parent_id=ae.pk
         )

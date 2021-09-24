@@ -1,4 +1,4 @@
-name: Test python
+name: test-python
 
 on:
   push:
@@ -25,13 +25,40 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: Install node
+      run: |
+        export TZ=Europe/Madrid
+        ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+        apt update
+        apt install -y tzdata
+        apt install -y nodejs
+    - name: Set up Node
+      uses: actions/setup-node@v2
+      with:
+        node-version: '15'
+
+    # Install local postgres if this action is being run locally through ACT,
+    # because right now ACT does not support services natively so we have to
+    # manually install, configure and launch it
+    # more about this: https://github.com/nektos/act/issues/173
+    - name: Install postgres in ACT
+      if: ${{ env.ACT }}
+      run: apt install -y postgresql postgresql-contrib sudo
+    - name: Boot postgres in ACT
+      if: ${{ env.ACT }}
+      run: |
+        service postgresql start
+    - name: Configure postgres in ACT
+      if: ${{ env.ACT }}
+      run: |
+        sudo -u postgres psql -U postgres -d postgres -c "alter user postgres with password 'password';"
+
     - name: Set up Python 3.8
       uses: actions/setup-python@v2
       with:
         python-version: 3.8
     - name: Install dependencies
       run: |
-        apt update
         apt install -y libfreetype6-dev python3-dev libjpeg-dev zlib1g-dev libpq-dev libssl-dev git gcc
         python -m pip install --upgrade pip
         python -m pip install -r requirements.txt
@@ -43,7 +70,7 @@ jobs:
         cd authapi
         python manage.py migrate --settings=authapi.test_settings
         python manage.py loaddata --settings=authapi.test_settings initial
-        python manage.py test --settings=authapi.test_settings
+        python manage.py test --settings=authapi.test_settings --failfast --nocapture
         python -m coverage run --source='.' manage.py test --settings=authapi.test_settings
       env:
           POSTGRES_HOST: postgres
