@@ -18,4 +18,11 @@
 cd authapi
 python manage.py migrate --settings=authapi.test_settings &&\
 python manage.py loaddata --settings=authapi.test_settings initial &&\
-python manage.py test --settings=authapi.test_settings $1 --failfast --nocapture #--ipdb
+python manage.py test \
+   --settings=authapi.test_settings \
+   $1 \
+   --failfast \
+   --nocapture \
+   -v 3 \
+   #--ipdb \
+   #--ipdb-failures
