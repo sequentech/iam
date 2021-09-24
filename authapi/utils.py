@@ -710,19 +710,20 @@ def check_fields(key, value):
                 msg += "Invalid extra_fields: bad %s.\n" % key
     return msg
 
-def check_extra_fields(fields, used_type_fields=[]):
+def check_extra_fields(fields, mandatory_type_fields=[]):
     """ Check extra_fields when create auth-event. """
     msg = ''
     if len(fields) > settings.MAX_EXTRA_FIELDS:
         return "Maximum number of fields reached\n"
     used_fields = ['status']
-    used_type_fields = used_type_fields
+    found_used_type_fields = []
+    mandatory_type_fields = mandatory_type_fields[:]
     for field in fields:
         if field.get('name') in used_fields:
             msg += "Two fields with same name: %s.\n" % field.get('name')
         used_fields.append(field.get('name'))
-        if field.get('type') in used_type_fields:
-            msg += "Type %s not allowed.\n" % field.get('type')
+        if field.get('type') in mandatory_type_fields:
+            found_used_type_fields.append(field.get('name'))
         for required in REQUIRED_FIELDS:
             if not required in field.keys():
                 msg += "Required field %s.\n" % required
@@ -731,6 +732,8 @@ def check_extra_fields(fields, used_type_fields=[]):
                 msg += check_fields(key, field.get(key))
             else:
                 msg += "Invalid extra_field: %s not possible.\n" % key
+    if set(found_used_type_fields) != set(mandatory_type_fields):
+        msg += "Not all required used fields were found"
     return msg
 
 def check_admin_field(key, value):
@@ -747,10 +750,10 @@ def check_admin_fields(fields, used_type_fields=[]):
         return "Maximum number of fields reached\n"
     # create a copy of the list to not modify it
     used_fields = used_type_fields[:]
-    found_used_fields = []
     for field in fields:
         if field.get('name') in used_fields:
-            found_used_fields.append(field.get('name'))
+            msg += "Two admin fields with same name: %s.\n" % field.get('name')
+        used_fields.append(field.get('name'))
         for required in REQUIRED_ADMIN_FIELDS:
             if not required in field.keys():
                 msg += "Required field %s.\n" % required
@@ -759,10 +762,7 @@ def check_admin_fields(fields, used_type_fields=[]):
                 msg += check_admin_field(key, field.get(key))
             else:
                 msg += "Invalid admin_field: %s not possible.\n" % key
-    if set(found_used_fields) != set(used_fields):
-        msg += "Not all required used fields were found"
     return msg
-
 
 def datetime_from_iso8601(when=None, tz=None):
     '''
