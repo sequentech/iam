@@ -747,10 +747,10 @@ def check_admin_fields(fields, used_type_fields=[]):
         return "Maximum number of fields reached\n"
     # create a copy of the list to not modify it
     used_fields = used_type_fields[:]
+    found_used_fields = []
     for field in fields:
         if field.get('name') in used_fields:
-            msg += "Two admin fields with same name: %s.\n" % field.get('name')
-        used_fields.append(field.get('name'))
+            found_used_fields.append(field.get('name'))
         for required in REQUIRED_ADMIN_FIELDS:
             if not required in field.keys():
                 msg += "Required field %s.\n" % required
@@ -759,6 +759,8 @@ def check_admin_fields(fields, used_type_fields=[]):
                 msg += check_admin_field(key, field.get(key))
             else:
                 msg += "Invalid admin_field: %s not possible.\n" % key
+    if set(found_used_fields) != set(used_fields):
+        msg += "Not all required used fields were found"
     return msg
 
 

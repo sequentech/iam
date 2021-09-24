@@ -26,7 +26,7 @@ auth_event1 = {
     "census": "close",
     "config": {"msg": "Enter in __URL__ and put this code __CODE__"},
     "extra_fields": [
-            {
+        {
             "name": "name",
             "help": "put the name that appear in your dni",
             "type": "text",
@@ -34,16 +34,16 @@ auth_event1 = {
             "min": 2,
             "max": 64,
             "required_on_authentication": True
-            },
-            {
+        },
+        {
             "name": "email",
             "type": "email",
             "required": True,
             "min": 4,
             "max": 255,
             "required_on_authentication": True
-            },
-            {
+        },
+        {
             "name": "dni",
             "help": "put the dni without dash",
             "type": "dni",
@@ -51,7 +51,15 @@ auth_event1 = {
             "min": 5,
             "max": 12,
             "required_on_authentication": True
-            }
+        },
+        {
+            "name": "tlf",
+            "type": "tlf", 
+            "required": True,
+            "min": 4,
+            "max": 20,
+            "required_on_authentication": True
+        }
     ]
 }
 
@@ -60,7 +68,7 @@ auth_event2 = {
     "census": "open",
     "config": {"msg": "Enter in __URL__ and put this code __CODE__"},
     "extra_fields": [
-            {
+        {
             "name": "name",
             "help": "put the name that appear in your dni",
             "type": "text",
@@ -68,8 +76,8 @@ auth_event2 = {
             "min": 2,
             "max": 64,
             "required_on_authentication": False
-            },
-            {
+        },
+        {
             "name": "age",
             "help": "put the age",
             "type": "int",
@@ -77,16 +85,16 @@ auth_event2 = {
             "min": 18,
             "max": 150,
             "required_on_authentication": False
-            },
-            {
+        },
+        {
             "name": "email",
             "type": "email",
             "required": True,
             "min": 4,
             "max": 255,
             "required_on_authentication": True
-            },
-            {
+        },
+        {
             "name": "dni",
             "help": "put the dni without dash",
             "type": "dni",
@@ -94,7 +102,15 @@ auth_event2 = {
             "min": 5,
             "max": 12,
             "required_on_authentication": True
-            }
+        },
+        {
+            "name": "tlf",
+            "type": "tlf", 
+            "required": True,
+            "min": 4,
+            "max": 20,
+            "required_on_authentication": True
+        }
     ]
 }
 
@@ -105,7 +121,17 @@ auth_event3 = {
         "authentication-action": {"mode": ""},
         "subject": "Confirm your email",
         "msg": "Click __URL__ and put this code __CODE__"
-    }
+    },
+    "extra_fields": [
+        {
+            "name": "email",
+            "type": "email",
+            "required": True,
+            "min": 4,
+            "max": 255,
+            "required_on_authentication": True
+        }
+    ]
 }
 
 auth_event4 = {
@@ -113,7 +139,25 @@ auth_event4 = {
     "census": "open",
     "config": {
         "authentication-action": {"mode": ""}
-    }
+    },
+    "extra_fields": [
+        {
+            "name": "username",
+            "type": "text",
+            "required": True,
+            "min": 3, 
+            "max": 200, 
+            "required_on_authentication": True
+        },
+        {
+            "name": "password",
+            "type": "password",
+            "required": True,
+            "min": 3,
+            "max": 200,
+            "required_on_authentication": True
+        }
+    ]
 }
 
 auth_event5 = {
@@ -121,14 +165,30 @@ auth_event5 = {
     "census": "open",
     "config": {},
     "extra_fields": [
-            {
+        {
+            "name": "username",
+            "type": "text",
+            "required": True,
+            "min": 3, 
+            "max": 200, 
+            "required_on_authentication": True
+        },
+        {
+            "name": "password",
+            "type": "password",
+            "required": True,
+            "min": 3,
+            "max": 200,
+            "required_on_authentication": True
+        },
+        {
             "name": "name",
             "type": "text",
             "required": True,
             "min": 2,
             "max": 64,
             "required_on_authentication": True
-            },
+        },
     ]
 }
 
@@ -142,7 +202,15 @@ auth_event6 = {
         "msg": "Click __URL__ and put this code __CODE__"
     },
     "extra_fields": [
-            {
+        {
+            "name": "email",
+            "type": "email",
+            "required": True,
+            "min": 4,
+            "max": 255,
+            "required_on_authentication": True
+        },
+        {
             "name": "dni",
             "help": "put the dni without dash",
             "type": "dni",
@@ -157,7 +225,7 @@ auth_event6 = {
             "authenticate-pipeline": [
                 ["CanonizeDni", {}]
             ]
-            }
+        }
     ]
 }
 auth_event7 = copy.deepcopy(auth_event6)
@@ -224,16 +292,24 @@ auth_event9 = {
         "msg": "Click __URL__ and put this code __CODE__"
     },
     "extra_fields": [
-            {
-                "name": "match_field",
-                "match_census_on_registration": True,
-                "help": "match census on registration",
-                "type": "text",
-                "required": True,
-                "min": 0,
-                "max": 24,
-                "required_on_authentication": False
-            }
+        {
+            "name": "email",
+            "type": "email",
+            "required": True,
+            "min": 4,
+            "max": 255,
+            "required_on_authentication": True
+        },
+        {
+            "name": "match_field",
+            "match_census_on_registration": True,
+            "help": "match census on registration",
+            "type": "text",
+            "required": True,
+            "min": 0,
+            "max": 24,
+            "required_on_authentication": False
+        }
     ]
 }
 
@@ -280,16 +356,24 @@ auth_event11 = {
     "census": "open",
     "config": {"msg": "Enter in __URL__ and put this code __CODE__"},
     "extra_fields": [
-            {
-                "name": "match_field",
-                "match_census_on_registration": True,
-                "help": "match census on registration",
-                "type": "text",
-                "required": True,
-                "min": 0,
-                "max": 24,
-                "required_on_authentication": False
-            }
+        {
+            "name": "match_field",
+            "match_census_on_registration": True,
+            "help": "match census on registration",
+            "type": "text",
+            "required": True,
+            "min": 0,
+            "max": 24,
+            "required_on_authentication": False
+        },
+        {
+            "name": "tlf",
+            "type": "tlf", 
+            "required": True,
+            "min": 4,
+            "max": 20,
+            "required_on_authentication": True
+        }
     ]
 }
 
@@ -304,17 +388,25 @@ auth_event12 = {
         "msg": "Click __URL__ and put this code __CODE__"
     },
     "extra_fields": [
-            {
-                "name": "nº de _socio 你好",
-                "slug": "NO_DE__SOCIO",
-                "match_census_on_registration": False,
-                "help": "something",
-                "type": "text",
-                "required": True,
-                "min": 0,
-                "max": 24,
-                "required_on_authentication": False
-            }
+        {
+            "name": "email",
+            "type": "email",
+            "required": True,
+            "min": 4,
+            "max": 255,
+            "required_on_authentication": True
+        },
+        {
+            "name": "nº de _socio 你好",
+            "slug": "NO_DE__SOCIO",
+            "match_census_on_registration": False,
+            "help": "something",
+            "type": "text",
+            "required": True,
+            "min": 0,
+            "max": 24,
+            "required_on_authentication": False
+        }
     ]
 }
 
@@ -329,16 +421,24 @@ auth_event13 = {
         "msg": "Click __URL__ and put this code __CODE__"
     },
     "extra_fields": [
-            {
-                "name": "nº de _socio 你好",
-                "match_census_on_registration": False,
-                "help": "something",
-                "type": "text",
-                "required": True,
-                "min": 0,
-                "max": 24,
-                "required_on_authentication": False
-            }
+        {
+            "name": "email",
+            "type": "email",
+            "required": True,
+            "min": 4,
+            "max": 255,
+            "required_on_authentication": True
+        },
+        {
+            "name": "nº de _socio 你好",
+            "match_census_on_registration": False,
+            "help": "something",
+            "type": "text",
+            "required": True,
+            "min": 0,
+            "max": 24,
+            "required_on_authentication": False
+        }
     ]
 }
 
@@ -347,21 +447,29 @@ auth_event14 = {
     "census": "open",
     "config": {},
     "extra_fields":[
-      {
-         "name":"MemberID",
-         "type":"text",
-         "required": True,
-         "min":9,
-         "max":9,
-         "private": False,
-         "required_on_authentication": True,
-         "match_census_on_registration": True,
-         "fill_if_empty_on_registration": False,
-         "register-pipeline":[
-         ],
-         "help":" True your Member ID",
-         "unique": True
-      }
+        {
+            "name": "email",
+            "type": "email",
+            "required": True,
+            "min": 4,
+            "max": 255,
+            "required_on_authentication": True
+        },
+        {
+            "name":"MemberID",
+            "type":"text",
+            "required": True,
+            "min":9,
+            "max":9,
+            "private": False,
+            "required_on_authentication": True,
+            "match_census_on_registration": True,
+            "fill_if_empty_on_registration": False,
+            "register-pipeline":[
+            ],
+            "help":" True your Member ID",
+            "unique": True
+        }
    ],
    "admin_fields":[
       {
@@ -382,22 +490,30 @@ auth_event15 = {
     "auth_method": "email",
     "census": "open",
     "config": {},
-    "extra_fields":[
-      {
-         "name":"MemberID",
-         "type":"text",
-         "required": True,
-         "min":9,
-         "max":9,
-         "private": False,
-         "required_on_authentication": True,
-         "match_census_on_registration": True,
-         "fill_if_empty_on_registration": False,
-         "register-pipeline":[
-         ],
-         "help":" True your Member ID",
-         "unique": True
-      }
+    "extra_fields": [
+        {
+            "name": "email",
+            "type": "email",
+            "required": True,
+            "min": 4,
+            "max": 255,
+            "required_on_authentication": True
+        },
+        {
+            "name":"MemberID",
+            "type":"text",
+            "required": True,
+            "min":9,
+            "max":9,
+            "private": False,
+            "required_on_authentication": True,
+            "match_census_on_registration": True,
+            "fill_if_empty_on_registration": False,
+            "register-pipeline":[
+            ],
+            "help":" True your Member ID",
+            "unique": True
+        }
    ],
    "admin_fields":[
       {
@@ -431,32 +547,40 @@ userdata_metadata16 = {
 }
 
 extra_fields16 = [
-  {
-    "name": "dni",
-    "type": "text",
-    "required": False,
-    "min": 1,
-    "required_on_authentication": False,
-    "user_editable": True
-  },
-  {
-    "name": "company name",
-    "type": "text",
-    "required": False,
-    "min": 1,
-    "required_on_authentication": False,
-    "required_when_registered": True,
-    "user_editable": True
-  },
-  {
-    "name": "other",
-    "type": "text",
-    "required": False,
-    "min": 1,
-    "required_on_authentication": False,
-    "required_when_registered": False,
-    "user_editable": False
-  }
+    {
+        "name": "email",
+        "type": "email",
+        "required": True,
+        "min": 4,
+        "max": 255,
+        "required_on_authentication": True
+    },
+    {
+        "name": "dni",
+        "type": "text",
+        "required": False,
+        "min": 1,
+        "required_on_authentication": False,
+        "user_editable": True
+    },
+    {
+        "name": "company name",
+        "type": "text",
+        "required": False,
+        "min": 1,
+        "required_on_authentication": False,
+        "required_when_registered": True,
+        "user_editable": True
+    },
+    {
+        "name": "other",
+        "type": "text",
+        "required": False,
+        "min": 1,
+        "required_on_authentication": False,
+        "required_when_registered": False,
+        "user_editable": False
+    }
 ]
 
 # extra-fields pipeline
@@ -469,6 +593,14 @@ auth_event17 = {
         "msg": "Click __URL__ and put this code __CODE__"
     },
     "extra_fields": [
+        {
+            "name": "email",
+            "type": "email",
+            "required": True,
+            "min": 4,
+            "max": 255,
+            "required_on_authentication": True
+        },
         {
             "name": "dni",
             "help": "put the dni without dash",
@@ -772,6 +904,16 @@ authmethod_config_smart_link_default = {
 ae_email_default = {
     "auth_method": "email",
     "census": "open",
+    "extra_fields": [
+        {
+            "name": "email",
+            "type": "email",
+            "required": True,
+            "min": 4,
+            "max": 255,
+            "required_on_authentication": True
+        }
+    ]
 }
 
 ae_email_default__method_config = {
@@ -908,7 +1050,15 @@ ae_email_config_incorrect2.update({"config": "aaaaaa"})
 ae_email_fields = ae_email_default.copy()
 ae_email_fields.update( {
     "extra_fields": [
-            {
+        {
+            "name": "email",
+            "type": "email",
+            "required": True,
+            "min": 4,
+            "max": 255,
+            "required_on_authentication": True
+        },
+        {
             "name": "name",
             "help": "put the name that appear in your dni",
             "type": "text",
@@ -916,13 +1066,31 @@ ae_email_fields.update( {
             "min": 2,
             "max": 64,
             "required_on_authentication": True
-            }
+        }
     ]
 })
 
 ae_email_fields_captcha = ae_email_fields.copy()
-ae_email_fields_captcha.update( {'extra_fields': [{'name': 'captcha', 'type': 'captcha',
-        'required': True, 'required_on_authentication': False}]})
+ae_email_fields_captcha.update(
+    {
+        'extra_fields': [
+            {
+                "name": "email",
+                "type": "email",
+                "required": True,
+                "min": 4,
+                "max": 255,
+                "required_on_authentication": True
+            },
+            {
+                'name': 'captcha',
+                'type': 'captcha',
+                'required': True, 
+                'required_on_authentication': False
+            }
+        ]
+    }
+)
 
 ae_email_fields_incorrect_max_fields = ae_email_fields.copy()
 ae_email_fields_incorrect_max_fields.update({"extra_fields": [{"boo": True},
@@ -968,6 +1136,16 @@ ae_email_fields_incorrect_status.update( {'extra_fields': [
 ae_sms_default = {
     "auth_method": "sms",
     "census": "open",
+    "extra_fields": [
+        {
+            "name": "tlf",
+            "type": "tlf", 
+            "required": True,
+            "min": 4,
+            "max": 20,
+            "required_on_authentication": True
+        }        
+    ]
 }
 
 ae_sms_config = {
@@ -980,7 +1158,7 @@ ae_sms_fields = {
     "auth_method": "sms",
     "census": "open",
     "extra_fields": [
-            {
+        {
             "name": "name",
             "help": "put the name that appear in your dni",
             "type": "text",
@@ -988,7 +1166,15 @@ ae_sms_fields = {
             "min": 2,
             "max": 64,
             "required_on_authentication": True
-            }
+        },
+        {
+            "name": "tlf",
+            "type": "tlf", 
+            "required": True,
+            "min": 4,
+            "max": 20,
+            "required_on_authentication": True
+        } 
     ]
 }
 
@@ -1105,7 +1291,16 @@ auth_event19 = {
         "subject": "Confirm your email",
         "msg": "Click __URL__ and put this code __CODE__"
     },
-    "extra_fields": []
+    "extra_fields": [
+        {
+            "name": "email",
+            "type": "email",
+            "required": True,
+            "min": 4,
+            "max": 255,
+            "required_on_authentication": True
+        }
+    ]
 }
 
 def get_auth_event19_census(auth_method):
@@ -1138,6 +1333,14 @@ def get_auth_event_20(child_id_1, child_id_2):
                 "required": True,
                 "min": 5,
                 "max": 12,
+                "required_on_authentication": True
+            },
+            {
+                "name": "email",
+                "type": "email",
+                "required": True,
+                "min": 4,
+                "max": 255,
                 "required_on_authentication": True
             }
         ],

@@ -38,9 +38,11 @@ def flush_db_load_fixture(ffile="initial.json"):
     management.call_command("flush", verbosity=0, interactive=False)
     management.call_command("loaddata", ffile, verbosity=0)
 
-override_celery_data = dict(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+override_celery_data = dict(
+    CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+    CELERY_ALWAYS_EAGER=True,
+    BROKER_BACKEND='memory'
+)
 
 def parse_json_response(response):
     return json.loads(response.content.decode('utf-8'))
