@@ -820,7 +820,10 @@ def get_required_fields_on_auth(req, ae, q):
                 # we verify this later im post_verify_fields_on_auth
                 continue
             else:
-                q = q & Q(userdata__metadata__contains={field.get('name'): value})
+                if typee == 'text' and field.get('name') == 'username':
+                    q = q & Q(username=value)
+                else:
+                    q = q & Q(userdata__metadata__contains={field.get('name'): value})
 
     return q
 

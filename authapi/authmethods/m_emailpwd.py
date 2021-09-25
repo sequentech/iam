@@ -48,8 +48,22 @@ class EmailPWD:
         ],
     }
     USED_TYPE_FIELDS = ['email', 'password']
-    email_definition = { "name": "email", "type": "email", "required": True, "min": 4, "max": 255, "required_on_authentication": True }
-    password_definition = { "name": "password", "type": "password", "required": True, "min": 3, "max": 200, "required_on_authentication": True }
+    email_definition = {
+        "name": "email",
+        "type": "email",
+        "required": True,
+        "min": 4,
+        "max": 255,
+        "required_on_authentication": True
+    }
+    password_definition = {
+        "name": "password",
+        "type": "password",
+        "required": True,
+        "min": 3,
+        "max": 200,
+        "required_on_authentication": True
+    }
 
     def check_config(self, config):
         return ''
@@ -62,7 +76,6 @@ class EmailPWD:
         validation = req.get('field-validation', 'enabled') == 'enabled'
 
         msg = ''
-        emails = []
         for r in req.get('census'):
             email = r.get('email')
             password = r.get('password')
@@ -77,9 +90,6 @@ class EmailPWD:
             msg += check_fields_in_request(r, ae, 'census', validation=validation)
             if validation:
                 msg += exist_user(r, ae)
-                if email in emails:
-                    msg += "Email %s repeat in this census." % email
-                emails.append(email)
             else:
                 if msg:
                     LOGGER.debug(\
@@ -142,8 +152,7 @@ class EmailPWD:
     def authenticate(self, auth_event, request, mode='authenticate'):
         d = {'status': 'ok'}
         req = json.loads(request.body.decode('utf-8'))
-        email = req.get('email', '')
-        pwd = req.get('password', '')
+        password = req.get('password', '')
 
         msg = ""
         msg += check_fields_in_request(req, auth_event, 'authenticate')
@@ -152,13 +161,10 @@ class EmailPWD:
 
         try:
             q = get_base_auth_query(auth_event)
-            if 'email' in req:
-                q = q & Q(email=email)
-            elif not auth_event.hide_default_login_lookup_field:
-                return self.authenticate_error("no-email-provided", req, auth_event)
 
             q = get_required_fields_on_auth(req, auth_event, q)
             user = User.objects.get(q)
+            post_verify_fields_on_auth(user, req, auth_event)
         except:
             return self.authenticate_error("user-not-found", req, auth_event)
 
@@ -167,7 +173,7 @@ class EmailPWD:
             return self.authenticate_error("invalid-pipeline", req, auth_event)
 
         if mode == "authenticate":
-            if not user.check_password(pwd):
+            if not user.check_password(password):
                 return self.authenticate_error("invalid-password", req, auth_event)
 
             if not verify_num_successful_logins(auth_event, 'OpenIdConnect', user, req):

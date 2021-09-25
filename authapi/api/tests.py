@@ -669,6 +669,7 @@ class ApiTestCase(TestCase):
         ae = AuthEvent.objects.get(pk=self.aeid_special)
         ae.auth_method = "user-and-password"
         ae.census = "open"
+        ae.extra_fields = test_data.auth_event4['extra_fields']
         ae.save()
         login_data = dict(username=test_data.admin['username'], password='smith')
 

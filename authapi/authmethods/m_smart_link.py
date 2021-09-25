@@ -98,7 +98,6 @@ class SmartLink:
     validation = req.get('field-validation', 'enabled') == 'enabled'
 
     msg = ''
-    current_user_ids = []
     
     # cannot add voters to an election with invalid children election info
     if auth_event.children_election_info is not None:
@@ -155,9 +154,6 @@ class SmartLink:
 
         if validation:
           msg += exist_user(census_element, auth_event)
-          if user_id in current_user_id:
-            msg += "user_id %s is repeated in this census." % user_id
-          current_user_id.append(user_id)
         else:
           if msg:
             LOGGER.debug(\

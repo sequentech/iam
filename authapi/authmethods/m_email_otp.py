@@ -78,9 +78,22 @@ class Email:
     }
     USED_TYPE_FIELDS = ['email']
 
-    email_definition = { "name": "email", "type": "email", "required": True, "min": 4, "max": 255, "required_on_authentication": True }
-    email_opt_definition = { "name": "email", "type": "email", "required": False, "min": 0, "max": 255, "required_on_authentication": False }
-    code_definition = { "name": "code", "type": "text", "required": True, "min": 6, "max": 255, "required_on_authentication": True }
+    email_definition = {
+        "name": "email",
+        "type": "email",
+        "required": True,
+        "min": 4,
+        "max": 255,
+        "required_on_authentication": True
+    }
+    code_definition = {
+        "name": "code",
+        "type": "text",
+        "required": True,
+        "min": 6,
+        "max": 255,
+        "required_on_authentication": True
+    }
 
     CONFIG_CONTRACT = [
       {
@@ -285,7 +298,6 @@ class Email:
         validation = req.get('field-validation', 'enabled') == 'enabled'
 
         msg = ''
-        current_emails = []
         
         # cannot add voters to an election with invalid children election info
         if auth_event.children_election_info is not None:
@@ -303,18 +315,6 @@ class Email:
                 return self.error("Incorrect data", error_codename="invalid_data")
 
         for census_element in req.get('census'):
-            email = census_element.get('email')
-            
-            if isinstance(email, str):
-                email = email.strip()
-                email = email.replace(" ", "")
-            
-            msg += check_field_type(self.email_definition, email)
-            
-            if validation:
-                msg += check_field_type(self.email_definition, email)
-                msg += check_field_value(self.email_definition, email)
-
             msg += check_fields_in_request(
                 census_element, 
                 auth_event, 
@@ -337,9 +337,6 @@ class Email:
 
             if validation:
                 msg += exist_user(census_element, auth_event)
-                if email in current_emails:
-                    msg += "Email %s repeat in this census." % email
-                current_emails.append(email)
             else:
                 if msg:
                     LOGGER.debug(\
@@ -400,9 +397,11 @@ class Email:
     def register(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
 
-        user_exists_codename = ("user_exists" \
-                                if True == settings.SHOW_ALREADY_REGISTERED \
-                                else "invalid_credentials")
+        user_exists_codename = (
+            "user_exists"
+            if True == settings.SHOW_ALREADY_REGISTERED
+            else "invalid_credentials"
+        )
 
         msg = check_pipeline(request, ae)
         if msg:
@@ -556,7 +555,7 @@ class Email:
                     if 'unique' in extra.keys() and extra.get('unique'):
                         uniques.append(extra['name'])
                 if len(uniques) > 0:
-                    base_uq = Q(userdata__event=ae, is_active=True)
+                    base_q = Q(userdata__event=ae, is_active=True)
                     base_list = User.objects.exclude(id = user_found.id)
                     for reg_name in uniques:
                         req_field_data = req.get(reg_name)
@@ -689,9 +688,6 @@ class Email:
                 msg, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        email_def = self.email_definition if not auth_event.hide_default_login_lookup_field else self.email_opt_definition
-        msg += check_field_type(email_def, email, 'authenticate')
-        msg += check_field_value(email_def, email, 'authenticate')
         msg += check_field_type(self.code_definition, req.get('code'), 'authenticate')
         msg += check_field_value(self.code_definition, req.get('code'), 'authenticate')
         msg += check_fields_in_request(req, auth_event, 'authenticate')
@@ -718,19 +714,6 @@ class Email:
 
         try:
             q = get_base_auth_query(auth_event)
-            if 'email' in req:
-                q = q & Q(email=email)
-            elif not auth_event.hide_default_login_lookup_field:
-                LOGGER.error(\
-                    "EmailOtp.authenticate error\n"\
-                    "ae.hide_default_login_lookup_field is False and email not given\n"\
-                    "error '%r'\n"\
-                    "authevent '%r'\n"\
-                    "request '%r'\n"\
-                    "Stack trace: \n%s",\
-                    msg, auth_event, req, stack_trace_str())
-                return self.error("Incorrect data", error_codename="invalid_credentials")
-
             q = get_required_fields_on_auth(req, auth_event, q)
             user = User.objects.get(q)
             post_verify_fields_on_auth(user, req, auth_event)
@@ -807,9 +790,6 @@ class Email:
                 msg, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
         
-        email_def = self.email_definition if not auth_event.hide_default_login_lookup_field else self.email_opt_definition
-        msg += check_field_type(email_def, email)
-        msg += check_field_value(email_def, email)
         msg += check_fields_in_request(req, auth_event, 'resend-auth')
         if msg:
             LOGGER.error(\
@@ -823,20 +803,6 @@ class Email:
 
         try:
             q = get_base_auth_query(auth_event)
-            if 'email' in req:
-                if not auth_event.hide_default_login_lookup_field:
-                    q = q & Q(email=email)
-            elif not auth_event.hide_default_login_lookup_field:
-                LOGGER.error(\
-                    "EmailOtp.resend_auth_code error\n"\
-                    "ae.hide_default_login_lookup_field is False and email not given\n"\
-                    "error '%r'\n"\
-                    "authevent '%r'\n"\
-                    "request '%r'\n"\
-                    "Stack trace: \n%s",\
-                    msg, auth_event, req, stack_trace_str())
-                return self.error("Incorrect data", error_codename="invalid_credentials")
-
             q = get_required_fields_on_auth(req, auth_event, q)
             u = User.objects.get(q)
             post_verify_fields_on_auth(u, req, auth_event)

@@ -84,9 +84,22 @@ class SmsOtp:
     }
     USED_TYPE_FIELDS = ['tlf']
 
-    tlf_definition = { "name": "tlf", "type": "text", "required": True, "min": 4, "max": 20, "required_on_authentication": True }
-    tlf_opt_definition = { "name": "tlf", "type": "text", "required": False, "min": 0, "max": 20, "required_on_authentication": False }
-    code_definition = { "name": "code", "type": "text", "required": True, "min": 6, "max": 255, "required_on_authentication": True }
+    tlf_definition = {
+        "name": "tlf",
+        "type": "text",
+        "required": True,
+        "min": 4,
+        "max": 20,
+        "required_on_authentication": True
+    }
+    code_definition = {
+        "name": "code",
+        "type": "text",
+        "required": True,
+        "min": 6,
+        "max": 255,
+        "required_on_authentication": True
+    }
 
     CONFIG_CONTRACT = [
       {
@@ -287,7 +300,6 @@ class SmsOtp:
         data = {'status': 'ok'}
 
         msg = ''
-        current_tlfs = []
 
         # cannot add voters to an election with invalid children election info
         if auth_event.children_election_info is not None:
@@ -307,9 +319,7 @@ class SmsOtp:
         for census_element in req.get('census'):
             if census_element.get('tlf'):
                 census_element['tlf'] = get_cannonical_tlf(census_element.get('tlf'))
-            
             tlf = census_element.get('tlf')
-            
             if isinstance(tlf, str):
                 tlf = tlf.strip()
             
@@ -341,9 +351,6 @@ class SmsOtp:
             
             if validation:
                 msg += exist_user(census_element, auth_event)
-                if tlf in current_tlfs:
-                    msg += "Tlf %s repeat." % tlf
-                current_tlfs.append(tlf)
             else:
                 if msg:
                     msg = ''
@@ -380,15 +387,18 @@ class SmsOtp:
             "request '%r'\n"\
             "authevent '%r'\n"\
             "Stack trace: \n%s",\
-            data, validation, msg, req, auth_event, stack_trace_str())
+            data, validation, msg, req, auth_event, stack_trace_str()
+        )
         return data
 
     def register(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
 
-        user_exists_codename = ("user_exists" \
-                                if True == settings.SHOW_ALREADY_REGISTERED \
-                                else "invalid_credentials")
+        user_exists_codename = (
+            "user_exists"
+            if True == settings.SHOW_ALREADY_REGISTERED
+            else "invalid_credentials"
+        )
 
         msg = check_pipeline(request, ae)
         if msg:
@@ -427,8 +437,6 @@ class SmsOtp:
         tlf = req.get('tlf')
         if isinstance(tlf, str):
             tlf = tlf.strip()
-        msg += check_field_type(self.tlf_definition, tlf)
-        msg += check_field_value(self.tlf_definition, tlf)
         msg += check_fields_in_request(req, ae)
         if msg:
             LOGGER.error(\
@@ -542,7 +550,7 @@ class SmsOtp:
                     if 'unique' in extra.keys() and extra.get('unique'):
                         uniques.append(extra['name'])
                 if len(uniques) > 0:
-                    base_uq = Q(userdata__event=ae, is_active=True)
+                    base_q = Q(userdata__event=ae, is_active=True)
                     base_list = User.objects.exclude(id = user_found.id)
                     for reg_name in uniques:
                         req_field_data = req.get(reg_name)
@@ -680,9 +688,6 @@ class SmsOtp:
                 msg, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        tlf_def = self.tlf_definition if not auth_event.hide_default_login_lookup_field else self.tlf_opt_definition
-        msg += check_field_type(tlf_def, tlf, 'authenticate')
-        msg += check_field_value(tlf_def, tlf, 'authenticate')
         msg += check_field_type(self.code_definition, req.get('code'), 'authenticate')
         msg += check_field_value(self.code_definition, req.get('code'), 'authenticate')
         msg += check_fields_in_request(req, auth_event, 'authenticate')
@@ -698,11 +703,6 @@ class SmsOtp:
 
         try:
             q = get_base_auth_query(auth_event)
-            if 'tlf' in req:
-                q = q & Q(userdata__tlf=tlf)
-            elif not auth_event.hide_default_login_lookup_field:
-                return self.error("Incorrect data", error_codename="invalid_credentials")
-
             q = get_required_fields_on_auth(req, auth_event, q)
             user = User.objects.get(q)
             post_verify_fields_on_auth(user, req, auth_event)
@@ -789,9 +789,6 @@ class SmsOtp:
                 msg, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        tlf_def = self.tlf_definition if not auth_event.hide_default_login_lookup_field else self.tlf_opt_definition
-        msg += check_field_type(tlf_def, tlf)
-        msg += check_field_value(tlf_def, tlf)
         msg += check_fields_in_request(req, auth_event, 'resend-auth')
         if msg:
             LOGGER.error(\
@@ -805,20 +802,6 @@ class SmsOtp:
 
         try:
             q = get_base_auth_query(auth_event)
-            if 'tlf' in req:
-                if not auth_event.hide_default_login_lookup_field:
-                    q = q & Q(userdata__tlf=tlf)
-            elif not auth_event.hide_default_login_lookup_field:
-                LOGGER.error(\
-                    "SmsOtp.resend_auth_code error\n"\
-                    "ae.hide_default_login_lookup_field is False and tlf not given\n"\
-                    "error '%r'\n"\
-                    "authevent '%r'\n"\
-                    "request '%r'\n"\
-                    "Stack trace: \n%s",\
-                    msg, auth_event, req, stack_trace_str())
-                return self.error("Incorrect data", error_codename="invalid_credentials")
-
             q = get_required_fields_on_auth(req, auth_event, q)
             u = User.objects.get(q)
             post_verify_fields_on_auth(u, req, auth_event)

@@ -68,9 +68,22 @@ class Email:
     }
     USED_TYPE_FIELDS = ['email']
 
-    email_definition = { "name": "email", "type": "email", "required": True, "min": 4, "max": 255, "required_on_authentication": True }
-    email_opt_definition = { "name": "email", "type": "email", "required": False, "min": 0, "max": 255, "required_on_authentication": False }
-    code_definition = { "name": "code", "type": "text", "required": True, "min": 6, "max": 255, "required_on_authentication": True }
+    email_definition = {
+        "name": "email",
+        "type": "email",
+        "required": True,
+        "min": 4,
+        "max": 255,
+        "required_on_authentication": True
+    }
+    code_definition = {
+        "name": "code",
+        "type": "text",
+        "required": True,
+        "min": 6,
+        "max": 255,
+        "required_on_authentication": True
+    }
 
     CONFIG_CONTRACT = [
       {
@@ -275,7 +288,6 @@ class Email:
         validation = req.get('field-validation', 'enabled') == 'enabled'
 
         msg = ''
-        current_emails = []
         
         # cannot add voters to an election with invalid children election info
         if auth_event.children_election_info is not None:
@@ -293,18 +305,6 @@ class Email:
                 return self.error("Incorrect data", error_codename="invalid_data")
 
         for census_element in req.get('census'):
-            email = census_element.get('email')
-            
-            if isinstance(email, str):
-                email = email.strip()
-                email = email.replace(" ", "")
-            
-            msg += check_field_type(self.email_definition, email)
-            
-            if validation:
-                msg += check_field_type(self.email_definition, email)
-                msg += check_field_value(self.email_definition, email)
-            
             msg += check_fields_in_request(
               census_element, auth_event, 
               'census', 
@@ -327,9 +327,6 @@ class Email:
 
             if validation:
                 msg += exist_user(census_element, auth_event)
-                if email in current_emails:
-                    msg += "Email %s repeat in this census." % email
-                current_emails.append(email)
             else:
                 if msg:
                     LOGGER.debug(\
@@ -390,9 +387,11 @@ class Email:
     def register(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
 
-        user_exists_codename = ("user_exists" \
-                                if True == settings.SHOW_ALREADY_REGISTERED \
-                                else "invalid_credentials")
+        user_exists_codename = (
+            "user_exists"
+            if True == settings.SHOW_ALREADY_REGISTERED
+            else "invalid_credentials"
+        )
 
         msg = check_pipeline(request, ae)
         if msg:
@@ -440,7 +439,8 @@ class Email:
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                msg, ae, req, stack_trace_str())
+                msg, ae, req, stack_trace_str()
+            )
             return self.error("Incorrect data", error_codename="invalid_credentials")
         # get active from req, this value might have changed in check_fields_in_requests
         active = req.pop('active')
@@ -546,7 +546,7 @@ class Email:
                     if 'unique' in extra.keys() and extra.get('unique'):
                         uniques.append(extra['name'])
                 if len(uniques) > 0:
-                    base_uq = Q(userdata__event=ae, is_active=True)
+                    base_q = Q(userdata__event=ae, is_active=True)
                     base_list = User.objects.exclude(id = user_found.id)
                     for reg_name in uniques:
                         req_field_data = req.get(reg_name)
@@ -662,11 +662,6 @@ class Email:
     def authenticate(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))
         msg = ''
-        email = req.get('email')
-        if isinstance(email, str):
-            email = email.strip()
-            email = email.replace(" ", "")
-
         if auth_event.parent is not None:
             msg += 'you can only authenticate to parent elections'
             LOGGER.error(\
@@ -749,11 +744,6 @@ class Email:
         req = json.loads(request.body.decode('utf-8'))
 
         msg = ''
-        email = req.get('email', '')
-        if isinstance(email, str):
-            email = email.strip()
-            email = email.replace(" ", "")
-
         if auth_event.parent is not None:
             msg += 'you can only authenticate to parent elections'
             LOGGER.error(\
@@ -765,8 +755,6 @@ class Email:
                 msg, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        msg += check_field_type(self.email_definition, email)
-        msg += check_field_value(self.email_definition, email)
         msg += check_fields_in_request(req, auth_event, 'resend-auth')
         if msg:
             LOGGER.error(\
