@@ -4126,10 +4126,9 @@ class ApiTestHideDefaultLoginLookupField(TestCase):
         response = c.post(url_auth, user_data_good)
         self.assertEqual(response.status_code, 400)
 
-        self.ae.hide_default_login_lookup_field = True
+        self.ae.extra_fields[0]['required_on_authentication'] = False
         self.ae.save()
-                
-        # now that hide_default_login_lookup_field auth without email works
+
         response = c.post(url_auth, user_data_good)
         self.assertEqual(response.status_code, 200)
 
@@ -4138,8 +4137,7 @@ class ApiTestHideDefaultLoginLookupField(TestCase):
         self.assertEqual(response.status_code, 400)
 
         # if dni is not required_on_authentication it doesn't work
-        self.ae.extra_fields[0]["required_on_authentication"] = False
-        self.ae.hide_default_login_lookup_field = True
+        self.ae.extra_fields[1]["required_on_authentication"] = False
         self.ae.save()
         response = c.post(url_auth, user_data_good)
         self.assertEqual(response.status_code, 400)
