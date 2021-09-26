@@ -810,11 +810,11 @@ def get_required_fields_on_auth(req, ae, q):
             
             # Raise exception if a required field is not provided.
             # It will be catched by parent as an error.
-            if field.get('name') not in req:
+            typee = field.get('type')
+            if field.get('name') not in req and typee != 'password':
                 raise Exception()
 
             value = req.get(field.get('name'), '')
-            typee = field.get('type')
             if typee == 'email':
                 q = q & Q(email=value)
             elif typee == 'tlf':
