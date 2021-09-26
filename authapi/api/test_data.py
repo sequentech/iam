@@ -1093,45 +1093,46 @@ ae_email_fields_captcha.update(
 )
 
 ae_email_fields_incorrect_max_fields = ae_email_fields.copy()
-ae_email_fields_incorrect_max_fields.update({"extra_fields": [{"boo": True},
+ae_email_fields_incorrect_max_fields["extra_fields"].extend([{"boo": True},
     {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True},
     {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True},
-    {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True}]})
+    {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True}, {"boo": True}]
+)
 
 ae_email_fields_incorrect_empty = ae_email_fields.copy()
-ae_email_fields_incorrect_empty.update( {'extra_fields': [{'name': '', 'type': 'text', 'required_on_authentication': False}]})
+ae_email_fields_incorrect_empty["extra_fields"].extend([{'name': '', 'type': 'text', 'required_on_authentication': False}])
 
 ae_email_fields_incorrect_len1 = ae_email_fields.copy()
-ae_email_fields_incorrect_len1.update( {'extra_fields': [{'name': settings.MAX_SIZE_NAME_EXTRA_FIELD*'ii', 'type': 'text', 'required_on_authentication': False}]})
+ae_email_fields_incorrect_len1["extra_fields"].extend([{'name': settings.MAX_SIZE_NAME_EXTRA_FIELD*'ii', 'type': 'text', 'required_on_authentication': False}])
 
 from sys import maxsize
 ae_email_fields_incorrect_len2 = ae_email_fields.copy()
-ae_email_fields_incorrect_len2.update( {'extra_fields': [{'name': 'iii', 'type': 'text', 'required_on_authentication': False, 'max': maxsize + 1}]})
+ae_email_fields_incorrect_len2["extra_fields"].extend([{'name': 'iii', 'type': 'text', 'required_on_authentication': False, 'max': maxsize + 1}])
 
 ae_email_fields_incorrect_type = ae_email_fields.copy()
-ae_email_fields_incorrect_type.update( {'extra_fields': [{'name': 'name', 'type': 'null', 'required_on_authentication': False}]})
+ae_email_fields_incorrect_type["extra_fields"].extend([{'name': 'name', 'type': 'null', 'required_on_authentication': False}])
 
 ae_email_fields_incorrect_value_int = ae_email_fields.copy()
-ae_email_fields_incorrect_value_int.update( {'extra_fields': [{'name': 'name', 'type': 'text', 'required_on_authentication': False, 'min': '1'}]})
+ae_email_fields_incorrect_value_int["extra_fields"].extend([{'name': 'name', 'type': 'text', 'required_on_authentication': False, 'min': '1'}])
 
 ae_email_fields_incorrect_value_bool = ae_email_fields.copy()
-ae_email_fields_incorrect_value_bool.update( {'extra_fields': [{'name': 'name', 'type': 'text', 'required_on_authentication': 'False'}]})
+ae_email_fields_incorrect_value_bool["extra_fields"].extend([{'name': 'name', 'type': 'text', 'required_on_authentication': 'False'}])
 
 ae_email_fields_incorrect = ae_email_fields.copy()
-ae_email_fields_incorrect.update({"extra_fields": [{'name': 'name', 'type': 'text', 'required_on_authentication': False, "boo": True}]})
+ae_email_fields_incorrect["extra_fields"].extend([{'name': 'name', 'type': 'text', 'required_on_authentication': False, "boo": True}])
 
 ae_email_fields_incorrect_repeat = ae_email_fields.copy()
-ae_email_fields_incorrect_repeat.update( {'extra_fields': [
+ae_email_fields_incorrect_repeat["extra_fields"].extend([
     {'name': 'surname', 'type': 'text', 'required_on_authentication': False},
-    {'name': 'surname', 'type': 'text', 'required_on_authentication': False}]})
+    {'name': 'surname', 'type': 'text', 'required_on_authentication': False}])
 
 ae_email_fields_incorrect_email = ae_email_fields.copy()
-ae_email_fields_incorrect_email.update( {'extra_fields': [
-    {'name': 'email', 'type': 'email', 'required_on_authentication': False}]})
+ae_email_fields_incorrect_email["extra_fields"].extend([
+    {'name': 'email', 'type': 'email', 'required_on_authentication': False}])
 
 ae_email_fields_incorrect_status = ae_email_fields.copy()
-ae_email_fields_incorrect_status.update( {'extra_fields': [
-    {'name': 'status', 'type': 'text', 'required_on_authentication': False}]})
+ae_email_fields_incorrect_status["extra_fields"].extend([
+    {'name': 'status', 'type': 'text', 'required_on_authentication': False}])
 
 ae_sms_default = {
     "auth_method": "sms",
