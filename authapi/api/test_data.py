@@ -1161,7 +1161,7 @@ ae_sms_fields = {
     "extra_fields": [
         {
             "name": "name",
-            "help": "put the name that appear in your dni",
+            "help": "whatever",
             "type": "text",
             "required": True,
             "min": 2,

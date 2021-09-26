@@ -922,7 +922,17 @@ class TestAuthEvent(TestCase):
                 'auth_method_config': test_data.ae_email_default__method_config,
                 'admin_fields': None,
                 'has_ballot_boxes': False,
-                'extra_fields': None,
+                'extra_fields': [
+                    {
+                        "name": "email",
+                        "type": "email",
+                        "required": True,
+                        "min": 4,
+                        "max": 255,
+                        "required_on_authentication": True,
+                        "slug": "EMAIL"
+                    }
+                ],
                 'based_in': None,
                 'census': 'open',
                 'auth_method_stats': {
