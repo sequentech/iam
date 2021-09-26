@@ -2576,6 +2576,16 @@ class TestAdminDeregister(TestCase):
 
         ae = AuthEvent.objects.get(pk=1)
         ae.auth_method = "sms"
+        ae.extra_fields = [
+            {
+                "name": "tlf",
+                "type": "tlf", 
+                "required": True,
+                "min": 4,
+                "max": 20,
+                "required_on_authentication": True
+            }
+        ]
         ae.save()
 
         # Register
@@ -2634,6 +2644,16 @@ class TestAdminDeregister(TestCase):
 
         ae = AuthEvent.objects.get(pk=1)
         ae.auth_method = "sms-otp"
+        ae.extra_fields = [
+            {
+                "name": "tlf",
+                "type": "tlf", 
+                "required": True,
+                "min": 4,
+                "max": 20,
+                "required_on_authentication": True
+            }
+        ]
         ae.save()
 
         # Register
