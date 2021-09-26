@@ -4313,20 +4313,23 @@ class ApitTestCensusManagementInElectionWithChildren(TestCase):
         response = c.authenticate(self.aeid_special, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
+        def change_extra_fields(event_data):
+            if auth_method.startswith('sms'):
+                event_data['extra_fields'] = [
+                    {
+                        "name": "tlf",
+                        "type": "tlf", 
+                        "required": True,
+                        "min": 4,
+                        "max": 20,
+                        "required_on_authentication": True
+                    }
+                ]
+
         # create the child election1
         event_data = copy.deepcopy(test_data.auth_event19)
         event_data['auth_method'] = auth_method
-        if auth_method.starts_with('sms'):
-            event_data['extra_fields'] = [
-                {
-                    "name": "tlf",
-                    "type": "tlf", 
-                    "required": True,
-                    "min": 4,
-                    "max": 20,
-                    "required_on_authentication": True
-                }
-            ]
+        change_extra_fields(event_data)
         response = c.post('/api/auth-event/', event_data)
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
@@ -4335,6 +4338,7 @@ class ApitTestCensusManagementInElectionWithChildren(TestCase):
         # create the child election2
         event_data = copy.deepcopy(test_data.auth_event19)
         event_data['auth_method'] = auth_method
+        change_extra_fields(event_data)
         response = c.post('/api/auth-event/', event_data)
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
@@ -4343,6 +4347,7 @@ class ApitTestCensusManagementInElectionWithChildren(TestCase):
         # create the parent election
         event_data = test_data.get_auth_event_20(child_id_1, child_id_2)
         event_data['auth_method'] = auth_method
+        change_extra_fields(event_data)
         response = c.post('/api/auth-event/', event_data)
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
