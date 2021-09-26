@@ -178,7 +178,6 @@ class PWD:
     def authenticate(self, auth_event, request, mode="authenticate"):
         d = {'status': 'ok'}
         req = json.loads(request.body.decode('utf-8'))
-        username = req.get('username', '')
         password = req.get('password', '')
 
         msg = ""
@@ -197,7 +196,8 @@ class PWD:
             q = get_base_auth_query(auth_event)
             q = get_required_fields_on_auth(req, auth_event, q)
             user = User.objects.get(q)
-            post_verify_fields_on_auth(user, req, auth_event)
+            if mode == "authenticate":
+                post_verify_fields_on_auth(user, req, auth_event)
         except:
             return self.authenticate_error("user-not-found", req, auth_event)
 
@@ -206,9 +206,6 @@ class PWD:
             return self.authenticate_error("invalid-pipeline", req, auth_event)
 
         if mode == "authenticate":
-            if not user.check_password(password):
-                return self.authenticate_error("invalid-password", req, auth_event)
-
             if not verify_num_successful_logins(auth_event, 'PWD', user, req):
                 return self.authenticate_error(
                     "invalid_num_successful_logins_allowed", req, auth_event
