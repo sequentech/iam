@@ -792,7 +792,8 @@ def post_verify_fields_on_auth(user, req, auth_event):
             value = req.get(field.get('name'), '')
             typee = field.get('type')
             if typee == 'password':
-                user.check_password(value)
+                if not user.check_password(value):
+                    raise Exception()
 
 
 def get_required_fields_on_auth(req, ae, q):

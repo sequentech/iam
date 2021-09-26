@@ -164,7 +164,8 @@ class EmailPWD:
 
             q = get_required_fields_on_auth(req, auth_event, q)
             user = User.objects.get(q)
-            post_verify_fields_on_auth(user, req, auth_event)
+            if mode == 'authenticate':
+                post_verify_fields_on_auth(user, req, auth_event)
         except:
             return self.authenticate_error("user-not-found", req, auth_event)
 
@@ -173,9 +174,6 @@ class EmailPWD:
             return self.authenticate_error("invalid-pipeline", req, auth_event)
 
         if mode == "authenticate":
-            if not user.check_password(password):
-                return self.authenticate_error("invalid-password", req, auth_event)
-
             if not verify_num_successful_logins(auth_event, 'OpenIdConnect', user, req):
                 return self.authenticate_error(
                     "invalid_num_successful_logins_allowed", req, auth_event
