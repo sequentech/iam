@@ -181,7 +181,7 @@ class PWD:
         password = req.get('password', '')
 
         msg = ""
-        msg += check_fields_in_request(req, auth_event, 'authenticate')
+        msg += check_fields_in_request(req, auth_event, mode)
         if msg:
             LOGGER.error(\
                 "PWD.authenticate error\n"\

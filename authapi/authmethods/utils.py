@@ -477,7 +477,9 @@ def check_field_value(definition, field, req=None, ae=None, step='register'):
     if step == 'census' and definition.get('type') == 'captcha':
         return msg
     if field is None:
-        if definition.get('required'):
+        if definition.get('required') and (
+            definition.get('type') != 'password' or step != 'census-query'
+        ):
             msg += "Field %s is required" % definition.get('name')
     else:
         if isinstance(field, str):
