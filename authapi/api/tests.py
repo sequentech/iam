@@ -4052,7 +4052,7 @@ class ApiTestRequiredOnAuthentication(TestCase):
         response = c.post(url_auth, user_data)
         self.assertEqual(response.status_code, 400)
 
-        self.ae.hide_default_login_lookup_field = True
+        self.ae.extra_fields[0]['required_on_authentication'] = False
         self.ae.save()
 
         c = JClient()
