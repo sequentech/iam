@@ -1110,16 +1110,16 @@ ae_email_fields_incorrect_len2 = copy.deepcopy(ae_email_fields)
 ae_email_fields_incorrect_len2["extra_fields"].extend([{'name': 'iii', 'type': 'text', 'required_on_authentication': False, 'max': maxsize + 1}])
 
 ae_email_fields_incorrect_type = copy.deepcopy(ae_email_fields)
-ae_email_fields_incorrect_type["extra_fields"].extend([{'name': 'name', 'type': 'null', 'required_on_authentication': False}])
+ae_email_fields_incorrect_type["extra_fields"].extend([{'name': 'name2', 'type': 'null', 'required_on_authentication': False}])
 
 ae_email_fields_incorrect_value_int = copy.deepcopy(ae_email_fields)
-ae_email_fields_incorrect_value_int["extra_fields"].extend([{'name': 'name', 'type': 'text', 'required_on_authentication': False, 'min': '1'}])
+ae_email_fields_incorrect_value_int["extra_fields"].extend([{'name': 'name2', 'type': 'text', 'required_on_authentication': False, 'min': '1'}])
 
 ae_email_fields_incorrect_value_bool = copy.deepcopy(ae_email_fields)
-ae_email_fields_incorrect_value_bool["extra_fields"].extend([{'name': 'name', 'type': 'text', 'required_on_authentication': 'False'}])
+ae_email_fields_incorrect_value_bool["extra_fields"].extend([{'name': 'name2', 'type': 'text', 'required_on_authentication': 'False'}])
 
 ae_email_fields_incorrect = copy.deepcopy(ae_email_fields)
-ae_email_fields_incorrect["extra_fields"].extend([{'name': 'name', 'type': 'text', 'required_on_authentication': False, "boo": True}])
+ae_email_fields_incorrect["extra_fields"].extend([{'name': 'name2', 'type': 'text', 'required_on_authentication': False, "boo": True}])
 
 ae_email_fields_incorrect_repeat = copy.deepcopy(ae_email_fields)
 ae_email_fields_incorrect_repeat["extra_fields"].extend([
@@ -1178,10 +1178,6 @@ ae_sms_fields = {
         } 
     ]
 }
-
-ae_sms_fields_incorrect_tlf = ae_sms_default.copy()
-ae_sms_fields_incorrect_tlf.update( {'extra_fields': [
-    {'name': 'tlf', 'type': 'tlf', 'required_on_authentication': False}]})
 
 ae_sms_config_incorrect = {
     "auth_method": "sms",

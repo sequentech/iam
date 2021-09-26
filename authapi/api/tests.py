@@ -848,23 +848,11 @@ class TestAuthEvent(TestCase):
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
         self.assertTrue('Two fields with same name: surname.\n' in r['message'])
-        response = self.create_authevent(test_data.ae_email_fields_incorrect_email)
-        self.assertEqual(response.status_code, 400)
-        r = parse_json_response(response)
-        self.assertEqual(r['message'], 'Type email not allowed.\n')
+        
         response = self.create_authevent(test_data.ae_email_fields_incorrect_status)
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
         self.assertEqual(r['message'], 'Two fields with same name: status.\n')
-        response = self.create_authevent(test_data.ae_sms_fields_incorrect_tlf)
-        self.assertEqual(response.status_code, 400)
-        r = parse_json_response(response)
-        self.assertEqual(r['message'], 'Type tlf not allowed.\n')
-
-        #response = self.create_authevent(test_data.ae_email_config_incorrect1)
-        #self.assertEqual(response.status_code, 400)
-        #response = self.create_authevent(test_data.ae_email_config_incorrect2)
-        #self.assertEqual(response.status_code, 400)
 
     def _test_create_authevent_sms_incorrect(self):
         response = self.create_authevent(test_data.ae_sms_config_incorrect)
