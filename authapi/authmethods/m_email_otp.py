@@ -496,12 +496,14 @@ class Email:
 
             # lookup in the database if there's any user with the match fields
             # NOTE: we assume reg_match_fields are unique in the DB and required
-            search_email = email if match_email else ""
+            q = Q(
+                userdata__event=ae,
+                is_active=True
+            )
             if match_email:
                 reg_match_fields.remove(match_email_element)
-            q = Q(userdata__event=ae,
-                  is_active=True,
-                  email=search_email)
+                q = q & Q(email=email)
+
             # Check the reg_match_fields
             for reg_match_field in reg_match_fields:
                  # Filter with Django's JSONfield

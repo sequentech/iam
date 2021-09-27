@@ -538,7 +538,7 @@ class PreRegisterTestCaseEmail(TestCase):
         self.aeid = ae.pk
 
         # Create user for authevent8
-        u = User(username='test1', email='test@agoravoting.com', is_active=False)
+        u = User(username='test1', email='test@agoravoting.com', is_active=True)
         u.save()
         u.userdata.event = ae
         u.userdata.metadata = {
