@@ -1034,7 +1034,7 @@ class TestExtraFields(TestCase):
                        CELERY_ALWAYS_EAGER=True,
                        BROKER_BACKEND='memory')
     def test_autofill_activate_field(self):
-        self.ae.extra_fields = test_data.extra_field_autofill
+        self.ae.extra_fields.extend(test_data.extra_field_autofill)
         self.ae.save()
 
         u = User.objects.get(id=self.uid_admin)
@@ -1060,7 +1060,7 @@ class TestExtraFields(TestCase):
                        CELERY_ALWAYS_EAGER=True,
                        BROKER_BACKEND='memory')
     def test_autofill_deactivate_field(self):
-        self.ae.extra_fields = test_data.extra_field_autofill
+        self.ae.extra_fields.extend(test_data.extra_field_autofill)
         self.ae.save()
 
         u = User.objects.get(id=self.uid_admin)
@@ -1086,7 +1086,7 @@ class TestExtraFields(TestCase):
                        CELERY_ALWAYS_EAGER=True,
                        BROKER_BACKEND='memory')
     def test_date_field(self):
-        self.ae.extra_fields = test_data.extra_field_date
+        self.ae.extra_fields.extend(test_data.extra_field_date)
         self.ae.save()
 
         c = JClient()
