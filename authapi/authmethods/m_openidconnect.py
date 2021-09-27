@@ -65,12 +65,13 @@ class OpenIdConnect(object):
     }
     USED_TYPE_FIELDS = ['sub']
     sub_definition = {
-      "name": "sub",
-      "type": "text",
-      "required": True,
-      "min": 1,
-      "max": 255,
-      "required_on_authentication": True
+        "name": "sub",
+        "type": "text",
+        "required": True,
+        "min": 1,
+        "max": 255,
+        "unique": True,
+        "required_on_authentication": True
     }
 
     PROVIDERS = dict()

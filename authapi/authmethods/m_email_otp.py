@@ -84,6 +84,7 @@ class Email:
         "required": True,
         "min": 4,
         "max": 255,
+        "unique": True,
         "required_on_authentication": True
     }
     code_definition = {
@@ -92,6 +93,7 @@ class Email:
         "required": True,
         "min": 6,
         "max": 255,
+        "unique": True,
         "required_on_authentication": True
     }
 

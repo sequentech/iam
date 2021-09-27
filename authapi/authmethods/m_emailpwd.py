@@ -54,6 +54,7 @@ class EmailPWD:
         "required": True,
         "min": 4,
         "max": 255,
+        "unique": True,
         "required_on_authentication": True
     }
     password_definition = {

@@ -90,6 +90,7 @@ class SmsOtp:
         "required": True,
         "min": 4,
         "max": 20,
+        "unique": True,
         "required_on_authentication": True
     }
     code_definition = {

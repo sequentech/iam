@@ -74,6 +74,7 @@ class Email:
         "required": True,
         "min": 4,
         "max": 255,
+        "unique": True,
         "required_on_authentication": True
     }
     code_definition = {
@@ -288,7 +289,7 @@ class Email:
         validation = req.get('field-validation', 'enabled') == 'enabled'
 
         msg = ''
-        unique_user_list = dict()
+        unique_users = dict()
         
         # cannot add voters to an election with invalid children election info
         if auth_event.children_election_info is not None:
@@ -329,14 +330,14 @@ class Email:
 
             if validation:
                 exists, extra_msg = exists_unique_user(
-                    unique_user_list,
+                    unique_users,
                     census_element,
                     auth_event
                 )
                 msg += extra_msg
                 if not exists:
                     add_unique_user(
-                        unique_user_list,
+                        unique_users,
                         census_element,
                         auth_event
                     )

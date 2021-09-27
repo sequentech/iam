@@ -79,6 +79,7 @@ class SmartLink:
     required=True,
     min=1,
     max=255,
+    unique=True,
     required_on_authentication=True
   )
 

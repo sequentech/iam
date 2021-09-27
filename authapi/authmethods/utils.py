@@ -577,7 +577,7 @@ def exists_unique_user(unique_users, user_data, auth_event):
             continue
         
         key_name = extra.get('name')
-        if user_data[key_name] in unique_users[key_name]:
+        if user_data[key_name] in unique_users.get(key_name, dict()):
             return True, "%r %r repeat." % (key_name, user_data[key_name])
     return False, ""
 

@@ -909,6 +909,7 @@ ae_email_default = {
             "name": "email",
             "type": "email",
             "required": True,
+            "unique": True,
             "min": 4,
             "max": 255,
             "required_on_authentication": True
@@ -1056,6 +1057,7 @@ ae_email_fields.update( {
             "required": True,
             "min": 4,
             "max": 255,
+            "unique": True,
             "required_on_authentication": True
         },
         {
@@ -1065,6 +1067,7 @@ ae_email_fields.update( {
             "required": True,
             "min": 2,
             "max": 64,
+            "unique": True,
             "required_on_authentication": True
         }
     ]
@@ -1080,6 +1083,7 @@ ae_email_fields_captcha.update(
                 "required": True,
                 "min": 4,
                 "max": 255,
+                "unique": True,
                 "required_on_authentication": True
             },
             {
