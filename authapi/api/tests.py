@@ -2704,7 +2704,7 @@ class TestAdminDeregister(TestCase):
         data = {"tlf": "+34777777777", "captcha": "asdasd"}
         response = c.register(self.aeid_special, data)
         self.assertEqual(response.status_code, 200)
-        user = User.objects.get(userdata__tlf=data['tlf'], userdata__event=ae)
+        user = User.objects.get(userdata__tlf=data['tlf'], userdata__event=ae, is_active=True)
         self.assertEqual(user.is_active, True)
 
         # authentication works
@@ -2777,7 +2777,7 @@ class TestAdminDeregister(TestCase):
         data = {"tlf": "+34777777777", "captcha": "asdasd"}
         response = c.register(self.aeid_special, data)
         self.assertEqual(response.status_code, 200)
-        user = User.objects.get(userdata__tlf=data['tlf'], userdata__event=ae)
+        user = User.objects.get(userdata__tlf=data['tlf'], userdata__event=ae, is_active=True)
         self.assertEqual(user.is_active, True)
 
         # authentication works
