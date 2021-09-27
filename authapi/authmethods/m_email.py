@@ -744,6 +744,12 @@ class Email:
         req = json.loads(request.body.decode('utf-8'))
 
         msg = ''
+        email = req.get('email')
+
+        if isinstance(email, str):
+            email = email.strip()
+            email = email.replace(" ", "")
+
         if auth_event.parent is not None:
             msg += 'you can only authenticate to parent elections'
             LOGGER.error(\
