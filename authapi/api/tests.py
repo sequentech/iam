@@ -240,7 +240,9 @@ class UserDataDraftTestCase(TestCase):
         acl.save()
 
         c = JClient()
-        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid, test_data.pwd_auth)
+        self.assertEqual(response.status_code, 200)
+
         no_draft = {}
         response = c.post('/api/user/draft/', {"draft_election": no_draft})
         self.assertEqual(response.status_code, 200)
@@ -764,7 +766,9 @@ class TestAuthEvent(TestCase):
         response = c.post('/api/auth-event/', data)
         self.assertEqual(response.status_code, 403)
 
-        c.authenticate(0, user)
+        response = c.authenticate(0, user)
+        self.assertEqual(response.status_code, 200)
+
         response = c.post('/api/auth-event/', data)
         self.assertEqual(response.status_code, 403)
 
@@ -1039,7 +1043,8 @@ class TestExtraFields(TestCase):
         u.userdata.save()
 
         c = JClient()
-        c.authenticate(self.ae.pk, self.admin_auth_data)
+        response = c.authenticate(self.ae.pk, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
 
         u = User.objects.get(id=self.uid)
         self.assertEqual(u.userdata.metadata.get("mesa"), None)
@@ -1064,7 +1069,8 @@ class TestExtraFields(TestCase):
         u.userdata.save()
 
         c = JClient()
-        c.authenticate(self.ae.pk, self.admin_auth_data)
+        response = c.authenticate(self.ae.pk, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
 
         u = User.objects.get(id=self.uid)
         self.assertEqual(u.userdata.metadata.get("mesa"), None)
@@ -1084,7 +1090,9 @@ class TestExtraFields(TestCase):
         self.ae.save()
 
         c = JClient()
-        c.authenticate(self.ae.pk, self.admin_auth_data)
+        response = c.authenticate(self.ae.pk, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.ae.pk, test_data.census_date_field_ok)
         self.assertEqual(response.status_code, 200)
 
@@ -1212,7 +1220,9 @@ class TestRegisterAndAuthenticateEmail(TestCase):
 
     def test_add_census_authevent_email_default(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_email_default)
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
@@ -1222,13 +1232,17 @@ class TestRegisterAndAuthenticateEmail(TestCase):
 
     def test_add_census_authevent_email_fields(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_email_fields)
         self.assertEqual(response.status_code, 200)
 
     def test_add_census_authevent_email_default_incorrect(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_sms_default)
         self.assertEqual(response.status_code, 400)
         response = c.census(self.aeid, test_data.census_sms_fields)
@@ -1236,7 +1250,9 @@ class TestRegisterAndAuthenticateEmail(TestCase):
 
     def test_add_census_authevent_email_fields_incorrect(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_sms_default)
         self.assertEqual(response.status_code, 400)
         response = c.census(self.aeid, test_data.census_sms_fields)
@@ -1244,7 +1260,9 @@ class TestRegisterAndAuthenticateEmail(TestCase):
 
     def test_add_census_authevent_email_repeat(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_email_repeat)
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
@@ -1252,13 +1270,17 @@ class TestRegisterAndAuthenticateEmail(TestCase):
 
     def test_add_census_authevent_email_with_spaces(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_email_spaces)
         self.assertEqual(response.status_code, 200)
 
     def _test_add_used_census(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
 
         census = ACL.objects.filter(perm="vote", object_type="AuthEvent",
                 object_id=str(self.aeid))
@@ -1311,7 +1333,9 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         ini_codes = Code.objects.count()
 
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         for i in range(settings.SEND_CODES_EMAIL_MAX):
             response = c.register(self.aeid, test_data.auth_email_default)
             self.assertEqual(response.status_code, 200)
@@ -1378,7 +1402,9 @@ class TestRegisterAndAuthenticateEmail(TestCase):
     def test_send_auth_email_url2_home_url(self):
         # Add census
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_email_default1)
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
@@ -1433,7 +1459,9 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.ae.save()
 
         c = JClient()
-        c.authenticate(0, test_data.admin)
+        response = c.authenticate(0, test_data.admin)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_email_unique_dni)
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
@@ -1461,8 +1489,12 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.ae.save()
 
         c = JClient()
-        c.authenticate(0, test_data.admin)
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(0, test_data.admin)
+        self.assertEqual(response.status_code, 200)
+
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
@@ -1534,19 +1566,25 @@ class TestRegisterAndAuthenticateSMS(TestCase):
 
     def test_add_census_authevent_sms_default(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_sms_default)
+        response = c.authenticate(self.aeid, test_data.auth_sms_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_sms_default)
         self.assertEqual(response.status_code, 200)
 
     def test_add_census_authevent_sms_fields(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_sms_default)
+        response = c.authenticate(self.aeid, test_data.auth_sms_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_sms_fields)
         self.assertEqual(response.status_code, 200)
 
     def _test_add_census_authevent_sms_repeat(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_sms_default)
+        response = c.authenticate(self.aeid, test_data.auth_sms_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_sms_repeat)
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
@@ -1554,7 +1592,9 @@ class TestRegisterAndAuthenticateSMS(TestCase):
 
     def _test_add_used_census(self):
         c = JClient()
-        c.authenticate(0, test_data.admin)
+        response = c.authenticate(0, test_data.admin)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_sms_default_used)
         self.assertEqual(response.status_code, 200)
 
@@ -1569,7 +1609,9 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertEqual(r['message'], 'Incorrect data')
 
         c = JClient()
-        c.authenticate(0, test_data.admin)
+        response = c.authenticate(0, test_data.admin)
+        self.assertEqual(response.status_code, 200)
+
         codes = Code.objects.count()
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
@@ -1674,7 +1716,9 @@ class TestRegisterAndAuthenticateSMS(TestCase):
     @override_settings(**override_celery_data)
     def _test_add_register_authevent_sms_resend(self):
         c = JClient()
-        c.authenticate(0, test_data.admin)
+        response = c.authenticate(0, test_data.admin)
+        self.assertEqual(response.status_code, 200)
+
         ini_codes = Code.objects.count()
         data = {
                 "tlf": "333333333",
@@ -1780,7 +1824,9 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.ae.save()
 
         c = JClient()
-        c.authenticate(0, test_data.admin)
+        response = c.authenticate(0, test_data.admin)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_sms_unique_dni)
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/?validate' % self.aeid, {})
@@ -1810,7 +1856,9 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.ae.save()
 
         c = JClient()
-        c.authenticate(0, test_data.admin)
+        response = c.authenticate(0, test_data.admin)
+        self.assertEqual(response.status_code, 200)
+
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
@@ -2159,7 +2207,9 @@ class TestCallback(TestCase):
         action = Action.objects.get(executer__id=self.uid)
         self.assertEqual(action.action_name, "authevent:callback")
 
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.post('/api/auth-event/%d/callback/' % self.aeid, {})
         self.assertEqual(response.status_code, 403)
 
@@ -2359,7 +2409,9 @@ class TestRevotes(TestCase):
 
     def test_check_1_2_revotes(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_email_default1)
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
@@ -2405,7 +2457,9 @@ class TestRevotes(TestCase):
 
     def test_check_50_revotes_max(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_email_default1)
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
