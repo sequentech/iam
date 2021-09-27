@@ -496,7 +496,8 @@ class SmsOtp:
                 reg_match_fields.remove(match_tlf_element)
             q = Q(userdata__event=ae,
                   is_active=False,
-                  userdata__tlf=search_tlf)
+                  userdata__tlf=search_tlf
+            )
             # Check the reg_match_fields
             for reg_match_field in reg_match_fields:
                  # Filter with Django's JSONfield
@@ -512,7 +513,9 @@ class SmsOtp:
                      return self.error("Incorrect data", error_codename="invalid_credentials")
                  req_field_data = req.get(reg_name)
                  if reg_name and req_field_data:
-                     q = q & Q(userdata__metadata__contains={reg_name: req_field_data})
+                    if reg_name == 'tlf':
+                        continue
+                    q = q & Q(userdata__metadata__contains={reg_name: req_field_data})
                  else:
                      LOGGER.error(\
                          "SmsOtp.register error\n"\

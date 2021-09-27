@@ -509,7 +509,9 @@ class Sms:
                      return self.error("Incorrect data", error_codename="invalid_credentials")
                  req_field_data = req.get(reg_name)
                  if reg_name and req_field_data:
-                     q = q & Q(userdata__metadata__contains={reg_name: req_field_data})
+                    if reg_name == 'tlf':
+                        continue
+                    q = q & Q(userdata__metadata__contains={reg_name: req_field_data})
                  else:
                      LOGGER.error(\
                          "Sms.register error\n"\
