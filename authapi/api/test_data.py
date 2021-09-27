@@ -1145,6 +1145,7 @@ ae_sms_default = {
         {
             "name": "tlf",
             "type": "tlf", 
+            "unique": True,
             "required": True,
             "min": 4,
             "max": 20,
@@ -1175,6 +1176,7 @@ ae_sms_fields = {
         {
             "name": "tlf",
             "type": "tlf", 
+            "unique": True,
             "required": True,
             "min": 4,
             "max": 20,
