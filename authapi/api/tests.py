@@ -1128,6 +1128,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
 
     def setUp(self):
         ae = AuthEvent(
+            auth_method="email",
             auth_method_config=test_data.authmethod_config_email_default,
             extra_fields=test_data.ae_email_default['extra_fields'],
             status='started',
@@ -1137,15 +1138,22 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.ae = ae
         self.aeid = ae.pk
 
-        u_admin = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u_admin = User(
+            username=test_data.admin['username'],
+            email=test_data.admin['email']
+        )
         u_admin.set_password(test_data.admin['password'])
         u_admin.save()
         u_admin.userdata.event = ae
         u_admin.userdata.save()
         self.uid_admin = u_admin.id
 
-        acl = ACL(user=u_admin.userdata, object_type='AuthEvent', perm='edit',
-            object_id=self.aeid)
+        acl = ACL(
+            user=u_admin.userdata, 
+            object_type='AuthEvent',
+            perm='edit',
+            object_id=self.aeid
+        )
         acl.save()
 
         u = User(username='test', email=test_data.auth_email_default['email'])
@@ -1155,11 +1163,19 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.u = u.userdata
         self.uid = u.id
 
-        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit',
-            object_id=self.aeid)
+        acl = ACL(
+            user=u.userdata,
+            object_type='AuthEvent', 
+            perm='edit',
+            object_id=self.aeid
+        )
         acl.save()
 
-        c = Code(user=u.userdata, code=test_data.auth_email_default['code'], auth_event_id=ae.pk)
+        c = Code(
+            user=u.userdata,
+            code=test_data.auth_email_default['code'],
+            auth_event_id=ae.pk
+        )
         c.save()
         self.code = c
 
