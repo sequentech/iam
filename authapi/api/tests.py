@@ -2656,6 +2656,7 @@ class TestAdminDeregister(TestCase):
                 "name": "tlf",
                 "type": "tlf", 
                 "required": True,
+                "unique": True,
                 "min": 4,
                 "max": 20,
                 "required_on_authentication": True
@@ -2724,6 +2725,7 @@ class TestAdminDeregister(TestCase):
                 "name": "tlf",
                 "type": "tlf", 
                 "required": True,
+                "unique": True,
                 "min": 4,
                 "max": 20,
                 "required_on_authentication": True
