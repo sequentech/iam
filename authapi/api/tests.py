@@ -940,6 +940,7 @@ class TestAuthEvent(TestCase):
                         "name": "email",
                         "type": "email",
                         "required": True,
+                        "unique": True,
                         "min": 4,
                         "max": 255,
                         "required_on_authentication": True,
