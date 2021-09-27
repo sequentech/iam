@@ -2635,7 +2635,7 @@ class TestAdminDeregister(TestCase):
         data = {"email": "asd@asd.com", "captcha": "asdasd"}
         response = c.register(self.aeid_special, data)
         self.assertEqual(response.status_code, 200)
-        user = User.objects.get(email=data['email'])
+        user = User.objects.get(email=data['email'], is_active=True)
         self.assertEqual(user.is_active, True)
 
         # authentication works
