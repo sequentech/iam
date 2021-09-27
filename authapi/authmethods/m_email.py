@@ -399,7 +399,7 @@ class Email:
             d, stack_trace_str())
         return d
 
-    def register(self, ae, request):
+    def register(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))
 
         user_exists_codename = (
@@ -408,7 +408,7 @@ class Email:
             else "invalid_credentials"
         )
 
-        msg = check_pipeline(request, ae)
+        msg = check_pipeline(request, auth_event)
         if msg:
             LOGGER.error(\
                 "Email.register error\n"\
@@ -416,37 +416,25 @@ class Email:
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                msg, ae, req, stack_trace_str())
+                msg, auth_event, req, stack_trace_str())
             return msg
 
-        # create the user as active? Usually yes, but the execute_pipeline call inside
-        # check_fields_in_request might modify this
+        # create the user as active? Usually yes, but the execute_pipeline call 
+        # inside check_fields_in_request might modify this
         req['active'] = True
 
-        reg_match_fields = []
-        if ae.extra_fields is not None:
-            reg_match_fields = [
-                f for f in ae.extra_fields
-                if "match_census_on_registration" in f and f['match_census_on_registration']
-            ]
+        reg_match_fields = get_match_fields(auth_event)
 
         # NOTE the fields of type "fill_if_empty_on_registration" need
         # to be empty, otherwise the user is already registered.
-        reg_fill_empty_fields = []
-        if ae.extra_fields is not None:
-            reg_fill_empty_fields = [
-                f for f in ae.extra_fields
-                if "fill_if_empty_on_registration" in f and f['fill_if_empty_on_registration']
-            ]
+        reg_fill_empty_fields = get_fill_empty_fields(auth_event)
 
         msg = ''
         email = req.get('email')
         if isinstance(email, str):
             email = email.strip()
             email = email.replace(" ", "")
-        msg += check_field_type(self.email_definition, email)
-        msg += check_field_value(self.email_definition, email)
-        msg += check_fields_in_request(req, ae)
+        msg += check_fields_in_request(req, auth_event)
         if msg:
             LOGGER.error(\
                 "Email.register error\n"\
@@ -454,7 +442,7 @@ class Email:
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                msg, ae, req, stack_trace_str()
+                msg, auth_event, req, stack_trace_str()
             )
             return self.error("Incorrect data", error_codename="invalid_credentials")
         # get active from req, this value might have changed in check_fields_in_requests
@@ -464,14 +452,19 @@ class Email:
             # is the email a match field?
             match_email = False
             match_email_element = None
-            for extra in ae.extra_fields:
-                if 'name' in extra and 'email' == extra['name'] and "match_census_on_registration" in extra and extra['match_census_on_registration']:
+            for extra in auth_event.extra_fields:
+                if (
+                    'name' in extra and
+                    'email' == extra['name'] and
+                    "match_census_on_registration" in extra and
+                    extra['match_census_on_registration']
+                ):
                     match_email = True
                     match_email_element = extra
                     break
             # if the email is not a match field, and there already is a user
             # with that email, reject the registration request
-            if not match_email and User.objects.filter(email=email, userdata__event=ae, is_active=True).count() > 0:
+            if not match_email and User.objects.filter(email=email, userdata__event=auth_event, is_active=True).count() > 0:
                 LOGGER.error(\
                     "Email.register error\n"\
                     "email is not a match field, and there already is a user with email '%r'\n"\
@@ -479,8 +472,8 @@ class Email:
                     "request '%r'\n"\
                     "Stack trace: \n%s",\
                     email,\
-                    User.objects.filter(email=email, userdata__event=ae, is_active=True)[0],\
-                    ae,\
+                    User.objects.filter(email=email, userdata__event=auth_event, is_active=True)[0],\
+                    auth_event,\
                     req,\
                     stack_trace_str())
                 return self.error("Incorrect data", error_codename=user_exists_codename)
@@ -490,7 +483,7 @@ class Email:
             search_email = email if match_email else ""
             if match_email:
                 reg_match_fields.remove(match_email_element)
-            q = Q(userdata__event=ae,
+            q = Q(userdata__event=auth_event,
                   is_active=False,
                   email=search_email)
             # Check the reg_match_fields
@@ -504,7 +497,7 @@ class Email:
                          "authevent '%r'\n"\
                          "request '%r'\n"\
                          "Stack trace: \n%s",\
-                         reg_match_field, ae, req, stack_trace_str())
+                         reg_match_field, auth_event, req, stack_trace_str())
                      return self.error("Incorrect data", error_codename="invalid_credentials")
                  req_field_data = req.get(reg_name)
                  if reg_name and req_field_data:
@@ -515,7 +508,7 @@ class Email:
                          "match field '%r' missing in request '%r'\n"\
                          "authevent '%r'\n"\
                          "Stack trace: \n%s",\
-                         reg_name, req, ae, stack_trace_str())
+                         reg_name, req, auth_event, stack_trace_str())
                      return self.error("Incorrect data", error_codename="invalid_credentials")
 
             # Check that the reg_fill_empty_fields are empty, otherwise the user
@@ -530,7 +523,7 @@ class Email:
                          "authevent '%r'\n"\
                          "request '%r'\n"\
                          "Stack trace: \n%s",\
-                         reg_empty_field, ae, req, stack_trace_str())
+                         reg_empty_field, auth_event, req, stack_trace_str())
                      return self.error("Incorrect data", error_codename="invalid_credentials")
                  # Note: the register query _must_ contain a value for these fields
                  if reg_name and reg_name in req and req[reg_name]:
@@ -545,7 +538,7 @@ class Email:
                          "authevent '%r'\n"\
                          "request '%r'\n"\
                          "Stack trace: \n%s",\
-                         reg_name, (reg_name in req), req[reg_name], ae,\
+                         reg_name, (reg_name in req), req[reg_name], auth_event,\
                          req, stack_trace_str())
                      return self.error("Incorrect data", error_codename="invalid_credentials")
 
@@ -557,11 +550,11 @@ class Email:
 
                 # check that the unique:True extra fields are actually unique
                 uniques = []
-                for extra in ae.extra_fields:
+                for extra in auth_event.extra_fields:
                     if 'unique' in extra.keys() and extra.get('unique'):
                         uniques.append(extra['name'])
                 if len(uniques) > 0:
-                    base_q = Q(userdata__event=ae, is_active=True)
+                    base_q = Q(userdata__event=auth_event, is_active=True)
                     base_list = User.objects.exclude(id = user_found.id)
                     for reg_name in uniques:
                         req_field_data = req.get(reg_name)
@@ -578,7 +571,7 @@ class Email:
                                     "request '%r'\n"\
                                     "Stack trace: \n%s",\
                                     reg_name, req_field_data, repeated_list[0],\
-                                    ae, req, stack_trace_str())
+                                    auth_event, req, stack_trace_str())
                                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
             # user needs to exist
@@ -589,7 +582,7 @@ class Email:
                     "authevent '%r'\n"\
                     "request '%r'\n"\
                     "Stack trace: \n%s",\
-                    q, ae, req, stack_trace_str())
+                    q, auth_event, req, stack_trace_str())
                 return self.error("Incorrect data", error_codename="invalid_credentials")
 
             for reg_empty_field in reg_fill_empty_fields:
@@ -602,17 +595,17 @@ class Email:
             user_found.save()
             u = user_found
         else:
-            msg_exist = exist_user(req, ae, get_repeated=True)
+            msg_exist = exist_user(req, auth_event, get_repeated=True)
             if msg_exist:
                 ret_error = True
                 try:
-                    u = User.objects.get(email=req.get('email'), userdata__event=ae)
+                    u = User.objects.get(email=req.get('email'), userdata__event=auth_event)
                     # user is  admin and is disabled (deregistered)
                     # allow him to re-register with new parameters
-                    if settings.ADMIN_AUTH_ID == ae.pk and \
+                    if settings.ADMIN_AUTH_ID == auth_event.pk and \
                         False == u.is_active and \
                         True == settings.ALLOW_DEREGISTER:
-                        edit_user(u, req, ae)
+                        edit_user(u, req, auth_event)
                         u.is_active = True
                         u.save()
                         ret_error = False
@@ -625,11 +618,11 @@ class Email:
                         "authevent '%r'\n"\
                         "request '%r'\n"\
                         "Stack trace: \n%s",\
-                        msg_exist, ae, req, stack_trace_str())
+                        msg_exist, auth_event, req, stack_trace_str())
                     return self.error("Incorrect data", error_codename=user_exists_codename)
             else:
-                u = create_user(req, ae, active, request.user)
-                msg += give_perms(u, ae)
+                u = create_user(req, auth_event, active, request.user)
+                msg += give_perms(u, auth_event)
 
         if msg:
             LOGGER.error(\
@@ -639,7 +632,7 @@ class Email:
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                msg, ae, req, stack_trace_str())
+                msg, auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
         elif not active:
             LOGGER.debug(\
@@ -648,7 +641,7 @@ class Email:
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                u.id, ae, req, stack_trace_str())
+                u.id, auth_event, req, stack_trace_str())
             # Note, we are not calling to extend_send_sms because we are not
             # sending the code in here
             return {'status': 'ok', 'user': u}
@@ -662,7 +655,7 @@ class Email:
             "authevent '%r'\n"\
             "request '%r'\n"\
             "Stack trace: \n%s",\
-            u.id, get_client_ip(request), ae, req, stack_trace_str())
+            u.id, get_client_ip(request), auth_event, req, stack_trace_str())
         return response
 
     def authenticate_error(self):

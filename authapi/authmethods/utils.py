@@ -387,6 +387,31 @@ def dni_constraint(val):
     expected = mod_letters[int(digits) % 23]
     return letter == expected
 
+def get_match_fields(auth_event):
+    reg_match_fields = []
+    if auth_event.extra_fields is not None:
+        reg_match_fields = [
+            field for field in auth_event.extra_fields
+            if (
+                "match_census_on_registration" in field and 
+                field['match_census_on_registration']
+            )
+        ]
+    return reg_match_fields
+
+def get_fill_empty_fields(auth_event):
+    reg_fill_empty_fields = []
+    if auth_event.extra_fields is not None:
+        reg_fill_empty_fields = [
+            f for f in auth_event.extra_fields
+            if (
+                "fill_if_empty_on_registration" in f and
+                f['fill_if_empty_on_registration']
+            )
+        ]
+    return reg_fill_empty_fields
+
+
 def canonize_extra_field(extra, req):
     field_name = extra.get('name')
     field_value = req.get(field_name)
