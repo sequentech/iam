@@ -545,7 +545,9 @@ class Email:
                      return self.error("Incorrect data", error_codename="invalid_credentials")
                  # Note: the register query _must_ contain a value for these fields
                  if reg_name and reg_name in req and req[reg_name]:
-                     q = q & Q(userdata__metadata__contains={reg_name: ""})
+                    if reg_name == 'tlf':
+                        continue
+                    q = q & Q(userdata__metadata__contains={reg_name: ""})
                  else:
                      LOGGER.error(\
                          "EmailOtp.register error\n"\
