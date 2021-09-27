@@ -51,6 +51,7 @@ class PWD:
     username_definition = {
         "name": "username",
         "type": "text",
+        "unique": True,
         "required": True,
         "min": 3, 
         "max": 200,
