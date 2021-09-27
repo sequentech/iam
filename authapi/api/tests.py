@@ -2217,8 +2217,6 @@ class TestCallback(TestCase):
         self.assertEqual(action.action_name, "authevent:callback")
 
         response = c.authenticate(self.aeid, test_data.auth_email_default)
-        self.assertEqual(response.status_code, 200)
-
         response = c.post('/api/auth-event/%d/callback/' % self.aeid, {})
         self.assertEqual(response.status_code, 403)
 
