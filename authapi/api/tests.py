@@ -710,7 +710,10 @@ class TestAuthEvent(TestCase):
         self.ae.save()
 
         self.aeid_special = 1
-        u = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u = User(
+            username=test_data.admin['username'], 
+            email=test_data.admin['email']
+        )
         u.set_password(test_data.admin['password'])
         u.save()
         u.userdata.event = AuthEvent.objects.get(pk=1)
@@ -723,7 +726,8 @@ class TestAuthEvent(TestCase):
         c = Code(
             user=self.user.userdata,
             code=self.admin_auth_data['code'],
-            auth_event_id=self.aeid_special)
+            auth_event_id=self.aeid_special
+        )
         c.save()
 
         u2 = User(username='noperm', email="noperm@agoravoting.com")
@@ -731,8 +735,12 @@ class TestAuthEvent(TestCase):
         u2.save()
         u2.userdata.save()
 
-        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='create',
-                object_id=0)
+        acl = ACL(
+            user=u.userdata, 
+            object_type='AuthEvent', 
+            perm='create',
+            object_id=0
+        )
         acl.save()
 
     def create_authevent(self, authevent):
@@ -767,14 +775,15 @@ class TestAuthEvent(TestCase):
         self.assertEqual(response.status_code, 403)
 
         response = c.authenticate(0, user)
-        self.assertEqual(response.status_code, 200)
-
         response = c.post('/api/auth-event/', data)
         self.assertEqual(response.status_code, 403)
 
     def test_create_auth_event_with_perm(self):
-        acl = ACL(user=self.user.userdata, object_type='AuthEvent',
-                perm='create', object_id=0)
+        acl = ACL(
+            user=self.user.userdata, 
+            object_type='AuthEvent',
+            perm='create', object_id=0
+        )
         acl.save()
 
         c = JClient()
