@@ -2073,6 +2073,7 @@ class TestSlugMessages(TestCase):
 
         c = JClient()
         res_auth = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(res_auth.status_code, 200)
 
         data = test_data.auth_event13
         response = c.post('/api/auth-event/', data)
@@ -2083,9 +2084,9 @@ class TestSlugMessages(TestCase):
         response = c.get('/api/auth-event/%d/' % auth_id, data)
         r = parse_json_response(response)
         self.assertTrue('events' in r and 'extra_fields' in r['events'])
-        self.assertEqual(1, len(r['events']['extra_fields']))
-        self.assertTrue('slug' in r['events']['extra_fields'][0])
-        self.assertEqual("NO_DE__SOCIO", r['events']['extra_fields'][0]['slug'])
+        self.assertEqual(2, len(r['events']['extra_fields']))
+        self.assertTrue('slug' in r['events']['extra_fields'][1])
+        self.assertEqual("NO_DE__SOCIO", r['events']['extra_fields'][1]['slug'])
 
 
 class TestUserExtra(TestCase):
