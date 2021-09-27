@@ -35,13 +35,19 @@ class AuthMethodTestCase(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-        ae = AuthEvent(auth_method=test_data.auth_event4['auth_method'],
-                status='started', census=test_data.auth_event4['census'],
-                auth_method_config=test_data.authmethod_config_email_default)
+        ae = AuthEvent(
+            auth_method=test_data.auth_event4['auth_method'],
+            status='started',
+            census=test_data.auth_event4['census'],
+            auth_method_config=test_data.authmethod_config_email_default
+        )
         ae.save()
         self.aeid = ae.pk
 
-        u = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u = User(
+            username=test_data.admin['username'],
+            email=test_data.admin['email']
+        )
         u.set_password(test_data.pwd_auth['password'])
         u.save()
         u.userdata.event = ae
@@ -76,9 +82,13 @@ class AuthMethodEmailTestCase(TestCase):
 
     def setUp(self):
         auth_method_config = test_data.authmethod_config_email_default
-        ae = AuthEvent(auth_method=test_data.auth_event3['auth_method'],
-                auth_method_config=auth_method_config,
-                status='started', census=test_data.auth_event3['census'])
+        ae = AuthEvent(
+            auth_method=test_data.auth_event3['auth_method'],
+            extra_fields=test_data.auth_event3['extra_fields'],
+            auth_method_config=auth_method_config,
+            status='started',
+            census=test_data.auth_event3['census']
+        )
         ae.save()
         self.aeid = ae.pk
 
@@ -93,7 +103,12 @@ class AuthMethodEmailTestCase(TestCase):
         u.userdata.save()
         self.userid = u.pk
 
-        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit', object_id=ae.pk)
+        acl = ACL(
+            user=u.userdata,
+            object_type='AuthEvent',
+            perm='edit',
+            object_id=ae.pk
+        )
         acl.save()
 
         u2 = User(email='test2@agoravoting.com')
@@ -107,9 +122,17 @@ class AuthMethodEmailTestCase(TestCase):
         }
         u2.userdata.save()
 
-        code = Code(user=u.userdata, code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', auth_event_id=ae.pk)
+        code = Code(
+            user=u.userdata,
+            code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+            auth_event_id=ae.pk
+        )
         code.save()
-        code = Code(user=u2.userdata, code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', auth_event_id=ae.pk)
+        code = Code(
+            user=u2.userdata,
+            code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+            auth_event_id=ae.pk
+        )
         code.save()
 
 

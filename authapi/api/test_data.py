@@ -127,6 +127,7 @@ auth_event3 = {
             "name": "email",
             "type": "email",
             "required": True,
+            "unique": True,
             "min": 4,
             "max": 255,
             "required_on_authentication": True
@@ -145,6 +146,7 @@ auth_event4 = {
             "name": "username",
             "type": "text",
             "required": True,
+            "unique": True,
             "min": 3, 
             "max": 200, 
             "required_on_authentication": True
