@@ -387,8 +387,6 @@ def dni_constraint(val):
     expected = mod_letters[int(digits) % 23]
     return letter == expected
 
-
-
 def canonize_extra_field(extra, req):
     field_name = extra.get('name')
     field_value = req.get(field_name)
@@ -399,6 +397,9 @@ def canonize_extra_field(extra, req):
     elif field_type == 'dni':
         if isinstance(field_value, str):
             req[field_name] = encode_dni(normalize_dni(field_value))
+    elif field_type == 'email':
+        if isinstance(field_value, str):
+            req[field_name] = field_value.strip().replace(' ', '')
     elif field_type == 'bool':
         if isinstance(field_value, str):
             req[field_name] = field_value.lower().strip() not in ["", "false"]
