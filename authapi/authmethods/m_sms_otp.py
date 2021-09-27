@@ -491,7 +491,7 @@ class SmsOtp:
 
             # lookup in the database if there's any user with the match fields
             # NOTE: we assume reg_match_fields are unique in the DB and required
-            search_tlf = tlf if match_tlf else ""
+            search_tlf = tlf if match_tlf else None
             if match_tlf:
                 reg_match_fields.remove(match_tlf_element)
             q = Q(userdata__event=ae,
