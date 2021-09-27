@@ -37,6 +37,7 @@ class AuthMethodTestCase(TestCase):
     def setUp(self):
         ae = AuthEvent(
             auth_method=test_data.auth_event4['auth_method'],
+            extra_fields=test_data.auth_event4['extra_fields'],
             status='started',
             census=test_data.auth_event4['census'],
             auth_method_config=test_data.authmethod_config_email_default
