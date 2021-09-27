@@ -223,10 +223,14 @@ class UserDataDraftTestCase(TestCase):
         self.aeid = settings.ADMIN_AUTH_ID
         ae = AuthEvent.objects.get(pk=self.aeid)
         ae.auth_method = "user-and-password"
+        ae.extra_fields = test_data.auth_event4['extra_fields']
         ae.census = "open"
         ae.save()
 
-        u = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u = User(
+            username=test_data.admin['username'],
+            email=test_data.admin['email']
+        )
         u.set_password('smith')
         u.save()
         u.userdata.event = ae
@@ -236,7 +240,12 @@ class UserDataDraftTestCase(TestCase):
 
     @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_draft(self):
-        acl = ACL(user=self.testuser.userdata, object_type='UserData', perm='edit', object_id=self.userid)
+        acl = ACL(
+            user=self.testuser.userdata,
+            object_type='UserData',
+            perm='edit',
+            object_id=self.userid
+        )
         acl.save()
 
         c = JClient()
