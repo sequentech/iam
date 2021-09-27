@@ -495,8 +495,8 @@ class SmsOtp:
             if match_tlf:
                 reg_match_fields.remove(match_tlf_element)
             q = Q(userdata__event=ae,
-                  is_active=False,
-                  userdata__tlf=search_tlf
+                is_active=True,
+                userdata__tlf=search_tlf
             )
             # Check the reg_match_fields
             for reg_match_field in reg_match_fields:

@@ -484,7 +484,7 @@ class Email:
             if match_email:
                 reg_match_fields.remove(match_email_element)
             q = Q(userdata__event=auth_event,
-                  is_active=False,
+                  is_active=True,
                   email=search_email)
             # Check the reg_match_fields
             for reg_match_field in reg_match_fields:
