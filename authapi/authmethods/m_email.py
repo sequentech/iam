@@ -288,6 +288,7 @@ class Email:
         validation = req.get('field-validation', 'enabled') == 'enabled'
 
         msg = ''
+        unique_user_list = dict()
         
         # cannot add voters to an election with invalid children election info
         if auth_event.children_election_info is not None:
@@ -306,7 +307,8 @@ class Email:
 
         for census_element in req.get('census'):
             msg += check_fields_in_request(
-              census_element, auth_event, 
+              census_element, 
+              auth_event, 
               'census', 
               validation=validation
             )
@@ -326,7 +328,19 @@ class Email:
                     return self.error("Incorrect data", error_codename="invalid_data")
 
             if validation:
-                msg += exist_user(census_element, auth_event)
+                exists, extra_msg = exists_unique_user(
+                    unique_user_list,
+                    census_element,
+                    auth_event
+                )
+                msg += extra_msg
+                if not exists:
+                    add_unique_user(
+                        unique_user_list,
+                        census_element,
+                        auth_event
+                    )
+                    msg += exist_user(census_element, auth_event)
             else:
                 if msg:
                     LOGGER.debug(\

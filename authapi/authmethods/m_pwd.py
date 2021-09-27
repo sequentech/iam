@@ -76,10 +76,10 @@ class PWD:
         validation = req.get('field-validation', 'enabled') == 'enabled'
 
         msg = ''
-        usernames = []
-        for req_userdata in req.get('census'):
-            username = req_userdata.get('username')
-            password = req_userdata.get('password')
+        unique_users = dict()
+        for census_element in req.get('census'):
+            username = census_element.get('username')
+            password = census_element.get('password')
             msg += check_field_type(self.username_definition, username)
             msg += check_field_type(self.password_definition, password)
             if validation:
@@ -89,16 +89,25 @@ class PWD:
                 msg += check_field_value(self.password_definition, password)
 
             msg += check_fields_in_request(
-                req_userdata,
+                census_element,
                 auth_event,
                 'census',
                 validation=validation
             )
             if validation:
-                msg += exist_user(req_userdata, auth_event)
-                if username in usernames:
-                    msg += "Username %s repeat in this census." % username
-                usernames.append(username)
+                exists, extra_msg = exists_unique_user(
+                    unique_users,
+                    census_element,
+                    auth_event
+                )
+                msg += extra_msg
+                if not exists:
+                    add_unique_user(
+                        unique_users,
+                        census_element,
+                        auth_event
+                    )
+                    msg += exist_user(census_element, auth_event)
             else:
                 if msg:
                     LOGGER.debug(\
@@ -111,13 +120,13 @@ class PWD:
                         msg, req, validation, auth_event, stack_trace_str())
                     msg = ''
                     continue
-                exist = exist_user(req_userdata, auth_event)
+                exist = exist_user(census_element, auth_event)
                 if exist and not exist.count('None'):
                     continue
                 # By default we creates the user as active we don't check
                 # the pipeline
                 u = create_user(
-                    req_userdata,
+                    census_element,
                     auth_event,
                     True,
                     request.user, 
@@ -140,11 +149,11 @@ class PWD:
             )
 
         if validation:
-            for req_userdata in req.get('census'):
+            for census_element in req.get('census'):
                 # By default we creates the user as active we don't check
                 # the pipeline
                 u = create_user(
-                    req_userdata,
+                    census_element,
                     auth_event,
                     True,
                     request.user,

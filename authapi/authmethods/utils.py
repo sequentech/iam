@@ -567,44 +567,63 @@ def have_captcha(ae, step='register'):
                 return True
     return False
 
+def exists_unique_user(unique_users, user_data, auth_event):
+    for extra in auth_event.extra_fields:
+        if (
+            'unique' not in extra.keys() or 
+            not extra.get('unique') or
+            extra.get('name') not in user_data
+        ):
+            continue
+        
+        key_name = extra.get('name')
+        if user_data[key_name] in unique_users[key_name]:
+            return True, "%r %r repeat." % (key_name, user_data[key_name])
+    return False, ""
 
-def exist_user(req, ae, get_repeated=False):
+def add_unique_user(unique_users, user_data, auth_event):
+    for extra in auth_event.extra_fields:
+        if (
+            'unique' not in extra.keys() or 
+            not extra.get('unique') or
+            extra.get('name') not in user_data
+        ):
+            continue
+        
+        key_name = extra.get('name')
+        key_value = user_data[key_name]
+        if key_name not in unique_users:
+            unique_users[key_name] = dict()    
+        unique_users[key_name][key_value] = True
+
+def exist_user(user_data, auth_event, get_repeated=False):
     msg = ''
-    if req.get('email'):
-        try:
-            user = User.objects.get(email=req.get('email'), userdata__event=ae)
-            msg += "Email %s repeat." % req.get('email')
-        except:
-            pass
-    if req.get('tlf'):
-        try:
-            tlf = get_cannonical_tlf(req['tlf'])
-            user = User.objects.get(userdata__tlf=tlf, userdata__event=ae)
-            msg += "Tel %s repeat." % req.get('tlf')
-        except:
-            pass
-    if req.get('username'):
-        try:
-            user = User.objects.get(username=r.get('username'), userdata__event=ae)
-            msg += "Username %s repeat." % req.get('username')
-        except:
-            pass
 
-    if not msg:
-        if not ae.extra_fields:
-            return ''
-        # check that the unique:True extra fields are actually unique
-        base_q = Q(userdata__event=ae, is_active=True)
-        for extra in ae.extra_fields:
-            if 'unique' in extra.keys() and extra.get('unique'):
-                reg_name = extra['name']
-                req_field_data = req.get(reg_name)
-                if reg_name and req_field_data:
-                    q = base_q & Q(userdata__metadata__contains={reg_name: req_field_data})
-                    repeated_list = User.objects.filter(q)
-                    if repeated_list.count() > 0:
-                        msg += "%s %s repeat." % (reg_name, req_field_data)
-                        user = repeated_list[0]
+    if not auth_event.extra_fields:
+        return ''
+    # check that the unique:True extra fields are actually unique
+    base_q = Q(userdata__event=auth_event, is_active=True)
+    for extra in auth_event.extra_fields:
+        if 'unique' not in extra.keys() or not extra.get('unique'):
+            continue
+        reg_name = extra['name']
+        req_field_data = user_data.get(reg_name, None)
+        if not req_field_data or not reg_name:
+            continue
+        if reg_name == 'username':
+            extra_q = Q(username=req_field_data)
+        elif reg_name == 'tlf':
+            tlf = get_cannonical_tlf(req_field_data)
+            extra_q = Q(userdata__tlf=tlf)
+        elif reg_name == 'email':
+            extra_q = Q(email=req_field_data)
+        else:
+            extra_q = Q(userdata__metadata__contains={reg_name: req_field_data}) 
+        q = base_q & extra_q
+        repeated_list = User.objects.filter(q)
+        if repeated_list.count() > 0:
+            msg += "%s %s repeat." % (reg_name, req_field_data)
+            user = repeated_list[0]
 
     if not msg:
         return ''

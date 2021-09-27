@@ -71,14 +71,15 @@ class EmailPWD:
     def resend_auth_code(self, config):
         return {'status': 'ok'}
 
-    def census(self, ae, request):
+    def census(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))
         validation = req.get('field-validation', 'enabled') == 'enabled'
 
         msg = ''
-        for r in req.get('census'):
-            email = r.get('email')
-            password = r.get('password')
+        unique_users = dict()
+        for census_element in req.get('census'):
+            email = census_element.get('email')
+            password = census_element.get('password')
             msg += check_field_type(self.email_definition, email)
             msg += check_field_type(self.password_definition, password)
             if validation:
@@ -87,9 +88,21 @@ class EmailPWD:
                 msg += check_field_type(self.password_definition, password)
                 msg += check_field_value(self.password_definition, password)
 
-            msg += check_fields_in_request(r, ae, 'census', validation=validation)
+            msg += check_fields_in_request(census_element, auth_event, 'census', validation=validation)
             if validation:
-                msg += exist_user(r, ae)
+                exists, extra_msg = exists_unique_user(
+                    unique_users,
+                    census_element,
+                    auth_event
+                )
+                msg += extra_msg
+                if not exists:
+                    add_unique_user(
+                        unique_users,
+                        census_element,
+                        auth_event
+                    )
+                    msg += exist_user(census_element, auth_event)
             else:
                 if msg:
                     LOGGER.debug(\
@@ -99,16 +112,16 @@ class EmailPWD:
                         "validation '%r'\n"\
                         "authevent '%r'\n"\
                         "Stack trace: \n%s",\
-                        msg, req, validation, ae, stack_trace_str())
+                        msg, req, validation, auth_event, stack_trace_str())
                     msg = ''
                     continue
-                exist = exist_user(r, ae)
+                exist = exist_user(census_element, auth_event)
                 if exist and not exist.count('None'):
                     continue
                 # By default we creates the user as active we don't check
                 # the pipeline
-                u = create_user(r, ae, True, request.user, password=password)
-                give_perms(u, ae)
+                u = create_user(census_element, auth_event, True, request.user, password=password)
+                give_perms(u, auth_event)
         if msg and validation:
             LOGGER.error(\
                 "EmailPWD.census error\n"\
@@ -117,15 +130,15 @@ class EmailPWD:
                 "validation '%r'\n"\
                 "authevent '%r'\n"\
                 "Stack trace: \n%s",\
-                msg, req, validation, ae, stack_trace_str())
+                msg, req, validation, auth_event, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         if validation:
-            for r in req.get('census'):
+            for census_element in req.get('census'):
                 # By default we creates the user as active we don't check
                 # the pipeline
-                u = create_user(r, ae, True, request.user, password=password)
-                give_perms(u, ae)
+                u = create_user(census_element, auth_event, True, request.user, password=password)
+                give_perms(u, auth_event)
         
         ret = {'status': 'ok'}
         LOGGER.debug(\
@@ -135,7 +148,7 @@ class EmailPWD:
             "authevent '%r'\n"\
             "returns '%r'\n"\
             "Stack trace: \n%s",\
-            req, validation, ae, ret, stack_trace_str())
+            req, validation, auth_event, ret, stack_trace_str())
         return ret
 
     def authenticate_error(self, error, req, ae):
