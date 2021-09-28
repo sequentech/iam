@@ -763,10 +763,10 @@ class PreRegisterTestCaseFillTlf(TestCase):
         self.aeid = ae.pk
 
         # Create user for authevent11
-        u = User(username='test1', email='test@agoravoting.com', is_active=False)
+        u = User(username='test1', email='test@agoravoting.com', is_active=True)
         u.save()
         u.userdata.event = ae
-        u.userdata.tlf = ''
+        u.userdata.tlf = None
         u.userdata.metadata = {
                 'match_field': 'match_code_555'
         }
