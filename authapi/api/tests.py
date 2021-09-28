@@ -861,7 +861,7 @@ class TestAuthEvent(TestCase):
         response = self.create_authevent(test_data.ae_email_fields_incorrect_value_bool)
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
-        self.assertEqual(r['message'], 'Invalid extra_fields: bad required_on_authentication.\n')
+        self.assertEqual(r['message'], 'Invalid extra_fields: bad 2uired_on_authentication.\n')
         response = self.create_authevent(test_data.ae_email_fields_incorrect_max_fields)
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
@@ -2900,7 +2900,7 @@ class ApiTestActivationAndActivity(TestCase):
         response = c.authenticate(self.aeid, test_data.auth_email_default)
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
-        self.assertEqual(r['error_codename'], 1)
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
 
         # admin login
         response = c.authenticate(self.aeid, self.admin_auth_data)

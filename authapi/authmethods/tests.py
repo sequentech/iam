@@ -617,7 +617,7 @@ class PreRegisterTestCaseFillEmail(TestCase):
         self.aeid = ae.pk
 
         # Create user for authevent9
-        u = User(username='test1', email='', is_active=False)
+        u = User(username='test1', email='', is_active=True)
         u.save()
         u.userdata.event = ae
         u.userdata.metadata = {
