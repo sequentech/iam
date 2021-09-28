@@ -481,7 +481,11 @@ class Email:
                 user_found = user_list[0]
 
                 # check that the unique:True extra fields are actually unique
-                unique_error_msg = exist_user(req, auth_event)
+                unique_error_msg = exist_user(
+                    req,
+                    auth_event,
+                    ignore_user=user_found
+                )
                 if unique_error_msg != '':
                     LOGGER.error(
                         "Email.register error\n"\

@@ -530,10 +530,12 @@ class PreRegisterTestCaseEmail(TestCase):
                 "config": Email.CONFIG,
                 "pipeline": Email.PIPELINES
         }
-        ae = AuthEvent(auth_method=test_data.auth_event8['auth_method'],
-                auth_method_config=auth_method_config,
-                extra_fields=test_data.auth_event8['extra_fields'],
-                status='started', census=test_data.auth_event8['census'])
+        ae = AuthEvent(
+            auth_method=test_data.auth_event8['auth_method'],
+            auth_method_config=auth_method_config,
+            extra_fields=test_data.auth_event8['extra_fields'],
+            status='started', census=test_data.auth_event8['census']
+        )
         ae.save()
         self.aeid = ae.pk
 
@@ -549,9 +551,18 @@ class PreRegisterTestCaseEmail(TestCase):
         }
         u.userdata.save()
         self.userid = u.pk
-        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit', object_id=ae.pk)
+        acl = ACL(
+            user=u.userdata,
+            object_type='AuthEvent',
+            perm='edit',
+            object_id=ae.pk
+        )
         acl.save()
-        code = Code(user=u.userdata, code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', auth_event_id=ae.pk)
+        code = Code(
+            user=u.userdata,
+            code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+            auth_event_id=ae.pk
+        )
         code.save()
 
     @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
@@ -598,7 +609,6 @@ class PreRegisterTestCaseEmail(TestCase):
         }
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 200)
-
 
 class PreRegisterTestCaseFillEmail(TestCase):
     def setUpTestData():

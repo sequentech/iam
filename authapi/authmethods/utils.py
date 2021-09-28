@@ -692,7 +692,7 @@ def add_unique_user(unique_users, user_data, auth_event):
             unique_users[key_name] = dict()    
         unique_users[key_name][key_value] = True
 
-def exist_user(user_data, auth_event, get_repeated=False):
+def exist_user(user_data, auth_event, get_repeated=False, ignore_user=None):
     msg = ''
 
     if not auth_event.extra_fields:
@@ -717,6 +717,8 @@ def exist_user(user_data, auth_event, get_repeated=False):
             extra_q = Q(userdata__metadata__contains={reg_name: req_field_data}) 
         q = base_q & extra_q
         repeated_list = User.objects.filter(q)
+        if ignore_user:
+            repeated_list = repeated_list.exclude(id=ignore_user.id)
         if repeated_list.count() > 0:
             msg += "%s %s repeat." % (reg_name, req_field_data)
             user = repeated_list[0]
