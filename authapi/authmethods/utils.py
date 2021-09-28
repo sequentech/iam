@@ -411,6 +411,77 @@ def get_fill_empty_fields(auth_event):
         ]
     return reg_fill_empty_fields
 
+class MissingFieldError(Exception):
+    def __init__(self, field_name):
+        self.field_name = field_name
+
+def get_user_match_query(auth_event, user_data, base_query):
+    query = base_query
+    match_fields = get_match_fields(auth_event)
+    use_matching = len(match_fields) > 0
+    for field in match_fields:
+        field_name = field.get('name')
+        field_type = field.get('type')
+        
+        if field_name not in user_data:
+            raise MissingFieldError(field_name)
+
+        field_data = user_data.get(field_name)
+
+        if field_type == 'email':
+            query = query & Q(email=field_data)
+        elif field_type == 'tlf':
+            query = query & Q(userdata__tlf=field_data)
+        else:
+            query = query & Q(
+                userdata__metadata__contains={field_name: field_data}
+            )
+    return query, use_matching
+
+def get_fill_if_empty_query(auth_event, user_data, base_query):
+    query = base_query
+    fill_if_empty_fields = get_fill_empty_fields(auth_event)
+    for field in fill_if_empty_fields:
+        field_name = field.get('name')
+        field_type = field.get('type')
+        
+        if field_name not in user_data:
+            raise MissingFieldError(field_name)
+
+        if field_type == 'email':
+            query = query & Q(email='')
+        elif field_type == 'tlf':
+            query = query & (Q(userdata__tlf='') | Q(userdata__tlf=None))
+        else:
+            query = query & Q(
+                userdata__metadata__contains={field_name: ''}
+            )
+    return query, fill_if_empty_fields
+
+def fill_empty_fields(fill_if_empty_fields, existing_user, new_user_data):
+    for field in fill_if_empty_fields:
+        field_name = field.get('name')
+        field_type = field.get('type')
+        if field_name not in new_user_data:
+            raise MissingFieldError(field_name)
+        
+        field_data = new_user_data[field_name]
+        save_user = False
+        save_userdata = False
+        if field_type == 'email':
+            existing_user.email = field_data
+            save_user = True
+        elif field_type == 'tlf':
+            existing_user.userdata.tlf = field_data
+            save_userdata = True
+        else:
+            existing_user.userdata.metadata[field_name] = new_user_data.get(field_name)
+            save_userdata = True
+        
+        if save_user:
+            existing_user.save()
+        if save_userdata:
+            existing_user.userdata.save()
 
 def canonize_extra_field(extra, req):
     field_name = extra.get('name')
@@ -461,7 +532,6 @@ def check_pipeline(request, ae, step='register', default_pipeline=None):
                 data.pop('code')
             return data
     return RET_PIPE_CONTINUE
-
 
 # Checkers census, register and authentication
 def check_field_type(definition, field, step='register'):

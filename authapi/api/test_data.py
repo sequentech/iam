@@ -306,6 +306,7 @@ auth_event9 = {
             "required": True,
             "min": 4,
             "max": 255,
+            "fill_if_empty_on_registration": True,
             "required_on_authentication": True
         },
         {
