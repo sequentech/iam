@@ -445,7 +445,10 @@ def get_fill_if_empty_query(auth_event, user_data, base_query):
         field_name = field.get('name')
         field_type = field.get('type')
         
-        if field_name not in user_data:
+        if field_name not in user_data or (
+            isinstance(user_data[field_name], str) and 
+            len(user_data[field_name]) == 0
+        ):
             raise MissingFieldError(field_name)
 
         if field_type == 'email':
