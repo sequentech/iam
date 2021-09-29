@@ -402,7 +402,7 @@ class Sms:
             data, validation, msg, req, auth_event, stack_trace_str())
         return data
 
-    def register(self, ae, request):
+    def register(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))
 
         user_exists_codename = (
@@ -411,242 +411,171 @@ class Sms:
             else "invalid_credentials"
         )
 
-        msg = check_pipeline(request, ae)
+        msg = check_pipeline(request, auth_event)
         if msg:
-            LOGGER.error(\
+            LOGGER.error(
                 "Sms.register error\n"\
                 "error '%r'\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
-                "Stack trace: \n%s",\
-                msg, ae, req, stack_trace_str())
+                "Stack trace: \n%s",
+                msg, auth_event, req, stack_trace_str()
+            )
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         # create the user as active? Usually yes, but the execute_pipeline call inside
         # check_fields_in_request might modify this
         req['active'] = True
 
-        reg_match_fields = []
-        if ae.extra_fields is not None:
-            reg_match_fields = [
-                f for f in ae.extra_fields
-                if "match_census_on_registration" in f and f['match_census_on_registration']
-            ]
-
-        # NOTE the fields of type "fill_if_empty_on_registration" need
-        # to be empty, otherwise the user is already registered.
-        reg_fill_empty_fields = []
-        if ae.extra_fields is not None:
-            reg_fill_empty_fields = [
-                f for f in ae.extra_fields
-                if "fill_if_empty_on_registration" in f and f['fill_if_empty_on_registration']
-            ]
-
-        msg = ''
-        if req.get('tlf'):
-            req['tlf'] = get_cannonical_tlf(req.get('tlf'))
-        tlf = req.get('tlf')
-        if isinstance(tlf, str):
-            tlf = tlf.strip()
-        msg += check_fields_in_request(req, ae)
+        msg = check_fields_in_request(req, auth_event)
         if msg:
-            LOGGER.error(\
+            LOGGER.error(
                 "Sms.register error\n"\
-                "error '%r'\n"\
+                "Fields check error '%r'"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
-                "Stack trace: \n%s",\
-                msg, ae, req, stack_trace_str())
+                "Stack trace: \n%s",
+                msg, auth_event, req, stack_trace_str()
+            )
             return self.error("Incorrect data", error_codename="invalid_credentials")
         # get active from req, this value might have changed in check_fields_in_requests
         active = req.pop('active')
 
-        if len(reg_match_fields) > 0 or len(reg_fill_empty_fields) > 0:
-            # is the tlf a match field?
-            match_tlf = False
-            match_tlf_element = None
-            for extra in ae.extra_fields:
-                if 'name' in extra and 'tlf' == extra['name'] and "match_census_on_registration" in extra and extra['match_census_on_registration']:
-                    match_tlf = True
-                    match_tlf_element = extra
-                    break
-            # if the tlf is not a match field, and there already is a user
-            # with that tlf, reject the registration request
-            if not match_tlf and User.objects.filter(userdata__tlf=tlf, userdata__event=ae, is_active=True).count() > 0:
-                LOGGER.error(\
-                    "Sms.register error\n"\
-                    "tlf is not a match field and  there already is a user with that tlf\n"\
-                    "error '%r'\n"\
-                    "user '%r'\n"\
-                    "authevent '%r'\n"\
-                    "request '%r'"\
-                    "Stack trace: \n%s",\
-                    msg,\
-                    User.objects.filter(userdata__tlf=tlf, userdata__event=ae, is_active=True)[0],\
-                    ae, req, stack_trace_str())
-                return self.error("Incorrect data", error_codename=user_exists_codename)
+        # lookup in the database if there's any user with the match fields
+        # NOTE: we assume reg_match_fields are unique in the DB and required
+        base_query = Q(
+            userdata__event=auth_event,
+            is_active=True
+        )
+        query = None
+        fill_if_empty_fields = None
+        try:
+            match_query, use_matching = get_user_match_query(
+                auth_event,
+                req,
+                base_query
+            )
+            query, fill_if_empty_fields = get_fill_if_empty_query(
+                auth_event,
+                req, 
+                match_query
+            )
+        except MissingFieldError as error:
+            LOGGER.error(
+                "Sms.register error\n"\
+                "match field '%r' missing in request '%r'\n"\
+                "authevent '%r'\n"\
+                "Stack trace: \n%s",
+                error.field_name, req, auth_event, stack_trace_str()
+            )
+            return self.error(
+                "Incorrect data",
+                error_codename="invalid_credentials"
+            )
 
-            # lookup in the database if there's any user with the match fields
-            # NOTE: we assume reg_match_fields are unique in the DB and required
-            search_tlf = tlf if match_tlf else None
-            if match_tlf:
-                reg_match_fields.remove(match_tlf_element)
-            q = Q(userdata__event=ae,
-                  is_active=True,
-                  userdata__tlf=search_tlf)
-            # Check the reg_match_fields
-            for reg_match_field in reg_match_fields:
-                 # Filter with Django's JSONfield
-                 reg_name = reg_match_field.get('name')
-                 if not reg_name:
-                     LOGGER.error(\
-                         "Sms.register error\n"\
-                         "'name' not in match field '%r'\n"\
-                         "authevent '%r'\n"\
-                         "request '%r'\n"\
-                         "Stack trace: \n%s",\
-                         reg_match_field, ae, req, stack_trace_str())
-                     return self.error("Incorrect data", error_codename="invalid_credentials")
-                 req_field_data = req.get(reg_name)
-                 if reg_name and req_field_data:
-                    if reg_name == 'tlf':
-                        continue
-                    q = q & Q(userdata__metadata__contains={reg_name: req_field_data})
-                 else:
-                     LOGGER.error(\
-                         "Sms.register error\n"\
-                         "match field '%r' missing in request '%r'\n"\
-                         "authevent '%r'\n"\
-                         "Stack trace: \n%s",\
-                         reg_name, req, ae, stack_trace_str())
-                     return self.error("Incorrect data", error_codename="invalid_credentials")
-
-            # Check that the reg_fill_empty_fields are empty, otherwise the user
-            # is already registered
-            for reg_empty_field in reg_fill_empty_fields:
-                 # Filter with Django's JSONfield
-                 reg_name = reg_empty_field.get('name')
-                 if not reg_name:
-                     LOGGER.error(\
-                         "Sms.register error\n"\
-                         "'name' not in empty field '%r'\n"\
-                         "authevent '%r'\n"\
-                         "request '%r'\n"\
-                         "Stack trace: \n%s",\
-                         reg_empty_field, ae, req, stack_trace_str())
-                     return self.error("Incorrect data", error_codename="invalid_credentials")
-                 # Note: the register query _must_ contain a value for these fields
-                 if reg_name and reg_name in req and req[reg_name]:
-                    if reg_name == 'tlf':
-                        continue
-                    q = q & Q(userdata__metadata__contains={reg_name: ""})
-                 else:
-                     LOGGER.error(\
-                         "Sms.register error\n"\
-                         "the register query _must_ contain a value for these fields\n"\
-                         "reg_name '%r'\n"\
-                         "reg_name in req '%r'\n"\
-                         "req[reg_name] '%r'\n"\
-                         "authevent '%r'\n"\
-                         "request '%r'\n"\
-                         "Stack trace: \n%s",\
-                         reg_name, (reg_name in req), req[reg_name], ae,\
-                         req, stack_trace_str())
-                     return self.error("Incorrect data", error_codename="invalid_credentials")
-
+        # if there are any matching fields, this is an election with 
+        # pre-registration data so no new user can be created, it has to match
+        # a pre-registered user
+        if use_matching:
             user_found = None
-            user_list = User.objects.filter(q)
-            if 1 == len(user_list):
+            user_list = User.objects.filter(query)
+            if 1 == user_list.count():
                 user_found = user_list[0]
 
                 # check that the unique:True extra fields are actually unique
-                uniques = []
-                for extra in ae.extra_fields:
-                    if 'unique' in extra.keys() and extra.get('unique'):
-                        uniques.append(extra['name'])
-                if len(uniques) > 0:
-                    base_q = Q(userdata__event=ae, is_active=True)
-                    base_list = User.objects.exclude(id = user_found.id)
-                    for reg_name in uniques:
-                        req_field_data = req.get(reg_name)
-                        if reg_name and req_field_data:
-                            uq = base_q & Q(userdata__metadata__contains={reg_name: req_field_data})
-                            repeated_list = base_list.filter(uq)
-                            if repeated_list.count() > 0:
-                                LOGGER.error(\
-                                    "Sms.register error\n"\
-                                    "unique field named '%r'\n"\
-                                    "with content '%r'\n"\
-                                    "is repeated on '%r'\n"\
-                                    "authevent '%r'\n"\
-                                    "request '%r'\n"\
-                                    "Stack trace: \n%s",\
-                                    reg_name, req_field_data, repeated_list[0],\
-                                    ae, req, stack_trace_str())
-                                return self.error("Incorrect data", error_codename="invalid_credentials")
-
+                unique_error_msg = exist_user(
+                    req,
+                    auth_event,
+                    ignore_user=user_found
+                )
+                if unique_error_msg != '':
+                    LOGGER.error(
+                        "Sms.register error\n"\
+                        "unique field error '%r'\n"\
+                        "authevent '%r'\n"\
+                        "request '%r'\n"\
+                        "Stack trace: \n%s",
+                        unique_error_msg,
+                        auth_event, req, stack_trace_str()
+                    )
+                    return self.error(
+                        "Incorrect data",
+                        error_codename="invalid_credentials"
+                    )
             # user needs to exist
-            if user_found is None:
-                LOGGER.error(\
+            else:
+                LOGGER.error(
                     "Sms.register error\n"\
                     "user not found for query '%r'\n"\
                     "authevent '%r'\n"\
                     "request '%r'\n"\
-                    "Stack trace: \n%s",\
-                    q, ae, req, stack_trace_str())
-                return self.error("Incorrect data", error_codename="invalid_credentials")
-
-            for reg_empty_field in reg_fill_empty_fields:
-                reg_name = reg_empty_field['name']
-                if reg_name in req:
-                    user_found.userdata.metadata[reg_name] = req.get(reg_name)
-            user_found.userdata.save()
-            if not match_tlf:
-                user_found.userdata.tlf = tlf
-            user_found.userdata.save()
-            u = user_found
+                    "Stack trace: \n%s",
+                    query, auth_event, req, stack_trace_str()
+                )
+                return self.error(
+                    "Incorrect data", 
+                    error_codename="invalid_credentials"
+                )
+            fill_empty_fields(fill_if_empty_fields, user_found, req)
+            register_user = user_found
+        # pre-registration not enabled
         else:
-            msg_exist = exist_user(req, ae, get_repeated=True)
+            msg_exist = exist_user(req, auth_event, get_repeated=True)
             if msg_exist:
                 ret_error = True
                 try:
                     tlf = get_cannonical_tlf(req['tlf'])
-                    u = User.objects.get(userdata__tlf=tlf, userdata__event=ae)
+                    register_user = User.objects.get(
+                        userdata__tlf=tlf, 
+                        userdata__event=auth_event
+                    )
                     # user is  admin and is disabled (deregistered)
                     # allow him to re-register with new parameters
-                    if settings.ADMIN_AUTH_ID == ae.pk and \
-                        False == u.is_active and \
-                        True == settings.ALLOW_DEREGISTER:
-                        edit_user(u, req, ae)
-                        u.is_active = True
-                        u.save()
+                    if (
+                        settings.ADMIN_AUTH_ID == auth_event.pk and
+                        False == register_user.is_active and
+                        True == settings.ALLOW_DEREGISTER
+                    ):
+                        edit_user(register_user, req, auth_event)
+                        register_user.is_active = True
+                        register_user.save()
                         ret_error = False
                 except:
                     pass
                 if ret_error:
-                    LOGGER.error(\
+                    LOGGER.error(
                         "Sms.register error\n"\
                         "User already exists '%r'\n"\
                         "authevent '%r'\n"\
                         "request '%r'\n"\
-                        "Stack trace: \n%s",\
-                        msg_exist, ae, req, stack_trace_str())
-                    return self.error("Incorrect data", error_codename=user_exists_codename)
+                        "Stack trace: \n%s",
+                        msg_exist, auth_event, req, stack_trace_str()
+                    )
+                    return self.error(
+                        "Incorrect data", 
+                        error_codename=user_exists_codename
+                    )
             else:
-                u = create_user(req, ae, active, request.user)
-                msg += give_perms(u, ae)
-                u.userdata.tlf = tlf
-                u.userdata.save()
+                # user is really new, doesn't exist. So let's create it and
+                # add the appropiate permissions to this user
+                register_user = create_user(
+                    req, 
+                    auth_event, 
+                    active, 
+                    request.user
+                )
+                msg += give_perms(register_user, auth_event)
 
         if msg:
-            LOGGER.error(\
+            LOGGER.error(
                 "Sms.register error\n"\
                 "Probably a permissions error\n"\
                 "Error '%r'\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
-                "Stack trace: \n%s",\
-                msg, ae, req, stack_trace_str())
+                "Stack trace: \n%s",
+                msg, auth_event, req, stack_trace_str()
+            )
             return self.error("Incorrect data", error_codename="invalid_credentials")
         elif not active:
             # Note, we are not calling to extend_send_sms because we are not
@@ -657,32 +586,42 @@ class Sms:
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                u.id, ae, req, stack_trace_str())
-            return {'status': 'ok', 'user': u}
+                register_user.id, auth_event, req, stack_trace_str())
+            return {'status': 'ok', 'user': register_user}
 
-        result = plugins.call("extend_send_sms", ae, 1)
+        result = plugins.call("extend_send_sms", auth_event, 1)
         if result:
-            LOGGER.error(\
+            LOGGER.error(
                 "Sms.register error\n"\
                 "extend_send_sms plugin error\n"\
                 "Error '%r'\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
-                "Stack trace: \n%s",\
-                result, ae, req, stack_trace_str())
-            return self.error("Incorrect data", error_codename="invalid_credentials")
-        response = {'status': 'ok'}
-        send_codes.apply_async(args=[[u.id,], get_client_ip(request),'sms'])
-        LOGGER.info(\
+                "Stack trace: \n%s",
+                result, auth_event, req, stack_trace_str()
+            )
+            return self.error(
+                "Incorrect data",
+                error_codename="invalid_credentials"
+            )
+        send_codes.apply_async(
+            args=[
+                [register_user.id,],
+                get_client_ip(request),
+                'sms'
+            ]
+        )
+        LOGGER.info(
             "Sms.register.\n"\
             "Sending (sms) codes to user id '%r'"\
             "client ip '%r'\n"\
             "authevent '%r'\n"\
             "request '%r'\n"\
-            "Stack trace: \n%s",\
-            u.id, get_client_ip(request), ae, req, stack_trace_str())
-        response['user'] = u
-        return response
+            "Stack trace: \n%s",
+            register_user.id, get_client_ip(request), auth_event, req, 
+            stack_trace_str()
+        )
+        return {'status': 'ok', 'user': register_user}
 
     def authenticate(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))

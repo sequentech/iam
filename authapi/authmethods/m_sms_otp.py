@@ -594,24 +594,36 @@ class SmsOtp:
 
         result = plugins.call("extend_send_sms", auth_event, 1)
         if result:
-            LOGGER.error(\
+            LOGGER.error(
                 "SmsOtp.register error\n"\
                 "extend_send_sms plugin error\n"\
                 "Error '%r'\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
-                "Stack trace: \n%s",\
-                result, auth_event, req, stack_trace_str())
-            return self.error("Incorrect data", error_codename="invalid_credentials")
-        send_codes.apply_async(args=[[register_user.id,], get_client_ip(request),'sms'])
-        LOGGER.info(\
+                "Stack trace: \n%s",
+                result, auth_event, req, stack_trace_str()
+            )
+            return self.error(
+                "Incorrect data",
+                error_codename="invalid_credentials"
+            )
+        send_codes.apply_async(
+            args=[
+                [register_user.id,],
+                get_client_ip(request),
+                'sms'
+            ]
+        )
+        LOGGER.info(
             "SmsOtp.register.\n"\
             "Sending (sms) codes to user id '%r'"\
             "client ip '%r'\n"\
             "authevent '%r'\n"\
             "request '%r'\n"\
-            "Stack trace: \n%s",\
-            register_user.id, get_client_ip(request), auth_event, req, stack_trace_str())
+            "Stack trace: \n%s",
+            register_user.id, get_client_ip(request), auth_event, req, 
+            stack_trace_str()
+        )
         return {'status': 'ok', 'user': register_user}
 
     def authenticate(self, auth_event, request):
