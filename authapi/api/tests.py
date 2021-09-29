@@ -38,9 +38,11 @@ def flush_db_load_fixture(ffile="initial.json"):
     management.call_command("flush", verbosity=0, interactive=False)
     management.call_command("loaddata", ffile, verbosity=0)
 
-override_celery_data = dict(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
+override_celery_data = dict(
+    CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+    CELERY_ALWAYS_EAGER=True,
+    BROKER_BACKEND='memory'
+)
 
 def parse_json_response(response):
     return json.loads(response.content.decode('utf-8'))
@@ -221,10 +223,14 @@ class UserDataDraftTestCase(TestCase):
         self.aeid = settings.ADMIN_AUTH_ID
         ae = AuthEvent.objects.get(pk=self.aeid)
         ae.auth_method = "user-and-password"
+        ae.extra_fields = test_data.auth_event4['extra_fields']
         ae.census = "open"
         ae.save()
 
-        u = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u = User(
+            username=test_data.admin['username'],
+            email=test_data.admin['email']
+        )
         u.set_password('smith')
         u.save()
         u.userdata.event = ae
@@ -234,11 +240,18 @@ class UserDataDraftTestCase(TestCase):
 
     @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_draft(self):
-        acl = ACL(user=self.testuser.userdata, object_type='UserData', perm='edit', object_id=self.userid)
+        acl = ACL(
+            user=self.testuser.userdata,
+            object_type='UserData',
+            perm='edit',
+            object_id=self.userid
+        )
         acl.save()
 
         c = JClient()
-        c.authenticate(self.aeid, test_data.pwd_auth)
+        response = c.authenticate(self.aeid, test_data.pwd_auth)
+        self.assertEqual(response.status_code, 200)
+
         no_draft = {}
         response = c.post('/api/user/draft/', {"draft_election": no_draft})
         self.assertEqual(response.status_code, 200)
@@ -261,8 +274,11 @@ class ApiTestCase(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-        ae = AuthEvent(auth_method=test_data.auth_event4['auth_method'],
-                auth_method_config=test_data.authmethod_config_email_default)
+        ae = AuthEvent(
+            auth_method=test_data.auth_event4['auth_method'],
+            extra_fields=test_data.auth_event4['extra_fields'],
+            auth_method_config=test_data.authmethod_config_email_default
+        )
         ae.save()
 
         self.aeid_special = 1
@@ -664,6 +680,7 @@ class ApiTestCase(TestCase):
         ae = AuthEvent.objects.get(pk=self.aeid_special)
         ae.auth_method = "user-and-password"
         ae.census = "open"
+        ae.extra_fields = test_data.auth_event4['extra_fields']
         ae.save()
         login_data = dict(username=test_data.admin['username'], password='smith')
 
@@ -694,12 +711,18 @@ class TestAuthEvent(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-        self.ae = AuthEvent(auth_method=test_data.auth_event4['auth_method'],
-                auth_method_config=test_data.authmethod_config_email_default)
+        self.ae = AuthEvent(
+            auth_method=test_data.auth_event4['auth_method'],
+            extra_fields=test_data.auth_event4['extra_fields'],
+            auth_method_config=test_data.authmethod_config_email_default
+        )
         self.ae.save()
 
         self.aeid_special = 1
-        u = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u = User(
+            username=test_data.admin['username'], 
+            email=test_data.admin['email']
+        )
         u.set_password(test_data.admin['password'])
         u.save()
         u.userdata.event = AuthEvent.objects.get(pk=1)
@@ -712,7 +735,8 @@ class TestAuthEvent(TestCase):
         c = Code(
             user=self.user.userdata,
             code=self.admin_auth_data['code'],
-            auth_event_id=self.aeid_special)
+            auth_event_id=self.aeid_special
+        )
         c.save()
 
         u2 = User(username='noperm', email="noperm@agoravoting.com")
@@ -720,8 +744,12 @@ class TestAuthEvent(TestCase):
         u2.save()
         u2.userdata.save()
 
-        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='create',
-                object_id=0)
+        acl = ACL(
+            user=u.userdata, 
+            object_type='AuthEvent', 
+            perm='create',
+            object_id=0
+        )
         acl.save()
 
     def create_authevent(self, authevent):
@@ -755,13 +783,16 @@ class TestAuthEvent(TestCase):
         response = c.post('/api/auth-event/', data)
         self.assertEqual(response.status_code, 403)
 
-        c.authenticate(0, user)
+        response = c.authenticate(0, user)
         response = c.post('/api/auth-event/', data)
         self.assertEqual(response.status_code, 403)
 
     def test_create_auth_event_with_perm(self):
-        acl = ACL(user=self.user.userdata, object_type='AuthEvent',
-                perm='create', object_id=0)
+        acl = ACL(
+            user=self.user.userdata, 
+            object_type='AuthEvent',
+            perm='create', object_id=0
+        )
         acl.save()
 
         c = JClient()
@@ -839,23 +870,11 @@ class TestAuthEvent(TestCase):
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
         self.assertTrue('Two fields with same name: surname.\n' in r['message'])
-        response = self.create_authevent(test_data.ae_email_fields_incorrect_email)
-        self.assertEqual(response.status_code, 400)
-        r = parse_json_response(response)
-        self.assertEqual(r['message'], 'Type email not allowed.\n')
+        
         response = self.create_authevent(test_data.ae_email_fields_incorrect_status)
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
         self.assertEqual(r['message'], 'Two fields with same name: status.\n')
-        response = self.create_authevent(test_data.ae_sms_fields_incorrect_tlf)
-        self.assertEqual(response.status_code, 400)
-        r = parse_json_response(response)
-        self.assertEqual(r['message'], 'Type tlf not allowed.\n')
-
-        #response = self.create_authevent(test_data.ae_email_config_incorrect1)
-        #self.assertEqual(response.status_code, 400)
-        #response = self.create_authevent(test_data.ae_email_config_incorrect2)
-        #self.assertEqual(response.status_code, 400)
 
     def _test_create_authevent_sms_incorrect(self):
         response = self.create_authevent(test_data.ae_sms_config_incorrect)
@@ -925,7 +944,18 @@ class TestAuthEvent(TestCase):
                 'auth_method_config': test_data.ae_email_default__method_config,
                 'admin_fields': None,
                 'has_ballot_boxes': False,
-                'extra_fields': None,
+                'extra_fields': [
+                    {
+                        "name": "email",
+                        "type": "email",
+                        "required": True,
+                        "unique": True,
+                        "min": 4,
+                        "max": 255,
+                        "required_on_authentication": True,
+                        "slug": "EMAIL"
+                    }
+                ],
                 'based_in': None,
                 'census': 'open',
                 'auth_method_stats': {
@@ -975,10 +1005,13 @@ class TestExtraFields(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-        ae = AuthEvent(auth_method="email",
-                auth_method_config=test_data.authmethod_config_email_default,
-                status='started',
-                census="open")
+        ae = AuthEvent(
+            auth_method="email",
+            auth_method_config=test_data.authmethod_config_email_default,
+            extra_fields=test_data.ae_email_default['extra_fields'],
+            status='started',
+            census="open"
+        )
         ae.save()
         self.ae = ae
         self.aeid = ae.pk
@@ -1020,7 +1053,7 @@ class TestExtraFields(TestCase):
                        CELERY_ALWAYS_EAGER=True,
                        BROKER_BACKEND='memory')
     def test_autofill_activate_field(self):
-        self.ae.extra_fields = test_data.extra_field_autofill
+        self.ae.extra_fields.extend(test_data.extra_field_autofill)
         self.ae.save()
 
         u = User.objects.get(id=self.uid_admin)
@@ -1029,7 +1062,8 @@ class TestExtraFields(TestCase):
         u.userdata.save()
 
         c = JClient()
-        c.authenticate(self.ae.pk, self.admin_auth_data)
+        response = c.authenticate(self.ae.pk, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
 
         u = User.objects.get(id=self.uid)
         self.assertEqual(u.userdata.metadata.get("mesa"), None)
@@ -1045,7 +1079,7 @@ class TestExtraFields(TestCase):
                        CELERY_ALWAYS_EAGER=True,
                        BROKER_BACKEND='memory')
     def test_autofill_deactivate_field(self):
-        self.ae.extra_fields = test_data.extra_field_autofill
+        self.ae.extra_fields.extend(test_data.extra_field_autofill)
         self.ae.save()
 
         u = User.objects.get(id=self.uid_admin)
@@ -1054,7 +1088,8 @@ class TestExtraFields(TestCase):
         u.userdata.save()
 
         c = JClient()
-        c.authenticate(self.ae.pk, self.admin_auth_data)
+        response = c.authenticate(self.ae.pk, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
 
         u = User.objects.get(id=self.uid)
         self.assertEqual(u.userdata.metadata.get("mesa"), None)
@@ -1070,11 +1105,13 @@ class TestExtraFields(TestCase):
                        CELERY_ALWAYS_EAGER=True,
                        BROKER_BACKEND='memory')
     def test_date_field(self):
-        self.ae.extra_fields = test_data.extra_field_date
+        self.ae.extra_fields.extend(test_data.extra_field_date)
         self.ae.save()
 
         c = JClient()
-        c.authenticate(self.ae.pk, self.admin_auth_data)
+        response = c.authenticate(self.ae.pk, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.ae.pk, test_data.census_date_field_ok)
         self.assertEqual(response.status_code, 200)
 
@@ -1100,23 +1137,33 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         super().tearDownClass()
 
     def setUp(self):
-        ae = AuthEvent(auth_method="email",
-                auth_method_config=test_data.authmethod_config_email_default,
-                status='started',
-                census="open")
+        ae = AuthEvent(
+            auth_method="email",
+            auth_method_config=test_data.authmethod_config_email_default,
+            extra_fields=test_data.ae_email_default['extra_fields'],
+            status='started',
+            census="open"
+        )
         ae.save()
         self.ae = ae
         self.aeid = ae.pk
 
-        u_admin = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u_admin = User(
+            username=test_data.admin['username'],
+            email=test_data.admin['email']
+        )
         u_admin.set_password(test_data.admin['password'])
         u_admin.save()
         u_admin.userdata.event = ae
         u_admin.userdata.save()
         self.uid_admin = u_admin.id
 
-        acl = ACL(user=u_admin.userdata, object_type='AuthEvent', perm='edit',
-            object_id=self.aeid)
+        acl = ACL(
+            user=u_admin.userdata, 
+            object_type='AuthEvent',
+            perm='edit',
+            object_id=self.aeid
+        )
         acl.save()
 
         u = User(username='test', email=test_data.auth_email_default['email'])
@@ -1126,11 +1173,19 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.u = u.userdata
         self.uid = u.id
 
-        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit',
-            object_id=self.aeid)
+        acl = ACL(
+            user=u.userdata,
+            object_type='AuthEvent', 
+            perm='edit',
+            object_id=self.aeid
+        )
         acl.save()
 
-        c = Code(user=u.userdata, code=test_data.auth_email_default['code'], auth_event_id=ae.pk)
+        c = Code(
+            user=u.userdata,
+            code=test_data.auth_email_default['code'],
+            auth_event_id=ae.pk
+        )
         c.save()
         self.code = c
 
@@ -1200,7 +1255,9 @@ class TestRegisterAndAuthenticateEmail(TestCase):
 
     def test_add_census_authevent_email_default(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_email_default)
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
@@ -1210,13 +1267,17 @@ class TestRegisterAndAuthenticateEmail(TestCase):
 
     def test_add_census_authevent_email_fields(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_email_fields)
         self.assertEqual(response.status_code, 200)
 
     def test_add_census_authevent_email_default_incorrect(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_sms_default)
         self.assertEqual(response.status_code, 400)
         response = c.census(self.aeid, test_data.census_sms_fields)
@@ -1224,7 +1285,9 @@ class TestRegisterAndAuthenticateEmail(TestCase):
 
     def test_add_census_authevent_email_fields_incorrect(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_sms_default)
         self.assertEqual(response.status_code, 400)
         response = c.census(self.aeid, test_data.census_sms_fields)
@@ -1232,7 +1295,9 @@ class TestRegisterAndAuthenticateEmail(TestCase):
 
     def test_add_census_authevent_email_repeat(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_email_repeat)
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
@@ -1240,13 +1305,17 @@ class TestRegisterAndAuthenticateEmail(TestCase):
 
     def test_add_census_authevent_email_with_spaces(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_email_spaces)
         self.assertEqual(response.status_code, 200)
 
     def _test_add_used_census(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
 
         census = ACL.objects.filter(perm="vote", object_type="AuthEvent",
                 object_id=str(self.aeid))
@@ -1299,7 +1368,9 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         ini_codes = Code.objects.count()
 
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         for i in range(settings.SEND_CODES_EMAIL_MAX):
             response = c.register(self.aeid, test_data.auth_email_default)
             self.assertEqual(response.status_code, 200)
@@ -1366,7 +1437,9 @@ class TestRegisterAndAuthenticateEmail(TestCase):
     def test_send_auth_email_url2_home_url(self):
         # Add census
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_email_default1)
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
@@ -1421,7 +1494,9 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.ae.save()
 
         c = JClient()
-        c.authenticate(0, test_data.admin)
+        response = c.authenticate(0, test_data.admin)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_email_unique_dni)
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
@@ -1449,8 +1524,12 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.ae.save()
 
         c = JClient()
-        c.authenticate(0, test_data.admin)
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(0, test_data.admin)
+        self.assertEqual(response.status_code, 200)
+
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
@@ -1482,10 +1561,13 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-        ae = AuthEvent(auth_method="sms",
-                auth_method_config=test_data.authmethod_config_sms_default,
-                status='started',
-                census="open")
+        ae = AuthEvent(
+            auth_method="sms",
+            extra_fields=test_data.ae_sms_default['extra_fields'],
+            auth_method_config=test_data.authmethod_config_sms_default,
+            status='started',
+            census="open"
+        )
         ae.save()
         self.ae = ae
         self.aeid = ae.pk
@@ -1519,19 +1601,25 @@ class TestRegisterAndAuthenticateSMS(TestCase):
 
     def test_add_census_authevent_sms_default(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_sms_default)
+        response = c.authenticate(self.aeid, test_data.auth_sms_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_sms_default)
         self.assertEqual(response.status_code, 200)
 
     def test_add_census_authevent_sms_fields(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_sms_default)
+        response = c.authenticate(self.aeid, test_data.auth_sms_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_sms_fields)
         self.assertEqual(response.status_code, 200)
 
     def _test_add_census_authevent_sms_repeat(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_sms_default)
+        response = c.authenticate(self.aeid, test_data.auth_sms_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_sms_repeat)
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
@@ -1539,7 +1627,9 @@ class TestRegisterAndAuthenticateSMS(TestCase):
 
     def _test_add_used_census(self):
         c = JClient()
-        c.authenticate(0, test_data.admin)
+        response = c.authenticate(0, test_data.admin)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_sms_default_used)
         self.assertEqual(response.status_code, 200)
 
@@ -1554,7 +1644,9 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertEqual(r['message'], 'Incorrect data')
 
         c = JClient()
-        c.authenticate(0, test_data.admin)
+        response = c.authenticate(0, test_data.admin)
+        self.assertEqual(response.status_code, 200)
+
         codes = Code.objects.count()
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
@@ -1659,7 +1751,9 @@ class TestRegisterAndAuthenticateSMS(TestCase):
     @override_settings(**override_celery_data)
     def _test_add_register_authevent_sms_resend(self):
         c = JClient()
-        c.authenticate(0, test_data.admin)
+        response = c.authenticate(0, test_data.admin)
+        self.assertEqual(response.status_code, 200)
+
         ini_codes = Code.objects.count()
         data = {
                 "tlf": "333333333",
@@ -1765,7 +1859,9 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.ae.save()
 
         c = JClient()
-        c.authenticate(0, test_data.admin)
+        response = c.authenticate(0, test_data.admin)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_sms_unique_dni)
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/?validate' % self.aeid, {})
@@ -1795,7 +1891,9 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.ae.save()
 
         c = JClient()
-        c.authenticate(0, test_data.admin)
+        response = c.authenticate(0, test_data.admin)
+        self.assertEqual(response.status_code, 200)
+
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
@@ -1832,10 +1930,13 @@ class TestSmallCensusSearch(TestCase):
                 "config": Email.CONFIG,
                 "pipeline": Email.PIPELINES
         }
-        ae = AuthEvent(auth_method=test_data.auth_event9['auth_method'],
-                auth_method_config=auth_method_config,
-                extra_fields=test_data.auth_event9['extra_fields'],
-                status='started', census=test_data.auth_event9['census'])
+        ae = AuthEvent(
+            auth_method=test_data.auth_event9['auth_method'],
+            extra_fields=test_data.auth_event9['extra_fields'],
+            auth_method_config=auth_method_config,
+            status='started',
+            census=test_data.auth_event9['census']
+        )
         ae.save()
         self.ae = ae
         self.aeid = ae.pk
@@ -1916,10 +2017,13 @@ class TestSlugMessages(TestCase):
                 "config": Email.CONFIG,
                 "pipeline": Email.PIPELINES
         }
-        ae = AuthEvent(auth_method=test_data.auth_event12['auth_method'],
-                auth_method_config=auth_method_config,
-                extra_fields=test_data.auth_event12['extra_fields'],
-                status='started', census=test_data.auth_event12['census'])
+        ae = AuthEvent(
+            auth_method=test_data.auth_event12['auth_method'],
+            extra_fields=test_data.auth_event12['extra_fields'],
+            auth_method_config=auth_method_config,
+            status='started', 
+            census=test_data.auth_event12['census']
+        )
         ae.save()
         self.ae = ae
         self.aeid = ae.pk
@@ -1978,6 +2082,7 @@ class TestSlugMessages(TestCase):
 
         c = JClient()
         res_auth = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(res_auth.status_code, 200)
 
         data = test_data.auth_event13
         response = c.post('/api/auth-event/', data)
@@ -1988,9 +2093,9 @@ class TestSlugMessages(TestCase):
         response = c.get('/api/auth-event/%d/' % auth_id, data)
         r = parse_json_response(response)
         self.assertTrue('events' in r and 'extra_fields' in r['events'])
-        self.assertEqual(1, len(r['events']['extra_fields']))
-        self.assertTrue('slug' in r['events']['extra_fields'][0])
-        self.assertEqual("NO_DE__SOCIO", r['events']['extra_fields'][0]['slug'])
+        self.assertEqual(2, len(r['events']['extra_fields']))
+        self.assertTrue('slug' in r['events']['extra_fields'][1])
+        self.assertEqual("NO_DE__SOCIO", r['events']['extra_fields'][1]['slug'])
 
 
 class TestUserExtra(TestCase):
@@ -2008,10 +2113,13 @@ class TestUserExtra(TestCase):
         self.admin_ae.extra_fields = test_data.extra_fields16
         self.admin_ae.save()
 
-        ae = AuthEvent(auth_method=test_data.auth_event12['auth_method'],
-                auth_method_config=auth_method_config,
-                extra_fields=test_data.auth_event12['extra_fields'],
-                status='started', census=test_data.auth_event12['census'])
+        ae = AuthEvent(
+            auth_method=test_data.auth_event12['auth_method'],
+            extra_fields=test_data.auth_event12['extra_fields'],
+            auth_method_config=auth_method_config,
+            status='started',
+            census=test_data.auth_event12['census']
+        )
         ae.save()
         self.ae = ae
         self.aeid = ae.pk
@@ -2092,10 +2200,13 @@ class TestCallback(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-        ae = AuthEvent(auth_method="email",
-                auth_method_config=test_data.authmethod_config_email_default,
-                status='started',
-                census="open")
+        ae = AuthEvent(
+            auth_method="email",
+            extra_fields=test_data.ae_email_default['extra_fields'],
+            auth_method_config=test_data.authmethod_config_email_default,
+            status='started',
+            census="open"
+        )
         ae.save()
         self.ae = ae
         self.aeid = ae.pk
@@ -2132,7 +2243,7 @@ class TestCallback(TestCase):
         action = Action.objects.get(executer__id=self.uid)
         self.assertEqual(action.action_name, "authevent:callback")
 
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
         response = c.post('/api/auth-event/%d/callback/' % self.aeid, {})
         self.assertEqual(response.status_code, 403)
 
@@ -2146,6 +2257,7 @@ class TestVoteStats(TestCase):
 
         auth_event = AuthEvent(
             auth_method="email",
+            extra_fields=test_data.ae_email_default['extra_fields'],
             auth_method_config=test_data.authmethod_config_email_default,
             status='started',
             census="open"
@@ -2291,11 +2403,14 @@ class TestRevotes(TestCase):
         return 'khmac:///sha-256;' + h.hexdigest() + '/' + msg
 
     def setUp(self):
-        ae = AuthEvent(auth_method="email",
-                auth_method_config=test_data.authmethod_config_email_default,
-                status='started',
-                census="open",
-                num_successful_logins_allowed = 0)
+        ae = AuthEvent(
+            auth_method="email",
+            extra_fields=test_data.ae_email_default['extra_fields'],
+            auth_method_config=test_data.authmethod_config_email_default,
+            status='started',
+            census="open",
+            num_successful_logins_allowed=0
+        )
         ae.save()
         self.ae = ae
         self.aeid = ae.pk
@@ -2328,7 +2443,9 @@ class TestRevotes(TestCase):
 
     def test_check_1_2_revotes(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_email_default1)
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
@@ -2374,7 +2491,9 @@ class TestRevotes(TestCase):
 
     def test_check_50_revotes_max(self):
         c = JClient()
-        c.authenticate(self.aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
         response = c.census(self.aeid, test_data.census_email_default1)
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
@@ -2405,8 +2524,11 @@ class TestAdminFields(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-        self.ae = AuthEvent(auth_method=test_data.auth_event4['auth_method'],
-                auth_method_config=test_data.authmethod_config_email_default)
+        self.ae = AuthEvent(
+            auth_method=test_data.auth_event4['auth_method'],
+            extra_fields=test_data.auth_event4['extra_fields'],
+            auth_method_config=test_data.authmethod_config_email_default
+        )
         self.ae.save()
 
         self.aeid_special = 1
@@ -2524,7 +2646,7 @@ class TestAdminDeregister(TestCase):
         data = {"email": "asd@asd.com", "captcha": "asdasd"}
         response = c.register(self.aeid_special, data)
         self.assertEqual(response.status_code, 200)
-        user = User.objects.get(email=data['email'])
+        user = User.objects.get(email=data['email'], is_active=True)
         self.assertEqual(user.is_active, True)
 
         # authentication works
@@ -2540,6 +2662,17 @@ class TestAdminDeregister(TestCase):
 
         ae = AuthEvent.objects.get(pk=1)
         ae.auth_method = "sms"
+        ae.extra_fields = [
+            {
+                "name": "tlf",
+                "type": "tlf", 
+                "required": True,
+                "unique": True,
+                "min": 4,
+                "max": 20,
+                "required_on_authentication": True
+            }
+        ]
         ae.save()
 
         # Register
@@ -2582,7 +2715,7 @@ class TestAdminDeregister(TestCase):
         data = {"tlf": "+34777777777", "captcha": "asdasd"}
         response = c.register(self.aeid_special, data)
         self.assertEqual(response.status_code, 200)
-        user = User.objects.get(userdata__tlf=data['tlf'], userdata__event=ae)
+        user = User.objects.get(userdata__tlf=data['tlf'], userdata__event=ae, is_active=True)
         self.assertEqual(user.is_active, True)
 
         # authentication works
@@ -2598,6 +2731,17 @@ class TestAdminDeregister(TestCase):
 
         ae = AuthEvent.objects.get(pk=1)
         ae.auth_method = "sms-otp"
+        ae.extra_fields = [
+            {
+                "name": "tlf",
+                "type": "tlf", 
+                "required": True,
+                "unique": True,
+                "min": 4,
+                "max": 20,
+                "required_on_authentication": True
+            }
+        ]
         ae.save()
 
         # Register
@@ -2644,7 +2788,7 @@ class TestAdminDeregister(TestCase):
         data = {"tlf": "+34777777777", "captcha": "asdasd"}
         response = c.register(self.aeid_special, data)
         self.assertEqual(response.status_code, 200)
-        user = User.objects.get(userdata__tlf=data['tlf'], userdata__event=ae)
+        user = User.objects.get(userdata__tlf=data['tlf'], userdata__event=ae, is_active=True)
         self.assertEqual(user.is_active, True)
 
         # authentication works
@@ -2663,11 +2807,14 @@ class ApiTestActivationAndActivity(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-        ae = AuthEvent(auth_method="email",
-                auth_method_config=test_data.authmethod_config_email_default,
-                status='started',
-                census="open",
-                num_successful_logins_allowed = 1)
+        ae = AuthEvent(
+            auth_method="email",
+            auth_method_config=test_data.authmethod_config_email_default,
+            extra_fields=test_data.ae_email_default['extra_fields'],
+            status='started',
+            census="open",
+            num_successful_logins_allowed = 1
+        )
         ae.save()
         self.ae = ae
         self.aeid = ae.pk
@@ -3029,10 +3176,12 @@ class ApiTestBallotBoxes(TestCase):
         ae = AuthEvent(
             auth_method="email",
             auth_method_config=test_data.authmethod_config_email_default,
+            extra_fields=test_data.ae_email_default['extra_fields'],
             status='stopped',
             census="open",
             num_successful_logins_allowed = 1,
-            has_ballot_boxes=True)
+            has_ballot_boxes=True
+        )
         ae.save()
         self.ae = ae
         self.aeid = ae.pk
@@ -3541,6 +3690,7 @@ class ApiTestTallySheets(TestCase):
         ae = AuthEvent(
             auth_method="email",
             auth_method_config=test_data.authmethod_config_email_default,
+            extra_fields=test_data.ae_email_default['extra_fields'],
             status='stopped',
             census="open",
             num_successful_logins_allowed = 1,
@@ -3851,16 +4001,20 @@ class ApiTestPublicQuery(TestCase):
 
     def setUp(self):
         self.ae1 = AuthEvent(
-          auth_method=test_data.auth_event4['auth_method'],
-          auth_method_config=test_data.authmethod_config_email_default,
-          allow_public_census_query=True,
-          status="notstarted")
+            auth_method=test_data.auth_event4['auth_method'],
+            extra_fields=test_data.auth_event4['extra_fields'],
+            auth_method_config=test_data.authmethod_config_email_default,
+            allow_public_census_query=True,
+            status="notstarted"
+        )
         self.ae1.save()
 
         self.ae2 = AuthEvent(
-          auth_method=test_data.auth_event4['auth_method'],
-          auth_method_config=test_data.authmethod_config_email_default,
-          allow_public_census_query=False)
+            auth_method=test_data.auth_event4['auth_method'],
+            extra_fields=test_data.auth_event4['extra_fields'],
+            auth_method_config=test_data.authmethod_config_email_default,
+            allow_public_census_query=False
+        )
         self.ae2.save()
 
         u2 = User(username='test1', email="noperm@agoravoting.com")
@@ -4006,7 +4160,7 @@ class ApiTestRequiredOnAuthentication(TestCase):
         response = c.post(url_auth, user_data)
         self.assertEqual(response.status_code, 400)
 
-        self.ae.hide_default_login_lookup_field = True
+        self.ae.extra_fields[0]['required_on_authentication'] = False
         self.ae.save()
 
         c = JClient()
@@ -4063,7 +4217,7 @@ class ApiTestHideDefaultLoginLookupField(TestCase):
 
     def _hide_default_login_lookup_field(self, is_resend=False):
         # reset data
-        self.ae.extra_fields[0]["required_on_authentication"] = True
+        self.ae.extra_fields[1]["required_on_authentication"] = True
         self.ae.hide_default_login_lookup_field = False
 
         if is_resend:
@@ -4080,10 +4234,9 @@ class ApiTestHideDefaultLoginLookupField(TestCase):
         response = c.post(url_auth, user_data_good)
         self.assertEqual(response.status_code, 400)
 
-        self.ae.hide_default_login_lookup_field = True
+        self.ae.extra_fields[0]['required_on_authentication'] = False
         self.ae.save()
-                
-        # now that hide_default_login_lookup_field auth without email works
+
         response = c.post(url_auth, user_data_good)
         self.assertEqual(response.status_code, 200)
 
@@ -4092,8 +4245,7 @@ class ApiTestHideDefaultLoginLookupField(TestCase):
         self.assertEqual(response.status_code, 400)
 
         # if dni is not required_on_authentication it doesn't work
-        self.ae.extra_fields[0]["required_on_authentication"] = False
-        self.ae.hide_default_login_lookup_field = True
+        self.ae.extra_fields[1]["required_on_authentication"] = False
         self.ae.save()
         response = c.post(url_auth, user_data_good)
         self.assertEqual(response.status_code, 400)
@@ -4269,9 +4421,23 @@ class ApitTestCensusManagementInElectionWithChildren(TestCase):
         response = c.authenticate(self.aeid_special, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
+        def change_extra_fields(event_data):
+            if auth_method.startswith('sms'):
+                event_data['extra_fields'] = [
+                    {
+                        "name": "tlf",
+                        "type": "tlf", 
+                        "required": True,
+                        "min": 4,
+                        "max": 20,
+                        "required_on_authentication": True
+                    }
+                ]
+
         # create the child election1
         event_data = copy.deepcopy(test_data.auth_event19)
         event_data['auth_method'] = auth_method
+        change_extra_fields(event_data)
         response = c.post('/api/auth-event/', event_data)
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
@@ -4280,6 +4446,7 @@ class ApitTestCensusManagementInElectionWithChildren(TestCase):
         # create the child election2
         event_data = copy.deepcopy(test_data.auth_event19)
         event_data['auth_method'] = auth_method
+        change_extra_fields(event_data)
         response = c.post('/api/auth-event/', event_data)
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
@@ -4288,6 +4455,7 @@ class ApitTestCensusManagementInElectionWithChildren(TestCase):
         # create the parent election
         event_data = test_data.get_auth_event_20(child_id_1, child_id_2)
         event_data['auth_method'] = auth_method
+        change_extra_fields(event_data)
         response = c.post('/api/auth-event/', event_data)
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
@@ -4683,11 +4851,13 @@ class TestAuthEventList(TestCase):
     def setUp(self):
         ae = AuthEvent(
             auth_method=test_data.auth_event4['auth_method'],
+            extra_fields=test_data.auth_event4['extra_fields'],
             auth_method_config=test_data.authmethod_config_email_default
         )
         ae.save()
         ae2 = AuthEvent(
             auth_method=test_data.auth_event4['auth_method'],
+            extra_fields=test_data.auth_event4['extra_fields'],
             auth_method_config=test_data.authmethod_config_email_default,
             parent_id=ae.pk
         )

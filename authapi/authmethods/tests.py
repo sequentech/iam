@@ -35,13 +35,20 @@ class AuthMethodTestCase(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-        ae = AuthEvent(auth_method=test_data.auth_event4['auth_method'],
-                status='started', census=test_data.auth_event4['census'],
-                auth_method_config=test_data.authmethod_config_email_default)
+        ae = AuthEvent(
+            auth_method=test_data.auth_event4['auth_method'],
+            extra_fields=test_data.auth_event4['extra_fields'],
+            status='started',
+            census=test_data.auth_event4['census'],
+            auth_method_config=test_data.authmethod_config_email_default
+        )
         ae.save()
         self.aeid = ae.pk
 
-        u = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u = User(
+            username=test_data.admin['username'],
+            email=test_data.admin['email']
+        )
         u.set_password(test_data.pwd_auth['password'])
         u.save()
         u.userdata.event = ae
@@ -76,9 +83,13 @@ class AuthMethodEmailTestCase(TestCase):
 
     def setUp(self):
         auth_method_config = test_data.authmethod_config_email_default
-        ae = AuthEvent(auth_method=test_data.auth_event3['auth_method'],
-                auth_method_config=auth_method_config,
-                status='started', census=test_data.auth_event3['census'])
+        ae = AuthEvent(
+            auth_method=test_data.auth_event3['auth_method'],
+            extra_fields=test_data.auth_event3['extra_fields'],
+            auth_method_config=auth_method_config,
+            status='started',
+            census=test_data.auth_event3['census']
+        )
         ae.save()
         self.aeid = ae.pk
 
@@ -93,7 +104,12 @@ class AuthMethodEmailTestCase(TestCase):
         u.userdata.save()
         self.userid = u.pk
 
-        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit', object_id=ae.pk)
+        acl = ACL(
+            user=u.userdata,
+            object_type='AuthEvent',
+            perm='edit',
+            object_id=ae.pk
+        )
         acl.save()
 
         u2 = User(email='test2@agoravoting.com')
@@ -107,9 +123,17 @@ class AuthMethodEmailTestCase(TestCase):
         }
         u2.userdata.save()
 
-        code = Code(user=u.userdata, code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', auth_event_id=ae.pk)
+        code = Code(
+            user=u.userdata,
+            code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+            auth_event_id=ae.pk
+        )
         code.save()
-        code = Code(user=u2.userdata, code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', auth_event_id=ae.pk)
+        code = Code(
+            user=u2.userdata,
+            code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+            auth_event_id=ae.pk
+        )
         code.save()
 
 
@@ -506,15 +530,17 @@ class PreRegisterTestCaseEmail(TestCase):
                 "config": Email.CONFIG,
                 "pipeline": Email.PIPELINES
         }
-        ae = AuthEvent(auth_method=test_data.auth_event8['auth_method'],
-                auth_method_config=auth_method_config,
-                extra_fields=test_data.auth_event8['extra_fields'],
-                status='started', census=test_data.auth_event8['census'])
+        ae = AuthEvent(
+            auth_method=test_data.auth_event8['auth_method'],
+            auth_method_config=auth_method_config,
+            extra_fields=test_data.auth_event8['extra_fields'],
+            status='started', census=test_data.auth_event8['census']
+        )
         ae.save()
         self.aeid = ae.pk
 
         # Create user for authevent8
-        u = User(username='test1', email='test@agoravoting.com', is_active=False)
+        u = User(username='test1', email='test@agoravoting.com', is_active=True)
         u.save()
         u.userdata.event = ae
         u.userdata.metadata = {
@@ -525,9 +551,18 @@ class PreRegisterTestCaseEmail(TestCase):
         }
         u.userdata.save()
         self.userid = u.pk
-        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit', object_id=ae.pk)
+        acl = ACL(
+            user=u.userdata,
+            object_type='AuthEvent',
+            perm='edit',
+            object_id=ae.pk
+        )
         acl.save()
-        code = Code(user=u.userdata, code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', auth_event_id=ae.pk)
+        code = Code(
+            user=u.userdata,
+            code='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+            auth_event_id=ae.pk
+        )
         code.save()
 
     @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
@@ -575,7 +610,6 @@ class PreRegisterTestCaseEmail(TestCase):
         response = c.register(self.aeid, data)
         self.assertEqual(response.status_code, 200)
 
-
 class PreRegisterTestCaseFillEmail(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
@@ -593,7 +627,7 @@ class PreRegisterTestCaseFillEmail(TestCase):
         self.aeid = ae.pk
 
         # Create user for authevent9
-        u = User(username='test1', email='', is_active=False)
+        u = User(username='test1', email='', is_active=True)
         u.save()
         u.userdata.event = ae
         u.userdata.metadata = {
@@ -654,7 +688,7 @@ class PreRegisterTestCaseTlf(TestCase):
         self.aeid = ae.pk
 
         # Create user for authevent10
-        u = User(username='test1', email='test@agoravoting.com', is_active=False)
+        u = User(username='test1', email='test@agoravoting.com', is_active=True)
         u.save()
         u.userdata.event = ae
         u.userdata.tlf = '+34666666666'
@@ -729,10 +763,10 @@ class PreRegisterTestCaseFillTlf(TestCase):
         self.aeid = ae.pk
 
         # Create user for authevent11
-        u = User(username='test1', email='test@agoravoting.com', is_active=False)
+        u = User(username='test1', email='test@agoravoting.com', is_active=True)
         u.save()
         u.userdata.event = ae
-        u.userdata.tlf = ''
+        u.userdata.tlf = None
         u.userdata.metadata = {
                 'match_field': 'match_code_555'
         }

@@ -48,8 +48,23 @@ class PWD:
         ],
     }
     USED_TYPE_FIELDS = ['username', 'password']
-    username_definition = { "name": "username", "type": "text", "required": True, "min": 3, "max": 200, "required_on_authentication": True }
-    password_definition = { "name": "password", "type": "password", "required": True, "min": 3, "max": 200, "required_on_authentication": True }
+    username_definition = {
+        "name": "username",
+        "type": "text",
+        "unique": True,
+        "required": True,
+        "min": 3, 
+        "max": 200,
+        "required_on_authentication": True
+    }
+    password_definition = {
+        "name": "password",
+        "type": "password",
+        "required": True,
+        "min": 3,
+        "max": 200,
+        "required_on_authentication": True
+    }
 
     def check_config(self, config):
         return ''
@@ -57,15 +72,15 @@ class PWD:
     def resend_auth_code(self, config):
         return {'status': 'ok'}
 
-    def census(self, ae, request):
+    def census(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))
         validation = req.get('field-validation', 'enabled') == 'enabled'
 
         msg = ''
-        usernames = []
-        for r in req.get('census'):
-            username = r.get('username')
-            password = r.get('password')
+        unique_users = dict()
+        for census_element in req.get('census'):
+            username = census_element.get('username')
+            password = census_element.get('password')
             msg += check_field_type(self.username_definition, username)
             msg += check_field_type(self.password_definition, password)
             if validation:
@@ -74,12 +89,26 @@ class PWD:
                 msg += check_field_type(self.password_definition, password)
                 msg += check_field_value(self.password_definition, password)
 
-            msg += check_fields_in_request(r, ae, 'census', validation=validation)
+            msg += check_fields_in_request(
+                census_element,
+                auth_event,
+                'census',
+                validation=validation
+            )
             if validation:
-                msg += exist_user(r, ae)
-                if username in usernames:
-                    msg += "Username %s repeat in this census." % username
-                usernames.append(username)
+                exists, extra_msg = exists_unique_user(
+                    unique_users,
+                    census_element,
+                    auth_event
+                )
+                msg += extra_msg
+                if not exists:
+                    add_unique_user(
+                        unique_users,
+                        census_element,
+                        auth_event
+                    )
+                    msg += exist_user(census_element, auth_event)
             else:
                 if msg:
                     LOGGER.debug(\
@@ -89,16 +118,23 @@ class PWD:
                         "validation '%r'\n"\
                         "authevent '%r'\n"\
                         "Stack trace: \n%s",\
-                        msg, req, validation, ae, stack_trace_str())
+                        msg, req, validation, auth_event, stack_trace_str())
                     msg = ''
                     continue
-                exist = exist_user(r, ae)
+                exist = exist_user(census_element, auth_event)
                 if exist and not exist.count('None'):
                     continue
                 # By default we creates the user as active we don't check
                 # the pipeline
-                u = create_user(r, ae, True, request.user, user=username, password=password)
-                give_perms(u, ae)
+                u = create_user(
+                    census_element,
+                    auth_event,
+                    True,
+                    request.user, 
+                    user=username, 
+                    password=password
+                )
+                give_perms(u, auth_event)
         if msg and validation:
             LOGGER.error(\
                 "PWD.census error\n"\
@@ -107,15 +143,25 @@ class PWD:
                 "validation '%r'\n"\
                 "authevent '%r'\n"\
                 "Stack trace: \n%s",\
-                msg, req, validation, ae, stack_trace_str())
-            return self.error("Incorrect data", error_codename="invalid_credentials")
+                msg, req, validation, auth_event, stack_trace_str())
+            return self.error(
+                "Incorrect data", 
+                error_codename="invalid_credentials"
+            )
 
         if validation:
-            for r in req.get('census'):
+            for census_element in req.get('census'):
                 # By default we creates the user as active we don't check
                 # the pipeline
-                u = create_user(r, ae, True, request.user, user=username, password=password)
-                give_perms(u, ae)
+                u = create_user(
+                    census_element,
+                    auth_event,
+                    True,
+                    request.user,
+                    user=username,
+                    password=password
+                )
+                give_perms(u, auth_event)
         
         ret = {'status': 'ok'}
         LOGGER.debug(\
@@ -125,7 +171,7 @@ class PWD:
             "authevent '%r'\n"\
             "returns '%r'\n"\
             "Stack trace: \n%s",\
-            req, validation, ae, ret, stack_trace_str())
+            req, validation, auth_event, ret, stack_trace_str())
         return ret
 
     def authenticate_error(self, error, req, ae):
@@ -142,11 +188,10 @@ class PWD:
     def authenticate(self, auth_event, request, mode="authenticate"):
         d = {'status': 'ok'}
         req = json.loads(request.body.decode('utf-8'))
-        username = req.get('username', '')
-        pwd = req.get('password', '')
+        password = req.get('password', '')
 
         msg = ""
-        msg += check_fields_in_request(req, auth_event, 'authenticate')
+        msg += check_fields_in_request(req, auth_event, mode)
         if msg:
             LOGGER.error(\
                 "PWD.authenticate error\n"\
@@ -159,14 +204,10 @@ class PWD:
 
         try:
             q = get_base_auth_query(auth_event)
-
-            if 'username' in req:
-                q = q & Q(username=username)
-            elif not auth_event.hide_default_login_lookup_field:
-                return self.authenticate_error("no-username-provided", req, auth_event)
-
             q = get_required_fields_on_auth(req, auth_event, q)
             user = User.objects.get(q)
+            if mode == "authenticate":
+                post_verify_fields_on_auth(user, req, auth_event)
         except:
             return self.authenticate_error("user-not-found", req, auth_event)
 
@@ -175,9 +216,6 @@ class PWD:
             return self.authenticate_error("invalid-pipeline", req, auth_event)
 
         if mode == "authenticate":
-            if not user.check_password(pwd):
-                return self.authenticate_error("invalid-password", req, auth_event)
-
             if not verify_num_successful_logins(auth_event, 'PWD', user, req):
                 return self.authenticate_error(
                     "invalid_num_successful_logins_allowed", req, auth_event

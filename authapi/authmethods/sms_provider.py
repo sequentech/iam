@@ -60,7 +60,7 @@ class SMSProvider(object):
         prefix is configurable and this function can be overridden by each
         provider.
         """
-        if not isinstance(tlf, str):
+        if not isinstance(tlf, str) or len(tlf) == 0:
             return tlf
 
         # remove whitespace

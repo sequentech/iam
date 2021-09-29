@@ -79,6 +79,7 @@ class SmartLink:
     required=True,
     min=1,
     max=255,
+    unique=True,
     required_on_authentication=True
   )
 
@@ -98,7 +99,7 @@ class SmartLink:
     validation = req.get('field-validation', 'enabled') == 'enabled'
 
     msg = ''
-    current_user_ids = []
+    unique_users = dict()
     
     # cannot add voters to an election with invalid children election info
     if auth_event.children_election_info is not None:
@@ -154,10 +155,19 @@ class SmartLink:
             return self.error("Incorrect data", error_codename="invalid_data")
 
         if validation:
-          msg += exist_user(census_element, auth_event)
-          if user_id in current_user_id:
-            msg += "user_id %s is repeated in this census." % user_id
-          current_user_id.append(user_id)
+          exists, extra_msg = exists_unique_user(
+              unique_users,
+              census_element,
+              auth_event
+          )
+          msg += extra_msg
+          if not exists:
+              add_unique_user(
+                  unique_users,
+                  census_element,
+                  auth_event
+              )
+              msg += exist_user(census_element, auth_event)
         else:
           if msg:
             LOGGER.debug(\

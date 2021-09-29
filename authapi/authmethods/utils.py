@@ -387,7 +387,104 @@ def dni_constraint(val):
     expected = mod_letters[int(digits) % 23]
     return letter == expected
 
+def get_match_fields(auth_event):
+    reg_match_fields = []
+    if auth_event.extra_fields is not None:
+        reg_match_fields = [
+            field for field in auth_event.extra_fields
+            if (
+                "match_census_on_registration" in field and 
+                field['match_census_on_registration']
+            )
+        ]
+    return reg_match_fields
 
+def get_fill_empty_fields(auth_event):
+    reg_fill_empty_fields = []
+    if auth_event.extra_fields is not None:
+        reg_fill_empty_fields = [
+            f for f in auth_event.extra_fields
+            if (
+                "fill_if_empty_on_registration" in f and
+                f['fill_if_empty_on_registration']
+            )
+        ]
+    return reg_fill_empty_fields
+
+class MissingFieldError(Exception):
+    def __init__(self, field_name):
+        self.field_name = field_name
+
+def get_user_match_query(auth_event, user_data, base_query):
+    query = base_query
+    match_fields = get_match_fields(auth_event)
+    use_matching = len(match_fields) > 0
+    for field in match_fields:
+        field_name = field.get('name')
+        field_type = field.get('type')
+        
+        if field_name not in user_data:
+            raise MissingFieldError(field_name)
+
+        field_data = user_data.get(field_name)
+
+        if field_type == 'email':
+            query = query & Q(email=field_data)
+        elif field_type == 'tlf':
+            query = query & Q(userdata__tlf=field_data)
+        else:
+            query = query & Q(
+                userdata__metadata__contains={field_name: field_data}
+            )
+    return query, use_matching
+
+def get_fill_if_empty_query(auth_event, user_data, base_query):
+    query = base_query
+    fill_if_empty_fields = get_fill_empty_fields(auth_event)
+    for field in fill_if_empty_fields:
+        field_name = field.get('name')
+        field_type = field.get('type')
+        
+        if field_name not in user_data or (
+            isinstance(user_data[field_name], str) and 
+            len(user_data[field_name]) == 0
+        ):
+            raise MissingFieldError(field_name)
+
+        if field_type == 'email':
+            query = query & Q(email='')
+        elif field_type == 'tlf':
+            query = query & (Q(userdata__tlf='') | Q(userdata__tlf=None))
+        else:
+            query = query & Q(
+                userdata__metadata__contains={field_name: ''}
+            )
+    return query, fill_if_empty_fields
+
+def fill_empty_fields(fill_if_empty_fields, existing_user, new_user_data):
+    for field in fill_if_empty_fields:
+        field_name = field.get('name')
+        field_type = field.get('type')
+        if field_name not in new_user_data:
+            raise MissingFieldError(field_name)
+        
+        field_data = new_user_data[field_name]
+        save_user = False
+        save_userdata = False
+        if field_type == 'email':
+            existing_user.email = field_data
+            save_user = True
+        elif field_type == 'tlf':
+            existing_user.userdata.tlf = field_data
+            save_userdata = True
+        else:
+            existing_user.userdata.metadata[field_name] = new_user_data.get(field_name)
+            save_userdata = True
+        
+        if save_user:
+            existing_user.save()
+        if save_userdata:
+            existing_user.userdata.save()
 
 def canonize_extra_field(extra, req):
     field_name = extra.get('name')
@@ -399,6 +496,9 @@ def canonize_extra_field(extra, req):
     elif field_type == 'dni':
         if isinstance(field_value, str):
             req[field_name] = encode_dni(normalize_dni(field_value))
+    elif field_type == 'email':
+        if isinstance(field_value, str):
+            req[field_name] = field_value.strip().replace(' ', '')
     elif field_type == 'bool':
         if isinstance(field_value, str):
             req[field_name] = field_value.lower().strip() not in ["", "false"]
@@ -435,7 +535,6 @@ def check_pipeline(request, ae, step='register', default_pipeline=None):
                 data.pop('code')
             return data
     return RET_PIPE_CONTINUE
-
 
 # Checkers census, register and authentication
 def check_field_type(definition, field, step='register'):
@@ -477,7 +576,9 @@ def check_field_value(definition, field, req=None, ae=None, step='register'):
     if step == 'census' and definition.get('type') == 'captcha':
         return msg
     if field is None:
-        if definition.get('required'):
+        if definition.get('required') and (
+            definition.get('type') != 'password' or step != 'census-query'
+        ):
             msg += "Field %s is required" % definition.get('name')
     else:
         if isinstance(field, str):
@@ -565,44 +666,65 @@ def have_captcha(ae, step='register'):
                 return True
     return False
 
+def exists_unique_user(unique_users, user_data, auth_event):
+    for extra in auth_event.extra_fields:
+        if (
+            'unique' not in extra.keys() or 
+            not extra.get('unique') or
+            extra.get('name') not in user_data
+        ):
+            continue
+        
+        key_name = extra.get('name')
+        if user_data[key_name] in unique_users.get(key_name, dict()):
+            return True, "%r %r repeat." % (key_name, user_data[key_name])
+    return False, ""
 
-def exist_user(req, ae, get_repeated=False):
+def add_unique_user(unique_users, user_data, auth_event):
+    for extra in auth_event.extra_fields:
+        if (
+            'unique' not in extra.keys() or 
+            not extra.get('unique') or
+            extra.get('name') not in user_data
+        ):
+            continue
+        
+        key_name = extra.get('name')
+        key_value = user_data[key_name]
+        if key_name not in unique_users:
+            unique_users[key_name] = dict()    
+        unique_users[key_name][key_value] = True
+
+def exist_user(user_data, auth_event, get_repeated=False, ignore_user=None):
     msg = ''
-    if req.get('email'):
-        try:
-            user = User.objects.get(email=req.get('email'), userdata__event=ae)
-            msg += "Email %s repeat." % req.get('email')
-        except:
-            pass
-    if req.get('tlf'):
-        try:
-            tlf = get_cannonical_tlf(req['tlf'])
-            user = User.objects.get(userdata__tlf=tlf, userdata__event=ae)
-            msg += "Tel %s repeat." % req.get('tlf')
-        except:
-            pass
-    if req.get('username'):
-        try:
-            user = User.objects.get(username=r.get('username'), userdata__event=ae)
-            msg += "Username %s repeat." % req.get('username')
-        except:
-            pass
 
-    if not msg:
-        if not ae.extra_fields:
-            return ''
-        # check that the unique:True extra fields are actually unique
-        base_q = Q(userdata__event=ae, is_active=True)
-        for extra in ae.extra_fields:
-            if 'unique' in extra.keys() and extra.get('unique'):
-                reg_name = extra['name']
-                req_field_data = req.get(reg_name)
-                if reg_name and req_field_data:
-                    q = base_q & Q(userdata__metadata__contains={reg_name: req_field_data})
-                    repeated_list = User.objects.filter(q)
-                    if repeated_list.count() > 0:
-                        msg += "%s %s repeat." % (reg_name, req_field_data)
-                        user = repeated_list[0]
+    if not auth_event.extra_fields:
+        return ''
+    # check that the unique:True extra fields are actually unique
+    base_q = Q(userdata__event=auth_event, is_active=True)
+    for extra in auth_event.extra_fields:
+        if 'unique' not in extra.keys() or not extra.get('unique'):
+            continue
+        reg_name = extra['name']
+        req_field_data = user_data.get(reg_name, None)
+        if not req_field_data or not reg_name:
+            continue
+        if reg_name == 'username':
+            extra_q = Q(username=req_field_data)
+        elif reg_name == 'tlf':
+            tlf = get_cannonical_tlf(req_field_data)
+            extra_q = Q(userdata__tlf=tlf)
+        elif reg_name == 'email':
+            extra_q = Q(email=req_field_data)
+        else:
+            extra_q = Q(userdata__metadata__contains={reg_name: req_field_data}) 
+        q = base_q & extra_q
+        repeated_list = User.objects.filter(q)
+        if ignore_user:
+            repeated_list = repeated_list.exclude(id=ignore_user.id)
+        if repeated_list.count() > 0:
+            msg += "%s %s repeat." % (reg_name, req_field_data)
+            user = repeated_list[0]
 
     if not msg:
         return ''
@@ -618,11 +740,11 @@ def get_cannonical_tlf(tlf):
     return con.get_canonical_format(tlf)
 
 
-def edit_user(user, req, ae):
-    if ae.auth_method == 'user-and-password':
+def edit_user(user, req, auth_event):
+    if auth_event.auth_method == 'user-and-password':
         req.pop('username')
         req.pop('password')
-    elif ae.auth_method == 'email-and-password':
+    elif auth_event.auth_method == 'email-and-password':
         req.pop('email')
         req.pop('password')
 
@@ -633,8 +755,8 @@ def edit_user(user, req, ae):
         user.userdata.tlf = get_cannonical_tlf(req['tlf'])
         req.pop('tlf')
 
-    if ae.extra_fields:
-        for extra in ae.extra_fields:
+    if auth_event.extra_fields:
+        for extra in auth_event.extra_fields:
             if extra.get('type') == 'email' and req.get(extra.get('name')):
                 user.email = req.get(extra.get('name'))
                 req.pop(extra.get('name'))
@@ -655,7 +777,7 @@ def edit_user(user, req, ae):
                 req[extra.get('name')] = fname
     user.save()
 
-    if ae.children_election_info is not None:
+    if auth_event.children_election_info is not None:
         user.userdata.children_event_id_list = req.get('children_event_id_list')
 
     user.userdata.metadata = req
@@ -727,31 +849,32 @@ def get_trimmed_user(user, ae):
     return metadata
 
 
-def create_user(req, ae, active, creator, user=None, password=None):
+def create_user(req, auth_event, active, creator, user=None, password=None):
     from api.models import Action
     if not user:
-        user = generate_username(req, ae)
+        user = generate_username(req, auth_event)
 
-    u = User(username=user)
-    u.is_active = active
+    new_user = User(username=user)
+    new_user.is_active = active
     if password:
-        u.set_password(password)
-    u.save()
+        new_user.set_password(password)
+    new_user.save()
 
-    u.userdata.event = ae
-    u.userdata.save()
+    new_user.userdata.event = auth_event
+    new_user.userdata.save()
 
     is_anon = creator is None or isinstance(creator, AnonymousUser)
 
     action = Action(
-        executer=u if is_anon else creator,
-        receiver=u,
+        executer=new_user if is_anon else creator,
+        receiver=new_user,
         action_name='user:register' if is_anon else 'user:added-to-census',
-        event=ae,
-        metadata=get_trimmed_user_req(req, ae))
+        event=auth_event,
+        metadata=get_trimmed_user_req(req, auth_event)
+    )
     action.save()
 
-    return edit_user(u, req, ae)
+    return edit_user(new_user, req, auth_event)
 
 def check_metadata(req, user):
     meta = user.userdata.metadata
@@ -792,7 +915,8 @@ def post_verify_fields_on_auth(user, req, auth_event):
             value = req.get(field.get('name'), '')
             typee = field.get('type')
             if typee == 'password':
-                user.check_password(value)
+                if not user.check_password(value):
+                    raise Exception()
 
 
 def get_required_fields_on_auth(req, ae, q):
@@ -807,11 +931,11 @@ def get_required_fields_on_auth(req, ae, q):
             
             # Raise exception if a required field is not provided.
             # It will be catched by parent as an error.
-            if field.get('name') not in req:
+            typee = field.get('type')
+            if field.get('name') not in req and typee != 'password':
                 raise Exception()
 
             value = req.get(field.get('name'), '')
-            typee = field.get('type')
             if typee == 'email':
                 q = q & Q(email=value)
             elif typee == 'tlf':
@@ -820,7 +944,10 @@ def get_required_fields_on_auth(req, ae, q):
                 # we verify this later im post_verify_fields_on_auth
                 continue
             else:
-                q = q & Q(userdata__metadata__contains={field.get('name'): value})
+                if typee == 'text' and field.get('name') == 'username':
+                    q = q & Q(username=value)
+                else:
+                    q = q & Q(userdata__metadata__contains={field.get('name'): value})
 
     return q
 
