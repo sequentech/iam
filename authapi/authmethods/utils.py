@@ -740,11 +740,11 @@ def get_cannonical_tlf(tlf):
     return con.get_canonical_format(tlf)
 
 
-def edit_user(user, req, ae):
-    if ae.auth_method == 'user-and-password':
+def edit_user(user, req, auth_event):
+    if auth_event.auth_method == 'user-and-password':
         req.pop('username')
         req.pop('password')
-    elif ae.auth_method == 'email-and-password':
+    elif auth_event.auth_method == 'email-and-password':
         req.pop('email')
         req.pop('password')
 
@@ -755,8 +755,8 @@ def edit_user(user, req, ae):
         user.userdata.tlf = get_cannonical_tlf(req['tlf'])
         req.pop('tlf')
 
-    if ae.extra_fields:
-        for extra in ae.extra_fields:
+    if auth_event.extra_fields:
+        for extra in auth_event.extra_fields:
             if extra.get('type') == 'email' and req.get(extra.get('name')):
                 user.email = req.get(extra.get('name'))
                 req.pop(extra.get('name'))
@@ -777,7 +777,7 @@ def edit_user(user, req, ae):
                 req[extra.get('name')] = fname
     user.save()
 
-    if ae.children_election_info is not None:
+    if auth_event.children_election_info is not None:
         user.userdata.children_event_id_list = req.get('children_event_id_list')
 
     user.userdata.metadata = req
@@ -849,31 +849,32 @@ def get_trimmed_user(user, ae):
     return metadata
 
 
-def create_user(req, ae, active, creator, user=None, password=None):
+def create_user(req, auth_event, active, creator, user=None, password=None):
     from api.models import Action
     if not user:
-        user = generate_username(req, ae)
+        user = generate_username(req, auth_event)
 
-    u = User(username=user)
-    u.is_active = active
+    new_user = User(username=user)
+    new_user.is_active = active
     if password:
-        u.set_password(password)
-    u.save()
+        new_user.set_password(password)
+    new_user.save()
 
-    u.userdata.event = ae
-    u.userdata.save()
+    new_user.userdata.event = auth_event
+    new_user.userdata.save()
 
     is_anon = creator is None or isinstance(creator, AnonymousUser)
 
     action = Action(
-        executer=u if is_anon else creator,
-        receiver=u,
+        executer=new_user if is_anon else creator,
+        receiver=new_user,
         action_name='user:register' if is_anon else 'user:added-to-census',
-        event=ae,
-        metadata=get_trimmed_user_req(req, ae))
+        event=auth_event,
+        metadata=get_trimmed_user_req(req, auth_event)
+    )
     action.save()
 
-    return edit_user(u, req, ae)
+    return edit_user(new_user, req, auth_event)
 
 def check_metadata(req, user):
     meta = user.userdata.metadata

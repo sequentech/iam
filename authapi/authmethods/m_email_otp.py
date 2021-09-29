@@ -471,7 +471,7 @@ class Email:
             )
         except MissingFieldError as error:
             LOGGER.error(
-                "Email.register error\n"\
+                "EmailOtp.register error\n"\
                 "match field '%r' missing in request '%r'\n"\
                 "authevent '%r'\n"\
                 "Stack trace: \n%s",\
@@ -481,7 +481,6 @@ class Email:
                 "Incorrect data",
                 error_codename="invalid_credentials"
             )
-
 
         # if there are any matching fields, this is an election with 
         # pre-registration data so no new user can be created, it has to match
@@ -500,7 +499,7 @@ class Email:
                 )
                 if unique_error_msg != '':
                     LOGGER.error(
-                        "Email.register error\n"\
+                        "EmailOtp.register error\n"\
                         "unique field error '%r'\n"\
                         "authevent '%r'\n"\
                         "request '%r'\n"\
@@ -554,7 +553,7 @@ class Email:
                     pass
                 if ret_error:
                     LOGGER.error(
-                        "Email.register error\n"\
+                        "EmailOtp.register error\n"\
                         "User already exists '%r'\n"\
                         "authevent '%r'\n"\
                         "request '%r'\n"\
@@ -565,6 +564,16 @@ class Email:
                         "Incorrect data", 
                         error_codename=user_exists_codename
                     )
+            else:
+                # user is really new, doesn't exist. So let's create it and
+                # add the appropiate permissions to this user
+                register_user = create_user(
+                    req, 
+                    auth_event, 
+                    active, 
+                    request.user
+                )
+                msg += give_perms(register_user, auth_event)
 
         if msg:
             LOGGER.error(
