@@ -351,7 +351,12 @@ auth_event10 = {
             },
             {
                 "name": "tlf",
-                "match_census_on_registration": True
+                "type": "tlf", 
+                "required": True,
+                "min": 4,
+                "max": 20,
+                "match_census_on_registration": True,
+                "required_on_authentication": True
             }
     ]
 }
