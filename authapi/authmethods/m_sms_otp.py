@@ -23,9 +23,9 @@ from django.shortcuts import get_object_or_404
 from datetime import datetime, timedelta
 from django.utils import timezone
 from utils import (
-  genhmac, send_codes, get_client_ip, is_valid_url, constant_time_compare
+  genhmac, send_codes, get_client_ip, is_valid_url, constant_time_compare,
+  verify_admin_generated_auth_code, generate_code
 )
-from ..utils import (generate_code, verify_admin_generated_auth_code)
 
 import plugins
 from . import register_method
