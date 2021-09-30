@@ -47,6 +47,7 @@ urlpatterns = [
     url(r'^auth-event/(?P<pk>\d+)/ballot-box/(?P<ballot_box_pk>\d+)/delete/$', views.ballot_box, name='ballot_box_delete'),
     url(r'^auth-event/(?P<pk>\d+)/ballot-box/(?P<ballot_box_pk>\d+)/tally-sheet/$', views.tally_sheet, name='tally_sheet'),
     url(r'^auth-event/(?P<pk>\d+)/ballot-box/(?P<ballot_box_pk>\d+)/tally-sheet/(?P<tally_sheet_pk>\d+)/$', views.tally_sheet, name='tally_sheet_one'),
+    url(r'^auth-event/(?P<pk>\d+)/generate-auth-code/$', views.generate_auth_code, name='generate_auth_code'),
     url(r'^auth-event/(?P<pk>\d+)/register/$', views.register, name='register'),
     url(r'^auth-event/(?P<pk>\d+)/authenticate/$', views.authenticate, name='authenticate'),
     url(r'^auth-event/(?P<pk>\d+)/successful_login/(?P<uid>\w+)$', views.successful_login, name='successful_login'),

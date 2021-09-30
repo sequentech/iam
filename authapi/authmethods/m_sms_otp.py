@@ -25,6 +25,7 @@ from django.utils import timezone
 from utils import (
   genhmac, send_codes, get_client_ip, is_valid_url, constant_time_compare
 )
+from ..utils import (generate_code, verify_admin_generated_auth_code)
 
 import plugins
 from . import register_method
@@ -628,6 +629,14 @@ class SmsOtp:
 
     def authenticate(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))
+        verified, user = verify_admin_generated_auth_code(
+            auth_event=auth_event,
+            req_data=req,
+            log_prefix="SmsOtp",
+            expiration_seconds=settings.SMS_OTP_EXPIRE_SECONDS    
+        )
+        if verified:
+            return return_auth_data('SmsOtp', req, request, user)
 
         msg = ''
         if req.get('tlf'):
@@ -661,7 +670,10 @@ class SmsOtp:
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         try:
-            q = get_base_auth_query(auth_event)
+            q = get_base_auth_query(
+                auth_event,
+                ignore_generated_code=True
+            )
             q = get_required_fields_on_auth(req, auth_event, q)
             user = User.objects.get(q)
             post_verify_fields_on_auth(user, req, auth_event)
@@ -726,6 +738,47 @@ class SmsOtp:
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         return return_auth_data('SmsOtp', req, request, user)
+
+    def generate_auth_code(auth_event, request):
+        req_data = json.loads(request.body.decode('utf-8'))
+        if (
+            'username' not in req_data or
+            not isinstance(req_data['username'], str)
+        ):
+            LOGGER.error(
+                "SmsOtp.generate_auth_code error\n" +
+                "error: invalid username" +
+                "authevent '%r'\n" +
+                "request '%r'\n" +
+                "Stack trace: \n%s",
+                auth_event, req_data, stack_trace_str()
+            )
+            raise Exception()
+        
+        username = req_data['username']
+        try:
+            base_query = get_base_auth_query(
+                auth_event,
+                ignore_generated_code=True
+            )
+            query = base_query.filter(username=username)
+            user = User.objects.get(query)
+        except:
+            LOGGER.error(
+                "SmsOtp.generate_auth_code error\n" +
+                "error: username '%r' not found\n" +
+                "authevent '%r'\n" +
+                "request '%r'\n" +
+                "Stack trace: \n%s",
+                username, auth_event, req_data, stack_trace_str()
+            )
+            raise Exception()
+        
+        code = generate_code(user.userdata)
+        return dict(
+            code=code.code,
+            created=code.created
+        )
 
     def resend_auth_code(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))

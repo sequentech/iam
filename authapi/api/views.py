@@ -39,6 +39,7 @@ from authmethods import (
     auth_register,
     auth_resend_auth_code,
     auth_public_census_query,
+    auth_generate_auth_code,
     check_config,
     METHODS,
 )
@@ -562,6 +563,39 @@ class Authenticate(View):
               error_codename=data.get('error_codename'),
               message=data.get('msg', '-'))
 authenticate = Authenticate.as_view()
+
+
+class GenerateAuthCode(View):
+    ''' Admin generates auth code for an user'''
+
+    def post(self, request, pk):
+        permission_required(
+            request.user, 
+            'AuthEvent', 
+            ['edit', 'generate-auth-code'],
+            pk
+        )
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        try:
+            out_data = auth_generate_auth_code(auth_event, request)
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST
+            )
+
+        action = Action(
+            executer=request.user,
+            receiver=user,
+            action_name='user:generate-auth-code',
+            event=user.userdata.event,
+            metadata=dict()
+        )
+        action.save()
+
+        return json_response(out_data)
+
+generate_auth_code = login_required(GenerateAuthCode.as_view())
 
 
 class PublicCensusQueryView(View):

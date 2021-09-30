@@ -842,52 +842,72 @@ class ExternalCheckPipelineTestCase(TestCase):
         mdata = u.userdata.metadata
         self.assertEqual(mdata['external_data']['custom'], True)
 
-''' 
-class AuthMethodOpenIDConnectTestCase(TestCase):
+
+class AdminGeneratedAuthCodes(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
 
     def setUp(self):
-        auth_method_config = test_data.authmethod_config_openid_connect_default
-        ae = AuthEvent(auth_method='openid-connect',
-                auth_method_config=auth_method_config,
-                extra_fields=test_data.auth_event2['extra_fields'],
-                status='started',
-                census=test_data.auth_event2['census'])
+        auth_method_config = test_data.authmethod_config_sms_default
+        ae = AuthEvent(
+            auth_method='sms-otp',
+            auth_method_config=auth_method_config,
+            extra_fields=test_data.auth_event11['extra_fields'],
+            status='started', 
+            census=test_data.auth_event11['census']
+        )
         ae.save()
         self.aeid = ae.pk
 
-        u = User(username='test1', email='test@test.com')
+        # Create user for authevent11
+        u = User(username='test1', email='test@agoravoting.com', is_active=True)
         u.save()
         u.userdata.event = ae
-        u.userdata.tlf = '+34666666666'
-        u.userdata.metadata = { 'dni': 'DNI11111111H' }
-        u.userdata.save()
-        self.u = u.userdata
-        code = Code(user=u.userdata, code='AAAAAAAA', auth_event_id=ae.pk)
-        code.save()
-        m = Message(tlf=u.userdata.tlf, auth_event_id=ae.pk)
-        m.save()
+        u.userdata.tlf = None
+        u.userdata.metadata = {
+                'match_field': 'match_code_555'
+        }
 
-        u2 = User(email='test2@agoravoting.com')
-        u2.is_active = False
-        u2.save()
-        u2.userdata.tlf = '+34766666666'
-        u2.userdata.event = ae
-        u2.userdata.metadata = { 'dni': 'DNI11111111H' }
-        u2.userdata.save()
-        code = Code(user=u2.userdata, code='AAAAAAAA', auth_event_id=ae.pk)
-        code.save()
-        self.c = JClient()
+        ae = AuthEvent.objects.get(pk=1)
+        ae.auth_method = "sms-otp"
+        ae.extra_fields[0]['required_on_authentication'] = True
+        ae.save()
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
-    def test_method_sms_register(self):
-        data = {'tlf': '+34666666667', 'code': 'AAAAAAAA',
-                    'email': 'test1@test.com', 'dni': '11111111H'}
-        response = self.c.register(self.aeid, data)
+    @override_settings(
+        CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+        CELERY_ALWAYS_EAGER=True,
+        BROKER_BACKEND='memory'
+    )
+    def test_generate_codes(self):
+        c = JClient()
+        response = c.authenticate(0, test_data.admin)
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['status'], 'ok')
- '''
+
+        response = c.get(
+            '/api/auth-event/%d/generate-auth-code/' % self.aeid,
+            dict(
+                username='test1'
+            )
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            'code' in response and 
+            isinstance(response['code'], str)
+        )
+        code = response['code']
+        response = c.authenticate(
+            self.aeid,
+            dict(
+                __username='test1',
+                code="erroneous-code"
+            )
+        )
+        self.assertEqual(response.status_code, 400)
+        response = c.authenticate(
+            self.aeid,
+            dict(
+                __username='test1',
+                code=code
+            )
+        )
+        self.assertEqual(response.status_code, 200)

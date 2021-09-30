@@ -22,6 +22,9 @@ def auth_resend_auth_code(event, data):
 def auth_public_census_query(event, data):
     return METHODS[event.auth_method].public_census_query(event, data)
 
+def auth_generate_auth_code(event, user):
+    return METHODS[event.auth_method].generate_auth_code(event, user)
+
 def register_method(name, klass):
     METHODS[name] = klass()
 
