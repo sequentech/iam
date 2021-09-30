@@ -5,7 +5,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0046_authevent_tally_status'),
+        ('api', '0046_userdata_tally_status'),
     ]
 
     operations = [

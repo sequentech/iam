@@ -1135,7 +1135,7 @@ def get_base_auth_query(auth_event, ignore_generated_code=False):
 
     if not ignore_generated_code:
         q = q & Q(
-            use_generated_auth_code=False
+            userdata__use_generated_auth_code=False
         )
     
     if auth_event.children_election_info is not None:

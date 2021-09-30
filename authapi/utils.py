@@ -287,7 +287,10 @@ def verify_admin_generated_auth_code(
         auth_event,
         ignore_generated_code=True
     )
-    query = base_query & Q(use_generated_auth_code=True, username=username)
+    query = base_query & Q(
+        userdata__use_generated_auth_code=True,
+        username=username
+    )
     try:
         user = User.objects.get(query)
     except:
