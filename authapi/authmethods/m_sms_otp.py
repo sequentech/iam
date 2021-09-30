@@ -24,7 +24,7 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 from utils import (
   genhmac, send_codes, get_client_ip, is_valid_url, constant_time_compare,
-  verify_admin_generated_auth_code, generate_code
+  verify_admin_generated_auth_code, generate_code, stack_trace_str
 )
 
 import plugins
@@ -32,7 +32,6 @@ from . import register_method
 from contracts.base import check_contract, JsonTypeEncoder
 from contracts import CheckException
 from authmethods.utils import *
-from utils import stack_trace_str
 from django.contrib.auth.signals import user_logged_in
 
 LOGGER = logging.getLogger('authapi')
