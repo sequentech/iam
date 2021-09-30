@@ -525,7 +525,7 @@ class UserData(models.Model):
     metadata = fields.JSONField(default=dict, blank=True, null=True)
     status = models.CharField(max_length=255, choices=STATUSES, default="act", db_index=True)
     draft_election = fields.JSONField(default=dict, blank=True, null=True, db_index=False)
-    use_generated_auth_code = fields.BooleanField(default=False)
+    use_generated_auth_code = models.BooleanField(default=False)
 
     # Stablishes in which children elections can this user vote
     children_event_id_list = JSONField(
