@@ -848,16 +848,28 @@ class AdminGeneratedAuthCodes(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-        auth_method_config = test_data.authmethod_config_sms_default
+        # create admin auth event
         admin_auth_event = AuthEvent(
+            auth_method='user-and-password',
+            auth_method_config={},
+            extra_fields=test_data.auth_event4['extra_fields'],
+            status='started', 
+            census=test_data.auth_event4['census']
+        )
+        admin_auth_event.save()
+        self.admin_auth_event_id = admin_auth_event.pk
+
+        # create other auth event
+        auth_method_config = test_data.authmethod_config_sms_default
+        auth_event = AuthEvent(
             auth_method='sms-otp',
             auth_method_config=auth_method_config,
             extra_fields=test_data.auth_event11['extra_fields'],
             status='started', 
             census=test_data.auth_event11['census']
         )
-        admin_auth_event.save()
-        self.admin_auth_event_id = admin_auth_event.pk
+        auth_event.save()
+        self.auth_event_id = auth_event.pk
 
         # create superuser
         superuser = User(
@@ -896,7 +908,7 @@ class AdminGeneratedAuthCodes(TestCase):
         self.assertEqual(response.status_code, 200)
 
         response = c.get(
-            '/api/auth-event/%d/generate-auth-code/' % self.admin_auth_event_id,
+            '/api/auth-event/%d/generate-auth-code/' % self.auth_event_id,
             dict(
                 username='test1'
             )
