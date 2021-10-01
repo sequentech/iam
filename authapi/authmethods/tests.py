@@ -913,8 +913,8 @@ class AdminGeneratedAuthCodes(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertTrue(
-            'code' in response and 
-            isinstance(response['code'], str)
+            'code' in response.json() and 
+            isinstance(response.json()['code'], str)
         )
         code = response['code']
         response = c.authenticate(
