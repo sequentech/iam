@@ -254,10 +254,14 @@ def generate_code(userdata, size=settings.SIZE_CODE):
     from authmethods.models import Code
     # Generates codes from [2-9]. Numbers 1 and 0 are not included because they
     # can be mistaken with i and o.
-    code = random_code(size, "2346789")
-    c = Code(user=userdata, code=code, auth_event_id=userdata.event.id)
-    c.save()
-    return code
+    code_str = random_code(size, "2346789")
+    code_object = Code(
+        user=userdata,
+        code=code_str,
+        auth_event_id=userdata.event.id
+    )
+    code_object.save()
+    return code_object
 
 def verify_admin_generated_auth_code(
     auth_event,
@@ -441,7 +445,7 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None, save_
     # only generate the code if required
     needs_code = "__URL2__" in msg or "__CODE__" in msg
     if needs_code and code is None:
-        code = generate_code(user.userdata)
+        code = generate_code(user.userdata).code
 
     default_receiver_account = user.email
     if user.userdata.event.auth_method in ["sms", "sms-otp"]:

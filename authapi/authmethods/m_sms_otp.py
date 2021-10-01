@@ -760,7 +760,7 @@ class SmsOtp:
                 auth_event,
                 ignore_generated_code=True
             )
-            query = base_query.filter(username=username)
+            query = base_query & Q(username=username)
             user = User.objects.get(query)
         except:
             LOGGER.error(
