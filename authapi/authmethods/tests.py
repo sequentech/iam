@@ -848,28 +848,15 @@ class AdminGeneratedAuthCodes(TestCase):
         flush_db_load_fixture()
 
     def setUp(self):
-        # create admin auth event
-        admin_auth_event = AuthEvent(
-            auth_method='user-and-password',
-            auth_method_config={},
-            extra_fields=test_data.auth_event4['extra_fields'],
-            status='started', 
-            census=test_data.auth_event4['census']
-        )
+        # configure admin auth event
+        admin_auth_event = AuthEvent.objects.get(pk=1)
+        admin_auth_event.auth_method = 'user-and-password'
+        admin_auth_event.auth_method_config = {}
+        admin_auth_event.extra_fields = test_data.auth_event4['extra_fields']
+        admin_auth_event.status = 'started'
+        admin_auth_event.census = test_data.auth_event4['census']
         admin_auth_event.save()
-        self.admin_auth_event_id = admin_auth_event.pk
-
-        # create other auth event
-        auth_method_config = test_data.authmethod_config_sms_default
-        auth_event = AuthEvent(
-            auth_method='sms-otp',
-            auth_method_config=auth_method_config,
-            extra_fields=test_data.auth_event11['extra_fields'],
-            status='started', 
-            census=test_data.auth_event11['census']
-        )
-        auth_event.save()
-        self.auth_event_id = auth_event.pk
+        self.admin_auth_event_id = admin_auth_event.id
 
         # create superuser
         superuser = User(
@@ -880,22 +867,36 @@ class AdminGeneratedAuthCodes(TestCase):
         superuser.is_superuser = True
         superuser.set_password(test_data.admin['password'])
         superuser.save()
-        superuser.userdata.event = AuthEvent.objects.get(pk=1)
+        superuser.userdata.event = admin_auth_event
         superuser.userdata.save()
 
+        # create a normal auth event
+        auth_method_config = test_data.authmethod_config_sms_default
+        normal_auth_event = AuthEvent(
+            auth_method='sms-otp',
+            auth_method_config=auth_method_config,
+            extra_fields=test_data.auth_event11['extra_fields'],
+            status='started', 
+            census=test_data.auth_event11['census']
+        )
+        normal_auth_event.extra_fields[0]['required_on_authentication'] = True
+        normal_auth_event.save()
+        self.normal_auth_event_id = normal_auth_event.pk
+
         # Create user for authevent11
-        superuser = User(username='test1', email='test@agoravoting.com', is_active=True)
-        superuser.save()
-        superuser.userdata.event = admin_auth_event
-        superuser.userdata.tlf = None
-        superuser.userdata.metadata = {
+        normal_user = User(
+            username='test1',
+            email='test@agoravoting.com',
+            is_active=True
+        )
+        normal_user.save()
+        normal_user.userdata.event = normal_auth_event
+        normal_user.userdata.tlf = None
+        normal_user.userdata.metadata = {
             'match_field': 'match_code_555'
         }
-
-        admin_auth_event = AuthEvent.objects.get(pk=1)
-        admin_auth_event.auth_method = "sms-otp"
-        admin_auth_event.extra_fields[0]['required_on_authentication'] = True
-        admin_auth_event.save()
+        normal_user.userdata.save()
+        self.normal_user = normal_user
 
     @override_settings(
         CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
@@ -908,9 +909,9 @@ class AdminGeneratedAuthCodes(TestCase):
         self.assertEqual(response.status_code, 200)
 
         response = c.get(
-            '/api/auth-event/%d/generate-auth-code/' % self.auth_event_id,
+            '/api/auth-event/%d/generate-auth-code/' % self.normal_auth_event_id,
             dict(
-                username='test1'
+                username=self.normal_user.username
             )
         )
         self.assertEqual(response.status_code, 200)
@@ -922,15 +923,15 @@ class AdminGeneratedAuthCodes(TestCase):
         response = c.authenticate(
             self.admin_auth_event_id,
             dict(
-                __username='test1',
-                code="erroneous-code"
+                __username=self.normal_user.username,
+                code="erroneous-code456"
             )
         )
         self.assertEqual(response.status_code, 400)
         response = c.authenticate(
             self.admin_auth_event_id,
             dict(
-                __username='test1',
+                __username=self.normal_user.username,
                 code=code
             )
         )
