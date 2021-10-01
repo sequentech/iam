@@ -24,7 +24,7 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 from utils import (
   genhmac, send_codes, get_client_ip, is_valid_url, constant_time_compare,
-  verify_admin_generated_auth_code, generate_code, stack_trace_str, format_code
+  verify_admin_generated_auth_code, generate_code, stack_trace_str
 )
 
 import plugins
@@ -778,7 +778,7 @@ class SmsOtp:
         user.userdata.save()
         return (
             dict(
-                code=format_code(code.code),
+                code=code.code,
                 created=code.created.isoformat()
             ),
             user
