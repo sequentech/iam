@@ -851,10 +851,7 @@ class AdminGeneratedAuthCodes(TestCase):
         # configure admin auth event
         admin_auth_event = AuthEvent.objects.get(pk=1)
         admin_auth_event.auth_method = 'user-and-password'
-        admin_auth_event.auth_method_config = {}
         admin_auth_event.extra_fields = test_data.auth_event4['extra_fields']
-        admin_auth_event.status = 'started'
-        admin_auth_event.census = test_data.auth_event4['census']
         admin_auth_event.save()
         self.admin_auth_event_id = admin_auth_event.id
 
