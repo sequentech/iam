@@ -842,52 +842,130 @@ class ExternalCheckPipelineTestCase(TestCase):
         mdata = u.userdata.metadata
         self.assertEqual(mdata['external_data']['custom'], True)
 
-''' 
-class AuthMethodOpenIDConnectTestCase(TestCase):
+
+class AdminGeneratedAuthCodes(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
 
     def setUp(self):
-        auth_method_config = test_data.authmethod_config_openid_connect_default
-        ae = AuthEvent(auth_method='openid-connect',
-                auth_method_config=auth_method_config,
-                extra_fields=test_data.auth_event2['extra_fields'],
-                status='started',
-                census=test_data.auth_event2['census'])
-        ae.save()
-        self.aeid = ae.pk
+        # configure admin auth event
+        admin_auth_event = AuthEvent.objects.get(pk=1)
+        admin_auth_event.auth_method = 'user-and-password'
+        admin_auth_event.extra_fields = test_data.auth_event4['extra_fields']
+        admin_auth_event.save()
+        self.admin_auth_event_id = admin_auth_event.id
 
-        u = User(username='test1', email='test@test.com')
-        u.save()
-        u.userdata.event = ae
-        u.userdata.tlf = '+34666666666'
-        u.userdata.metadata = { 'dni': 'DNI11111111H' }
-        u.userdata.save()
-        self.u = u.userdata
-        code = Code(user=u.userdata, code='AAAAAAAA', auth_event_id=ae.pk)
-        code.save()
-        m = Message(tlf=u.userdata.tlf, auth_event_id=ae.pk)
-        m.save()
+        # create superuser
+        superuser = User(
+            username=test_data.admin['username'],
+            email=test_data.admin['email']
+        )
+        superuser.is_staff = True
+        superuser.is_superuser = True
+        superuser.set_password(test_data.admin['password'])
+        superuser.save()
+        superuser.userdata.event = admin_auth_event
+        superuser.userdata.save()
 
-        u2 = User(email='test2@agoravoting.com')
-        u2.is_active = False
-        u2.save()
-        u2.userdata.tlf = '+34766666666'
-        u2.userdata.event = ae
-        u2.userdata.metadata = { 'dni': 'DNI11111111H' }
-        u2.userdata.save()
-        code = Code(user=u2.userdata, code='AAAAAAAA', auth_event_id=ae.pk)
-        code.save()
-        self.c = JClient()
+        # create a normal auth event
+        auth_method_config = test_data.authmethod_config_sms_default
+        normal_auth_event = AuthEvent(
+            auth_method='sms-otp',
+            auth_method_config=auth_method_config,
+            extra_fields=test_data.auth_event11['extra_fields'],
+            status='started', 
+            census=test_data.auth_event11['census']
+        )
+        normal_auth_event.extra_fields[0]['required_on_authentication'] = True
+        normal_auth_event.save()
+        self.normal_auth_event_id = normal_auth_event.pk
 
-    @override_settings(CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-                       CELERY_ALWAYS_EAGER=True,
-                       BROKER_BACKEND='memory')
-    def test_method_sms_register(self):
-        data = {'tlf': '+34666666667', 'code': 'AAAAAAAA',
-                    'email': 'test1@test.com', 'dni': '11111111H'}
-        response = self.c.register(self.aeid, data)
+        # Create user for authevent11
+        normal_user = User(
+            username='test1',
+            email='test@agoravoting.com',
+            is_active=True
+        )
+        normal_user.save()
+        normal_user.userdata.event = normal_auth_event
+        normal_user.userdata.tlf = None
+        normal_user.userdata.metadata = {
+            'match_field': 'match_code_555'
+        }
+        normal_user.userdata.save()
+        self.normal_user = normal_user
+
+    @override_settings(
+        CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+        CELERY_ALWAYS_EAGER=True,
+        BROKER_BACKEND='memory'
+    )
+    def test_generate_codes(self):
+        # authenticate as admin
+        c = JClient()
+        response = c.authenticate(self.admin_auth_event_id, test_data.admin)
         self.assertEqual(response.status_code, 200)
-        r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['status'], 'ok')
- '''
+
+        # generate code for user
+        response = c.post(
+            '/api/auth-event/%d/generate-auth-code/' % self.normal_auth_event_id,
+            dict(
+                username=self.normal_user.username
+            )
+        )
+        # ensure code is there
+        self.assertEqual(response.status_code, 200)
+        generated_code = response.json()
+        self.assertTrue(
+            'code' in generated_code and 
+            isinstance(generated_code['code'], str)
+        )
+        code = generated_code['code']
+
+        # try to authenticate with a wrong code after code generation, fails
+        response = c.authenticate(
+            self.normal_auth_event_id,
+            dict(
+                __username=self.normal_user.username,
+                code="erroneous-code456"
+            )
+        )
+        self.assertEqual(response.status_code, 400)
+
+        # try to authenticate with the correct code, fails because codes can
+        # only be tested once
+        response = c.authenticate(
+            self.normal_auth_event_id,
+            dict(
+                __username=self.normal_user.username,
+                code=code
+            )
+        )
+        self.assertEqual(response.status_code, 400)
+
+        # authenticate as admin again
+        c = JClient()
+        response = c.authenticate(self.admin_auth_event_id, test_data.admin)
+        self.assertEqual(response.status_code, 200)
+
+        # generate code for user again
+        response = c.post(
+            '/api/auth-event/%d/generate-auth-code/' % self.normal_auth_event_id,
+            dict(
+                username=self.normal_user.username
+            )
+        )
+        # ensure code is there again
+        self.assertEqual(response.status_code, 200)
+        generated_code2 = response.json()
+        code2 = generated_code2['code']
+
+        # try to authenticate with the correct code, works
+        response = c.authenticate(
+            self.normal_auth_event_id,
+            dict(
+                __username=self.normal_user.username,
+                code=code2
+            )
+        )
+        self.assertEqual(response.status_code, 200)

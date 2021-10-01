@@ -23,7 +23,8 @@ from django.shortcuts import get_object_or_404
 from datetime import datetime, timedelta
 from django.utils import timezone
 from utils import (
-  genhmac, send_codes, get_client_ip, is_valid_url, constant_time_compare
+  genhmac, send_codes, get_client_ip, is_valid_url, constant_time_compare,
+  verify_admin_generated_auth_code, generate_code, stack_trace_str
 )
 
 import plugins
@@ -31,7 +32,6 @@ from . import register_method
 from contracts.base import check_contract, JsonTypeEncoder
 from contracts import CheckException
 from authmethods.utils import *
-from utils import stack_trace_str
 from django.contrib.auth.signals import user_logged_in
 
 LOGGER = logging.getLogger('authapi')
@@ -628,6 +628,14 @@ class SmsOtp:
 
     def authenticate(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))
+        verified, user = verify_admin_generated_auth_code(
+            auth_event=auth_event,
+            req_data=req,
+            log_prefix="SmsOtp",
+            expiration_seconds=settings.SMS_OTP_EXPIRE_SECONDS    
+        )
+        if verified:
+            return return_auth_data('SmsOtp', req, request, user)
 
         msg = ''
         if req.get('tlf'):
@@ -661,7 +669,10 @@ class SmsOtp:
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         try:
-            q = get_base_auth_query(auth_event)
+            q = get_base_auth_query(
+                auth_event,
+                ignore_generated_code=True
+            )
             q = get_required_fields_on_auth(req, auth_event, q)
             user = User.objects.get(q)
             post_verify_fields_on_auth(user, req, auth_event)
@@ -696,6 +707,10 @@ class SmsOtp:
                 auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
           
+        # change created time to make it invalid next time
+        code.created=timezone.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
+        code.save()
+
         if not constant_time_compare(req.get('code').upper(), code.code):  
             LOGGER.error(\
                 "SmsOtp.authenticate error\n"\
@@ -707,10 +722,6 @@ class SmsOtp:
                 "Stack trace: \n%s",\
                 user.userdata, req.get('code').upper(), code.code, auth_event, req,\
                 stack_trace_str())
-            
-            # change created time to make it invalid next time
-            code.created=timezone.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
-            code.save()
             
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
@@ -726,6 +737,52 @@ class SmsOtp:
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         return return_auth_data('SmsOtp', req, request, user)
+
+    def generate_auth_code(self, auth_event, request):
+        req_data = json.loads(request.body.decode('utf-8'))
+        if (
+            'username' not in req_data or
+            not isinstance(req_data['username'], str)
+        ):
+            LOGGER.error(
+                "SmsOtp.generate_auth_code error\n" +
+                "error: invalid username" +
+                "authevent '%r'\n" +
+                "request '%r'\n" +
+                "Stack trace: \n%s",
+                auth_event, req_data, stack_trace_str()
+            )
+            raise Exception()
+        
+        username = req_data['username']
+        try:
+            base_query = get_base_auth_query(
+                auth_event,
+                ignore_generated_code=True
+            )
+            query = base_query & Q(username=username)
+            user = User.objects.get(query)
+        except:
+            LOGGER.error(
+                "SmsOtp.generate_auth_code error\n" +
+                "error: username '%r' not found\n" +
+                "authevent '%r'\n" +
+                "request '%r'\n" +
+                "Stack trace: \n%s",
+                username, auth_event, req_data, stack_trace_str()
+            )
+            raise Exception()
+        
+        code = generate_code(user.userdata)
+        user.userdata.use_generated_auth_code=True
+        user.userdata.save()
+        return (
+            dict(
+                code=code.code,
+                created=code.created.isoformat()
+            ),
+            user
+        )
 
     def resend_auth_code(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))

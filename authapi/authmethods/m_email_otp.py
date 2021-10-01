@@ -709,7 +709,10 @@ class Email:
                 settings.SMS_OTP_EXPIRE_SECONDS,\
                 auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
-          
+
+        # change created time to make it invalid next time
+        code.created = timezone.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
+        code.save()
         if not constant_time_compare(req.get('code').upper(), code.code):  
             LOGGER.error(\
                 "EmailOtp.authenticate error\n"\
@@ -721,13 +724,9 @@ class Email:
                 "Stack trace: \n%s",\
                 user.userdata, req.get('code').upper(), code.code, auth_event, req,\
                 stack_trace_str())
-            
-            # change created time to make it invalid next time
-            code.created=timezone.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
-            code.save()
 
             return self.error("Incorrect data", error_codename="invalid_credentials")
-
+            
         return return_auth_data('Email', req, request, user)
 
     def resend_auth_code(self, auth_event, request):

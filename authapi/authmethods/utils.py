@@ -40,7 +40,8 @@ from utils import (
     constant_time_compare,
     permission_required,
     genhmac,
-    stack_trace_str
+    stack_trace_str,
+    generate_code
 )
 from pipelines.base import execute_pipeline, PipeReturnvalue
 
@@ -1123,7 +1124,7 @@ def verify_num_successful_logins(auth_event, logger_name, user, req_json):
             return False
     return True
 
-def get_base_auth_query(auth_event):
+def get_base_auth_query(auth_event, ignore_generated_code=False):
     '''
     returns the base authentication query for the given auth_event
     '''
@@ -1131,6 +1132,11 @@ def get_base_auth_query(auth_event):
         userdata__event=auth_event,
         is_active=True
     )
+
+    if not ignore_generated_code:
+        q = q & Q(
+            userdata__use_generated_auth_code=False
+        )
     
     if auth_event.children_election_info is not None:
         q = q | Q(
