@@ -774,9 +774,14 @@ class SmsOtp:
             raise Exception()
         
         code = generate_code(user.userdata)
-        return dict(
-            code=code.code,
-            created=code.created
+        user.userdata.use_generated_auth_code=True
+        user.userdata.save()
+        return (
+            dict(
+                code=code.code,
+                created=code.created
+            ),
+            user
         )
 
     def resend_auth_code(self, auth_event, request):

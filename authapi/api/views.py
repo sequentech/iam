@@ -574,7 +574,7 @@ class GenerateAuthCode(View):
         )
         auth_event = get_object_or_404(AuthEvent, pk=pk)
         try:
-            out_data = auth_generate_auth_code(auth_event, request)
+            out_data, user = auth_generate_auth_code(auth_event, request)
         except:
             return json_response(
                 status=400,
