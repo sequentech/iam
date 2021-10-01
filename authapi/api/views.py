@@ -529,13 +529,10 @@ class Authenticate(View):
     ''' Authenticate into the authapi '''
 
     def post(self, request, pk):
-        if int(pk) == 0:
-            e = 0
-        else:
-            try:
-                e = get_object_or_404(AuthEvent, pk=pk, status="started")
-            except:
-                return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
+        try:
+            e = get_object_or_404(AuthEvent, pk=pk, status="started")
+        except:
+            return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
         if not hasattr(request.user, 'account'):
             error_kwargs = plugins.call("extend_auth", e)

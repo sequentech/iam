@@ -849,29 +849,41 @@ class AdminGeneratedAuthCodes(TestCase):
 
     def setUp(self):
         auth_method_config = test_data.authmethod_config_sms_default
-        ae = AuthEvent(
+        admin_auth_event = AuthEvent(
             auth_method='sms-otp',
             auth_method_config=auth_method_config,
             extra_fields=test_data.auth_event11['extra_fields'],
             status='started', 
             census=test_data.auth_event11['census']
         )
-        ae.save()
-        self.aeid = ae.pk
+        admin_auth_event.save()
+        self.admin_auth_event_id = admin_auth_event.pk
+
+        # create superuser
+        superuser = User(
+            username=test_data.admin['username'],
+            email=test_data.admin['email']
+        )
+        superuser.is_staff = True
+        superuser.is_superuser = True
+        superuser.set_password(test_data.admin['password'])
+        superuser.save()
+        superuser.userdata.event = AuthEvent.objects.get(pk=1)
+        superuser.userdata.save()
 
         # Create user for authevent11
-        u = User(username='test1', email='test@agoravoting.com', is_active=True)
-        u.save()
-        u.userdata.event = ae
-        u.userdata.tlf = None
-        u.userdata.metadata = {
-                'match_field': 'match_code_555'
+        superuser = User(username='test1', email='test@agoravoting.com', is_active=True)
+        superuser.save()
+        superuser.userdata.event = admin_auth_event
+        superuser.userdata.tlf = None
+        superuser.userdata.metadata = {
+            'match_field': 'match_code_555'
         }
 
-        ae = AuthEvent.objects.get(pk=1)
-        ae.auth_method = "sms-otp"
-        ae.extra_fields[0]['required_on_authentication'] = True
-        ae.save()
+        admin_auth_event = AuthEvent.objects.get(pk=1)
+        admin_auth_event.auth_method = "sms-otp"
+        admin_auth_event.extra_fields[0]['required_on_authentication'] = True
+        admin_auth_event.save()
 
     @override_settings(
         CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
@@ -880,11 +892,11 @@ class AdminGeneratedAuthCodes(TestCase):
     )
     def test_generate_codes(self):
         c = JClient()
-        response = c.authenticate(0, test_data.admin)
+        response = c.authenticate(self.admin_auth_event_id, test_data.admin)
         self.assertEqual(response.status_code, 200)
 
         response = c.get(
-            '/api/auth-event/%d/generate-auth-code/' % self.aeid,
+            '/api/auth-event/%d/generate-auth-code/' % self.admin_auth_event_id,
             dict(
                 username='test1'
             )
@@ -896,7 +908,7 @@ class AdminGeneratedAuthCodes(TestCase):
         )
         code = response['code']
         response = c.authenticate(
-            self.aeid,
+            self.admin_auth_event_id,
             dict(
                 __username='test1',
                 code="erroneous-code"
@@ -904,7 +916,7 @@ class AdminGeneratedAuthCodes(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         response = c.authenticate(
-            self.aeid,
+            self.admin_auth_event_id,
             dict(
                 __username='test1',
                 code=code
