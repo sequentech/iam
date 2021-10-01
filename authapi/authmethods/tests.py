@@ -943,6 +943,11 @@ class AdminGeneratedAuthCodes(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
+        # authenticate as admin again
+        c = JClient()
+        response = c.authenticate(self.admin_auth_event_id, test_data.admin)
+        self.assertEqual(response.status_code, 200)
+
         # generate code for user again
         response = c.post(
             '/api/auth-event/%d/generate-auth-code/' % self.normal_auth_event_id,
