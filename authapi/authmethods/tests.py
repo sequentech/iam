@@ -905,7 +905,7 @@ class AdminGeneratedAuthCodes(TestCase):
         response = c.authenticate(self.admin_auth_event_id, test_data.admin)
         self.assertEqual(response.status_code, 200)
 
-        response = c.get(
+        response = c.post(
             '/api/auth-event/%d/generate-auth-code/' % self.normal_auth_event_id,
             dict(
                 username=self.normal_user.username

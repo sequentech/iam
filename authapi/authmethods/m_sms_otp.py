@@ -738,7 +738,7 @@ class SmsOtp:
 
         return return_auth_data('SmsOtp', req, request, user)
 
-    def generate_auth_code(auth_event, request):
+    def generate_auth_code(self, auth_event, request):
         req_data = json.loads(request.body.decode('utf-8'))
         if (
             'username' not in req_data or
