@@ -901,16 +901,19 @@ class AdminGeneratedAuthCodes(TestCase):
         BROKER_BACKEND='memory'
     )
     def test_generate_codes(self):
+        # authenticate as admin
         c = JClient()
         response = c.authenticate(self.admin_auth_event_id, test_data.admin)
         self.assertEqual(response.status_code, 200)
 
+        # generate code for user
         response = c.post(
             '/api/auth-event/%d/generate-auth-code/' % self.normal_auth_event_id,
             dict(
                 username=self.normal_user.username
             )
         )
+        # ensure code is there
         self.assertEqual(response.status_code, 200)
         generated_code = response.json()
         self.assertTrue(
@@ -918,19 +921,46 @@ class AdminGeneratedAuthCodes(TestCase):
             isinstance(generated_code['code'], str)
         )
         code = generated_code['code']
+
+        # try to authenticate with a wrong code after code generation, fails
         response = c.authenticate(
-            self.admin_auth_event_id,
+            self.normal_auth_event_id,
             dict(
                 __username=self.normal_user.username,
                 code="erroneous-code456"
             )
         )
         self.assertEqual(response.status_code, 400)
+
+        # try to authenticate with the correct code, fails because codes can
+        # only be tested once
         response = c.authenticate(
-            self.admin_auth_event_id,
+            self.normal_auth_event_id,
             dict(
                 __username=self.normal_user.username,
                 code=code
+            )
+        )
+        self.assertEqual(response.status_code, 400)
+
+        # generate code for user again
+        response = c.post(
+            '/api/auth-event/%d/generate-auth-code/' % self.normal_auth_event_id,
+            dict(
+                username=self.normal_user.username
+            )
+        )
+        # ensure code is there again
+        self.assertEqual(response.status_code, 200)
+        generated_code2 = response.json()
+        code2 = generated_code2['code']
+
+        # try to authenticate with the correct code, works
+        response = c.authenticate(
+            self.normal_auth_event_id,
+            dict(
+                __username=self.normal_user.username,
+                code=code2
             )
         )
         self.assertEqual(response.status_code, 200)

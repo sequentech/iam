@@ -300,6 +300,7 @@ def verify_admin_generated_auth_code(
     except:
         return False, None
 
+    # p Code.objects.get(user=user.userdata).created
     code = Code.objects\
         .filter(
             user=user.userdata,
@@ -324,6 +325,9 @@ def verify_admin_generated_auth_code(
         )
         return False, None
 
+    # change created time to make it invalid next time
+    code.created=timezone.now() - timedelta(seconds=expiration_seconds)
+    code.save()
     if not constant_time_compare(req_data['code'], code.code):  
         LOGGER.error(
             "%s.authenticate error\n" +
@@ -341,10 +345,6 @@ def verify_admin_generated_auth_code(
             req_data,
             stack_trace_str()
         )
-        
-        # change created time to make it invalid next time
-        code.created=timezone.now() - timedelta(seconds=expiration_seconds)
-        code.save()
         return False, None
 
     return True, user
