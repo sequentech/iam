@@ -912,11 +912,12 @@ class AdminGeneratedAuthCodes(TestCase):
             )
         )
         self.assertEqual(response.status_code, 200)
+        generated_code = response.json()
         self.assertTrue(
-            'code' in response.json() and 
-            isinstance(response.json()['code'], str)
+            'code' in generated_code and 
+            isinstance(generated_code['code'], str)
         )
-        code = response['code']
+        code = generated_code['code']
         response = c.authenticate(
             self.admin_auth_event_id,
             dict(
