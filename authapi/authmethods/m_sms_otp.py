@@ -779,7 +779,7 @@ class SmsOtp:
         return (
             dict(
                 code=code.code,
-                created=code.created
+                created=code.created.isoformat()
             ),
             user
         )
