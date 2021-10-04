@@ -3071,9 +3071,18 @@ class ApiTestCensusDelete(TestCase):
         self.assertEqual(len(r['activity']), 2)
 
         # admin with census-delete permission tries to delete the voter and it
-        # workss
-        self.acl_edit_event.perm = 'census-delete-voted'
+        # works
+        voted_acl = ACL(
+            user=self.admin_user.userdata,
+            object_type='AuthEvent',
+            perm='census-delete-voted',
+            object_id=self.auth_event_id
+        )
+        voted_acl.save()
+        
+        self.acl_edit_event.perm = 'census-delete'
         self.acl_edit_event.save()
+
         successful_login = SuccessfulLogin(
             user=self.census_user,
             auth_event_id=self.auth_event_id
@@ -3108,7 +3117,7 @@ class ApiTestCensusDelete(TestCase):
         )
         self.assertEqual(
             r['activity'][0]['action_name'],
-            'user:deleted-from-census'
+            'user:deleted-voted-from-census'
         )
         self.assertEqual(
             r['activity'][0]['metadata']['comment'],

@@ -354,7 +354,7 @@ class CensusDelete(View):
                     ['edit', 'census-delete-voted'], 
                     pk
                 )
-                action_name = 'user:deleted-voter-from-census'
+                action_name = 'user:deleted-voted-from-census'
                 break
 
         # delete user and log the delete action
