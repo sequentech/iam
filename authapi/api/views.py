@@ -296,30 +296,62 @@ CONTRACTS = dict(
 class CensusDelete(View):
     '''
     Delete census in the auth-event
+
+    It requires different permissions depending on if the voter has already
+    voted or not.
     '''
     def post(self, request, pk):
-        permission_required(request.user, 'AuthEvent', ['edit', 'census-delete'], pk)
-        ae = get_object_or_404(AuthEvent, pk=pk)
+        permission_required(
+            request.user, 
+            'AuthEvent',
+            ['edit', 'census-delete'], 
+            pk
+        )
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
         req = parse_json_request(request)
         user_ids = req.get('user-ids', [])
         check_contract(CONTRACTS['list_of_ints'], user_ids)
         from authmethods.utils import get_trimmed_user
 
-        for uid in user_ids:
-            u = get_object_or_404(User, pk=uid, userdata__event=ae)
+        users = [
+            get_object_or_404(
+                User,
+                pk=user_id, 
+                userdata__event=auth_event
+            )
+            for user_id in user_ids
+        ]
 
+        # check if any of the users have voted, and if so require the extra
+        # census-delete-voted permission for the auth_event
+        action_name = 'user:deleted-from-census'
+        for user in users:
+            if len(user.serialize_children_voted_elections(auth_event)) > 0:
+                permission_required(
+                    request.user, 
+                    'AuthEvent',
+                    ['edit', 'census-delete-voted'], 
+                    pk
+                )
+                action_name = 'user:deleted-voter-from-census'
+                break
+
+        for user in users:
             action = Action(
                 executer=request.user,
                 receiver=None,
-                action_name='user:deleted-from-census',
-                event=ae,
-                metadata=get_trimmed_user(u, ae))
+                action_name=action_name,
+                event=auth_event,
+                metadata=get_trimmed_user(user, auth_event)
+            )
             action.save()
 
-            for acl in u.userdata.acls.all():
+            for acl in user.userdata.acls.all():
                 acl.delete()
-            u.delete()
+            
+            user.delete()
         return json_response()
+
 census_delete = login_required(CensusDelete.as_view())
 
 
