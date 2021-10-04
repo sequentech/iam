@@ -2802,6 +2802,347 @@ class TestAdminDeregister(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
+class ApiTestCensusDelete(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        # main election to test
+        auth_event = AuthEvent(
+            auth_method="email",
+            auth_method_config=test_data.authmethod_config_email_default,
+            extra_fields=test_data.ae_email_default['extra_fields'],
+            status='started',
+            census="open",
+            num_successful_logins_allowed = 1
+        )
+        auth_event.save()
+        self.auth_event = auth_event
+        self.auth_event_id = auth_event.pk
+
+        # admin user
+        admin_user = User(
+            username=test_data.admin['username'], 
+            email=test_data.admin['email']
+        )
+        admin_user.set_password(test_data.admin['password'])
+        admin_user.save()
+        admin_user.userdata.event = auth_event
+        admin_user.userdata.save()
+        self.admin_user_id = admin_user.id
+        self.admin_user = admin_user
+
+        # admin user credentials
+        self.admin_auth_data = dict(
+            email=test_data.admin['email'],
+            code="ERGERG"
+        )
+        census_user_code = Code(
+            user=admin_user.userdata,
+            code=self.admin_auth_data['code'],
+            auth_event_id=1
+        )
+        census_user_code.save()
+
+        # admin user election edit permission
+        acl = ACL(
+            user=admin_user.userdata,
+            object_type='AuthEvent',
+            perm='edit',
+            object_id=self.auth_event_id
+        )
+        acl.save()
+        self.acl_edit_event = acl
+
+        # election view events permission
+        acl = ACL(
+            user=admin_user.userdata,
+            object_type='AuthEvent',
+            perm='event-view-activity',
+            object_id=self.auth_event_id
+        )
+        acl.save()
+        self.acl_activity1 = acl
+
+        # census user
+        census_user = User(
+            username='test',
+            email=test_data.auth_email_default['email']
+        )
+        census_user.save()
+        census_user.userdata.event = auth_event
+        census_user.userdata.save()
+        self.census_user = census_user.userdata
+        self.census_user_id = census_user.id
+
+        # census user credentials
+        census_user_code = Code(
+            user=census_user.userdata,
+            code=test_data.auth_email_default['code'], 
+            auth_event_id=auth_event.pk
+        )
+        census_user_code.save()
+        self.census_user_code = census_user_code
+
+    @override_settings(**override_celery_data)
+    def test_census_delete_fail1(self):
+        c = JClient()
+
+        # voter can authenticate
+        response = c.authenticate(
+            self.auth_event_id,
+            test_data.auth_email_default
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # admin login
+        response = c.authenticate(self.auth_event_id, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin can list activity and log has only auth events
+        response = c.get(
+            '/api/auth-event/%d/activity/' % self.auth_event_id,
+            {}
+        )
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(len(r['activity']), 2)
+
+        # admin without permission tries to delete the voter
+        self.acl_edit_event.perm = 'no-perm'
+        self.acl_edit_event.save()
+        data = {
+            'user-ids': [self.census_user_id],
+            'comment': 'some comment here'
+        }
+        response = c.post(
+            '/api/auth-event/%d/census/delete/' % self.auth_event_id,
+            data
+        )
+        self.assertEqual(response.status_code, 403)
+
+    @override_settings(**override_celery_data)
+    def test_census_delete_fail2(self):
+        c = JClient()
+
+        # voter can authenticate
+        response = c.authenticate(
+            self.auth_event_id,
+            test_data.auth_email_default
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # admin login
+        response = c.authenticate(self.auth_event_id, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin can list activity and log has only auth events
+        response = c.get(
+            '/api/auth-event/%d/activity/' % self.auth_event_id, 
+            {}
+        )
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(len(r['activity']), 2)
+
+        # admin with census-delete permission tries to delete the voter, but the
+        # voter has voted so it's denied because the admin doesn't has the 
+        # census-delete-voted permission
+        self.acl_edit_event.perm = 'census-delete'
+        self.acl_edit_event.save()
+        successful_login = SuccessfulLogin(
+            user=self.census_user,
+            auth_event_id=self.auth_event_id
+        )
+        successful_login.save()
+        data = {
+            'user-ids': [self.census_user_id],
+            'comment': 'some comment here'
+        }
+        response = c.post(
+            '/api/auth-event/%d/census/delete/' % self.auth_event_id,
+            data
+        )
+        self.assertEqual(response.status_code, 403)
+
+    @override_settings(**override_celery_data)
+    def test_census_delete_ok(self):
+        c = JClient()
+
+        # voter can authenticate
+        response = c.authenticate(
+            self.auth_event_id, 
+            test_data.auth_email_default
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # admin login
+        response = c.authenticate(self.auth_event_id, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin can list activity and log has only auth events
+        response = c.get(
+            '/api/auth-event/%d/activity/' % self.auth_event_id,
+            {}
+        )
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(len(r['activity']), 2)
+
+        # admin with census-delete permission tries to delete the voter and it
+        # works
+        self.acl_edit_event.perm = 'census-delete'
+        self.acl_edit_event.save()
+        data = {
+            'user-ids': [self.census_user_id],
+            'comment': 'some comment here'
+        }
+        response = c.post(
+            '/api/auth-event/%d/census/delete/' % self.auth_event_id,
+            data
+        )
+        self.assertEqual(response.status_code, 200)
+
+        ## check that the delete was logged properly
+        response = c.get(
+            '/api/auth-event/%d/activity/' % self.auth_event_id,
+            {}
+        )
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        # a previous entry related to the voter was deleted, so the total number
+        # of actions remains the same
+        self.assertEqual(len(r['activity']), 2)
+        self.assertEqual(r['activity'][0]['executer_id'], self.admin_user_id)
+        self.assertEqual(r['activity'][0]['executer_username'], 'john')
+        self.assertEqual(
+            r['activity'][0]['executer_email'],
+            'john@agoravoting.com'
+        )
+        self.assertEqual(
+            r['activity'][0]['action_name'],
+            'user:deleted-from-census'
+        )
+        self.assertEqual(
+            r['activity'][0]['metadata']['comment'],
+            data['comment']
+        )
+        self.assertEqual(
+            r['activity'][0]['metadata']['_id'],
+            self.census_user_id
+        )
+        self.assertEqual(r['activity'][0]['metadata']['_username'], 'test')
+        self.assertEqual(r['activity'][0]['metadata']['email'], 'aaaa@aaa.com')
+
+        # voter cannot authenticate
+        response = c.authenticate(
+            self.auth_event_id,
+            test_data.auth_email_default
+        )
+        self.assertEqual(response.status_code, 400)
+        r = parse_json_response(response)
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
+
+        # voter does not exist in database anymore
+        self.assertEqual(User.objects.filter(id=self.census_user_id).count(), 0)
+
+    @override_settings(**override_celery_data)
+    def test_census_delete_voted_ok(self):
+        c = JClient()
+
+        # voter can authenticate
+        response = c.authenticate(
+            self.auth_event_id, 
+            test_data.auth_email_default
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # admin login
+        response = c.authenticate(self.auth_event_id, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # admin can list activity and log has only auth events
+        response = c.get(
+            '/api/auth-event/%d/activity/' % self.auth_event_id,
+            {}
+        )
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(len(r['activity']), 2)
+
+        # admin with census-delete permission tries to delete the voter and it
+        # works
+        voted_acl = ACL(
+            user=self.admin_user.userdata,
+            object_type='AuthEvent',
+            perm='census-delete-voted',
+            object_id=self.auth_event_id
+        )
+        voted_acl.save()
+        
+        self.acl_edit_event.perm = 'census-delete'
+        self.acl_edit_event.save()
+
+        successful_login = SuccessfulLogin(
+            user=self.census_user,
+            auth_event_id=self.auth_event_id
+        )
+        successful_login.save()
+        
+        data = {
+            'user-ids': [self.census_user_id],
+            'comment': 'some comment here'
+        }
+        response = c.post(
+            '/api/auth-event/%d/census/delete/' % self.auth_event_id,
+            data
+        )
+        self.assertEqual(response.status_code, 200)
+
+        ## check that the delete was logged properly
+        response = c.get(
+            '/api/auth-event/%d/activity/' % self.auth_event_id,
+            {}
+        )
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        # a previous entry related to the voter was deleted, so the total number
+        # of actions remains the same
+        self.assertEqual(len(r['activity']), 2)
+        self.assertEqual(r['activity'][0]['executer_id'], self.admin_user_id)
+        self.assertEqual(r['activity'][0]['executer_username'], 'john')
+        self.assertEqual(
+            r['activity'][0]['executer_email'],
+            'john@agoravoting.com'
+        )
+        self.assertEqual(
+            r['activity'][0]['action_name'],
+            'user:deleted-voted-from-census'
+        )
+        self.assertEqual(
+            r['activity'][0]['metadata']['comment'],
+            data['comment']
+        )
+        self.assertEqual(
+            r['activity'][0]['metadata']['_id'],
+            self.census_user_id
+        )
+        self.assertEqual(r['activity'][0]['metadata']['_username'], 'test')
+        self.assertEqual(r['activity'][0]['metadata']['email'], 'aaaa@aaa.com')
+
+        # voter cannot authenticate
+        response = c.authenticate(
+            self.auth_event_id,
+            test_data.auth_email_default
+        )
+        self.assertEqual(response.status_code, 400)
+        r = parse_json_response(response)
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
+
+        # voter does not exist in database anymore
+        self.assertEqual(User.objects.filter(id=self.census_user_id).count(), 0)
+
+
 class ApiTestActivationAndActivity(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
