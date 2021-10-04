@@ -295,10 +295,18 @@ CONTRACTS = dict(
 
 class CensusDelete(View):
     '''
-    Delete census in the auth-event
+    Delete census in the auth-event.
 
-    It requires different permissions depending on if the voter has already
-    voted or not.
+    It requires different permissions ('census-delete' or 'census-delete' and
+    'census-delete-voted') depending on if the voter has already voted or not.
+
+    The following input parameters are in the data section in json format:
+    - user-ids: Required, list of ints. It's the list of ids of the affected
+                users.
+    - comment: Optional, string. Maximum 255 characters. It's a comment related
+               to the action that will be logged in the activity.
+
+    A single action will be created per deleted user in the activity log.
     '''
     def post(self, request, pk):
         permission_required(
@@ -310,9 +318,20 @@ class CensusDelete(View):
         auth_event = get_object_or_404(AuthEvent, pk=pk)
         req = parse_json_request(request)
         user_ids = req.get('user-ids', [])
-        check_contract(CONTRACTS['list_of_ints'], user_ids)
-        from authmethods.utils import get_trimmed_user
-
+        comment = req.get('comment', None)
+        
+        # parse input
+        try:
+          check_contract(CONTRACTS['list_of_ints'], user_ids)
+          if comment is not None:
+              assert(isinstance(comment, str))
+              assert(len(comment) <= 255)
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST
+            )
+        
         users = [
             get_object_or_404(
                 User,
@@ -326,7 +345,9 @@ class CensusDelete(View):
         # census-delete-voted permission for the auth_event
         action_name = 'user:deleted-from-census'
         for user in users:
-            if len(user.serialize_children_voted_elections(auth_event)) > 0:
+            if len(
+                user.userdata.serialize_children_voted_elections(auth_event)
+            ) > 0:
                 permission_required(
                     request.user, 
                     'AuthEvent',
@@ -336,13 +357,18 @@ class CensusDelete(View):
                 action_name = 'user:deleted-voter-from-census'
                 break
 
+        # delete user and log the delete action
+        from authmethods.utils import get_trimmed_user
         for user in users:
             action = Action(
                 executer=request.user,
                 receiver=None,
                 action_name=action_name,
                 event=auth_event,
-                metadata=get_trimmed_user(user, auth_event)
+                metadata={
+                    **get_trimmed_user(user, auth_event),
+                    **dict(comment=comment)
+                }
             )
             action.save()
 
