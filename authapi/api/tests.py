@@ -3028,11 +3028,11 @@ class ApiTestCensusDelete(TestCase):
             data['comment']
         )
         self.assertEqual(
-            r['activity'][0]['metadata']['id'],
+            r['activity'][0]['metadata']['_id'],
             self.census_user_id
         )
         self.assertEqual(r['activity'][0]['metadata']['_username'], 'test')
-        self.assertEqual(r['activity'][0]['metadata']['_email'], 'aaaa@aaa.com')
+        self.assertEqual(r['activity'][0]['metadata']['email'], 'aaaa@aaa.com')
 
         # voter cannot authenticate
         response = c.authenticate(
@@ -3115,11 +3115,11 @@ class ApiTestCensusDelete(TestCase):
             data['comment']
         )
         self.assertEqual(
-            r['activity'][0]['metadata']['id'],
+            r['activity'][0]['metadata']['_id'],
             self.census_user_id
         )
         self.assertEqual(r['activity'][0]['metadata']['_username'], 'test')
-        self.assertEqual(r['activity'][0]['metadata']['_email'], 'aaaa@aaa.com')
+        self.assertEqual(r['activity'][0]['metadata']['email'], 'aaaa@aaa.com')
 
         # voter cannot authenticate
         response = c.authenticate(
