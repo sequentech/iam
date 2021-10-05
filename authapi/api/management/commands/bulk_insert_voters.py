@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
 from django.db import connection
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import (
@@ -23,7 +23,6 @@ from django.contrib.auth.hashers import (
 from api.models import AuthEvent
 import csv
 import time
-import tempfile, shutil, os
 
 class Command(BaseCommand):
   '''
@@ -120,9 +119,9 @@ class Command(BaseCommand):
     for column in self.columns:
       if first:
         first = False
-        create_statement += "\n  %s  VARCHAR" % column
+        create_statement += "\n  \"%s\"  VARCHAR" % column
       else:
-        create_statement += ",\n  %s  VARCHAR" % column
+        create_statement += ",\n  \"%s\"  VARCHAR" % column
     create_statement += "\n);" 
 
     self.exec_sql(drop_statement)
@@ -232,11 +231,11 @@ class Command(BaseCommand):
       sql_options['password_function'] = """
         concat(
           'pbkdf2_sha256$%(iterations)d$',
-          substr(md5(csv_data.%(base_salt_field)s), 0, 12),
+          substr(md5(csv_data."%(base_salt_field)s"), 0, 12),
           '$',
           encode(
             PBKDF2(
-              substr(md5(csv_data.%(base_salt_field)s), 0, 12)::bytea,
+              substr(md5(csv_data."%(base_salt_field)s"), 0, 12)::bytea,
               csv_data.password,
               %(iterations)d,
               32,
@@ -273,11 +272,11 @@ class Command(BaseCommand):
       if first:
         first = False
         sql_options['metadata'] += """
-        , '"%(column)s": "', csv_data.%(column)s, '"'
+        , '"%(column)s": "', csv_data."%(column)s", '"'
         """ % dict(column=column)
       else:
         sql_options['metadata'] += """
-        , ', "%(column)s": "', csv_data.%(column)s, '"'
+        , ', "%(column)s": "', csv_data."%(column)s", '"'
         """ % dict(column=column)
       
     sql_options['metadata'] += ", '}')::jsonb AS metadata"
@@ -287,6 +286,11 @@ class Command(BaseCommand):
       sql_options['children_event_id_list'] = 'csv_data.children_event_id_list'
     else:
       sql_options['children_event_id_list'] = 'NULL'
+
+    if 'email' in self.columns:
+      sql_options['email_field'] = 'csv_data.email'
+    else:
+      sql_options['email_field'] = "''"
 
     return sql_options
   
@@ -304,7 +308,7 @@ class Command(BaseCommand):
     WITH csv_data(%(all_fields)s) AS (
       SELECT 
         %(all_fields)s,
-        substr(md5(concat(random()::text, %(base_salt_field)s)), 0, 25) AS username
+        substr(md5(concat(random()::text, "%(base_salt_field)s")), 0, 25) AS username
       FROM voters_csv_table
     ),
     user_insert AS (
@@ -325,7 +329,7 @@ class Command(BaseCommand):
         csv_data.username as username,
         '' AS first_name,
         '' AS last_name,
-        csv_data.email AS email,
+        %(email_field)s AS email,
         FALSE AS is_staff,
         TRUE AS is_active,
         NOW() AS date_joined
@@ -339,7 +343,8 @@ class Command(BaseCommand):
         event_id,
         user_id,
         tlf,
-        children_event_id_list
+        children_event_id_list,
+        use_generated_auth_code
       )
       SELECT
         %(metadata)s,
@@ -347,7 +352,8 @@ class Command(BaseCommand):
         %(event_id)d AS event_id,
         user_insert.user_id AS user_id,
         %(tlf)s AS tlf,
-        %(children_event_id_list)s AS children_event_id_list
+        %(children_event_id_list)s AS children_event_id_list,
+        False AS use_generated_auth_code
       FROM user_insert
       LEFT JOIN csv_data ON csv_data.username = user_insert.username
       RETURNING id AS userdata_id
@@ -386,13 +392,14 @@ class Command(BaseCommand):
 
     COMMIT TRANSACTION;
     ''' % dict(
-      all_fields=", ".join(self.columns),
+      all_fields=", ".join(['"%s"' % column for column in self.columns]),
       event_id=self.event_id,
       password_function=sql_options['password_function'],
       base_salt_field=sql_options['base_salt_field'],
       metadata=sql_options['metadata'],
       children_event_id_list=sql_options['children_event_id_list'],
-      tlf=sql_options['tlf']
+      tlf=sql_options['tlf'],
+      email_field=sql_options['email_field']
     )
     self.exec_sql(load_voters_statement)
   
@@ -401,7 +408,7 @@ class Command(BaseCommand):
     Removes the temporal voters_csv_table and frees unused database space
     '''
     drop_statement = "DROP TABLE IF EXISTS voters_csv_table;"
-    vacuum_statement = "VACUUM FULL ANALYZE VERBOSE;"
+    vacuum_statement = "VACUUM FULL ANALYZE;"
 
     self.exec_sql(drop_statement)
     self.exec_sql(vacuum_statement)

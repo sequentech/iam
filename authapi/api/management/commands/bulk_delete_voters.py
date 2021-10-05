@@ -99,5 +99,5 @@ class Command(BaseCommand):
     ''' % dict(event_id=event_id)
     self.exec_sql(delete_acls)
 
-    vacuum_statement = "VACUUM FULL ANALYZE VERBOSE;"
+    vacuum_statement = "VACUUM FULL ANALYZE;"
     self.exec_sql(vacuum_statement)
