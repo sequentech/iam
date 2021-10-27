@@ -1955,7 +1955,7 @@ class TestFillIfEmptyOnRegistration(TestCase):
             user=admin_user.userdata,
             object_type='AuthEvent',
             perm='edit',
-            object_id=self.aeid
+            object_id=self.auth_event.id
         )
         acl.save()
 
@@ -1974,7 +1974,7 @@ class TestFillIfEmptyOnRegistration(TestCase):
             user=test_user.userdata,
             object_type='AuthEvent',
             perm='edit',
-            object_id=self.aeid
+            object_id=self.auth_event.id
         )
         acl.save()
 
