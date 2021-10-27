@@ -612,7 +612,8 @@ class UserData(models.Model):
                     metadata = json.loads(metadata)
             else:
                 metadata = self.metadata
-            d.update(metadata)
+            metadata.update(d)
+            d = metadata
         return d
 
     def __str__(self):
