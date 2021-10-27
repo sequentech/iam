@@ -76,6 +76,22 @@ def random_username():
     except User.DoesNotExist:
         return username
 
+def reset_voter_to_preregistration(user):
+    '''
+    Reset the voter to pre-registration status. Any extra_field set as fill_if_empty_on_registration True will be unset for the voter.
+    '''
+    changed = False
+    for extra_field in user.userdata.event.extra_fields:
+        name = extra_field['name']
+        if (
+            'name' in user.userdata.metadata and
+            extra_field.get('fill_if_empty_on_registration', False)
+        ):
+            changed = True
+            del user.userdata.metadata[name]
+
+    if changed:
+        user.userdata.save()
 
 def email_constraint(val):
     ''' check that the input is an email string '''

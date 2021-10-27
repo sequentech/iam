@@ -304,6 +304,7 @@ auth_event9 = {
             "name": "email",
             "type": "email",
             "required": True,
+            "unique": True,
             "min": 4,
             "max": 255,
             "fill_if_empty_on_registration": True,
@@ -315,6 +316,7 @@ auth_event9 = {
             "help": "match census on registration",
             "type": "text",
             "required": True,
+            "unique": True,
             "min": 0,
             "max": 24,
             "required_on_authentication": False

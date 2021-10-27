@@ -43,6 +43,7 @@ from authmethods import (
     check_config,
     METHODS,
 )
+from authmethods.utils import reset_voter_to_preregistration
 from utils import (
     check_authmethod,
     check_extra_fields,
@@ -2068,6 +2069,70 @@ class CensusSendAuth(View):
         return json_response(data)
 census_send_auth = login_required(CensusSendAuth.as_view())
 
+
+class CensusResetVoter(View):
+    def post(self, request, pk):
+        '''
+        Reset a voter's registration fields to a pre-registration state. Can
+        only be executed for voters who did not vote.
+        '''
+        permission_required(
+            request.user,
+            'AuthEvent',
+            ['edit', 'reset-voter'],
+            pk
+        )
+
+        data = dict(status='ok')
+        
+        # first, validate input
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        try:
+            req = parse_json_request(request)
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST
+            )
+        # check data format
+        user_ids = req.get("user-ids", None)
+        if user_ids is None or type(user_ids) != list:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST
+            )
+        # check data format
+        for user_id in user_ids:
+            if type(user_id) != int:
+                return json_response(
+                    status=400,
+                    error_codename=ErrorCodes.BAD_REQUEST
+                )
+        # get voters
+        users = [
+            get_object_or_404(
+                User,
+                pk=user_id, 
+                userdata__event=auth_event
+            )
+            for user_id in user_ids
+        ]
+        # check voter didn't vote
+        for user in users:
+            if len(
+                user.userdata.serialize_children_voted_elections(auth_event)
+            ) > 0:
+                return json_response(
+                    status=400,
+                    error_codename=ErrorCodes.BAD_REQUEST
+                )
+        # all checks passed: let's reset the voters
+        for user in users:
+            reset_voter_to_preregistration(user)            
+
+        return json_response(data)
+
+census_reset_voter = login_required(CensusResetVoter.as_view())
 
 class GetImage(View):
     def get(self, request, pk, uid):

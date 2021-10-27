@@ -1920,6 +1920,90 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         self.assertEqual(Code.objects.count(), 1 + 5 - 2)
 
 
+class TestFillIfEmptyOnRegistration(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        from authmethods.m_email import Email
+        auth_method_config = {
+                "config": Email.CONFIG,
+                "pipeline": Email.PIPELINES
+        }
+        auth_event = AuthEvent(
+            auth_method=test_data.auth_event9['auth_method'],
+            extra_fields=test_data.auth_event9['extra_fields'],
+            auth_method_config=auth_method_config,
+            status='started',
+            census=test_data.auth_event9['census']
+        )
+        auth_event.save()
+        self.auth_event = auth_event
+
+        admin_user = User(
+            username=test_data.admin['username'],
+            email=test_data.admin['email']
+        )
+        admin_user.set_password(test_data.admin['password'])
+        admin_user.save()
+        admin_user.userdata.event = auth_event
+        admin_user.userdata.save()
+        self.admin_user = admin_user
+        self.uid_admin = admin_user.id
+
+        acl = ACL(
+            user=admin_user.userdata,
+            object_type='AuthEvent',
+            perm='edit',
+            object_id=self.aeid
+        )
+        acl.save()
+
+        # test user has email unset
+        test_user = User(username='test')
+        test_user.save()
+        test_user.userdata.event = auth_event
+        test_user.userdata.metadata = {
+            'match_field': 'match_code_555'
+        }
+        test_user.userdata.save()
+        self.test_user = test_user.userdata
+        self.test_user_id = test_user.id
+
+        acl = ACL(
+            user=test_user.userdata,
+            object_type='AuthEvent',
+            perm='edit',
+            object_id=self.aeid
+        )
+        acl.save()
+
+        code = Code(
+            user=test_user.userdata,
+            code=test_data.auth_email_default['code'],
+            auth_event_id=auth_event.pk
+        )
+        code.save()
+        self.code = code
+
+    def test_voter_register(self):
+        '''
+        Register a pre-registered voter
+        '''
+        c = JClient()
+        voter_registration_data = dict(
+            email='test-6578752@test.com',
+            match_field='match_code_555'
+        )
+        response = c.register(self.auth_event.id, voter_registration_data)
+        self.assertEqual(response.status_code, 200)
+
+        # now user should be registered with the new email
+        self.assertEqual(
+            User.objects.get(pk=self.test_user_id).email,
+            voter_registration_data['email']
+        )
+
 class TestSmallCensusSearch(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
