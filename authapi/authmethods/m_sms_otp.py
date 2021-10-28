@@ -57,12 +57,8 @@ class SmsOtp:
         ],
         "register-pipeline": [
             ["check_whitelisted", {"field": "tlf"}],
-            ["check_whitelisted", {"field": "ip"}],
-            ["check_blacklisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "tlf"}],
-            ["check_total_max", {"field": "ip", "period": 3600, "max": 10}],
             ["check_total_max", {"field": "tlf", "period": 3600, "max": 10}],
-            ["check_total_max", {"field": "ip", "period": 3600*24, "max": 50}],
             ["check_total_max", {"field": "tlf", "period": 3600*24, "max": 50}],
         ],
         "authenticate-pipeline": [
@@ -71,14 +67,8 @@ class SmsOtp:
         ],
         "resend-auth-pipeline": [
             ["check_whitelisted", {"field": "tlf"}],
-            ["check_whitelisted", {"field": "ip"}],
-            ["check_blacklisted", {"field": "ip"}],
             ["check_blacklisted", {"field": "tlf"}],
-            ["check_total_max", {"field": "ip", "period": 1, "max": 1}],
-            ["check_total_max", {"field": "ip", "period": 5, "max": 2}],
-            ["check_total_max", {"field": "ip", "period": 3600, "max": 10}],
             ["check_total_max", {"field": "tlf", "period": 3600, "max": 10}],
-            ["check_total_max", {"field": "ip", "period": 3600*24, "max": 20}],
             ["check_total_max", {"field": "tlf", "period": 3600*24, "max": 20}]
         ]
     }
