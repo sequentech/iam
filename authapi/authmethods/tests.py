@@ -969,3 +969,6 @@ class AdminGeneratedAuthCodes(TestCase):
             )
         )
         self.assertEqual(response.status_code, 200)
+
+    def test_generate_codes_if_voted(self):
+        pass

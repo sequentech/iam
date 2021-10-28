@@ -632,9 +632,15 @@ class SmsOtp:
             auth_event=auth_event,
             req_data=req,
             log_prefix="SmsOtp",
-            expiration_seconds=settings.SMS_OTP_EXPIRE_SECONDS    
+            expiration_seconds=settings.SMS_OTP_EXPIRE_SECONDS
         )
         if verified:
+            if not verify_num_successful_logins(auth_event, 'SmsOtp', user, req):
+                return self.error(
+                    "Incorrect data",
+                    error_codename="invalid_credentials"
+                )
+
             return return_auth_data('SmsOtp', req, request, user)
 
         msg = ''
@@ -772,7 +778,18 @@ class SmsOtp:
                 username, auth_event, req_data, stack_trace_str()
             )
             raise Exception()
-        
+
+        if not verify_num_successful_logins(auth_event, 'SmsOtp', user, req_data):
+            LOGGER.error(
+                "SmsOtp.generate_auth_code error\n" +
+                "error: voter has voted enough times already\n" +
+                "authevent '%r'\n" +
+                "request '%r'\n" +
+                "Stack trace: \n%s",
+                username, auth_event, req_data, stack_trace_str()
+            )
+            raise Exception()
+
         code = generate_code(user.userdata)
         user.userdata.use_generated_auth_code=True
         user.userdata.save()
