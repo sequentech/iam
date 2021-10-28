@@ -18,7 +18,14 @@ import logging
 from django.conf import settings
 from django.conf.urls import url
 from django.contrib.auth.models import User
-from utils import genhmac, constant_time_compare, send_codes, get_client_ip, is_valid_url
+from utils import (
+    genhmac,
+    constant_time_compare,
+    send_codes,
+    get_client_ip,
+    is_valid_url,
+    verify_admin_generated_auth_code
+)
 
 from . import register_method
 from authmethods.utils import *
@@ -624,6 +631,21 @@ class Email:
 
     def authenticate(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))
+        verified, user = verify_admin_generated_auth_code(
+            auth_event=auth_event,
+            req_data=req,
+            log_prefix="Email",
+            expiration_seconds=settings.SMS_OTP_EXPIRE_SECONDS
+        )
+        if verified:
+            if not verify_num_successful_logins(auth_event, 'Email', user, req):
+                return self.error(
+                    "Incorrect data",
+                    error_codename="invalid_credentials"
+                )
+
+            return return_auth_data('Email', req, request, user)
+  
         msg = ''
         if auth_event.parent is not None:
             msg += 'you can only authenticate to parent elections'
@@ -776,5 +798,62 @@ class Email:
             u.id, get_client_ip(request), auth_event, req, stack_trace_str())
         return {'status': 'ok', 'user': u}
         
+
+    def generate_auth_code(self, auth_event, request):
+        req_data = json.loads(request.body.decode('utf-8'))
+        if (
+            'username' not in req_data or
+            not isinstance(req_data['username'], str)
+        ):
+            LOGGER.error(
+                "Email.generate_auth_code error\n" +
+                "error: invalid username" +
+                "authevent '%r'\n" +
+                "request '%r'\n" +
+                "Stack trace: \n%s",
+                auth_event, req_data, stack_trace_str()
+            )
+            raise Exception()
+        
+        username = req_data['username']
+        try:
+            base_query = get_base_auth_query(
+                auth_event,
+                ignore_generated_code=True
+            )
+            query = base_query & Q(username=username)
+            user = User.objects.get(query)
+        except:
+            LOGGER.error(
+                "Email.generate_auth_code error\n" +
+                "error: username '%r' not found\n" +
+                "authevent '%r'\n" +
+                "request '%r'\n" +
+                "Stack trace: \n%s",
+                username, auth_event, req_data, stack_trace_str()
+            )
+            raise Exception()
+
+        if not verify_num_successful_logins(auth_event, 'Email', user, req_data):
+            LOGGER.error(
+                "Email.generate_auth_code error\n" +
+                "error: voter has voted enough times already\n" +
+                "authevent '%r'\n" +
+                "request '%r'\n" +
+                "Stack trace: \n%s",
+                username, auth_event, req_data, stack_trace_str()
+            )
+            raise Exception()
+
+        code = generate_code(user.userdata)
+        user.userdata.use_generated_auth_code=True
+        user.userdata.save()
+        return (
+            dict(
+                code=code.code,
+                created=code.created.isoformat()
+            ),
+            user
+        )
 
 register_method('email', Email)
