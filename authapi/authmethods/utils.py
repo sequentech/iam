@@ -84,6 +84,20 @@ def reset_voter_to_preregistration(user):
     for extra_field in user.userdata.event.extra_fields:
         name = extra_field['name']
         if (
+            extra_field['type'] == 'email' and 
+            type(user.email) == str and 
+            len(user.email) > 0
+        ):
+            user.email = ''
+            user.save()
+        elif (
+            extra_field['type'] == 'tlf' and
+            type(user.userdata.tlf) == str and
+            len(user.userdata.tlf) > 0
+        ):
+            changed = True
+            user.userdata.tlf = ''
+        elif (
             'name' in user.userdata.metadata and
             extra_field.get('fill_if_empty_on_registration', False)
         ):

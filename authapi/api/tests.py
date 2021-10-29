@@ -1995,6 +1995,13 @@ class TestFillIfEmptyOnRegistration(TestCase):
             email='test-6578752@test.com',
             match_field='match_code_555'
         )
+
+        # Before registration, the voter has no email
+        self.assertEqual(
+            User.objects.get(pk=self.test_user_id).email,
+            ""
+        )
+
         response = c.register(self.auth_event.id, voter_registration_data)
         self.assertEqual(response.status_code, 200)
 
@@ -2003,6 +2010,30 @@ class TestFillIfEmptyOnRegistration(TestCase):
             User.objects.get(pk=self.test_user_id).email,
             voter_registration_data['email']
         )
+
+    def test_voter_reset(self):
+        '''
+        Register a pre-registered voter
+        '''
+        c = JClient()
+        # assign an email to the voter
+        test_user = User.objects.get(pk=self.test_user_id)
+        test_user.email = "example@example.com"
+        test_user.save()
+
+        # login as admin and reset this voter
+        c.authenticate(self.aeid, self.admin_user)
+        response = c.post(
+            '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
+            dict(
+                user_ids=[self.test_user_id]
+            )
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # now user should have email reset
+        self.assertEqual(User.objects.get(pk=self.test_user_id).email, '')
+
 
 class TestSmallCensusSearch(TestCase):
     def setUpTestData():
