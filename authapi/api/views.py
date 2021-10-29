@@ -2096,18 +2096,17 @@ class CensusResetVoter(View):
             )
         # check data format
         user_ids = req.get("user-ids", None)
-        if user_ids is None or type(user_ids) != list:
+        comment = req.get('comment', None)
+        try:
+          check_contract(CONTRACTS['list_of_ints'], user_ids)
+          if comment is not None:
+              assert(isinstance(comment, str))
+              assert(len(comment) <= 255)
+        except:
             return json_response(
                 status=400,
-                error_codename=ErrorCodes.BAD_REQUEST
-            )
-        # check data format
-        for user_id in user_ids:
-            if type(user_id) != int:
-                return json_response(
-                    status=400,
-                    error_codename=ErrorCodes.BAD_REQUEST
-                )
+                error_codename=ErrorCodes.BAD_REQUEST)
+
         # get voters
         users = [
             get_object_or_404(
@@ -2127,8 +2126,24 @@ class CensusResetVoter(View):
                     error_codename=ErrorCodes.BAD_REQUEST
                 )
         # all checks passed: let's reset the voters
+
+        from authmethods.utils import get_trimmed_user
+
         for user in users:
-            reset_voter_to_preregistration(user)            
+            trimmed_user_before = get_trimmed_user(user, auth_event)
+            reset_voter_to_preregistration(user)
+            action = Action(
+                executer=request.user,
+                receiver=user,
+                action_name='user:reset-voter',
+                event=auth_event,
+                metadata={
+                    "trimmed_user_before": trimmed_user_before,
+                    "trimmed_user_after": get_trimmed_user(user, auth_event),
+                    "comment": comment
+                }
+            )
+            action.save()
 
         return json_response(data)
 

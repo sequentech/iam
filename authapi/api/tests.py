@@ -2034,6 +2034,48 @@ class TestFillIfEmptyOnRegistration(TestCase):
         # now user should have email reset
         self.assertEqual(User.objects.get(pk=self.test_user_id).email, '')
 
+    def test_voter_reset_activity(self):
+        '''
+        Check that voter reset triggers the creation of an action
+        '''
+        # check the action is not registered at first
+        self.assertEqual(
+            Action.objects.filter(
+                executer__id=self.admin_user.id,
+                receiver__id=self.test_user_id,
+                action_name='user:reset-voter',
+                event=self.auth_event.id,
+                metadata__comment="some comment"
+            ).count(),
+            0
+        )
+
+        # login as admin and reset the voter
+        c = JClient()
+        response = c.authenticate(settings.ADMIN_AUTH_ID, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        response = c.post(
+            '/api/auth-event/%d/census/reset-voter/' % self.auth_event.id,
+            {
+                "user-ids": [self.test_user_id],
+                "comment": "some comment"
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # check the action was created
+        self.assertEqual(
+            Action.objects.filter(
+                executer__id=self.admin_user.id,
+                receiver__id=self.test_user_id,
+                action_name='user:reset-voter',
+                event=self.auth_event.id,
+                metadata__comment="some comment"
+            ).count(),
+            1
+        )
+
     def test_voter_reset_metadata(self):
         '''
         Reset user should work as expected for metadata normal fields
