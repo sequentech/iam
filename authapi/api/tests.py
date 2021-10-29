@@ -1946,7 +1946,9 @@ class TestFillIfEmptyOnRegistration(TestCase):
         )
         admin_user.set_password(test_data.admin['password'])
         admin_user.save()
-        admin_user.userdata.event = auth_event
+        admin_user.userdata.event = AuthEvent\
+            .objects\
+            .get(pk=settings.ADMIN_AUTH_ID)
         admin_user.userdata.save()
         self.admin_user = admin_user
         self.uid_admin = admin_user.id
