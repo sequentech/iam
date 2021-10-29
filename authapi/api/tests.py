@@ -2024,7 +2024,7 @@ class TestFillIfEmptyOnRegistration(TestCase):
         test_user.save()
 
         # login as admin and reset this voter
-        c.authenticate(self.auth_event.id, self.admin_user)
+        c.authenticate(self.auth_event.id, test_data.admin)
         response = c.post(
             '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
             {
@@ -2053,7 +2053,7 @@ class TestFillIfEmptyOnRegistration(TestCase):
         test_user.save()
 
         # login as admin and reset this voter
-        c.authenticate(self.auth_event.id, self.admin_user)
+        c.authenticate(self.auth_event.id, test_data.admin)
         response = c.post(
             '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
             {
@@ -2091,7 +2091,7 @@ class TestFillIfEmptyOnRegistration(TestCase):
         test_user.userdata.save()
 
         # login as admin and reset this voter
-        c.authenticate(self.auth_event.id, self.admin_user)
+        c.authenticate(self.auth_event.id, test_data.admin)
         response = c.post(
             '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
             {
@@ -2125,7 +2125,7 @@ class TestFillIfEmptyOnRegistration(TestCase):
         test_user.save()
 
         # login as admin and reset this voter
-        c.authenticate(self.auth_event.id, self.admin_user)
+        c.authenticate(self.auth_event.id, test_data.admin)
         response = c.post(
             '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
             {
@@ -2149,7 +2149,7 @@ class TestFillIfEmptyOnRegistration(TestCase):
         '''
         # login as admin and try reset this voter
         c = JClient()
-        c.authenticate(self.auth_event.id, self.admin_user)
+        c.authenticate(self.auth_event.id, test_data.admin)
         response = c.post(
             '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
             {
@@ -2169,7 +2169,7 @@ class TestFillIfEmptyOnRegistration(TestCase):
 
         # login as admin and try reset this voter
         c = JClient()
-        c.authenticate(self.auth_event.id, self.admin_user)
+        c.authenticate(self.auth_event.id, test_data.admin)
         response = c.post(
             '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
             {
@@ -2188,7 +2188,7 @@ class TestFillIfEmptyOnRegistration(TestCase):
 
         # login as admin and try reset this voter
         c = JClient()
-        c.authenticate(self.auth_event.id, self.admin_user)
+        c.authenticate(self.auth_event.id, test_data.admin)
         response = c.post(
             '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
             {
@@ -2203,7 +2203,7 @@ class TestFillIfEmptyOnRegistration(TestCase):
         '''
         # login as admin and try reset this voter
         c = JClient()
-        c.authenticate(self.auth_event.id, self.admin_user)
+        c.authenticate(self.auth_event.id, test_data.admin)
         response = c.post(
             '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
             {
@@ -2227,7 +2227,7 @@ class TestFillIfEmptyOnRegistration(TestCase):
 
         # login as admin and try reset this voter
         c = JClient()
-        c.authenticate(self.auth_event.id, self.admin_user)
+        c.authenticate(self.auth_event.id, test_data.admin)
 
         response = c.post(
             '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
