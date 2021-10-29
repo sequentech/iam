@@ -1932,7 +1932,7 @@ class TestFillIfEmptyOnRegistration(TestCase):
         }
         auth_event = AuthEvent(
             auth_method=test_data.auth_event9['auth_method'],
-            extra_fields=test_data.auth_event9['extra_fields'],
+            extra_fields=copy.deepcopy(test_data.auth_event9['extra_fields']),
             auth_method_config=auth_method_config,
             status='started',
             census=test_data.auth_event9['census']
@@ -2340,6 +2340,7 @@ class TestSmallCensusSearch(TestCase):
     def test_add_census_search_filter(self):
         c = JClient()
         res_auth = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(res_auth.status_code, 200)
         response = c.census(self.aeid, test_data.census_email_auth9)
         self.assertEqual(response.status_code, 200)
         response = c.get('/api/auth-event/%d/census/' % self.aeid, {"filter": "ma1"})
