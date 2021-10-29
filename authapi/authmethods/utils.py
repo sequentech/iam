@@ -98,7 +98,7 @@ def reset_voter_to_preregistration(user):
             changed = True
             user.userdata.tlf = ''
         elif (
-            'name' in user.userdata.metadata and
+            name in user.userdata.metadata and
             extra_field.get('fill_if_empty_on_registration', False)
         ):
             changed = True
