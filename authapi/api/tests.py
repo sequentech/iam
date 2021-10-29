@@ -1951,13 +1951,14 @@ class TestFillIfEmptyOnRegistration(TestCase):
         self.admin_user = admin_user
         self.uid_admin = admin_user.id
 
-        acl = ACL(
+        admin_acl = ACL(
             user=admin_user.userdata,
             object_type='AuthEvent',
             perm='edit',
             object_id=self.auth_event.id
         )
-        acl.save()
+        admin_acl.save()
+        self.admin_acl = admin_acl
 
         # test user has email unset
         test_user = User(username='test')
@@ -1970,13 +1971,14 @@ class TestFillIfEmptyOnRegistration(TestCase):
         self.test_user = test_user.userdata
         self.test_user_id = test_user.id
 
-        acl = ACL(
+        user_acl = ACL(
             user=test_user.userdata,
             object_type='AuthEvent',
             perm='edit',
             object_id=self.auth_event.id
         )
-        acl.save()
+        user_acl.save()
+        self.user_acl = user_acl
 
         code = Code(
             user=test_user.userdata,
@@ -2011,9 +2013,9 @@ class TestFillIfEmptyOnRegistration(TestCase):
             voter_registration_data['email']
         )
 
-    def test_voter_reset(self):
+    def test_voter_reset_email(self):
         '''
-        Register a pre-registered voter
+        Reset user should work as expected for email field
         '''
         c = JClient()
         # assign an email to the voter
@@ -2025,14 +2027,216 @@ class TestFillIfEmptyOnRegistration(TestCase):
         c.authenticate(self.aeid, self.admin_user)
         response = c.post(
             '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
-            dict(
-                user_ids=[self.test_user_id]
-            )
+            {
+                "user-ids": [self.test_user_id]
+            }
         )
         self.assertEqual(response.status_code, 200)
 
         # now user should have email reset
         self.assertEqual(User.objects.get(pk=self.test_user_id).email, '')
+
+    def test_voter_reset_metadata(self):
+        '''
+        Reset user should work as expected for metadata normal fields
+        '''
+        self.auth_event.extra_fields[0]['name'] = 'whatever'
+        self.auth_event.extra_fields[0]['type'] = 'text'
+        self.auth_event.save()
+
+        c = JClient()
+        # assign data to the whatever metadata and email fields
+        test_user = User.objects.get(pk=self.test_user_id)
+        test_user.userdata.metadata['whatever'] = "some data"
+        test_user.userdata.save()
+        test_user.email = "some@email.com"
+        test_user.save()
+
+        # login as admin and reset this voter
+        c.authenticate(self.aeid, self.admin_user)
+        response = c.post(
+            '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
+            {
+                "user-ids": [self.test_user_id]
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # now user should have the whatever field reset (but not the email)
+        self.assertEqual(
+            User\
+                .objects\
+                .get(pk=self.test_user_id)\
+                .userdata\
+                .metadata['whatever'], 
+            ''
+        )
+        self.assertEqual(
+            User.objects.get(pk=self.test_user_id).email,
+            'some@email.com'
+        )
+
+    def test_voter_reset_tlf(self):
+        '''
+        Reset user should work as expected for tlf field
+        '''
+        self.auth_event.extra_fields[0]['name'] = 'tlf'
+        self.auth_event.extra_fields[0]['type'] = 'tlf'
+        self.auth_event.save()
+
+        c = JClient()
+        # assign telephone to user
+        test_user = User.objects.get(pk=self.test_user_id)
+        test_user.userdata.tlf = "+34123456789"
+        test_user.userdata.save()
+
+        # login as admin and reset this voter
+        c.authenticate(self.aeid, self.admin_user)
+        response = c.post(
+            '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
+            {
+                "user-ids": [self.test_user_id]
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # now user should have the tlf field reset
+        self.assertEqual(
+            User\
+                .objects\
+                .get(pk=self.test_user_id)\
+                .userdata\
+                .tlf, 
+            ''
+        )
+
+    def test_voter_reset_no_fill(self):
+        '''
+        Reset user should work as expected when no field is set as 
+        fill_if_empty_on_registration
+        '''
+        self.auth_event.extra_fields[0]['fill_if_empty_on_registration'] = False
+        self.auth_event.save()
+
+        c = JClient()
+        # assign an email to the voter
+        test_user = User.objects.get(pk=self.test_user_id)
+        test_user.email = "example@example.com"
+        test_user.save()
+
+        # login as admin and reset this voter
+        c.authenticate(self.aeid, self.admin_user)
+        response = c.post(
+            '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
+            {
+                "user-ids": [self.test_user_id]
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # now user should still have the email field not reset
+        self.assertEqual(
+            User\
+                .objects\
+                .get(pk=self.test_user_id)\
+                .email, 
+            "example@example.com"
+        )
+
+    def test_voter_reset_bad_data1(self):
+        '''
+        Reset user should detect missing user_ids field
+        '''
+        # login as admin and try reset this voter
+        c = JClient()
+        c.authenticate(self.aeid, self.admin_user)
+        response = c.post(
+            '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
+            {
+                # this is wrong, the field should be "user-ids"
+                "user_ids": [self.test_user_id]
+            }
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_voter_reset_perms_alt(self):
+        '''
+        Reset user should work with reset-voter perms
+        '''
+        # change the admin perms to reset-voter
+        self.admin_acl.perm = 'reset-voter'
+        self.admin_acl.save()
+
+        # login as admin and try reset this voter
+        c = JClient()
+        c.authenticate(self.aeid, self.admin_user)
+        response = c.post(
+            '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
+            {
+                "user-ids": [self.test_user_id]
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_voter_reset_perms_invalid(self):
+        '''
+        Reset user should fail if the admin doesn't have perms
+        '''
+        # change the admin perms to reset-voter
+        self.admin_acl.perm = 'reset-voter-invalid-perm'
+        self.admin_acl.save()
+
+        # login as admin and try reset this voter
+        c = JClient()
+        c.authenticate(self.aeid, self.admin_user)
+        response = c.post(
+            '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
+            {
+                "user-ids": [self.test_user_id]
+            }
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_voter_reset_invalid_voter_data(self):
+        '''
+        Reset user should fail if the voter doesn't exist in this election
+        '''
+        # login as admin and try reset this voter
+        c = JClient()
+        c.authenticate(self.aeid, self.admin_user)
+        response = c.post(
+            '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
+            {
+                "user-ids": [100101]
+            }
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_voter_reset_voter_already_voted(self):
+        '''
+        Reset user should fail if the voter has already voted
+        '''
+        # register vote
+        vote = SuccessfulLogin(
+            created=datetime(2010, 10, 10, 0, 30, 30, 0, None),
+            user=self.test_user.userdata,
+            auth_event=self.auth_event,
+            is_active=True
+        )
+        vote.save()
+
+        # login as admin and try reset this voter
+        c = JClient()
+        c.authenticate(self.aeid, self.admin_user)
+
+        response = c.post(
+            '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
+            {
+                "user-ids": [self.test_user_id]
+            }
+        )
+        # should fail because there's a vote for this election
+        self.assertEqual(response.status_code, 400)
 
 
 class TestSmallCensusSearch(TestCase):
