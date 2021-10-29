@@ -2062,13 +2062,12 @@ class TestFillIfEmptyOnRegistration(TestCase):
         self.assertEqual(response.status_code, 200)
 
         # now user should have the whatever field reset (but not the email)
-        self.assertEqual(
-            User\
+        self.assertTrue(
+            'whatever' not in User\
                 .objects\
                 .get(pk=self.test_user_id)\
                 .userdata\
-                .metadata['whatever'], 
-            ''
+                .metadata
         )
         self.assertEqual(
             User.objects.get(pk=self.test_user_id).email,
@@ -2224,7 +2223,7 @@ class TestFillIfEmptyOnRegistration(TestCase):
         # register vote
         vote = SuccessfulLogin(
             created=datetime(2010, 10, 10, 0, 30, 30, 0, None),
-            user=self.test_user.userdata,
+            user=self.test_user,
             auth_event=self.auth_event,
             is_active=True
         )
