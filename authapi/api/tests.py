@@ -1960,6 +1960,17 @@ class TestFillIfEmptyOnRegistration(TestCase):
         admin_acl.save()
         self.admin_acl = admin_acl
 
+        self.admin_auth_data = dict(
+            email=admin_user.email,
+            code="ERGERG"
+        )
+        code = Code(
+            user=admin_user.userdata,
+            code=self.admin_auth_data['code'],
+            auth_event_id=settings.ADMIN_AUTH_ID
+        )
+        code.save()
+
         # test user has email unset
         test_user = User(username='test')
         test_user.save()
@@ -1970,23 +1981,6 @@ class TestFillIfEmptyOnRegistration(TestCase):
         test_user.userdata.save()
         self.test_user = test_user.userdata
         self.test_user_id = test_user.id
-
-        user_acl = ACL(
-            user=test_user.userdata,
-            object_type='AuthEvent',
-            perm='edit',
-            object_id=self.auth_event.id
-        )
-        user_acl.save()
-        self.user_acl = user_acl
-
-        code = Code(
-            user=test_user.userdata,
-            code=test_data.auth_email_default['code'],
-            auth_event_id=auth_event.pk
-        )
-        code.save()
-        self.code = code
 
     def test_voter_register(self):
         '''
@@ -2024,9 +2018,11 @@ class TestFillIfEmptyOnRegistration(TestCase):
         test_user.save()
 
         # login as admin and reset this voter
-        c.authenticate(self.auth_event.id, test_data.admin)
+        response = c.authenticate(settings.ADMIN_AUTH_ID, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
         response = c.post(
-            '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
+            '/api/auth-event/%d/census/reset-voter/' % self.auth_event.id,
             {
                 "user-ids": [self.test_user_id]
             }
@@ -2053,9 +2049,10 @@ class TestFillIfEmptyOnRegistration(TestCase):
         test_user.save()
 
         # login as admin and reset this voter
-        c.authenticate(self.auth_event.id, test_data.admin)
+        response = c.authenticate(settings.ADMIN_AUTH_ID, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
         response = c.post(
-            '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
+            '/api/auth-event/%d/census/reset-voter/' % self.auth_event.id,
             {
                 "user-ids": [self.test_user_id]
             }
@@ -2091,9 +2088,10 @@ class TestFillIfEmptyOnRegistration(TestCase):
         test_user.userdata.save()
 
         # login as admin and reset this voter
-        c.authenticate(self.auth_event.id, test_data.admin)
+        response = c.authenticate(settings.ADMIN_AUTH_ID, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
         response = c.post(
-            '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
+            '/api/auth-event/%d/census/reset-voter/' % self.auth_event.id,
             {
                 "user-ids": [self.test_user_id]
             }
@@ -2125,9 +2123,10 @@ class TestFillIfEmptyOnRegistration(TestCase):
         test_user.save()
 
         # login as admin and reset this voter
-        c.authenticate(self.auth_event.id, test_data.admin)
+        response = c.authenticate(settings.ADMIN_AUTH_ID, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
         response = c.post(
-            '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
+            '/api/auth-event/%d/census/reset-voter/' % self.auth_event.id,
             {
                 "user-ids": [self.test_user_id]
             }
@@ -2149,9 +2148,10 @@ class TestFillIfEmptyOnRegistration(TestCase):
         '''
         # login as admin and try reset this voter
         c = JClient()
-        c.authenticate(self.auth_event.id, test_data.admin)
+        response = c.authenticate(settings.ADMIN_AUTH_ID, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
         response = c.post(
-            '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
+            '/api/auth-event/%d/census/reset-voter/' % self.auth_event.id,
             {
                 # this is wrong, the field should be "user-ids"
                 "user_ids": [self.test_user_id]
@@ -2169,9 +2169,10 @@ class TestFillIfEmptyOnRegistration(TestCase):
 
         # login as admin and try reset this voter
         c = JClient()
-        c.authenticate(self.auth_event.id, test_data.admin)
+        response = c.authenticate(settings.ADMIN_AUTH_ID, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
         response = c.post(
-            '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
+            '/api/auth-event/%d/census/reset-voter/' % self.auth_event.id,
             {
                 "user-ids": [self.test_user_id]
             }
@@ -2188,9 +2189,10 @@ class TestFillIfEmptyOnRegistration(TestCase):
 
         # login as admin and try reset this voter
         c = JClient()
-        c.authenticate(self.auth_event.id, test_data.admin)
+        response = c.authenticate(settings.ADMIN_AUTH_ID, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
         response = c.post(
-            '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
+            '/api/auth-event/%d/census/reset-voter/' % self.auth_event.id,
             {
                 "user-ids": [self.test_user_id]
             }
@@ -2203,9 +2205,10 @@ class TestFillIfEmptyOnRegistration(TestCase):
         '''
         # login as admin and try reset this voter
         c = JClient()
-        c.authenticate(self.auth_event.id, test_data.admin)
+        response = c.authenticate(settings.ADMIN_AUTH_ID, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
         response = c.post(
-            '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
+            '/api/auth-event/%d/census/reset-voter/' % self.auth_event.id,
             {
                 "user-ids": [100101]
             }
@@ -2227,10 +2230,11 @@ class TestFillIfEmptyOnRegistration(TestCase):
 
         # login as admin and try reset this voter
         c = JClient()
-        c.authenticate(self.auth_event.id, test_data.admin)
+        response = c.authenticate(settings.ADMIN_AUTH_ID, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
 
         response = c.post(
-            '/api/auth-event/%d/census/reset-voter' % self.auth_event.id,
+            '/api/auth-event/%d/census/reset-voter/' % self.auth_event.id,
             {
                 "user-ids": [self.test_user_id]
             }
