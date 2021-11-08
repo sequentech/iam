@@ -677,29 +677,33 @@ class SmsOtp:
                 "SmsOtp.authenticate error\n"\
                 "user not found with these characteristics: tlf '%r'\n"\
                 "authevent '%r'\n"\
+                "query '%r'\n"\
                 "is_active True\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
-                tlf, auth_event, req, stack_trace_str())
+                tlf, auth_event, q, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         if not verify_num_successful_logins(auth_event, 'SmsOtp', user, req):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        code = Code.objects.filter(
-            user=user.userdata,
+        query = Q(
+            user__id=user.userdata.id,
             created__gt=timezone.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
-            ).order_by('-created').first()
+            )
+        code = Code.objects.filter(query).order_by('-created').first()
         if not code:       
             LOGGER.error(\
                 "SmsOtp.authenticate error\n"\
                 "Code not found on db for user '%r'\n"\
                 "and time between now and '%r' seconds earlier\n"\
+                "query '%r'\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
                 "Stack trace: \n%s",\
                 user.userdata,\
                 settings.SMS_OTP_EXPIRE_SECONDS,\
+                query,\
                 auth_event, req, stack_trace_str())
             return self.error("Incorrect data", error_codename="invalid_credentials")
           

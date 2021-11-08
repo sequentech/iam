@@ -1158,7 +1158,7 @@ def get_base_auth_query(auth_event, ignore_generated_code=False):
     returns the base authentication query for the given auth_event
     '''
     q = Q(
-        userdata__event=auth_event,
+        userdata__event__id=auth_event.id,
         is_active=True
     )
 
