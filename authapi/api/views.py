@@ -1254,13 +1254,13 @@ class Activity(View):
             permission_required(
                 request.user,
                 'AuthEvent',
-                ['event-view-activity', 'edit', 'view'],
+                ['event-view-activity', 'edit'],
                 pk)
         else:
             permission_required(
                 request.user,
                 'AuthEvent',
-                ['event-view-activity', 'event-receiver-view-activity', 'edit', 'view'],
+                ['event-view-activity', 'event-receiver-view-activity', 'edit'],
                 pk)
 
         # validate input
