@@ -878,6 +878,30 @@ def get_trimmed_user(user, ae):
 
     return metadata
 
+def get_user_code(user):
+    expiration_date = (
+        timezone.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
+    )
+    return Code\
+        .objects\
+        .filter(
+            user=user.userdata,
+            created__gt=expiration_date,
+            is_enabled=True
+        )\
+        .order_by('-created')\
+        .first()
+
+def disable_previous_user_codes(user):
+    Code\
+        .objects\
+        .filter(
+            user=user.userdata,
+            is_enabled=True
+        )\
+        .update(
+            is_enabled=False
+        )
 
 def create_user(req, auth_event, active, creator, user=None, password=None):
     from api.models import Action

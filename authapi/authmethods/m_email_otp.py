@@ -27,6 +27,7 @@ from utils import (
     is_valid_url,
     verify_admin_generated_auth_code
 )
+from .utils import get_user_code, disable_previous_user_codes
 
 from . import register_method
 from authmethods.utils import *
@@ -707,28 +708,26 @@ class Email:
         if not verify_num_successful_logins(auth_event, 'EmailOtp', user, req):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        code = Code.objects.filter(
-            user=user.userdata,
-            created__gt=timezone.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
-            )\
-            .order_by('-created')\
-            .first()
-        if not code:       
-            LOGGER.error(\
+        code = get_user_code(user)
+        if not code:
+            LOGGER.error(
                 "EmailOtp.authenticate error\n"\
                 "Code not found on db for user '%r'\n"\
                 "and time between now and '%r' seconds earlier\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
-                "Stack trace: \n%s",\
-                user.userdata,\
-                settings.SMS_OTP_EXPIRE_SECONDS,\
-                auth_event, req, stack_trace_str())
-            return self.error("Incorrect data", error_codename="invalid_credentials")
+                "Stack trace: \n%s",
+                user.userdata,
+                settings.SMS_OTP_EXPIRE_SECONDS,
+                auth_event, req, stack_trace_str()
+            )
+            return self.error(
+                "Incorrect data",
+                error_codename="invalid_credentials"
+            )
 
-        # change created time to make it invalid next time
-        code.created = timezone.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
-        code.save()
+        disable_previous_user_codes(user)
+
         if not constant_time_compare(req.get('code').upper(), code.code):  
             LOGGER.error(\
                 "EmailOtp.authenticate error\n"\
