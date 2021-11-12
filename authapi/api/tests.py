@@ -1240,7 +1240,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         # good
         self.u.user.is_active = True
         self.u.user.save()
-        code = get_user_code(self.u)
+        code = get_user_code(self.u.user)
 
         credentials = dict(
             email=self.u.email,
