@@ -32,6 +32,10 @@ from django.utils import timezone
 
 from contracts.base import check_contract
 from contracts import CheckException
+from django.db.models import CharField
+from django.db.models.functions import Length
+
+CharField.register_lookup(Length, 'length')
 
 CENSUS = (
     ('close', 'Close census'),
