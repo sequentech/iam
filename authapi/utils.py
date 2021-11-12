@@ -41,7 +41,6 @@ from django.utils import timezone
 from enum import IntEnum, unique
 from string import ascii_lowercase, digits, ascii_letters
 from random import choice
-from authapi.authmethods.utils import disable_previous_user_codes, get_user_code
 from pipelines import PipeReturnvalue
 from pipelines.base import check_pipeline_conf
 from contracts import CheckException, JSONContractEncoder
@@ -281,7 +280,11 @@ def verify_admin_generated_auth_code(
     ):
         return False, None
     
-    from authmethods.utils import get_base_auth_query
+    from authmethods.utils import (
+        get_base_auth_query,
+        disable_previous_user_codes,
+        get_user_code
+    )
     from django.db.models import Q
     from authmethods.models import Code
     from datetime import timedelta
