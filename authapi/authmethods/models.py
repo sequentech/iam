@@ -58,3 +58,4 @@ class Code(models.Model):
     code = models.CharField(max_length=64)
     created = models.DateTimeField(auto_now_add=True)
     auth_event_id = models.IntegerField()
+    is_enabled = models.BooleanField(default=True)

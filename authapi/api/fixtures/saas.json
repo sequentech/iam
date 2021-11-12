@@ -60,6 +60,7 @@
         "code": "admin123",
         "auth_event_id": 1,
         "user": 1,
+        "is_enabled": true,
         "created": "2015-02-16T17:41:28+00:00"
     },
     "model": "authmethods.code",

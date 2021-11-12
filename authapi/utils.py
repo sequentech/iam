@@ -266,8 +266,7 @@ def generate_code(userdata, size=settings.SIZE_CODE):
 def verify_admin_generated_auth_code(
     auth_event,
     req_data,
-    log_prefix,
-    expiration_seconds
+    log_prefix
 ):
     '''
     Checks if the authentication data is for an user that got an authentication
@@ -281,7 +280,11 @@ def verify_admin_generated_auth_code(
     ):
         return False, None
     
-    from authmethods.utils import get_base_auth_query
+    from authmethods.utils import (
+        get_base_auth_query,
+        disable_previous_user_codes,
+        get_user_code
+    )
     from django.db.models import Q
     from authmethods.models import Code
     from datetime import timedelta
@@ -300,14 +303,7 @@ def verify_admin_generated_auth_code(
     except:
         return False, None
 
-    # p Code.objects.get(user=user.userdata).created
-    code = Code.objects\
-        .filter(
-            user=user.userdata,
-            created__gt=timezone.now() - timedelta(seconds=expiration_seconds)
-        )\
-        .order_by('-created')\
-        .first()
+    code = get_user_code(user)
 
     if not code:       
         LOGGER.error(
@@ -325,9 +321,8 @@ def verify_admin_generated_auth_code(
         )
         return False, None
 
-    # change created time to make it invalid next time
-    code.created=timezone.now() - timedelta(seconds=expiration_seconds)
-    code.save()
+    disable_previous_user_codes(user)
+
     if not constant_time_compare(req_data['code'], code.code):  
         LOGGER.error(
             "%s.authenticate error\n" +

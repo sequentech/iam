@@ -26,6 +26,7 @@ from utils import (
   genhmac, send_codes, get_client_ip, is_valid_url, constant_time_compare,
   verify_admin_generated_auth_code, generate_code, stack_trace_str
 )
+from .utils import get_user_code, disable_previous_user_codes
 
 import plugins
 from . import register_method
@@ -631,8 +632,7 @@ class SmsOtp:
         verified, user = verify_admin_generated_auth_code(
             auth_event=auth_event,
             req_data=req,
-            log_prefix="SmsOtp",
-            expiration_seconds=settings.SMS_OTP_EXPIRE_SECONDS
+            log_prefix="SmsOtp"
         )
         if verified:
             if not verify_num_successful_logins(auth_event, 'SmsOtp', user, req):
@@ -696,26 +696,26 @@ class SmsOtp:
         if not verify_num_successful_logins(auth_event, 'SmsOtp', user, req):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        code = Code.objects.filter(
-            user=user.userdata,
-            created__gt=timezone.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
-            ).order_by('-created').first()
+
+        code = get_user_code(user)
         if not code:       
-            LOGGER.error(\
+            LOGGER.error(
                 "SmsOtp.authenticate error\n"\
                 "Code not found on db for user '%r'\n"\
                 "and time between now and '%r' seconds earlier\n"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
-                "Stack trace: \n%s",\
-                user.userdata,\
-                settings.SMS_OTP_EXPIRE_SECONDS,\
-                auth_event, req, stack_trace_str())
-            return self.error("Incorrect data", error_codename="invalid_credentials")
+                "Stack trace: \n%s",
+                user.userdata,
+                settings.SMS_OTP_EXPIRE_SECONDS,
+                auth_event, req, stack_trace_str()
+            )
+            return self.error(
+                "Incorrect data",
+                error_codename="invalid_credentials"
+            )
           
-        # change created time to make it invalid next time
-        code.created=timezone.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
-        code.save()
+        disable_previous_user_codes(user)
 
         if not constant_time_compare(req.get('code').upper(), code.code):  
             LOGGER.error(\
