@@ -632,8 +632,7 @@ class SmsOtp:
         verified, user = verify_admin_generated_auth_code(
             auth_event=auth_event,
             req_data=req,
-            log_prefix="SmsOtp",
-            expiration_seconds=settings.SMS_OTP_EXPIRE_SECONDS
+            log_prefix="SmsOtp"
         )
         if verified:
             if not verify_num_successful_logins(auth_event, 'SmsOtp', user, req):

@@ -635,8 +635,7 @@ class Email:
         verified, user = verify_admin_generated_auth_code(
             auth_event=auth_event,
             req_data=req,
-            log_prefix="Email",
-            expiration_seconds=settings.SMS_OTP_EXPIRE_SECONDS
+            log_prefix="Email"
         )
         if verified:
             if not verify_num_successful_logins(auth_event, 'Email', user, req):
