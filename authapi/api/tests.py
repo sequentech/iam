@@ -31,7 +31,7 @@ from .models import ACL, AuthEvent, Action, BallotBox, TallySheet, SuccessfulLog
 from authmethods.models import Code, MsgLog
 from authmethods import m_sms_otp
 from utils import verifyhmac, reproducible_json_dumps
-from authmethods.utils import get_cannonical_tlf
+from authmethods.utils import get_cannonical_tlf, get_user_code
 
 def flush_db_load_fixture(ffile="initial.json"):
     from django.core import management
@@ -1240,7 +1240,14 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         # good
         self.u.user.is_active = True
         self.u.user.save()
-        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        code = get_user_code(self.u)
+
+        credentials = dict(
+            email=self.u.email,
+            code=code.code
+        )
+
+        response = c.authenticate(self.aeid, credentials)
         self.assertEqual(response.status_code, 200)
 
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
