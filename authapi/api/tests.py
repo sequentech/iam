@@ -1243,7 +1243,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         code = get_user_code(self.u.user)
 
         credentials = dict(
-            email=self.u.email,
+            email=self.u.user.email,
             code=code.code
         )
 
