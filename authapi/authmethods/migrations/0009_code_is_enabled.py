@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddField(
             model_name='Code',
-            name='is_enbled',
+            name='is_enabled',
             field=models.BooleanField(default=True),
         ),
     ]
