@@ -31,6 +31,7 @@ from utils import (
 
 import plugins
 from . import register_method
+from .utils import get_user_code
 from contracts.base import check_contract, JsonTypeEncoder
 from contracts import CheckException
 from authmethods.utils import *
@@ -695,8 +696,7 @@ class Sms:
         if not verify_num_successful_logins(auth_event, 'Sms', user, req):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        code = Code.objects.filter(user=user.userdata,
-                code=req.get('code').upper()).order_by('-created').first()
+        code = get_user_code(user)
         if not code:            
             LOGGER.error(\
                 "Sms.authenticate error\n"\
@@ -708,6 +708,20 @@ class Sms:
                 user.userdata,\
                 req.get('code').upper(),\
                 auth_event, req, stack_trace_str())
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+
+        if not constant_time_compare(req.get('code').upper(), code.code):  
+            LOGGER.error(\
+                "Sms.authenticate error\n"\
+                "Code mismatch for user '%r'\n"\
+                "Code received '%r'\n"\
+                "and latest code in the db for the user '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                user.userdata, req.get('code').upper(), code.code, auth_event, req,\
+                stack_trace_str())
+
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         msg = check_pipeline(request, auth_event, 'authenticate')

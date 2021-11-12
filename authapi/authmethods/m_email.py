@@ -27,6 +27,7 @@ from utils import (
     verify_admin_generated_auth_code
 )
 
+from .utils import get_user_code
 from . import register_method
 from authmethods.utils import *
 from api.models import AuthEvent
@@ -703,13 +704,7 @@ class Email:
         if not verify_num_successful_logins(user_auth_event, 'Email', user, req):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        code = Code.objects\
-            .filter(
-                user=user.userdata,
-                code=req.get('code').upper()
-            )\
-            .order_by('-created')\
-            .first()
+        code = get_user_code(user)
         if not code:
             LOGGER.error(\
                 "Email.authenticate error\n"\
@@ -721,6 +716,20 @@ class Email:
                 user.userdata,\
                 req.get('code').upper(),\
                 auth_event, req, stack_trace_str())
+            return self.error("Incorrect data", error_codename="invalid_credentials")
+
+        if not constant_time_compare(req.get('code').upper(), code.code):  
+            LOGGER.error(\
+                "Email.authenticate error\n"\
+                "Code mismatch for user '%r'\n"\
+                "Code received '%r'\n"\
+                "and latest code in the db for the user '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                user.userdata, req.get('code').upper(), code.code, auth_event, req,\
+                stack_trace_str())
+
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         return return_auth_data('Email', req, request, user)
