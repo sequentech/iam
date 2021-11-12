@@ -1726,7 +1726,14 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         # good
         self.u.user.is_active = True
         self.u.user.save()
-        response = c.authenticate(self.aeid, test_data.auth_sms_default)
+        code = get_user_code(self.u.user)
+
+        credentials = dict(
+            tlf=self.u.tlf,
+            code=code.code
+        )
+
+        response = c.authenticate(self.aeid, credentials)
         self.assertEqual(response.status_code, 200)
 
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
