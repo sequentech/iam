@@ -539,10 +539,10 @@ class Census(View):
                 query = query.annotate(logins=Count('user__successful_logins')).filter(logins__gt=0)
 
         has_activity = request.GET.get('has_activity', None)
+        query = query.annotate(
+            actions_count=Count("user__user__executed_actions")
+        )
         if has_activity is not None:
-            query = query.annotate(
-                actions_count=Count("user__user__executed_actions")
-            )
             if 'false' == has_activity:
                 query = query.filter(actions_count__exact=0)
             elif 'true' == has_activity:
@@ -580,6 +580,7 @@ class Census(View):
             "id": acl.user.user.pk,
             "username": acl.user.user.username,
             "active": acl.user.user.is_active,
+            "has_activity": acl.actions_count > 0,
             "date_joined": acl.user.user.date_joined.isoformat(),
             "metadata": acl.user.serialize_data(),
             "voted_children_elections": acl.user.serialize_children_voted_elections(auth_event)
