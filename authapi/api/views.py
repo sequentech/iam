@@ -538,7 +538,7 @@ class Census(View):
             elif 'true' == has_voted_str:
                 query = query.annotate(logins=Count('user__successful_logins')).filter(logins__gt=0)
 
-        has_activity = request.GET.get('has_activity', None)
+        has_activity = request.GET.get('has_activity__equals', None)
         query = query.annotate(
             actions_count=Count("user__user__executed_actions")
         )
