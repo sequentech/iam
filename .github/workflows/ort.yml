@@ -23,7 +23,7 @@ jobs:
 
       - name: Analyze licensing
         id: ort-action
-        uses: edulix/ort-action@v0.1.1
+        uses: edulix/ort-action@develop
 
       - uses: actions/upload-artifact@v2
         with:
