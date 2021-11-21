@@ -28,6 +28,7 @@ jobs:
           package-curations-dir: .ort-data/curations-dir/
           rules-file: .ort-data/rules.kts
           license-classifications-file: .ort-data/license-classifications.yml
+          fail-on: hints
 
       - uses: actions/upload-artifact@v2
         with:
