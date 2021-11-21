@@ -24,6 +24,10 @@ jobs:
       - name: Analyze licensing
         id: ort-action
         uses: edulix/ort-action@develop
+        with:
+          package-curations-dir: .ort-data/curations-dir/
+          rules-file: .ort-data/rules.kts
+          license-classifications-file: license-classifications.yml
 
       - uses: actions/upload-artifact@v2
         with:
