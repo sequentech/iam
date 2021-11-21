@@ -21,7 +21,7 @@ jobs:
         with:
           java-version: '11.0.1'
 
-      - name: Analyze licensing 
+      - name: Analyze licensing
         id: ort-action
         uses: edulix/ort-action@v0.1.0
 
