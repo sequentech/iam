@@ -23,7 +23,7 @@ jobs:
 
       - name: Analyze licensing
         id: ort-action
-        uses: edulix/ort-action@v0.1.2
+        uses: edulix/ort-action@develop
         with:
           fail-on: hints
           package-curations-dir: .ort-data/curations-dir/
