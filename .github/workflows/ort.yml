@@ -25,10 +25,14 @@ jobs:
         id: ort-action
         uses: edulix/ort-action@v0.1.2
         with:
+          fail-on: hints
           package-curations-dir: .ort-data/curations-dir/
           rules-file: .ort-data/rules.kts
           license-classifications-file: .ort-data/license-classifications.yml
-          fail-on: hints
+          reporters: AsciiDocTemplate,Excel,StaticHtml,WebApp
+          report-extra-args: >
+            --report-option
+            AsciiDocTemplate=template.path=.ort-data/disclosure_document.ftl
 
       - uses: actions/upload-artifact@v2
         with:
