@@ -32,7 +32,7 @@ jobs:
           reporters: AdocTemplate,Excel,StaticHtml,WebApp
           report-extra-args: >
             --report-option
-            AsciiDocTemplate=template.path=.ort-data/disclosure_document.ftl
+            ADocTemplate=template.path=.ort-data/disclosure_document.ftl
 
       - uses: actions/upload-artifact@v2
         with:
