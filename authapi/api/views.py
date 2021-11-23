@@ -494,34 +494,25 @@ class Census(View):
         if filter_str is not None:
             if len(auth_event.extra_fields):
                 filter_str = "%" + filter_str + "%"
-                raw_sql = '''
-                             SELECT "api_acl"."id", "api_acl"."user_id", "api_acl"."perm",
-                                    "api_acl"."object_type", "api_acl"."object_id", "api_acl"."created",
-                                    "api_userdata"."id", "api_userdata"."user_id",
-                                    "api_userdata"."event_id", "api_userdata"."tlf",
-                                    "api_userdata"."metadata", "api_userdata"."status"
-                            FROM "api_acl"
-                            INNER JOIN "api_userdata"
-                            ON ("api_acl"."user_id" = "api_userdata"."id")
-                            INNER JOIN "auth_user"
-                            ON ("api_userdata"."user_id" = "auth_user"."id")
-                            WHERE
-                                ("api_acl"."object_id"::int = %s
-                                AND "api_acl"."perm" = 'vote'
-                                AND "api_acl"."object_type" = 'AuthEvent'
-                                AND (UPPER("auth_user"."username"::text) LIKE UPPER(%s)
-                                OR UPPER("auth_user"."email"::text) LIKE UPPER(%s)
-                                OR UPPER("api_userdata"."tlf"::text) LIKE UPPER(%s)'''
-                params_array = [pk, filter_str, filter_str, filter_str]
+                where_params = [filter_str, filter_str, filter_str]
+                where_clause = '''
+                    UPPER("auth_user"."username"::text) LIKE UPPER(%s)
+                    OR UPPER("auth_user"."email"::text) LIKE UPPER(%s)
+                    OR UPPER("api_userdata"."tlf"::text) LIKE UPPER(%s)
+                '''
+                
                 for field in auth_event.extra_fields:
-                    raw_sql += '''
-                                OR UPPER(api_userdata.metadata::jsonb->>%s) LIKE UPPER(%s)'''
-                    params_array += [field['name'], filter_str]
-                raw_sql += '''
-                                ))'''
-                raw_query = ACL.objects.raw(raw_sql, params=params_array)
-                id_list = [obj.id for obj in raw_query]
-                query = query.filter(id__in=id_list)
+                    where_clause += '''
+                        OR UPPER(api_userdata.metadata::jsonb->>%s) LIKE UPPER(%s)
+                    '''
+                    where_params += [field['name'], filter_str]
+                
+                query = query\
+                    .select_related('user', 'user__user')\
+                    .extra(
+                        where=[where_clause],
+                        params=where_params
+                    )
 
             else:
                 q = (
@@ -534,9 +525,17 @@ class Census(View):
         has_voted_str = request.GET.get('has_voted__equals', None)
         if has_voted_str is not None:
             if 'false' == has_voted_str:
-                query = query.annotate(logins=Count('user__successful_logins')).filter(logins__exact=0)
+                query = query\
+                    .annotate(
+                        logins=Count('user__successful_logins')
+                    )\
+                    .filter(logins__exact=0)
             elif 'true' == has_voted_str:
-                query = query.annotate(logins=Count('user__successful_logins')).filter(logins__gt=0)
+                query = query\
+                    .annotate(
+                        logins=Count('user__successful_logins')
+                    )\
+                    .filter(logins__gt=0)
 
         has_activity = request.GET.get('has_activity__equals', None)
         query = query.annotate(
