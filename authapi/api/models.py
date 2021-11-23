@@ -433,13 +433,17 @@ class AuthEvent(models.Model):
                     user__children_event_id_list__contains=self.id
                 )
 
-        return ACL.objects.filter(
-            Q(
-                object_type='AuthEvent',
-                perm='vote',
-                object_id__isnull=False
-            ) & sub_query
-        )
+        # Note that we order so that paginated results are stable.
+        return ACL.objects\
+            .filter(
+                Q(
+                    object_type='AuthEvent',
+                    perm='vote',
+                    object_id__isnull=False
+                ) & sub_query
+            )\
+            .order_by('user_id')\
+            .distinct()
 
     def get_num_votes_query(self):
         '''
