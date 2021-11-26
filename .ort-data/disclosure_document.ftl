@@ -1,22 +1,9 @@
 [#--
-Copyright (C) 2020 HERE Europe B.V.
-Copyright (C) 2020-2021 Bosch.IO GmbH
-Copyright (C) 2021 Agora Voting SL
+SPDX-FileCopyrightText: 2020 HERE Europe B.V.
+SPDX-FileCopyrightText: 2020-2021 Bosch.IO GmbH
+SPDX-FileCopyrightText: 2021 Agora Voting SL
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-SPDX-License-Identifier: Apache-2.0
-License-Filename: LICENSE
+SPDX-License-Identifier: AGPL-3.0-only
 --]
 
 [#--
@@ -50,12 +37,36 @@ If not present, the text is displayed normally.
 :revdate: ${now?date?iso_local}
 :revnumber: 1.0.0
 
+== Issue Summary
 
+[#-- List all issues and their status --]
+[#if tabularScanRecord.issueSummary.rows?size > 0]
+
+[#assign
+issueErrors = tabularScanRecord
+    .issueSummary
+    .errorCount
+]
+
+[#assign
+issueWarns = tabularScanRecord
+    .issueSummary
+    .warningCount
+]
+
+[#assign
+issueHint = tabularScanRecord
+    .issueSummary
+    .hintCount
+]
+${issueErrors} errors, ${issueWarns} warnings, ${issueHint} hints to resolve
+[#else]
+0 errors, 0 warnings, 0 hints to resolve[/#if]
+
+== Projects Licenses
 [#if projects?has_content]
 [#--Merge the licenses and copyrights of all projects into a single list. The default LicenseView.ALL is used because--]
 [#--projects cannot have a concluded license (compare with the handling of packages below). --]
-
-== Projects Licenses
 
 [#list projects as project]
 
@@ -71,14 +82,10 @@ If not present, the text is displayed normally.
 [#assign copyrights = resolvedLicense.getCopyrights(true)]
 [#list copyrights as copyright]
 ** +${copyright}+
-[#else]
-** No copyright found.
 [/#list]
-
 [/#list]
 [/#list]
 [/#if]
-<<<
 
 [#-- List all rule violations and their status --]
 == Rule Violation Summary
@@ -127,31 +134,6 @@ No rule violations found.
 
 [/#if]
 
-[#-- List all issues and their status --]
-[#if tabularScanRecord.issueSummary.rows?size > 0]
-== Issue Summary
-
-[#assign
-issueErrors = tabularScanRecord
-    .issueSummary
-    .errorCount
-]
-
-[#assign
-issueWarns = tabularScanRecord
-    .issueSummary
-    .warningCount
-]
-
-[#assign
-issueHint = tabularScanRecord
-    .issueSummary
-    .hintCount
-]
-${issueErrors} errors, ${issueWarns} warnings, ${issueHint} hints to resolve
-
-[/#if]
-
 [#-- Add the licenses of all dependencies. --]
 == Dependencies
 
@@ -179,8 +161,6 @@ License File: <<${ModelExtensions.toPurl(package.id)} ${licenseFile.path}, ${lic
 [#assign copyrights = licenseFile.getCopyrights()]
 [#list copyrights as copyright]
 ** +${copyright}+
-[#else]
-** No copyright found.
 [/#list]
 
 [/#list]
@@ -216,14 +196,11 @@ The following licenses and copyrights were found in the source code of this pack
 [#assign copyrights = resolvedLicense.getCopyrights(true)]
 [#list copyrights as copyright]
 ** +${copyright}+
-[#else]
-** No copyright found.
 [/#list]
 
 [/#list]
 [/#if]
 [/#list]
-<<<
 
 [#assign
 packagesWithLicenseFiles = 
@@ -297,6 +274,4 @@ ${exceptionText}
 
 [/#if]
 [/#if]
-++++
-<<<
 [/#list]
