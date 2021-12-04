@@ -168,17 +168,16 @@ class EmailPWD:
 
         if mode == "authenticate":
             if not user.check_password(pwd):
-                return self.authenticate_error("invalid-password", req, auth_event)
+                return self.authenticate_error(
+                    "invalid-password", req, auth_event
+                )
 
-            if not verify_num_successful_logins(auth_event, 'OpenIdConnect', user, req):
+            if not verify_num_successful_logins(
+                auth_event, 'EmailPWD', user, req
+            ):
                 return self.authenticate_error(
                     "invalid_num_successful_logins_allowed", req, auth_event
                 )
-            if (auth_event.num_successful_logins_allowed > 0 and
-                user.userdata.successful_logins.filter(is_active=True).count() >= auth_event.num_successful_logins_allowed):
-                return self.authenticate_error(
-                    "invalid_num_successful_logins_allowed", req, auth_event)
-
             return return_auth_data('PWD', req, request, user, auth_event)
 
         LOGGER.debug(\
