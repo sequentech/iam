@@ -243,7 +243,7 @@ def children_election_info_validator(value):
         try:
             check_contract(CHILDREN_ELECTION_INFO_CONTRACT, value)
         except CheckException as e:
-            raise ValidationError(str(e))
+            raise ValidationError(str(e.data))
 
 def children_event_id_list_validator(value):
     if value == None:
@@ -252,7 +252,7 @@ def children_event_id_list_validator(value):
         try:
             check_contract(CHILDREN_EVENT_ID_LIST_CONTRACT, value)
         except CheckException as e:
-            raise ValidationError(str(e))
+            raise ValidationError(str(e.data))
 
 
 class AuthEvent(models.Model):

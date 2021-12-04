@@ -294,7 +294,7 @@ class Email:
                 "error '%r'\n"\
                 "config '%r'\n"\
                 "Stack trace: \n%s",\
-                e, config, stack_trace_str())
+                e.data, config, stack_trace_str())
             return json.dumps(e.data, cls=JsonTypeEncoder)
 
     def census(self, auth_event, request):

@@ -2484,7 +2484,7 @@ class TallySheetView(View):
                 "req '%r'\n"\
                 "error '%r'\n"\
                 "Stack trace: \n%s",\
-                req, error, stack_trace_str())
+                req, error.data, stack_trace_str())
             return json_response(
                 status=400,
                 error_codename=ErrorCodes.BAD_REQUEST
