@@ -35,8 +35,12 @@ class CeleryConfig:
     beat_schedule = {
         'review_tallies': {
             'task': 'tasks.process_tallies',
-            'schedule': timedelta(seconds=5),
-            'args': []
+            'schedule': timedelta(seconds=10),
+            'args': [],
+            'options': {
+                'expires': 10
+            },
+            'time_limit': 10
         },
     }
     result_backend = 'django-db'

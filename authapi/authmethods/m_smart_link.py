@@ -88,7 +88,7 @@ class SmartLink:
       try:
         check_contract(self.CONFIG_CONTRACT, config)
       except CheckException as e:
-        return str(e)
+        return str(e.data)
     return ''
 
   def resend_auth_code(self, config):
