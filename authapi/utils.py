@@ -195,8 +195,8 @@ class HMACToken:
         l = len('khmac:///')
         self.head = token[0:l]
         msg = token[l:]
-        self.digest, msg = msg.split(';')
-        self.hash, msg = msg.split('/')
+        self.digest, msg = msg.split(';', 1)
+        self.hash, msg = msg.split('/', 1)
         self.msg = msg
         self.timestamp = self.msg.split(':')[-1]
 
