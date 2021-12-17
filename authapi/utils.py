@@ -196,9 +196,14 @@ class HMACToken:
         tails = token[l:]
         self.digest, data = tails.split(';', 1)
         self.hash, self.msg = data.split('/', 1)
-        self.timestamp = self.msg.split(':')[-1]
-        self.userid = self.msg.split(':')[-5]
-        self.other_values = self.msg.split(':')[-4:-1]
+        msg_split = self.msg.split(':')
+        self.timestamp = msg_split[-1]
+        if len(msg_split) >= 5:
+            self.userid = ':'.join(msg_split[0:-4])
+            self.other_values = msg_split[-4:-1]
+        else:
+            self.userid = msg_split[0]
+            self.other_values = msg_split[1:-1]
 
     def check_expiration(self, seconds=300):
         t = self.timestamp

@@ -139,13 +139,13 @@ class TestHmacToken(TestCase):
     def test_verify_simple_token(self):
         cases = [
             dict(
-                token="sha-256;48a51120ffd034872c4f1fcd3e61f23bade1181309a66c79bcb33e7838423540/example@nvotes.com:AuthEvent:150017:vote:1620927640",
+                token="khmac:///sha-256;48a51120ffd034872c4f1fcd3e61f23bade1181309a66c79bcb33e7838423540/example@nvotes.com:AuthEvent:150017:vote:1620927640",
                 digest='sha-256',
                 hash='48a51120ffd034872c4f1fcd3e61f23bade1181309a66c79bcb33e7838423540',
                 msg='example@nvotes.com:AuthEvent:150017:vote:1620927640',
                 timestamp='1620927640',
                 userid='example@nvotes.com',
-                other_values=['AuthEvent', '150017', 'vote', '1620927640']
+                other_values=['AuthEvent', '150017', 'vote']
             )
         ]
         self._verify_cases(cases)
@@ -158,13 +158,13 @@ class TestHmacToken(TestCase):
         '''
         cases = [
             dict(
-                token="sha-256;48a51120ffd034872c4f1fcd3e61f23bade1181309a66c79bcb33e7838423540/ex:amp./le@nvot;es.com:AuthEvent:150017:vote:1620927640",
+                token="khmac:///sha-256;48a51120ffd034872c4f1fcd3e61f23bade1181309a66c79bcb33e7838423540/ex:amp./le@nvot;es.com:AuthEvent:150017:vote:1620927640",
                 digest='sha-256',
                 hash='48a51120ffd034872c4f1fcd3e61f23bade1181309a66c79bcb33e7838423540',
                 msg='ex:amp./le@nvot;es.com:AuthEvent:150017:vote:1620927640',
                 timestamp='1620927640',
                 userid='ex:amp./le@nvot;es.com',
-                other_values=['AuthEvent', '150017', 'vote', '1620927640']
+                other_values=['AuthEvent', '150017', 'vote']
             )
         ]
         self._verify_cases(cases)
@@ -2644,7 +2644,6 @@ class TestCallback(TestCase):
 
     def genhmac(self, key, msg):
         import hmac
-        import datetime
 
         if not key or not msg:
            return
