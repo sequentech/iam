@@ -188,17 +188,17 @@ def verifyhmac(key, msg, seconds=300, at=None):
     valid = valid and at.check_expiration(seconds)
     return valid
 
-
 class HMACToken:
     def __init__(self, token):
         self.token = token
         l = len('khmac:///')
         self.head = token[0:l]
-        msg = token[l:]
-        self.digest, msg = msg.split(';', 1)
-        self.hash, msg = msg.split('/', 1)
-        self.msg = msg
+        tails = token[l:]
+        self.digest, data = tails.split(';', 1)
+        self.hash, self.msg = data.split('/', 1)
         self.timestamp = self.msg.split(':')[-1]
+        self.userid = self.msg.split(':')[-5]
+        self.other_values = self.msg.split(':')[-4:-1]
 
     def check_expiration(self, seconds=300):
         t = self.timestamp
@@ -214,15 +214,14 @@ class HMACToken:
         '''
         Note! Can only be used if it's an auth token, with userid
         '''
-        userid = self.msg.split(':')[0]
-        return userid
+        return self.userid
 
     def get_other_values(self):
         '''
         Removed the userid and the timestamp, returns the list of string objects
         in the message, that are separated by ':'
         '''
-        return self.msg.split(':')[1:-1]
+        return self.other_values
 
 
 def constant_time_compare(val1, val2):
