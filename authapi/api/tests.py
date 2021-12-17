@@ -30,7 +30,7 @@ from . import test_data
 from .models import ACL, AuthEvent, Action, BallotBox, TallySheet, SuccessfulLogin
 from authmethods.models import Code, MsgLog
 from authmethods import m_sms_otp
-from utils import verifyhmac, reproducible_json_dumps
+from utils import HMACToken, verifyhmac, reproducible_json_dumps
 from authmethods.utils import get_cannonical_tlf, get_user_code
 
 def flush_db_load_fixture(ffile="initial.json"):
@@ -135,6 +135,49 @@ class JClient(Client):
         return super(JClient, self).delete(url, jdata,
             content_type="application/json", HTTP_AUTH=self.auth_token)
 
+class TestHmacToken(TestCase):
+    def test_verify_simple_token(self):
+        cases = [
+            dict(
+                token="khmac:///sha-256;48a51120ffd034872c4f1fcd3e61f23bade1181309a66c79bcb33e7838423540/example@nvotes.com:AuthEvent:150017:vote:1620927640",
+                digest='sha-256',
+                hash='48a51120ffd034872c4f1fcd3e61f23bade1181309a66c79bcb33e7838423540',
+                msg='example@nvotes.com:AuthEvent:150017:vote:1620927640',
+                timestamp='1620927640',
+                userid='example@nvotes.com',
+                other_values=['AuthEvent', '150017', 'vote']
+            )
+        ]
+        self._verify_cases(cases)
+
+    def test_verify_tricky_token(self):
+        '''
+        This is a tricky token because the message contains the '/', ':' and ';'
+        separators, meaning that the implementation might get confused if not
+        implemented properly.
+        '''
+        cases = [
+            dict(
+                token="khmac:///sha-256;48a51120ffd034872c4f1fcd3e61f23bade1181309a66c79bcb33e7838423540/ex:amp./le@nvot;es.com:AuthEvent:150017:vote:1620927640",
+                digest='sha-256',
+                hash='48a51120ffd034872c4f1fcd3e61f23bade1181309a66c79bcb33e7838423540',
+                msg='ex:amp./le@nvot;es.com:AuthEvent:150017:vote:1620927640',
+                timestamp='1620927640',
+                userid='ex:amp./le@nvot;es.com',
+                other_values=['AuthEvent', '150017', 'vote']
+            )
+        ]
+        self._verify_cases(cases)
+
+    def _verify_cases(self, cases):
+        for case in cases:
+            token = HMACToken(case['token'])
+            self.assertEqual(token.digest, case['digest'])
+            self.assertEqual(token.hash, case['hash'])
+            self.assertEqual(token.msg, case['msg'])
+            self.assertEqual(token.timestamp, case['timestamp'])
+            self.assertEqual(token.userid, case['userid'])
+            self.assertEqual(token.other_values, case['other_values'])
 
 class ApiTestCreateNotReal(TestCase):
     def setUpTestData():
@@ -2601,7 +2644,6 @@ class TestCallback(TestCase):
 
     def genhmac(self, key, msg):
         import hmac
-        import datetime
 
         if not key or not msg:
            return
