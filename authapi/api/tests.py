@@ -26,13 +26,11 @@ from django.test.utils import override_settings
 from django.conf import settings
 from django.contrib.auth.models import User
 
-from authapi.utils import HMACToken
-
 from . import test_data
 from .models import ACL, AuthEvent, Action, BallotBox, TallySheet, SuccessfulLogin
 from authmethods.models import Code, MsgLog
 from authmethods import m_sms_otp
-from utils import verifyhmac, reproducible_json_dumps
+from utils import HMACToken, verifyhmac, reproducible_json_dumps
 from authmethods.utils import get_cannonical_tlf, get_user_code
 
 def flush_db_load_fixture(ffile="initial.json"):
