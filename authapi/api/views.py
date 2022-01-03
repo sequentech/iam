@@ -1038,17 +1038,41 @@ class AuthEventStatus(View):
             children_ids = main_auth_event.children_election_info['natural_order']
         else:
             children_ids = []
-        
+
         auth_events = AuthEvent.objects.filter(
             Q(pk=pk) |
             Q(parent_id=pk) |
             Q(parent_id__in=children_ids)
         )
-        
+
         for auth_event in auth_events:
             # update AuthEvent
-
             if auth_event.status != status:
+                # enforce state transitions make sense
+                if settings.ENFORCE_STATE_CONTROLS:
+                    if (
+                        status == AuthEvent.STARTED and
+                        auth_event.status != AuthEvent.NOT_STARTED
+                    ) or (
+                        status != AuthEvent.SUSPENDED and
+                        auth_event.status != AuthEvent.STARTED
+                    ) or (
+                        status != AuthEvent.RESUMED and
+                        auth_event.status != AuthEvent.SUSPENDED
+                    ) or (
+                        status != AuthEvent.PENDING and
+                        auth_event.status != AuthEvent.STOPPED
+                    ) or (
+                        status != AuthEvent.SUCCESS and
+                        auth_event.status != AuthEvent.PENDING
+                    ):
+                        return json_response(
+                            status=400,
+                            next_status=status,
+                            current_status=auth_event.status,
+                            error_codename="INVALID_STATUS_TRANSITION"
+                        )
+
                 auth_event.status = status
                 auth_event.save()
 
