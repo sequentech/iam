@@ -46,6 +46,8 @@ AE_STATUSES = (
     ('notstarted', 'not-started'),
     ('started', 'started'),
     ('stopped', 'stopped'),
+    ('resumed', 'resumed'),
+    ('suspended', 'suspended')
 )
 
 AE_TALLY_STATUSES = (
@@ -262,19 +264,30 @@ class AuthEvent(models.Model):
     use case is that each AuthEvent corresponds with an Election, in principle
     it could be used for any kind of authentication and authorization event.
     '''
+    NOT_STARTED = "notstarted"
+    STARTED = "started"
+    STOPPED = "stopped"
+    SUSPENDED = "suspended"
+    RESUMED = "resumed"
+    PENDING = "pending"
+    SUCCESS = "success"
 
     auth_method = models.CharField(max_length=255)
     census = models.CharField(max_length=5, choices=CENSUS, default="close")
     auth_method_config = JSONField()
     extra_fields = JSONField(blank=True, null=True)
-    status = models.CharField(max_length=15, choices=AE_STATUSES, default="notstarted")
-    
+    status = models.CharField(
+        max_length=15,
+        choices=AE_STATUSES,
+        default=NOT_STARTED
+    )
+
     # used by authapi_celery to know what tallies to launch, and to serialize
     # those launches one by one. set/get with (s|g)et_tally_status api calls
     tally_status = models.CharField(
         max_length=15, 
         choices=AE_TALLY_STATUSES, 
-        default="notstarted"
+        default=NOT_STARTED
     )
     
     created = models.DateTimeField(auto_now_add=True)
