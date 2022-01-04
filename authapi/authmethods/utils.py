@@ -878,17 +878,24 @@ def get_trimmed_user(user, ae):
 
     return metadata
 
-def get_user_code(user):
-    expiration_date = (
-        timezone.now() - timedelta(seconds=settings.SMS_OTP_EXPIRE_SECONDS)
+def get_user_code(user, timeout_seconds=None):
+    '''
+    Retrieves from the database the current valid user code for a given user and
+    optionally a timeout period. The timeout period (timeout_seconds) is 
+    optional and only used if it's not None.
+    '''
+    filter_kwargs = dict(
+        user=user.userdata,
+        is_enabled=True
     )
+    if timeout_seconds is not None:
+        filter_kwargs['created__gt'] = (
+            timezone.now() - timedelta(seconds=timeout_seconds)
+        )
+
     return Code\
         .objects\
-        .filter(
-            user=user.userdata,
-            created__gt=expiration_date,
-            is_enabled=True
-        )\
+        .filter(**filter_kwargs)\
         .order_by('-created')\
         .first()
 
