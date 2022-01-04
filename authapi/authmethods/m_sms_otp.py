@@ -697,7 +697,10 @@ class SmsOtp:
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
 
-        code = get_user_code(user)
+        code = get_user_code(
+            user,
+            timeout_seconds=settings.SMS_OTP_EXPIRE_SECONDS
+        )
         if not code:       
             LOGGER.error(
                 "SmsOtp.authenticate error\n"\
