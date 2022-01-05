@@ -1068,8 +1068,10 @@ class AuthEventStatus(View):
                     ):
                         return json_response(
                             status=400,
-                            next_status=status,
-                            current_status=auth_event.status,
+                            data=dict(
+                                next_status=status,
+                                current_status=auth_event.status
+                            ),
                             error_codename="INVALID_STATUS_TRANSITION"
                         )
 
