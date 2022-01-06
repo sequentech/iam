@@ -808,11 +808,12 @@ def check_extra_fields(fields, mandatory_type_fields=[]):
     found_used_type_fields = []
     mandatory_type_fields = mandatory_type_fields[:]
     for field in fields:
-        if field.get('name') in used_fields:
-            msg += "Two fields with same name: %s.\n" % field.get('name')
-        used_fields.append(field.get('name'))
-        if field.get('type') in mandatory_type_fields:
-            found_used_type_fields.append(field.get('name'))
+        name = field.get('name')
+        if name in used_fields:
+            msg += "Two fields with same name: %s.\n" % name
+        used_fields.append(name)
+        if name in mandatory_type_fields:
+            found_used_type_fields.append(name)
         for required in REQUIRED_FIELDS:
             if not required in field.keys():
                 msg += "Required field %s.\n" % required
