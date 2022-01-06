@@ -695,7 +695,7 @@ class Sms:
         if not verify_num_successful_logins(auth_event, 'Sms', user, req):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        code = get_user_code(user)
+        code = get_user_code(user, timeout_seconds=None)
         if not code:            
             LOGGER.error(\
                 "Sms.authenticate error\n"\

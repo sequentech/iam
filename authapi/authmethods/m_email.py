@@ -703,7 +703,7 @@ class Email:
         if not verify_num_successful_logins(user_auth_event, 'Email', user, req):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        code = get_user_code(user)
+        code = get_user_code(user, timeout_seconds=None)
         if not code:
             LOGGER.error(\
                 "Email.authenticate error\n"\
