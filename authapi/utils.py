@@ -836,7 +836,7 @@ def check_extra_fields(fields, mandatory_fields=dict(types=[], names=[])):
         used_fields.append(fname)
         if ftype in mandatory_type_fields:
             found_used_type_fields.append(ftype)
-        if fname in mandatory_type_fields:
+        if fname in mandatory_name_fields:
             found_used_name_fields.append(fname)
         for required in REQUIRED_FIELDS:
             if not required in field.keys():
