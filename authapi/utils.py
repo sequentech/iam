@@ -857,7 +857,7 @@ def check_admin_field(key, value):
     msg = ''
     return msg
 
-def check_admin_fields(fields, used_type_fields=[]):
+def check_admin_fields(fields, mandatory_fields=[]):
     """ Check extra_fields when create auth-event. """
     msg = ''
     if fields is None:
@@ -865,11 +865,12 @@ def check_admin_fields(fields, used_type_fields=[]):
     if len(fields) > settings.MAX_ADMIN_FIELDS:
         return "Maximum number of fields reached\n"
     # create a copy of the list to not modify it
-    used_fields = used_type_fields[:]
+    used_fields = mandatory_fields['names'][:]
     for field in fields:
-        if field.get('name') in used_fields:
-            msg += "Two admin fields with same name: %s.\n" % field.get('name')
-        used_fields.append(field.get('name'))
+        fname = field.get('name')
+        if fname in used_fields:
+            msg += "Two admin fields with same name: %s.\n" % fname
+        used_fields.append(fname)
         for required in REQUIRED_ADMIN_FIELDS:
             if not required in field.keys():
                 msg += "Required field %s.\n" % required
