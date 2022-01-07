@@ -78,7 +78,11 @@ class Email:
             ["check_total_max", {"field": "ip", "period": 3600*24, "max": 20}],
         ]
     }
-    USED_TYPE_FIELDS = ['email']
+
+    MANDATORY_FIELDS = dict(
+        types=['email'],
+        names=[]
+    )
 
     email_definition = {
         "name": "email",

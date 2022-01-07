@@ -63,7 +63,10 @@ class OpenIdConnect(object):
             {'object_type': 'AuthEvent', 'perms': ['vote',], 'object_id': 'AuthEventId' }
         ],
     }
-    USED_TYPE_FIELDS = ['sub']
+    MANDATORY_FIELDS = dict(
+        types=[],
+        names=['sub']
+    )
     sub_definition = {
         "name": "sub",
         "type": "text",

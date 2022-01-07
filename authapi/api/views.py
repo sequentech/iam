@@ -1488,7 +1488,8 @@ class AuthEventView(View):
             if extra_fields:
                 msg += check_extra_fields(
                     extra_fields,
-                    METHODS.get(auth_method).USED_TYPE_FIELDS)
+                    METHODS.get(auth_method).MANDATORY_FIELDS
+                )
                 slug_set = set()
                 for field in extra_fields:
                     if 'name' in field:

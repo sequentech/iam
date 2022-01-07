@@ -84,7 +84,10 @@ class Sms:
             ["check_total_max", {"field": "ip", "period": 3600*24, "max": 20}],
         ]
     }
-    USED_TYPE_FIELDS = ['tlf']
+    MANDATORY_FIELDS = dict(
+        types=[],
+        names=['tlf', 'code']
+    )
 
     tlf_definition = {
         "name": "tlf",

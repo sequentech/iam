@@ -47,7 +47,10 @@ class EmailPWD:
             {'object_type': 'AuthEvent', 'perms': ['vote',], 'object_id': 'AuthEventId' }
         ],
     }
-    USED_TYPE_FIELDS = ['email', 'password']
+    MANDATORY_FIELDS = dict(
+        types=['email', 'password'],
+        names=[]
+    )
     email_definition = {
         "name": "email",
         "type": "email",

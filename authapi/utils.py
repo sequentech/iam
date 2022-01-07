@@ -663,10 +663,29 @@ VALID_PIPELINES = (
     'check_total_max',
     'check_total_connection',
     )
-VALID_TYPE_FIELDS = ('text', 'password', 'int', 'bool', 'regex', 'email', 'tlf',
-        'captcha', 'textarea', 'dni', 'dict', 'image', 'date')
+VALID_TYPE_FIELDS = (
+    'text',
+    'password',
+    'int', 
+    'bool',
+    'regex',
+    'email',
+    'tlf',
+    'captcha',
+    'textarea',
+    'dni',
+    'dict',
+    'image',
+    'date'
+)
 REQUIRED_ADMIN_FIELDS = ('name', 'type')
-VALID_ADMIN_FIELDS = VALID_FIELDS + ('description', 'label', 'step', 'value', 'placeholder')
+VALID_ADMIN_FIELDS = VALID_FIELDS + (
+    'description',
+    'label',
+    'step',
+    'value',
+    'placeholder'
+)
 
 def check_authmethod(method):
     """ Check if method exists in method list. """
@@ -799,21 +818,26 @@ def check_fields(key, value):
                 msg += "Invalid extra_fields: bad %s.\n" % key
     return msg
 
-def check_extra_fields(fields, mandatory_type_fields=[]):
+def check_extra_fields(fields, mandatory_fields=dict(types=[], names=[])):
     """ Check extra_fields when create auth-event. """
     msg = ''
     if len(fields) > settings.MAX_EXTRA_FIELDS:
         return "Maximum number of fields reached\n"
     used_fields = ['status']
     found_used_type_fields = []
-    mandatory_type_fields = mandatory_type_fields[:]
+    found_used_name_fields = []
+    mandatory_type_fields = mandatory_fields['types'][:]
+    mandatory_name_fields = mandatory_fields['names'][:]
     for field in fields:
-        name = field.get('name')
-        if name in used_fields:
-            msg += "Two fields with same name: %s.\n" % name
-        used_fields.append(name)
-        if name in mandatory_type_fields:
-            found_used_type_fields.append(name)
+        fname = field.get('name')
+        ftype = field.get('type')
+        if fname in used_fields:
+            msg += "Two fields with same name: %s.\n" % fname
+        used_fields.append(fname)
+        if ftype in mandatory_type_fields:
+            found_used_type_fields.append(ftype)
+        if fname in mandatory_type_fields:
+            found_used_name_fields.append(fname)
         for required in REQUIRED_FIELDS:
             if not required in field.keys():
                 msg += "Required field %s.\n" % required
@@ -823,7 +847,9 @@ def check_extra_fields(fields, mandatory_type_fields=[]):
             else:
                 msg += "Invalid extra_field: %s not possible.\n" % key
     if set(found_used_type_fields) != set(mandatory_type_fields):
-        msg += "Not all required used fields were found"
+        msg += "Not all mandatory type fields were found"
+    if set(found_used_name_fields) != set(mandatory_name_fields):
+        msg += "Not all mandatory type fields were found"
     return msg
 
 def check_admin_field(key, value):
