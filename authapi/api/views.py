@@ -1506,7 +1506,7 @@ class AuthEventView(View):
             if admin_fields:
                 msg += check_admin_fields(
                     admin_fields,
-                    METHODS.get(auth_method).USED_TYPE_FIELDS)
+                    METHODS.get(auth_method).MANDATORY_FIELDS)
 
             # check census mode
             census = req.get('census', '')
