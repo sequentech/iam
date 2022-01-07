@@ -86,7 +86,7 @@ class Sms:
     }
     MANDATORY_FIELDS = dict(
         types=[],
-        names=['tlf', 'code']
+        names=['tlf']
     )
 
     tlf_definition = {
