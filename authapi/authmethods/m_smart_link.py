@@ -53,7 +53,10 @@ class SmartLink:
       }
     ]
   }
-  USED_TYPE_FIELDS = ['user_id']
+  MANDATORY_FIELDS = dict(
+    types=[],
+    names=['user_id']
+  )
   CONFIG_CONTRACT = [
     {
       'check': 'isinstance',
