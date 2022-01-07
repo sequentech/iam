@@ -47,7 +47,10 @@ class PWD:
             {'object_type': 'AuthEvent', 'perms': ['vote',], 'object_id': 'AuthEventId' }
         ],
     }
-    USED_TYPE_FIELDS = ['username', 'password']
+    MANDATORY_FIELDS = dict(
+        types=['password'],
+        names=['username']
+    )
     username_definition = {
         "name": "username",
         "type": "text",

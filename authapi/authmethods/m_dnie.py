@@ -110,7 +110,10 @@ class DNIE:
         "register-pipeline": [],
         "authenticate-pipeline": []
     }
-    USED_TYPE_FIELDS = ['dni']
+    MANDATORY_FIELDS = dict(
+        types=['dni'],
+        names=[]
+    )
     dni_definition = { "name": "dni", "type": "text", "required": True, "min": 2, "max": 200, "required_on_authentication": True }
 
 

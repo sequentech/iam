@@ -83,7 +83,10 @@ class SmsOtp:
             ["check_total_max", {"field": "tlf", "period": 3600*24, "max": 20}]
         ]
     }
-    USED_TYPE_FIELDS = ['tlf']
+    MANDATORY_FIELDS = dict(
+        types=[],
+        names=['tlf']
+    )
 
     tlf_definition = {
         "name": "tlf",
