@@ -132,7 +132,7 @@ def launch_tally(auth_event):
             agora_elections_request.status_code, 
             agora_elections_request.text
         )
-        auth_event.tally_status = 'notstarted'
+        auth_event.tally_status = AuthEvent.STARTED
         auth_event.save()
 
         # log the action
@@ -165,7 +165,7 @@ def launch_tally(auth_event):
         agora_elections_request.status_code, 
         agora_elections_request.text
     )
-    auth_event.tally_status = 'started'
+    auth_event.tally_status = AuthEvent.STARTED
     auth_event.save()
 
     # log the action
@@ -218,7 +218,7 @@ def launch_virtual_tally(auth_event):
             agora_elections_request.status_code, 
             agora_elections_request.text
         )
-        auth_event.tally_status = 'notstarted'
+        auth_event.tally_status = AuthEvent.NOT_STARTED
         auth_event.save()
 
         # log the action
@@ -246,7 +246,7 @@ def launch_virtual_tally(auth_event):
         agora_elections_request.status_code, 
         agora_elections_request.text
     )
-    auth_event.tally_status = 'success'
+    auth_event.tally_status = AuthEvent.SUCCESS
     auth_event.save()
 
     # log the action
@@ -319,7 +319,7 @@ def update_tally_status(auth_event):
     election_state = updated_election['payload']['state']
 
     if election_state in ['tally_error', 'stopped', 'started']:
-        auth_event.tally_status = 'notstarted'
+        auth_event.tally_status = AuthEvent.NOT_STARTED
         auth_event.save()
 
         # log the action
@@ -334,7 +334,7 @@ def update_tally_status(auth_event):
         )
         action.save()
     elif election_state in ['tally_ok', 'results_ok', 'results_pub']:
-        auth_event.tally_status = 'success'
+        auth_event.tally_status = AuthEvent.SUCCESS
         auth_event.save()
         
         # log the action
@@ -383,7 +383,7 @@ def process_tallies():
     '''
     logger.info('\n\ntasks.process_tallies')
     tallying_events = AuthEvent.objects\
-        .filter(tally_status='started')\
+        .filter(tally_status=AuthEvent.STARTED)\
         .order_by('id')
 
     # Review which tallies have succeeded and update corresponding AuthEvents
@@ -391,7 +391,7 @@ def process_tallies():
         update_tally_status(auth_event)
 
     pending_events = AuthEvent.objects\
-        .filter(tally_status='pending')\
+        .filter(tally_status=AuthEvent.PENDING)\
         .order_by('id')
 
     logger.info(

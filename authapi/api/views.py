@@ -599,7 +599,14 @@ class Authenticate(View):
 
     def post(self, request, pk):
         try:
-            e = get_object_or_404(AuthEvent, pk=pk, status="started")
+            e = get_object_or_404(
+                AuthEvent,
+                pk=pk,
+                status__in=[
+                    AuthEvent.STARTED,
+                    AuthEvent.RESUMED
+                ]
+            )
         except:
             return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
@@ -674,7 +681,12 @@ class PublicCensusQueryView(View):
             e = get_object_or_404(
                 AuthEvent,
                 pk=pk,
-                status__in=['notstarted', 'started'],
+                status__in=[
+                    AuthEvent.NOT_STARTED,
+                    AuthEvent.STARTED,
+                    AuthEvent.SUSPENDED,
+                    AuthEvent.RESUMED
+                ],
                 allow_public_census_query=True)
 
         try:
@@ -940,12 +952,25 @@ class Register(View):
                 if "match_census_on_registration" in f and f['match_census_on_registration']
             ]
 
-        if (e.census == 'close') and (len(match_census_on_registration) == 0 or e.status != 'started'):
+        if (
+            (e.census == 'close') and 
+            (
+                len(match_census_on_registration) == 0 or
+                (
+                    e.status != AuthEvent.STARTED and
+                    e.status != AuthEvent.RESUMED
+                )
+            )
+        ):
             return json_response(
                 status=400,
                 error_codename="REGISTER_IS_DISABLED")
         # registration is closed
-        if e.census == 'open' and e.status != 'started':
+        if (
+            e.census == 'open' and
+            e.status != AuthEvent.STARTED and
+            e.status != AuthEvent.RESUMED
+        ):
             return json_response(
                 status=400,
                 error_codename="AUTH_EVENT_NOT_STARTED")
@@ -976,12 +1001,22 @@ class ResendAuthCode(View):
 
     def post(self, request, pk):
         auth_event = get_object_or_404(AuthEvent, pk=pk)
-        if (auth_event.census == 'close' and not auth_event.check_allow_user_resend()):
+        if (
+            auth_event.census == 'close' and
+            not auth_event.check_allow_user_resend()
+        ):
             return json_response(
                 status=400,
                 error_codename="AUTH_EVENT_NOT_STARTED")
         # registration is closed
-        if (auth_event.census == 'open' or auth_event.check_allow_user_resend()) and auth_event.status != 'started':
+        if (
+            (
+                auth_event.census == 'open' or
+                auth_event.check_allow_user_resend()
+            ) and
+            auth_event.status != AuthEvent.STARTED and
+            auth_event.status != AuthEvent.RESUMED
+        ):
             return json_response(
                 status=400,
                 error_codename="AUTH_EVENT_NOT_STARTED")
@@ -1017,7 +1052,9 @@ class AuthEventStatus(View):
         alt = dict(
             notstarted="notstarted",
             started='start',
-            stopped='stop'
+            stopped='stop',
+            suspended='suspend',
+            resumed='resume'
         )[status]
         permission_required(request.user, 'AuthEvent', ['edit', alt], pk)
         
@@ -1027,17 +1064,49 @@ class AuthEventStatus(View):
             children_ids = main_auth_event.children_election_info['natural_order']
         else:
             children_ids = []
-        
+
         auth_events = AuthEvent.objects.filter(
             Q(pk=pk) |
             Q(parent_id=pk) |
             Q(parent_id__in=children_ids)
         )
-        
+
         for auth_event in auth_events:
             # update AuthEvent
-
             if auth_event.status != status:
+                # enforce state transitions make sense
+                if settings.ENFORCE_STATE_CONTROLS:
+                    if (
+                        status == AuthEvent.STARTED and
+                        auth_event.status != AuthEvent.NOT_STARTED
+                    ) or (
+                        status == AuthEvent.SUSPENDED and
+                        auth_event.status != AuthEvent.STARTED and
+                        auth_event.status != AuthEvent.RESUMED
+                    ) or (
+                        status == AuthEvent.RESUMED and
+                        auth_event.status != AuthEvent.SUSPENDED
+                    ) or (
+                        status == AuthEvent.PENDING and
+                        auth_event.status != AuthEvent.STOPPED
+                    ) or (
+                        status == AuthEvent.SUCCESS and
+                        auth_event.status != AuthEvent.PENDING
+                    ) or (
+                        status == AuthEvent.STOPPED and
+                        auth_event.status != AuthEvent.STARTED and
+                        auth_event.status != AuthEvent.RESUMED and
+                        auth_event.status != AuthEvent.SUSPENDED
+                    ):
+                        return json_response(
+                            status=400,
+                            data=dict(
+                                next_status=status,
+                                current_status=auth_event.status
+                            ),
+                            error_codename="INVALID_STATUS_TRANSITION"
+                        )
+
                 auth_event.status = status
                 auth_event.save()
 
@@ -1056,7 +1125,7 @@ class AuthEventStatus(View):
                 action.save()
             
             # update in agora-elections
-            if alt in ['start', 'stop']:
+            if alt in ['start', 'stop', 'suspend', 'resume']:
                 for callback_base in settings.AGORA_ELECTIONS_BASE:
                     callback_url = "%s/api/election/%s/%s" % (
                         callback_base,
@@ -1093,6 +1162,15 @@ class AuthEventStatus(View):
                             status=500,
                             error_codename=ErrorCodes.GENERAL_ERROR
                         )
+
+                    # if new status is stop and tally_status is pending, move it to
+                    if (
+                        alt == 'stop' and
+                        auth_event.tally_status != AuthEvent.NOT_STARTED
+                    ):
+                        auth_event.tally_status = AuthEvent.NOT_STARTED
+                        auth_event.save()
+
 
                     LOGGER.info(\
                         "AuthEventStatus.post\n"\
@@ -1368,7 +1446,11 @@ class EditChildrenParentView(View):
         '''
         from authmethods.utils import verify_children_election_info
         permission_required(request.user, 'AuthEvent', 'edit', pk)
-        auth_event = get_object_or_404(AuthEvent, pk=pk, status='notstarted')
+        auth_event = get_object_or_404(
+            AuthEvent,
+            pk=pk,
+            status=AuthEvent.NOT_STARTED
+        )
         try:
             req = parse_json_request(request)
         except:
@@ -1448,10 +1530,18 @@ class AuthEventView(View):
             requested_id = req.get('id', None)
             election_exists = False
             if requested_id and isinstance(requested_id, int):
-              count_existing_elections = AuthEvent.objects.filter(pk=requested_id).count()
-              if count_existing_elections != 0:
-                permission_required(request.user, 'AuthEvent', 'edit', requested_id)
-                election_exists = True
+                count_existing_elections = AuthEvent\
+                    .objects\
+                    .filter(pk=requested_id)\
+                    .count()
+                if count_existing_elections != 0:
+                    permission_required(
+                        request.user,
+                        'AuthEvent',
+                        'edit',
+                        requested_id
+                    )
+                    election_exists = True
             else:
               requested_id = None
 
@@ -1701,8 +1791,13 @@ class AuthEventView(View):
             ae.save()
 
             # TODO: Problem if object_id is None, change None by 0
-            acl = get_object_or_404(ACL, user=request.user.userdata,
-                    perm='edit', object_type='AuthEvent', object_id=ae.pk)
+            acl = get_object_or_404(
+                ACL,
+                user=request.user.userdata,
+                perm='edit',
+                object_type='AuthEvent',
+                object_id=ae.pk
+            )
 
             action = Action(
                 executer=request.user,
@@ -1997,8 +2092,11 @@ reset_pwd = login_required(UserResetPwd.as_view())
 class UserAuthEvent(View):
     def get(self, request):
         ''' Get ids auth-event of request user. '''
-        acls = ACL.objects.filter(user=request.user.pk, object_type='AuthEvent',
-                perm='edit')
+        acls = ACL.objects.filter(
+            user=request.user.pk,
+            object_type='AuthEvent',
+            perm='edit'
+        )
         ae_ids = []
         for acl in acls:
             ae_ids.append(acl.object_id)
@@ -2279,7 +2377,12 @@ class BallotBoxView(View):
     '''
 
     def post(self, request, pk):
-        permission_required(request.user, 'AuthEvent', ['edit', 'add-ballot-boxes'], pk)
+        permission_required(
+            request.user,
+            'AuthEvent', 
+            ['edit', 'add-ballot-boxes'],
+            pk
+        )
 
         # parse input
         try:
@@ -2297,8 +2400,8 @@ class BallotBoxView(View):
         if not new_ballot_box.is_valid() or not auth_event.has_ballot_boxes:
             return json_response(
                 status=400,
-                error_codename=ErrorCodes.BAD_REQUEST)
-
+                error_codename=ErrorCodes.BAD_REQUEST
+            )
 
         # try to create new object in the db. might fail if bb already exists
         try:
@@ -2463,7 +2566,7 @@ class TallySheetView(View):
             BallotBox,
             pk=ballot_box_pk,
             auth_event__pk=pk,
-            auth_event__status="stopped"
+            auth_event__status=AuthEvent.STOPPED
         )
 
         # require extra permissions to override tally sheet
@@ -2632,7 +2735,7 @@ class TallyStatusView(View):
 
         # cannot launch tally on an election whose voting period is still open
         # or has not even started.
-        if auth_event.status != 'stopped':
+        if auth_event.status != AuthEvent.STOPPED:
             return json_response(
                 status=400,
                 error_codename=ErrorCodes.BAD_REQUEST
@@ -2694,18 +2797,21 @@ class TallyStatusView(View):
         # set the pending status accordingly
         for auth_event_to_tally in auth_events:
             if (
-                auth_event_to_tally.tally_status == 'notstarted' or
+                auth_event_to_tally.tally_status == AuthEvent.NOT_STARTED or
                 (
-                    auth_event_to_tally.tally_status == 'pending' and
+                    auth_event_to_tally.tally_status == AuthEvent.PENDING and
                     force_tally in ['force-untallied', 'force-all']
                 ) or (
-                    auth_event_to_tally.tally_status in ['started', 'success'] and
+                    auth_event_to_tally.tally_status in [
+                        AuthEvent.STARTED,
+                        AuthEvent.SUCCESS
+                    ] and
                     force_tally in ['force-all']
                 )
             ):
                 # set tally status to pending
                 previous_tally_status = auth_event_to_tally.tally_status
-                auth_event_to_tally.tally_status = 'pending'
+                auth_event_to_tally.tally_status = AuthEvent.PENDING
                 auth_event_to_tally.save()
 
                 # log the action
@@ -2718,7 +2824,7 @@ class TallyStatusView(View):
                         auth_event=auth_event_to_tally.pk,
                         previous_tally_status=previous_tally_status,
                         force_tally=force_tally,
-                        forced=(previous_tally_status != 'notstarted')
+                        forced=(previous_tally_status != AuthEvent.NOT_STARTED)
                     )
                 )
                 action.save()

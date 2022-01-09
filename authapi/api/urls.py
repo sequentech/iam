@@ -54,7 +54,7 @@ urlpatterns = [
     url(r'^auth-event/(?P<pk>\d+)/resend_auth_code/$', views.resend_auth_code, name='resend_auth_code'),
     url(r'^auth-event/(?P<pk>\d+)/census/send_auth/$', views.census_send_auth, name='census_send_auth'),
     url(r'^auth-event/(?P<pk>\d+)/census/reset-voter/$', views.census_reset_voter, name='census_reset_voter'),
-    url(r'^auth-event/(?P<pk>\d+)/(?P<status>(notstarted|started|stopped))/$', views.ae_status, name='ae_status'),
+    url(r'^auth-event/(?P<pk>\d+)/(?P<status>(notstarted|started|stopped|suspended|resumed))/$', views.ae_status, name='ae_status'),
     url(r'^auth-event/module/$', views.authevent_module, name='authevent_module'),
     url(r'^auth-event/module/(?P<name>[-\w]+)/$', views.authevent_module, name='authevent_module'),
 
