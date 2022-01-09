@@ -1139,9 +1139,9 @@ class AuthEventStatus(View):
                     # if new status is stop and tally_status is pending, move it to
                     if (
                         alt == 'stop' and
-                        auth_event.tally_status != AuthEvent.STOPPED
+                        auth_event.tally_status != AuthEvent.NOT_STARTED
                     ):
-                        auth_event.tally_status = AuthEvent.STOPPED
+                        auth_event.tally_status = AuthEvent.NOT_STARTED
                         auth_event.save()
 
 
