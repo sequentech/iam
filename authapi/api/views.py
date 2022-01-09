@@ -599,7 +599,14 @@ class Authenticate(View):
 
     def post(self, request, pk):
         try:
-            e = get_object_or_404(AuthEvent, pk=pk, status=AuthEvent.STARTED)
+            e = get_object_or_404(
+                AuthEvent,
+                pk=pk,
+                status__in=[
+                    AuthEvent.STARTED,
+                    AuthEvent.RESUMED
+                ]
+            )
         except:
             return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
@@ -676,7 +683,9 @@ class PublicCensusQueryView(View):
                 pk=pk,
                 status__in=[
                     AuthEvent.NOT_STARTED,
-                    AuthEvent.STARTED
+                    AuthEvent.STARTED,
+                    AuthEvent.SUSPENDED,
+                    AuthEvent.RESUMED
                 ],
                 allow_public_census_query=True)
 
@@ -947,14 +956,21 @@ class Register(View):
             (e.census == 'close') and 
             (
                 len(match_census_on_registration) == 0 or
-                e.status != AuthEvent.STARTED
+                (
+                    e.status != AuthEvent.STARTED and
+                    e.status != AuthEvent.RESUMED
+                )
             )
         ):
             return json_response(
                 status=400,
                 error_codename="REGISTER_IS_DISABLED")
         # registration is closed
-        if e.census == 'open' and e.status != AuthEvent.STARTED:
+        if (
+            e.census == 'open' and
+            e.status != AuthEvent.STARTED and
+            e.status != AuthEvent.RESUMED
+        ):
             return json_response(
                 status=400,
                 error_codename="AUTH_EVENT_NOT_STARTED")
@@ -985,12 +1001,22 @@ class ResendAuthCode(View):
 
     def post(self, request, pk):
         auth_event = get_object_or_404(AuthEvent, pk=pk)
-        if (auth_event.census == 'close' and not auth_event.check_allow_user_resend()):
+        if (
+            auth_event.census == 'close' and
+            not auth_event.check_allow_user_resend()
+        ):
             return json_response(
                 status=400,
                 error_codename="AUTH_EVENT_NOT_STARTED")
         # registration is closed
-        if (auth_event.census == 'open' or auth_event.check_allow_user_resend()) and auth_event.status != AuthEvent.STARTED:
+        if (
+            (
+                auth_event.census == 'open' or
+                auth_event.check_allow_user_resend()
+            ) and
+            auth_event.status != AuthEvent.STARTED and
+            auth_event.status != AuthEvent.RESUMED
+        ):
             return json_response(
                 status=400,
                 error_codename="AUTH_EVENT_NOT_STARTED")
