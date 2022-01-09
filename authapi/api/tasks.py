@@ -391,7 +391,7 @@ def process_tallies():
         update_tally_status(auth_event)
 
     pending_events = AuthEvent.objects\
-        .filter(tally_status=AuthEvent.AuthEvent.STARTED)\
+        .filter(tally_status=AuthEvent.STARTED)\
         .order_by('id')
 
     logger.info(
