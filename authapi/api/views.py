@@ -1081,7 +1081,8 @@ class AuthEventStatus(View):
                         auth_event.status != AuthEvent.NOT_STARTED
                     ) or (
                         status == AuthEvent.SUSPENDED and
-                        auth_event.status != AuthEvent.STARTED
+                        auth_event.status != AuthEvent.STARTED and
+                        auth_event.status != AuthEvent.RESUMED
                     ) or (
                         status == AuthEvent.RESUMED and
                         auth_event.status != AuthEvent.SUSPENDED
