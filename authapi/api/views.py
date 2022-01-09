@@ -1054,17 +1054,23 @@ class AuthEventStatus(View):
                         status == AuthEvent.STARTED and
                         auth_event.status != AuthEvent.NOT_STARTED
                     ) or (
-                        status != AuthEvent.SUSPENDED and
+                        status == AuthEvent.SUSPENDED and
                         auth_event.status != AuthEvent.STARTED
                     ) or (
-                        status != AuthEvent.RESUMED and
+                        status == AuthEvent.RESUMED and
                         auth_event.status != AuthEvent.SUSPENDED
                     ) or (
-                        status != AuthEvent.PENDING and
-                        auth_event.status != AuthEvent.STOPPED
+                        status == AuthEvent.PENDING and
+                        auth_event.status != AuthEvent.STOPPED and
+                        auth_event.status != AuthEvent.SUSPENDED
                     ) or (
-                        status != AuthEvent.SUCCESS and
+                        status == AuthEvent.SUCCESS and
                         auth_event.status != AuthEvent.PENDING
+                    ) or (
+                        status == AuthEvent.STOPPED and
+                        auth_event.status != AuthEvent.STARTED and
+                        auth_event.status != AuthEvent.RESUMED and
+                        auth_event.status != AuthEvent.SUSPENDED
                     ):
                         return json_response(
                             status=400,
@@ -1130,6 +1136,15 @@ class AuthEventStatus(View):
                             status=500,
                             error_codename=ErrorCodes.GENERAL_ERROR
                         )
+
+                    # if new status is stop and tally_status is pending, move it to
+                    if (
+                        alt == 'stop' and
+                        auth_event.tally_status != AuthEvent.STOPPED
+                    ):
+                        auth_event.tally_status = AuthEvent.STOPPED
+                        auth_event.save()
+
 
                     LOGGER.info(\
                         "AuthEventStatus.post\n"\
