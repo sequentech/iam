@@ -39,13 +39,18 @@ class CeleryConfig:
             'args': [],
             'options': {
                 'expires': 10
-            },
-            'time_limit': 10
-        },
+            }
+        }
     }
     result_backend = 'django-db'
 
 CELERY_CONFIG = CeleryConfig
+
+CELERY_ANNOTATIONS = {
+    'tasks.process_tallies': {
+        'time_limit': 10
+    }
+}
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.7/howto/deployment/checklist/
