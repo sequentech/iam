@@ -1,6 +1,6 @@
 amqp==5.0.5
 anyjson==0.3.3
-billiard==3.6.3.0
+billiard==3.6.4.0
 celery==5.2.2
 contextlib2==0.5.3
 decorator==4.0.10
