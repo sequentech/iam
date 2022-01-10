@@ -1,3 +1,4 @@
+amqp==5.0.9
 anyjson==0.3.3
 backcall==0.2.0
 backports.entry-points-selectable==1.1.1
@@ -5,7 +6,6 @@ Beaker==1.11.0
 billiard==3.6.4.0
 celery==5.2.2
 certifi==2021.10.8
-cffi==1.15.0
 cfgv==3.3.1
 chardet==3.0.4
 click==8.0.3
