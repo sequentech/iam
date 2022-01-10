@@ -13,7 +13,6 @@ click-didyoumean==0.3.0
 click-plugins==1.1.1
 click-repl==0.2.0
 contextlib2==0.5.3
-cryptography==36.0.1
 decorator==4.0.10
 defusedxml==0.7.1
 distlib==0.3.4
@@ -36,7 +35,6 @@ Mako==1.1.6
 MarkupSafe==2.0.1
 nodeenv==1.6.0
 nose==1.3.7
-oic==1.2.1
 parso==0.7.1
 pexpect==4.8.0
 pickleshare==0.7.2
