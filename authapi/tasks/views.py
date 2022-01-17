@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
+from django.conf import settings
 from django.db.models import Q
 from django.views.generic import View
 from api.decorators import login_required
@@ -28,6 +29,9 @@ class TaskView(View):
     '''List the user Tasks'''
 
     def get(self, request, pk=None):
+        if request.user.userdata.event_id != settings.ADMIN_AUTH_ID:
+            return json_response(dict(), status=403)
+
         data = dict(
             status='ok',
             tasks=[]

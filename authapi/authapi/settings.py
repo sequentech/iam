@@ -93,6 +93,7 @@ INSTALLED_APPS = (
     'api',
     'authmethods',
     'captcha',
+    'tasks',
 
     #3rd party
     'django_celery_results',
