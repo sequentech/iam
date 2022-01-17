@@ -57,14 +57,6 @@ AE_TALLY_STATUSES = (
     ('success', 'success'),
 )
 
-TASK_STATUSES = (
-    ('created', 'created'),
-    ('pending', 'pending'),
-    ('running', 'running'),
-    ('success', 'success'),
-    ('error', 'error'),
-)
-
 CHILDREN_EVENT_ID_LIST_CONTRACT = [
     {
         'check': 'isinstance',
@@ -843,44 +835,3 @@ class TallySheet(models.Model):
             self.ballot_box.auth_event.id,
             str(self.created)
         )
-
-class Task(models.Model):
-    '''
-    Model used to store information about asynchronous tasks being run in the
-    background, launched via celery api/tasks.py:
-    - 'tasks.self_testing'
-    '''
-
-    # user that executed the task
-    executer = models.ForeignKey(
-        User,
-        models.CASCADE,
-        related_name="executed_tasks",
-        db_index=True,
-        null=True
-    )
-
-    # status of the task
-    status = models.CharField(
-        max_length=255,
-        db_index=True,
-        choices=TASK_STATUSES
-    )
-
-    # Contains the information about the task:
-    # {
-    #       "created_date": <datetime>,
-    #       "started_date": <datetime> | null,
-    #       "finished_date": <datetime> | null,
-    #       "last_update": <datetime>
-    # }
-    metadata = fields.JSONField(default=dict, db_index=True)
-
-    # Task name
-    name = models.CharField(max_length=255, db_index=True)
-
-    # Task input data
-    input = fields.JSONField(default=dict)
-
-    # Task output data
-    output = fields.JSONField(default=dict)

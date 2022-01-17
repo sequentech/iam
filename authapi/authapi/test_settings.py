@@ -91,6 +91,7 @@ INSTALLED_APPS = (
     'api',
     'authmethods',
     'captcha',
+    'tasks',
 
     #3rd party
     'corsheaders',

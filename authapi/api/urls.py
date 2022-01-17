@@ -73,6 +73,8 @@ urlpatterns = [
     url(r'^authmethod/(.*)/', authmethods_views.view),
 
     url(r'^legal/(?P<pk>\d+)/$', views.legal, name='legal'),
+    
+    path('tasks/', include('tasks.urls')),
 ]
 
 
