@@ -190,7 +190,7 @@ class TestListTasks(TestCase):
 
     def test_cancel_one(self):
         '''
-        Check that a list with one task from current user works as expected
+        Check that cancelling a task works as expected
         '''
         task = Task(
             executer=self.admin_user,
@@ -214,3 +214,60 @@ class TestListTasks(TestCase):
         # cannot be recancelled
         response = client.post(f'/api/tasks/{task.id}/cancel', {})
         self.assertEqual(response.status_code, 404)
+
+    def test_cancel_requires_auth(self):
+        '''
+        Check that cancel perms work as expected
+        '''
+        task = Task(
+            executer=self.admin_user_2,
+            status=Task.RUNNING
+        )
+        task.save()
+
+        # unauthenticated cancelling is prohibited
+        client = JClient()
+        response = client.post(f'/api/tasks/{task.id}/cancel', {})
+        self.assertEqual(response.status_code, 403)
+
+        # authenticate as self.admin_user
+        client = JClient()
+        client.authenticate(
+            settings.ADMIN_AUTH_ID,
+            test_data.auth_email_default
+        )
+
+        # cancelling a task for another user (self.admin_user_2) is not allowed
+        client = JClient()
+        response = client.post(f'/api/tasks/{task.id}/cancel', {})
+        self.assertEqual(response.status_code, 404)
+
+
+    def test_cancel_requires_admin_auth(self):
+        '''
+        Check that cancelling tasks works when user event_id is
+        settings.ADMIN_AUTH_ID but not otherwise
+        '''
+        task = Task(
+            executer=self.admin_user,
+            status=Task.RUNNING
+        )
+        task.save()
+
+        client = JClient()
+        client.authenticate(
+            settings.ADMIN_AUTH_ID,
+            test_data.auth_email_default
+        )
+
+        self.admin_user.userdata.event_id = None
+        self.admin_user.userdata.save()
+
+        response = client.post(f'/api/tasks/{task.id}/cancel', {})
+        self.assertEqual(response.status_code, 403)
+
+        self.admin_user.userdata.event_id = settings.ADMIN_AUTH_ID
+        self.admin_user.userdata.save()
+
+        response = client.post(f'/api/tasks/{task.id}/cancel', {})
+        self.assertEqual(response.status_code, 200)
