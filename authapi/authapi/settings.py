@@ -239,6 +239,11 @@ IMAGE_STORE_PATH = os.path.join(BASE_DIR, 'imgfields')
 OPENID_CONNECT_PROVIDERS_CONF = [
 ]
 
+# When a task is performed by launching a subprocess, the output of this process
+# is going to be written to the database. We use this setting to prevent too
+# many updates per second, by setting a minimum elapsed time between DB updates.
+TASK_PROCESS_UPDATE_DEBOUNCE_SECS = 2.0
+
 if not os.path.exists(IMAGE_STORE_PATH):
     os.mkdir(IMAGE_STORE_PATH)
 

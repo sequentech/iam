@@ -15,6 +15,7 @@
 
 from django.conf import settings
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 from django.views.generic import View
 from api.decorators import login_required
 import logging
@@ -58,3 +59,26 @@ class TaskView(View):
         return json_response(data)
 
 task = login_required(TaskView.as_view())
+
+class TaskCancelView(View):
+    '''Cancel an user task'''
+
+    def post(self, request, pk=None):
+        if request.user.userdata.event_id != settings.ADMIN_AUTH_ID:
+            return json_response(dict(), status=403)
+
+        task = get_object_or_404(
+            Task,
+            pk=pk,
+            executer=request.user,
+            status__in=[
+                Task.CREATED,
+                Task.PENDING,
+                Task.RUNNING,
+            ]
+        )
+
+        task.status = Task.CANCELLING
+        task.save()
+
+task_cancel = login_required(TaskCancelView.as_view())

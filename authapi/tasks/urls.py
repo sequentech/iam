@@ -19,4 +19,5 @@ from tasks import views
 urlpatterns = [
     url(r'^$', views.task, name='tasks'),
     url(r'^(?P<pk>\d+)/$', views.task, name='task'),
+    url(r'^(?P<pk>\d+)/cancel$', views.task_cancel, name='task_cancel'),
 ]

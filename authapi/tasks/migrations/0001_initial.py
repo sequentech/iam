@@ -48,6 +48,8 @@ class Migration(migrations.Migration):
                             ('pending', 'pending'),
                             ('running', 'running'),
                             ('success', 'success'),
+                            ('cancelling', 'cancelling'),
+                            ('cancelled', 'cancelled'),
                             ('error', 'error')
                         ],
                         db_index=True,

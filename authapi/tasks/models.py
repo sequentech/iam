@@ -14,16 +14,23 @@
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
+import sys
+import time
+import subprocess
+
 from django.db import models
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.postgres import fields
+from django.utils import timezone
 
 TASK_STATUSES = (
     ('created', 'created'),
     ('pending', 'pending'),
     ('running', 'running'),
     ('success', 'success'),
+    ('cancelling', 'cancelling'),
+    ('cancelled', 'cancelled'),
     ('error', 'error'),
 )
 
@@ -33,6 +40,13 @@ class Task(models.Model):
     background, launched via celery api/tasks.py:
     - 'tasks.self_testing'
     '''
+    CREATED = 'created'
+    PENDING = 'pending'
+    RUNNING = 'running'
+    SUCCESS = 'success'
+    CANCELLING = 'cancelling'
+    CANCELLED = 'cancelled'
+    ERROR = 'error'
 
     # user that executed the task
     executer = models.ForeignKey(
@@ -55,6 +69,9 @@ class Task(models.Model):
     #       "created_date": <datetime>,
     #       "started_date": <datetime> | null,
     #       "finished_date": <datetime> | null,
+    #       "process_id": <int> | null,
+    #       "command": <string> | null,
+    #       "command_return_code": <int> | null,
     #       "last_update": <datetime>
     # }
     metadata = fields.JSONField(default=dict, db_index=True)
@@ -67,6 +84,98 @@ class Task(models.Model):
 
     # Task output data
     output = fields.JSONField(default=dict)
+
+    def _error_task(self, error_text, status=None):
+        self.status = Task.ERROR if status is None else status
+        self.output = dict(error=error_text)
+        self.save()
+
+    def run_command(self):
+        if self.status != Task.PENDING:
+            return self._error_task(
+                f"Tried to run a command with status='{self.status}' but "
+                "it should be 'pending' instead"
+            )
+
+        if 'command' not in self.metadata:
+            return self._error_task(
+                "Tried to run a command without setting "
+                "self.metadata['command']."
+            )
+
+        self.status = Task.RUNNING
+        self.metadata['started_time'] = timezone.now().isoformat()
+        self.metadata['last_update'] = self.metadata['started_time']
+        self.save()
+
+        last_write_time = time.perf_counter()
+        try:
+            process = subprocess.Popen(
+                self.metadata['command'],
+                shell=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT
+            )
+        except:
+            self.metadata['last_update'] = timezone.now().isoformat()
+            self.metadata['finished_date'] = self.metadata['last_update']
+            self.metadata['command_return_code'] = None
+
+            # self.save() will be performed by self._error_task()
+            self._error_task(
+                f"Error while running '{self.metadata['command']}':\n"
+                sys.exc_info()[1]
+            )
+            return
+
+        self.metadata['last_update'] = timezone.now().isoformat()
+        self.metadata["process_id"] = process.pid
+        self.metadata['command_return_code'] = None
+        self.metadata["stdout"] = ""
+        self.save()
+        stdout = ""
+
+        # Read stdout line by line
+        while True:
+            stdout += process.stdout.readline().decode('utf-8')
+
+            # update the task model in the database in a debounced way to
+            # prevent too many updates
+            current_time = time.perf_counter()
+            debounce_secs = settings.TASK_PROCESS_UPDATE_DEBOUNCE_SECS
+            if current_time - last_write_time > debounce_secs:
+                # refresh the model from the database before writing, because
+                # status might have been updated
+                self.refresh_from_db()
+                self.metadata['last_update'] = timezone.now().isoformat()
+                self.metadata["stdout"] += stdout
+                stdout = ""
+                last_write_time = current_time
+
+                # if the status has been update to cancelling (meaning, the
+                # task has been requested to be cancelled), then it's time to
+                # cancel it.
+                if self.status == Task.CANCELLING:
+                    process.kill()
+                    self.metadata['last_update'] = timezone.now().isoformat()
+                    self.metadata['finished_date'] = self.metadata['last_update']
+                    return self._error_task(
+                        f"Tried to run a command with status='{self.status}' but "
+                        "it should be 'pending' instead",
+                        status=Task.CANCELLED
+                    )
+                else:
+                    self.save()
+
+            if process.poll() is not None:
+                break
+
+        # refresh the model from the database before writing
+        self.refresh_from_db()
+        self.metadata['last_update'] = timezone.now().isoformat()
+        self.metadata["stdout"] += stdout
+        self.metadata['command_return_code'] = process.poll()
+        self.save()
 
     def serialize(self):
         return dict(
