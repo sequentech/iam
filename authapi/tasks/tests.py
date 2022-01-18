@@ -127,7 +127,7 @@ class TestListTasks(TestCase):
         # self.admin_user
         task = Task(
             executer=self.admin_user_2,
-            status='created'
+            status=Task.CREATED
         )
         task.save()
 
@@ -150,7 +150,7 @@ class TestListTasks(TestCase):
         '''
         task = Task(
             executer=self.admin_user,
-            status='created'
+            status=Task.CREATED
         )
         task.save()
 
@@ -187,3 +187,30 @@ class TestListTasks(TestCase):
             reproducible_json_dumps(response_data),
             reproducible_json_dumps(expected_response)
         )
+
+    def test_cancel_one(self):
+        '''
+        Check that a list with one task from current user works as expected
+        '''
+        task = Task(
+            executer=self.admin_user,
+            status=Task.RUNNING
+        )
+        task.save()
+
+        client = JClient()
+        client.authenticate(
+            settings.ADMIN_AUTH_ID,
+            test_data.auth_email_default
+        )
+        # cancelling works
+        response = client.post(f'/api/tasks/{task.id}/cancel', {})
+        self.assertEqual(response.status_code, 200)
+
+        task.refresh_from_db()
+        # it's been cancelled
+        self.assertEqual(response.status, Task.CANCELLING)
+
+        # cannot be recancelled
+        response = client.post(f'/api/tasks/{task.id}/cancel', {})
+        self.assertEqual(response.status_code, 404)

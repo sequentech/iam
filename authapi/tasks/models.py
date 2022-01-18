@@ -123,7 +123,7 @@ class Task(models.Model):
 
             # self.save() will be performed by self._error_task()
             self._error_task(
-                f"Error while running '{self.metadata['command']}':\n"
+                f"Error while running '{self.metadata['command']}':\n" +
                 sys.exc_info()[1]
             )
             return
@@ -172,7 +172,9 @@ class Task(models.Model):
 
         # refresh the model from the database before writing
         self.refresh_from_db()
+        self.status = Task.SUCCESS
         self.metadata['last_update'] = timezone.now().isoformat()
+        self.metadata['finished_date'] = self.metadata['last_update']
         self.metadata["stdout"] += stdout
         self.metadata['command_return_code'] = process.poll()
         self.save()
