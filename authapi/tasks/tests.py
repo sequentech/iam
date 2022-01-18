@@ -13,6 +13,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
+import tempfile
 from django.utils import timezone
 from datetime import datetime, timedelta
 from django.conf import settings
@@ -76,6 +78,26 @@ class TestListTasks(TestCase):
             'has_next': False, 
             'has_previous': False
         }
+
+    def check_timing(self, data, key, timeout_secs):
+        '''
+        Checks that a given datetime is less than {timeout_secs} seconds old
+        '''
+        self.assertTrue(
+            (
+                timezone.now() -
+                datetime.fromisoformat(data[key])
+            ) < timedelta(seconds=timeout_secs)
+        )
+
+    def create_temp_executable(self, content):
+        '''
+        Create a temporary executable script, returning the file
+        '''
+        file = tempfile.NamedTemporaryFile(delete=False)
+        file.write(content.encode('utf-8'))
+        os.chmod(file.name, 0o700)
+        return file.name
 
     def test_list_requires_auth(self):
         '''
@@ -281,11 +303,12 @@ class TestListTasks(TestCase):
         task.run_command('wrong command')
         task.refresh_from_db()
         self.assertEqual(task.status, Task.ERROR)
+
         self.assertDictEqual(
             task.output,
             dict(
                 error=(
-                    "Error while running 'wrong command':\n "
+                    "Error while running 'wrong command':\n"
                     "[Errno 2] No such file or directory: 'wrong command'"
                 )
             )
@@ -295,23 +318,79 @@ class TestListTasks(TestCase):
             'wrong command'
         )
         # datetimes should be present and less than 1 second ago
-        self.assertTrue(
-            (
-                timezone.now() -
-                datetime.fromisoformat(task.metadata['last_update'])
-            ) < timedelta(seconds=1)
-        )
-        self.assertTrue(
-            (
-                timezone.now() -
-                datetime.fromisoformat(task.metadata['started_time'])
-            ) < timedelta(seconds=1)
-        )
-        self.assertTrue(
-            (
-                timezone.now() -
-                datetime.fromisoformat(task.metadata['finished_date'])
-            ) < timedelta(seconds=1)
-        )
+        self.check_timing(task.metadata, 'last_update', 1)
+        self.check_timing(task.metadata, 'started_time', 1)
+        self.check_timing(task.metadata, 'finished_date', 1)
+
         # As the command failed to launch, command_return_code shouldn't be set
         self.assertEqual(task.metadata['command_return_code'], None)
+
+    def test_task_run_fast_command(self):
+        task = Task(
+            executer=self.admin_user,
+            status=Task.PENDING
+        )
+        runfile_path = self.create_temp_executable(
+            "#!/bin/bash\n"
+            "echo 'hello world!'\n"
+        )
+        task.run_command(runfile_path)
+        task.refresh_from_db()
+        self.assertEqual(task.status, Task.SUCCESS)
+        self.assertDictEqual(
+            task.output,
+            dict(stdout="hello world!\n")
+        )
+        self.assertEqual(
+            task.metadata['command'],
+            runfile_path
+        )
+        os.unlink(runfile_path)
+        # datetimes should be present and less than 2 seconds ago (i.e. fast)
+        self.check_timing(task.metadata, 'last_update', 2)
+        self.check_timing(task.metadata, 'started_time', 2)
+        self.check_timing(task.metadata, 'finished_date', 2)
+
+        # As the command failed to launch, command_return_code should be 0
+        self.assertEqual(task.metadata['command_return_code'], 0)
+
+    def test_task_run_slow_command(self):
+        task = Task(
+            executer=self.admin_user,
+            status=Task.PENDING
+        )
+        runfile_path = self.create_temp_executable(
+            '#!/bin/bash\n'
+            'for i in $(seq 1 5); do\n'
+            '    echo "iteration" $i\n'
+            '    sleep 1\n'
+            'done\n'
+        )
+        task.run_command(runfile_path)
+        task.refresh_from_db()
+        self.assertEqual(task.status, Task.SUCCESS)
+        self.assertDictEqual(
+            task.output,
+            dict(
+                stdout=(
+                    "iteration 1\n"
+                    "iteration 2\n"
+                    "iteration 3\n"
+                    "iteration 4\n"
+                    "iteration 5\n"
+                )
+            )
+        )
+        self.assertEqual(
+            task.metadata['command'],
+            runfile_path
+        )
+        os.unlink(runfile_path)
+        # datetimes should be present and less than 6 seconds ago (i.e. slow but
+        # not so slow).
+        self.check_timing(task.metadata, 'last_update', 6)
+        self.check_timing(task.metadata, 'started_time', 6)
+        self.check_timing(task.metadata, 'finished_date', 6)
+
+        # As the command failed to launch, command_return_code should be 0
+        self.assertEqual(task.metadata['command_return_code'], 0)

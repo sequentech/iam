@@ -181,6 +181,11 @@ CORS_ORIGIN_WHITELIST = (
 
 OPENID_CONNECT_PROVIDERS_CONF = []
 
+# When a task is performed by launching a subprocess, the output of this process
+# is going to be written to the database. We use this setting to prevent too
+# many updates per second, by setting a minimum elapsed time between DB updates.
+TASK_PROCESS_UPDATE_DEBOUNCE_SECS = 2.0
+
 ENABLE_CAPTCHA = True
 PREGENERATION_CAPTCHA = 100
 

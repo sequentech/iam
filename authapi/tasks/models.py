@@ -126,7 +126,7 @@ class Task(models.Model):
         self.metadata['last_update'] = timezone.now().isoformat()
         self.metadata["process_id"] = process.pid
         self.metadata['command_return_code'] = None
-        self.metadata["stdout"] = ""
+        self.output["stdout"] = ""
         self.save()
         stdout = ""
 
@@ -143,7 +143,7 @@ class Task(models.Model):
                 # status might have been updated
                 self.refresh_from_db()
                 self.metadata['last_update'] = timezone.now().isoformat()
-                self.metadata["stdout"] += stdout
+                self.output["stdout"] += stdout
                 stdout = ""
                 last_write_time = current_time
 
@@ -170,7 +170,7 @@ class Task(models.Model):
         self.status = Task.SUCCESS
         self.metadata['last_update'] = timezone.now().isoformat()
         self.metadata['finished_date'] = self.metadata['last_update']
-        self.metadata["stdout"] += stdout
+        self.output["stdout"] += stdout
         self.metadata['command_return_code'] = process.poll()
         self.save()
 
