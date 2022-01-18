@@ -80,5 +80,10 @@ class TaskCancelView(View):
 
         task.status = Task.CANCELLING
         task.save()
+        data = dict(
+            status='ok',
+            task=task.serialize()
+        )
+        return json_response(data)
 
 task_cancel = login_required(TaskCancelView.as_view())

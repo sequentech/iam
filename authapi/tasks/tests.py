@@ -209,7 +209,7 @@ class TestListTasks(TestCase):
 
         task.refresh_from_db()
         # it's been cancelled
-        self.assertEqual(response.status, Task.CANCELLING)
+        self.assertEqual(task.status, Task.CANCELLING)
 
         # cannot be recancelled
         response = client.post(f'/api/tasks/{task.id}/cancel', {})
@@ -240,8 +240,7 @@ class TestListTasks(TestCase):
         # cancelling a task for another user (self.admin_user_2) is not allowed
         client = JClient()
         response = client.post(f'/api/tasks/{task.id}/cancel', {})
-        self.assertEqual(response.status_code, 404)
-
+        self.assertEqual(response.status_code, 403)
 
     def test_cancel_requires_admin_auth(self):
         '''
