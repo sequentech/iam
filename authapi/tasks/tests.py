@@ -270,3 +270,13 @@ class TestListTasks(TestCase):
 
         response = client.post(f'/api/tasks/{task.id}/cancel', {})
         self.assertEqual(response.status_code, 200)
+
+    def test_task_run_command(self):
+        task = Task(
+            executer=self.admin_user,
+            status=Task.PENDING
+        )
+        task.run_command('wrong command')
+        task.refresh_from_db()
+        self.assertEqual(task.status, Task.ERROR)
+

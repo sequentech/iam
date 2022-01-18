@@ -90,20 +90,15 @@ class Task(models.Model):
         self.output = dict(error=error_text)
         self.save()
 
-    def run_command(self):
+    def run_command(self, command):
         if self.status != Task.PENDING:
             return self._error_task(
                 f"Tried to run a command with status='{self.status}' but "
                 "it should be 'pending' instead"
             )
 
-        if 'command' not in self.metadata:
-            return self._error_task(
-                "Tried to run a command without setting "
-                "self.metadata['command']."
-            )
-
         self.status = Task.RUNNING
+        self.metadata['command'] = command
         self.metadata['started_time'] = timezone.now().isoformat()
         self.metadata['last_update'] = self.metadata['started_time']
         self.save()
@@ -111,7 +106,7 @@ class Task(models.Model):
         last_write_time = time.perf_counter()
         try:
             process = subprocess.Popen(
-                self.metadata['command'],
+                command,
                 shell=False,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT
@@ -123,7 +118,7 @@ class Task(models.Model):
 
             # self.save() will be performed by self._error_task()
             self._error_task(
-                f"Error while running '{self.metadata['command']}':\n" +
+                f"Error while running '{command}':\n" +
                 sys.exc_info()[1]
             )
             return
