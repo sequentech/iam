@@ -394,3 +394,18 @@ class TestListTasks(TestCase):
 
         # As the command failed to launch, command_return_code should be 0
         self.assertEqual(task.metadata['command_return_code'], 0)
+
+    def test_task_run_return_code(self):
+        task = Task(
+            executer=self.admin_user,
+            status=Task.PENDING
+        )
+        runfile_path = self.create_temp_executable(
+            "#!/bin/bash\n"
+            "exit 1\n"
+        )
+        task.run_command(runfile_path)
+        task.refresh_from_db()
+        self.assertEqual(task.status, Task.SUCCESS)
+        # As the command failed to launch, command_return_code should be 1
+        self.assertEqual(task.metadata['command_return_code'], 1)
