@@ -190,7 +190,7 @@ class TestListTasks(TestCase):
             'status': 'ok',
             'tasks': [
                 {
-                    'id': 2, 
+                    'id': task.id,
                     'executer_username': 'test_admin',
                     'status': 'created', 
                     'metadata': {}, 
