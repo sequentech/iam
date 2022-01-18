@@ -87,7 +87,7 @@ class Task(models.Model):
 
     def _error_task(self, error_text, status=None):
         self.status = Task.ERROR if status is None else status
-        self.output = dict(error=error_text)
+        self.output['error'] = error_text
         self.save()
 
     def run_command(self, command):
@@ -117,9 +117,9 @@ class Task(models.Model):
             self.metadata['command_return_code'] = None
 
             # self.save() will be performed by self._error_task()
+            exc_info = sys.exc_info()[1]
             self._error_task(
-                f"Error while running '{command}':\n" +
-                sys.exc_info()[1]
+                f"Error while running '{command}':\n{exc_info}"
             )
             return
 

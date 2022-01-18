@@ -13,6 +13,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
+from django.utils import timezone
+from datetime import datetime, timedelta
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.test import TestCase
@@ -271,7 +273,7 @@ class TestListTasks(TestCase):
         response = client.post(f'/api/tasks/{task.id}/cancel', {})
         self.assertEqual(response.status_code, 200)
 
-    def test_task_run_command(self):
+    def test_task_run_errored_command(self):
         task = Task(
             executer=self.admin_user,
             status=Task.PENDING
@@ -279,4 +281,37 @@ class TestListTasks(TestCase):
         task.run_command('wrong command')
         task.refresh_from_db()
         self.assertEqual(task.status, Task.ERROR)
-
+        self.assertDictEqual(
+            task.output,
+            dict(
+                error=(
+                    "Error while running 'wrong command':\n "
+                    "[Errno 2] No such file or directory: 'wrong command'"
+                )
+            )
+        )
+        self.assertEqual(
+            task.metadata['command'],
+            'wrong command'
+        )
+        # datetimes should be present and less than 1 second ago
+        self.assertTrue(
+            (
+                timezone.now() -
+                datetime.fromisoformat(task.metadata['last_update'])
+            ) < timedelta(seconds=1)
+        )
+        self.assertTrue(
+            (
+                timezone.now() -
+                datetime.fromisoformat(task.metadata['started_time'])
+            ) < timedelta(seconds=1)
+        )
+        self.assertTrue(
+            (
+                timezone.now() -
+                datetime.fromisoformat(task.metadata['finished_date'])
+            ) < timedelta(seconds=1)
+        )
+        # As the command failed to launch, command_return_code shouldn't be set
+        self.assertEqual(task.metadata['command_return_code'], None)
