@@ -13,16 +13,19 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
-from django.conf.urls import url
-from tasks import views
+from django.conf import settings
+from celery.utils.log import get_task_logger
+from celery import shared_task
 
-urlpatterns = [
-    url(r'^$', views.task, name='tasks'),
-    url(r'^(?P<pk>\d+)/$', views.task, name='task'),
-    url(r'^(?P<pk>\d+)/cancel$', views.task_cancel, name='task_cancel'),
-    url(
-        r'^/launch-self-test/$',
-        views.task_launch_self_test,
-        name='task_launch_self_test'
-    ),
-]
+from tasks.models import Task
+
+logger = get_task_logger(__name__)
+
+@shared_task(name='tasks.self_test_task')
+def self_test_task(task_id):
+    '''
+    Launches an end-to-end self-test.
+    '''
+    logger.info(f"tasks.self_test_task(task_id = {task_id})")
+    task = Task.objects.get(pk=task_id)
+    task.run_command(command=settings.TASK_SELF_TEST_COMMAND)

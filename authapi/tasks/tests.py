@@ -28,9 +28,9 @@ from api.tests import JClient, flush_db_load_fixture, parse_json_response
 from tasks.models import Task
 from utils import reproducible_json_dumps, json_response
 
-class TestListTasks(TestCase):
+class TestTasks(TestCase):
     '''
-    Unit tests for tasks.views.task view
+    Unit tests for tasks.views
     '''
     def setUpTestData():
         flush_db_load_fixture()

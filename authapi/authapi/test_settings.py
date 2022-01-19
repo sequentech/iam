@@ -186,6 +186,13 @@ OPENID_CONNECT_PROVIDERS_CONF = []
 # many updates per second, by setting a minimum elapsed time between DB updates.
 TASK_PROCESS_UPDATE_DEBOUNCE_SECS = 2.0
 
+# This is the command to be executed to launch a self-test
+TASK_SELF_TEST_COMMAND = ["/home/authapi/launch_selftest.sh"]
+
+# Default maximum amount of time in seconds that a task should last. After this,
+# amount of time, the task is killed
+TASK_DEFAULT_TIMEOUT_SECS = 60
+
 ENABLE_CAPTCHA = True
 PREGENERATION_CAPTCHA = 100
 

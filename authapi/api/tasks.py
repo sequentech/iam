@@ -950,7 +950,3 @@ def allow_tally_task(user_id, auth_event_id, parent_auth_event_id=None):
             )
         )
         action.save()
-
-@shared_task(name='tasks.self_test_task')
-def self_test_task(user_id):
-    pass

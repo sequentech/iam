@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
-import json
+from select import select
 import sys
 import time
 import subprocess
@@ -23,6 +23,9 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.postgres import fields
 from django.utils import timezone
+from celery.utils.log import get_task_logger
+
+logger = get_task_logger(__name__)
 
 TASK_STATUSES = (
     ('created', 'created'),
@@ -32,6 +35,7 @@ TASK_STATUSES = (
     ('cancelling', 'cancelling'),
     ('cancelled', 'cancelled'),
     ('error', 'error'),
+    ('timedout', 'timedout')
 )
 
 class Task(models.Model):
@@ -47,6 +51,7 @@ class Task(models.Model):
     CANCELLING = 'cancelling'
     CANCELLED = 'cancelled'
     ERROR = 'error'
+    TIMEDOUT = 'timedout'
 
     # user that executed the task
     executer = models.ForeignKey(
@@ -86,11 +91,22 @@ class Task(models.Model):
     output = fields.JSONField(default=dict)
 
     def _error_task(self, error_text, status=None):
+        logger.error(
+            f"Task({self.id}).run_command(): error_text={error_text}, "
+            f"new_status={status}"
+        )
         self.status = Task.ERROR if status is None else status
         self.output['error'] = error_text
         self.save()
 
-    def run_command(self, command):
+    def run_command(
+        self,
+        command,
+        timeout_secs=settings.TASK_DEFAULT_TIMEOUT_SECS
+    ):
+        logger.info(
+            f"Task({self.id}).run_command(command={command})"
+        )
         if self.status != Task.PENDING:
             return self._error_task(
                 f"Tried to run a command with status='{self.status}' but "
@@ -103,15 +119,25 @@ class Task(models.Model):
         self.metadata['last_update'] = self.metadata['started_time']
         self.save()
 
-        last_write_time = time.perf_counter()
+        current_time = time.perf_counter()
+        start_time = current_time
+        logger.debug(
+            f"{current_time}: Task({self.id}).run_command(): "
+            "calling subprocess.Poppen.."
+        )
         try:
             process = subprocess.Popen(
                 command,
                 shell=False,
+                encoding='utf-8',
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT
             )
-        except:
+        except Exception as error:
+            logger.error(
+                f"{current_time}: Task({self.id}).run_command(): "
+                f"exception {error}"
+            )
             self.metadata['last_update'] = timezone.now().isoformat()
             self.metadata['finished_date'] = self.metadata['last_update']
             self.metadata['command_return_code'] = None
@@ -129,41 +155,83 @@ class Task(models.Model):
         self.output["stdout"] = ""
         self.save()
         stdout = ""
+        debounce_secs = settings.TASK_PROCESS_UPDATE_DEBOUNCE_SECS
 
         # Read stdout line by line
         while True:
-            stdout += process.stdout.readline().decode('utf-8')
+            logger.debug(
+                f"{current_time}: Task({self.id}).run_command(): "
+                f"running select on stdout for pid={process.pid} with "
+                f"timeout {debounce_secs}"
+            )
 
-            # update the task model in the database in a debounced way to
-            # prevent too many updates
+            has_stdout, _, _ = select(
+                [process.stdout],
+                [],
+                [],
+                debounce_secs
+            )
             current_time = time.perf_counter()
-            debounce_secs = settings.TASK_PROCESS_UPDATE_DEBOUNCE_SECS
-            if current_time - last_write_time > debounce_secs:
-                # refresh the model from the database before writing, because
-                # status might have been updated
-                self.refresh_from_db()
-                self.metadata['last_update'] = timezone.now().isoformat()
-                self.output["stdout"] += stdout
-                stdout = ""
-                last_write_time = current_time
+            if not has_stdout:
+                logger.debug(
+                    f"{current_time}: Task({self.id}).run_command(): "
+                    "select timedout with no output"
+                )
+            else:
+                logger.debug(
+                    f"{current_time}: Task({self.id}).run_command(): "
+                    "select indicated there is output in stdout"
+                )
+                stdout += process.stdout.readline()
+                current_time = time.perf_counter()
+                logger.debug(
+                    f"{current_time}: Task({self.id}).run_command(): "
+                    f"stdout: '''{stdout}'''"
+                )
 
-                # if the status has been update to cancelling (meaning, the
-                # task has been requested to be cancelled), then it's time to
-                # cancel it.
+            # refresh the model from the database before writing, because
+            # status might have been updated
+            self.refresh_from_db()
+            self.metadata['last_update'] = timezone.now().isoformat()
+            if stdout != "":
+                self.output["stdout"] += stdout
+            stdout = ""
+
+            # if the task has finished, then save and break the loop
+            if process.poll() is not None:
+                self.save()
+                break
+
+            # if the status has been update to cancelling (meaning, the
+            # task has been requested to be cancelled), then it's time to
+            # cancel it. Note that we did before the self.refresh_from_db() so
+            # that's why the model's status might have changed.
+            if (
+                self.status == Task.CANCELLING or
+                current_time - start_time >= timeout_secs
+            ):
                 if self.status == Task.CANCELLING:
-                    process.kill()
-                    self.metadata['last_update'] = timezone.now().isoformat()
-                    self.metadata['finished_date'] = self.metadata['last_update']
-                    return self._error_task(
-                        f"Tried to run a command with status='{self.status}' but "
-                        "it should be 'pending' instead",
-                        status=Task.CANCELLED
+                    error = (
+                        f"{current_time}: Task({self.id}).run_command(): "
+                        "cancelling task -> killing process with "
+                        f"pid={process.pid}"
                     )
                 else:
-                    self.save()
-
-            if process.poll() is not None:
-                break
+                    error = (
+                        f"{current_time}: Task({self.id}).run_command(): "
+                        "task timedout -> killing process with "
+                        f"pid={process.pid}"
+                    )
+                logger.error(error)
+                process.kill()
+                self.metadata['last_update'] = timezone.now().isoformat()
+                self.metadata['finished_date'] = self.metadata['last_update']
+                self.output['error'] = error
+                self.status = Task.CANCELLED
+                self.save()
+                return
+            else:
+                self.save()
 
         # refresh the model from the database before writing
         self.refresh_from_db()
@@ -172,6 +240,12 @@ class Task(models.Model):
         self.metadata['finished_date'] = self.metadata['last_update']
         self.output["stdout"] += stdout
         self.metadata['command_return_code'] = process.poll()
+
+        logger.debug(
+            f"{current_time}: Task({self.id}).run_command(): "
+            f"process finished with pid={process.pid} finished, "
+            f"return_code={process.poll()}, and last stdout: '''{stdout}'''"
+        )
         self.save()
 
     def serialize(self):
