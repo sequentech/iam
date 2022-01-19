@@ -50,7 +50,8 @@ class Migration(migrations.Migration):
                             ('success', 'success'),
                             ('cancelling', 'cancelling'),
                             ('cancelled', 'cancelled'),
-                            ('error', 'error')
+                            ('error', 'error'),
+                            ('timedout', 'timedout')
                         ],
                         db_index=True,
                         max_length=255
