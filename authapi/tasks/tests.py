@@ -20,13 +20,14 @@ from datetime import datetime, timedelta
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.test import TestCase
+from django.test.utils import override_settings
 
 from api import test_data
 from api.models import ACL
 from authmethods.models import Code
 from api.tests import JClient, flush_db_load_fixture, parse_json_response
 from tasks.models import Task
-from utils import reproducible_json_dumps, json_response
+from utils import reproducible_json_dumps
 
 class TestTasks(TestCase):
     '''
@@ -228,7 +229,7 @@ class TestTasks(TestCase):
             test_data.auth_email_default
         )
         # cancelling works
-        response = client.post(f'/api/tasks/{task.id}/cancel', {})
+        response = client.post(f'/api/tasks/{task.id}/cancel/', {})
         self.assertEqual(response.status_code, 200)
 
         task.refresh_from_db()
@@ -236,7 +237,7 @@ class TestTasks(TestCase):
         self.assertEqual(task.status, Task.CANCELLING)
 
         # cannot be recancelled
-        response = client.post(f'/api/tasks/{task.id}/cancel', {})
+        response = client.post(f'/api/tasks/{task.id}/cancel/', {})
         self.assertEqual(response.status_code, 404)
 
     def test_cancel_requires_auth(self):
@@ -251,7 +252,7 @@ class TestTasks(TestCase):
 
         # unauthenticated cancelling is prohibited
         client = JClient()
-        response = client.post(f'/api/tasks/{task.id}/cancel', {})
+        response = client.post(f'/api/tasks/{task.id}/cancel/', {})
         self.assertEqual(response.status_code, 403)
 
         # authenticate as self.admin_user
@@ -263,7 +264,7 @@ class TestTasks(TestCase):
 
         # cancelling a task for another user (self.admin_user_2) is not allowed
         client = JClient()
-        response = client.post(f'/api/tasks/{task.id}/cancel', {})
+        response = client.post(f'/api/tasks/{task.id}/cancel/', {})
         self.assertEqual(response.status_code, 403)
 
     def test_cancel_requires_admin_auth(self):
@@ -286,13 +287,13 @@ class TestTasks(TestCase):
         self.admin_user.userdata.event_id = None
         self.admin_user.userdata.save()
 
-        response = client.post(f'/api/tasks/{task.id}/cancel', {})
+        response = client.post(f'/api/tasks/{task.id}/cancel/', {})
         self.assertEqual(response.status_code, 403)
 
         self.admin_user.userdata.event_id = settings.ADMIN_AUTH_ID
         self.admin_user.userdata.save()
 
-        response = client.post(f'/api/tasks/{task.id}/cancel', {})
+        response = client.post(f'/api/tasks/{task.id}/cancel/', {})
         self.assertEqual(response.status_code, 200)
 
     def test_task_run_errored_command(self):
@@ -456,3 +457,85 @@ class TestTasks(TestCase):
 
         # As the command failed to launch, command_return_code should be 0
         self.assertEqual(task.metadata['command_return_code'], 0)
+
+    @override_settings(CELERY_ALWAYS_EAGER=True)
+    def test_task_launch_self_testing(self):
+        '''
+        Self testing API call should run settings.TASK_SELF_TEST_COMMAND
+        '''
+        # authenticate as self.admin_user
+        client = JClient()
+        client.authenticate(
+            settings.ADMIN_AUTH_ID,
+            test_data.auth_email_default
+        )
+
+        # execute the task with the TASK_SELF_TEST_COMMAND being a simple "echo
+        # hello", because testing the TASK_SELF_TEST_COMMAND is not the
+        # objective of this test.
+        with self.settings(
+            TASK_SELF_TEST_COMMAND=["echo", "hello"]
+        ):
+            # launch the self-test
+            response = client.post(f'/api/tasks/launch-self-test/', {})
+            self.assertEqual(response.status_code, 200)
+
+            # obtain the task
+            response_data = parse_json_response(response)
+            task_id = response_data['task']['id']
+            task = Task.objects.get(pk=task_id)
+
+            # check that the task was completed as expected
+            self.assertEqual(task.state, Task.SUCCESS)
+            self.assertEqual(task.metadata['command'], ['echo', 'hello'])
+            self.assertEqual(task.metadata['command_return_code'], 0)
+            self.assertEqual(task.output["stdout"], 'hello\n')
+            self.assertTrue('error' not in task.output)
+
+    @override_settings(CELERY_ALWAYS_EAGER=True)
+    def test_task_launch_self_testing_requires_auth(self):
+        '''
+        Self testing API call should run settings.TASK_SELF_TEST_COMMAND
+        '''
+        # authenticate as self.admin_user
+        client = JClient()
+        client.authenticate(
+            settings.ADMIN_AUTH_ID,
+            test_data.auth_email_default
+        )
+
+        # execute the task with the TASK_SELF_TEST_COMMAND being a simple "echo
+        # hello", because testing the TASK_SELF_TEST_COMMAND is not the
+        # objective of this test.
+        with self.settings(
+            TASK_SELF_TEST_COMMAND=["echo", "hello"]
+        ):
+            # launch the self-test
+            response = client.post(f'/api/tasks/launch-self-test/', {})
+            self.assertEqual(response.status_code, 403)
+
+    @override_settings(CELERY_ALWAYS_EAGER=True)
+    def test_task_launch_self_testing_requires_admin_auth(self):
+        '''
+        Self testing API call should run settings.TASK_SELF_TEST_COMMAND
+        '''
+        # authenticate as self.admin_user
+        client = JClient()
+        client.authenticate(
+            settings.ADMIN_AUTH_ID,
+            test_data.auth_email_default
+        )
+
+        # make this user not part of the admins
+        self.admin_user.userdata.event_id = None
+        self.admin_user.userdata.save()
+
+        # execute the task with the TASK_SELF_TEST_COMMAND being a simple "echo
+        # hello", because testing the TASK_SELF_TEST_COMMAND is not the
+        # objective of this test.
+        with self.settings(
+            TASK_SELF_TEST_COMMAND=["echo", "hello"]
+        ):
+            # launch the self-test
+            response = client.post(f'/api/tasks/launch-self-test/', {})
+            self.assertEqual(response.status_code, 403)
