@@ -23,6 +23,7 @@ https://docs.djangoproject.com/en/1.7/ref/settings/
 
 import os
 from datetime import timedelta
+from kombu import Exchange, Queue
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -33,7 +34,7 @@ class CeleryConfig:
     timezone = 'Europe/Madrid'
     beat_schedule = {
         'review_tallies': {
-            'task': 'tasks.process_tallies',
+            'task': 'api.tasks.process_tallies',
             'schedule': timedelta(seconds=5),
             'args': []
         },
@@ -42,6 +43,23 @@ class CeleryConfig:
     cache_backend = 'memory'
     task_always_eager = True
     task_eager_propagates = True
+    task_queues = (
+        Queue(
+            'api',
+            Exchange('default'),
+            routing_key='api.tasks.*'
+        ),
+        Queue(
+            'io',
+            Exchange('default'),
+            routing_key='*.io.*'
+        ),
+        Queue(
+            'self-testing',
+            Exchange('default'),
+            routing_key='tasks.self_test_task'
+        )
+    )
 
 CELERY_CONFIG = CeleryConfig
 

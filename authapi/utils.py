@@ -376,7 +376,7 @@ def send_email(email):
         LOGGER.error('Email NOT sent: \n%s', email_to_str(email))
 
 
-@celery_app.task
+@celery_app.task(name="io.send_mail")
 def send_mail(subject, msg, receiver):
     email = EmailMessage(
         subject,
@@ -590,7 +590,7 @@ def get_client_ip(request):
     return ip
 
 
-@celery_app.task
+@celery_app.task(name='api.io.send_codes')
 def send_codes(users, ip, auth_method, config=None, sender_uid=None, eid=None):
     from api.models import Action, AuthEvent
 

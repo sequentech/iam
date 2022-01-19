@@ -47,7 +47,7 @@ def newcaptcha():
     return c
 
 
-@celery_app.task
+@celery_app.task("captcha.io.generate_captcha")
 def generate_captcha(amount=1):
     from captcha.views import newcaptcha
     repeat = 0

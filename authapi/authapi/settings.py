@@ -25,6 +25,7 @@ https://docs.djangoproject.com/en/1.7/ref/settings/
 
 import os
 from datetime import timedelta
+from kombu import Exchange, Queue
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -34,7 +35,7 @@ class CeleryConfig:
     timezone = 'Europe/Madrid'
     beat_schedule = {
         'review_tallies': {
-            'task': 'tasks.process_tallies',
+            'task': 'api.tasks.process_tallies',
             'schedule': timedelta(seconds=10),
             'args': [],
             'options': {
@@ -43,11 +44,25 @@ class CeleryConfig:
         }
     }
     result_backend = 'django-db'
+    task_queues = (
+        Queue(
+            'api',
+            routing_key='api.tasks.*'
+        ),
+        Queue(
+            'io',
+            routing_key='*.io.*'
+        ),
+        Queue(
+            'self-testing',
+            routing_key='tasks.self_test_task'
+        )
+    )
 
 CELERY_CONFIG = CeleryConfig
 
 CELERY_ANNOTATIONS = {
-    'tasks.process_tallies': {
+    'api.tasks.process_tallies': {
         'time_limit': 10
     }
 }

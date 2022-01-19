@@ -5,7 +5,6 @@ from celery.utils.log import get_task_logger
 from celery.signals import celeryd_init
 from django.conf import settings
 
-
 logger = get_task_logger(__name__)
 
 @celeryd_init.connect
