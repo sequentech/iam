@@ -162,7 +162,7 @@ class Task(models.Model):
             logger.debug(
                 f"{current_time}: Task({self.id}).run_command(): "
                 f"running select on stdout for pid={process.pid} with "
-                f"timeout {debounce_secs}"
+                f"timeout={debounce_secs}"
             )
 
             has_stdout, _, _ = select(
@@ -186,7 +186,7 @@ class Task(models.Model):
                 current_time = time.perf_counter()
                 logger.debug(
                     f"{current_time}: Task({self.id}).run_command(): "
-                    f"stdout: '''{stdout}'''"
+                    f"stdout='''{stdout}'''"
                 )
 
             # refresh the model from the database before writing, because
@@ -213,14 +213,14 @@ class Task(models.Model):
                 if self.status == Task.CANCELLING:
                     error = (
                         f"{current_time}: Task({self.id}).run_command(): "
-                        "cancelling task -> killing process with "
+                        "cancelling task -> KILLING process with "
                         f"pid={process.pid}"
                     )
                     self.status = Task.CANCELLED
                 else:
                     error = (
                         f"{current_time}: Task({self.id}).run_command(): "
-                        "task timedout -> killing process with "
+                        "task timedout -> KILLING process with "
                         f"pid={process.pid}"
                     )
                     self.status = Task.TIMEDOUT
@@ -245,7 +245,7 @@ class Task(models.Model):
         logger.debug(
             f"{current_time}: Task({self.id}).run_command(): "
             f"process finished with pid={process.pid} finished, "
-            f"return_code={process.poll()}, and last stdout: '''{stdout}'''"
+            f"return_code={process.poll()}, and last stdout='''{stdout}'''"
         )
         self.save()
 

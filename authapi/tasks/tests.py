@@ -486,7 +486,7 @@ class TestTasks(TestCase):
             task = Task.objects.get(pk=task_id)
 
             # check that the task was completed as expected
-            self.assertEqual(task.state, Task.SUCCESS)
+            self.assertEqual(task.status, Task.SUCCESS)
             self.assertEqual(task.metadata['command'], ['echo', 'hello'])
             self.assertEqual(task.metadata['command_return_code'], 0)
             self.assertEqual(task.output["stdout"], 'hello\n')
@@ -495,15 +495,8 @@ class TestTasks(TestCase):
     @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_task_launch_self_testing_requires_auth(self):
         '''
-        Self testing API call should run settings.TASK_SELF_TEST_COMMAND
+        Self testing API call should require an authenticated user
         '''
-        # authenticate as self.admin_user
-        client = JClient()
-        client.authenticate(
-            settings.ADMIN_AUTH_ID,
-            test_data.auth_email_default
-        )
-
         # execute the task with the TASK_SELF_TEST_COMMAND being a simple "echo
         # hello", because testing the TASK_SELF_TEST_COMMAND is not the
         # objective of this test.
@@ -511,13 +504,14 @@ class TestTasks(TestCase):
             TASK_SELF_TEST_COMMAND=["echo", "hello"]
         ):
             # launch the self-test
+            client = JClient()
             response = client.post(f'/api/tasks/launch-self-test/', {})
             self.assertEqual(response.status_code, 403)
 
     @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_task_launch_self_testing_requires_admin_auth(self):
         '''
-        Self testing API call should run settings.TASK_SELF_TEST_COMMAND
+        Self testing API call should require an authenticated admin user
         '''
         # authenticate as self.admin_user
         client = JClient()
