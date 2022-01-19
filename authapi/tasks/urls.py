@@ -21,7 +21,7 @@ urlpatterns = [
     url(r'^(?P<pk>\d+)/$', views.task, name='task'),
     url(r'^(?P<pk>\d+)/cancel/$', views.task_cancel, name='task_cancel'),
     url(
-        r'^/launch-self-test/$',
+        r'^launch-self-test/$',
         views.task_launch_self_test,
         name='task_launch_self_test'
     ),

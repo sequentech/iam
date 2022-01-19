@@ -135,7 +135,7 @@ class TaskLaunchSelfTestView(View):
 
         # Create and send the self_test_task to celery
         task = Task(
-            executer=self.admin_user,
+            executer=request.user,
             name="self_test_task",
             status=Task.PENDING
         )
