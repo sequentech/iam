@@ -416,8 +416,8 @@ class TestTasks(TestCase):
 
     def test_task_run_timeout_command(self):
         '''
-        Checks that task timeout means that a task longer that the given
-        timeout will be killed and marked as timedout.
+        Checks that task timeout means that a task that takes longer to execute
+        that the given timeout will be killed and marked as timedout.
         '''
         task = Task(
             executer=self.admin_user,
@@ -434,3 +434,25 @@ class TestTasks(TestCase):
 
         # As the command failed to launch, command_return_code should be unset
         self.assertEqual(task.metadata['command_return_code'], None)
+
+    def test_task_run_timeout_command2(self):
+        '''
+        Checks that task timeout means that a task that takes less time to
+        execute that the given timeout will be killed and marked as successfully
+        executed.
+        '''
+        task = Task(
+            executer=self.admin_user,
+            status=Task.PENDING
+        )
+        task.save()
+        task.run_command(['sleep', '1'], timeout_secs=2)
+        task.refresh_from_db()
+        self.assertEqual(task.status, Task.SUCCESS)
+        # datetimes should be present and less than 2 seconds ago
+        self.check_timing(task.metadata, 'last_update', 2)
+        self.check_timing(task.metadata, 'started_time', 2)
+        self.check_timing(task.metadata, 'finished_date', 2)
+
+        # As the command failed to launch, command_return_code should be 0
+        self.assertEqual(task.metadata['command_return_code'], 0)
