@@ -21,7 +21,7 @@ from django.views.generic import View
 from django.conf import settings
 from django.db import transaction
 
-from authapi import celery_app
+from celery import shared_task
 
 try:
     from PIL import Image, ImageDraw, ImageFont, ImageFilter
@@ -47,7 +47,7 @@ def newcaptcha():
     return c
 
 
-@celery_app.task("captcha.io.generate_captcha")
+@shared_task(name="captcha.io.generate_captcha")
 def generate_captcha(amount=1):
     from captcha.views import newcaptcha
     repeat = 0
