@@ -300,6 +300,7 @@ class TestTasks(TestCase):
             executer=self.admin_user,
             status=Task.PENDING
         )
+        task.save()
         task.run_command('wrong command')
         task.refresh_from_db()
         self.assertEqual(task.status, Task.ERROR)
@@ -330,6 +331,7 @@ class TestTasks(TestCase):
             executer=self.admin_user,
             status=Task.PENDING
         )
+        task.save()
         runfile_path = self.create_temp_executable(
             "#!/bin/bash\n"
             "echo 'hello world!'\n"
@@ -359,6 +361,7 @@ class TestTasks(TestCase):
             executer=self.admin_user,
             status=Task.PENDING
         )
+        task.save()
         runfile_path = self.create_temp_executable(
             '#!/bin/bash\n'
             'for i in $(seq 1 5); do\n'
@@ -400,6 +403,7 @@ class TestTasks(TestCase):
             executer=self.admin_user,
             status=Task.PENDING
         )
+        task.save()
         runfile_path = self.create_temp_executable(
             "#!/bin/bash\n"
             "exit 1\n"
@@ -409,3 +413,24 @@ class TestTasks(TestCase):
         self.assertEqual(task.status, Task.SUCCESS)
         # As the command failed to launch, command_return_code should be 1
         self.assertEqual(task.metadata['command_return_code'], 1)
+
+    def test_task_run_timeout_command(self):
+        '''
+        Checks that task timeout means that a task longer that the given
+        timeout will be killed and marked as timedout.
+        '''
+        task = Task(
+            executer=self.admin_user,
+            status=Task.PENDING
+        )
+        task.save()
+        task.run_command(['sleep', '5'], timeout_secs=2)
+        task.refresh_from_db()
+        self.assertEqual(task.status, Task.TIMEDOUT)
+        # datetimes should be present and less than 4 seconds ago
+        self.check_timing(task.metadata, 'last_update', 4)
+        self.check_timing(task.metadata, 'started_time', 4)
+        self.check_timing(task.metadata, 'finished_date', 4)
+
+        # As the command failed to launch, command_return_code should be unset
+        self.assertEqual(task.metadata['command_return_code'], None)

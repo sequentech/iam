@@ -216,18 +216,19 @@ class Task(models.Model):
                         "cancelling task -> killing process with "
                         f"pid={process.pid}"
                     )
+                    self.status = Task.CANCELLED
                 else:
                     error = (
                         f"{current_time}: Task({self.id}).run_command(): "
                         "task timedout -> killing process with "
                         f"pid={process.pid}"
                     )
+                    self.status = Task.TIMEDOUT
                 logger.error(error)
                 process.kill()
                 self.metadata['last_update'] = timezone.now().isoformat()
                 self.metadata['finished_date'] = self.metadata['last_update']
                 self.output['error'] = error
-                self.status = Task.CANCELLED
                 self.save()
                 return
             else:
