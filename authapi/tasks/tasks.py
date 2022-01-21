@@ -14,12 +14,31 @@
 # along with authapi.  If not, see <http://www.gnu.org/licenses/>.
 
 from django.conf import settings
-from celery.utils.log import get_task_logger
 from celery import shared_task
+from celery.utils.log import get_task_logger
+from celery.signals import celeryd_init
 
 from tasks.models import Task
 
 logger = get_task_logger(__name__)
+
+@celeryd_init.connect
+def cancel_pending_tasks(sender=None, conf=None, **kwargs):
+    '''
+    Resets the status of the all the Tasks with status pending/started to
+    cancelled.
+    '''
+    logger.info(
+        'cancel_pending_tasks: Resets the status of the all the Tasks with '
+        'status pending/started to cancelled.'
+    )
+    Task\
+        .objects\
+        .filter(status__in=[
+            Task.PENDING,
+            Task.STARTED
+        ])\
+        .update(status=Task.CANCELLED)
 
 @shared_task(name='tasks.self_test_task')
 def self_test_task(task_id):
