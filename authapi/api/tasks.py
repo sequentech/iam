@@ -409,7 +409,7 @@ def process_tallies():
         else:
             launch_virtual_tally(next_auth_event)
 
-@shared_task(name='api_tasks.update_ballot_boxes_config')
+@shared_task(name='api.tasks.update_ballot_boxes_config')
 def update_ballot_boxes_config(auth_event_id):
     '''
     Updates in Agora-elections the ballot boxes configuration
@@ -519,7 +519,7 @@ def update_ballot_boxes_config(auth_event_id):
             r.text
         )
 
-@shared_task(name='api_tasks.calculate_results_task')
+@shared_task(name='api.tasks.calculate_results_task')
 def calculate_results_task(user_id, event_id_list):
     '''
     Launches the results calculation in a celery background task. 
@@ -630,7 +630,7 @@ def calculate_results_task(user_id, event_id_list):
                 countdown=1
             )
 
-@shared_task(name='api_tasks.publish_results')
+@shared_task(name='api.tasks.publish_results')
 def publish_results_task(user_id, auth_event_id, visit_children, parent_auth_event_id=None):
     '''
     Launches the publish results agora-elections call in a task. 
@@ -738,7 +738,7 @@ def publish_results_task(user_id, auth_event_id, visit_children, parent_auth_eve
         )
         action.save()
 
-@shared_task(name='api_tasks.unpublish_results')
+@shared_task(name='api.tasks.unpublish_results')
 def unpublish_results_task(user_id, auth_event_id, parent_auth_event_id=None):
     '''
     Launches the unpublish results agora-elections call in a task. 
@@ -844,7 +844,7 @@ def unpublish_results_task(user_id, auth_event_id, parent_auth_event_id=None):
         )
         action.save()
 
-@shared_task(name='api_tasks.allow_tally')
+@shared_task(name='api.tasks.allow_tally')
 def allow_tally_task(user_id, auth_event_id, parent_auth_event_id=None):
     '''
     Launches the allow tally agora-elections call in a task. 
