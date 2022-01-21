@@ -16,13 +16,13 @@
 from django.conf import settings
 from celery import shared_task
 from celery.utils.log import get_task_logger
-from celery.signals import celeryd_init
+from celery.signals import beat_init
 
 from tasks.models import Task
 
 logger = get_task_logger(__name__)
 
-@celeryd_init.connect
+@beat_init.connect
 def cancel_pending_tasks(sender=None, conf=None, **kwargs):
     '''
     Resets the status of the all the Tasks with status pending/started to
@@ -35,8 +35,10 @@ def cancel_pending_tasks(sender=None, conf=None, **kwargs):
     Task\
         .objects\
         .filter(status__in=[
+            Task.CREATED,
             Task.PENDING,
-            Task.STARTED
+            Task.RUNNING,
+            Task.CANCELLING
         ])\
         .update(status=Task.CANCELLED)
 

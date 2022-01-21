@@ -2,12 +2,12 @@ import os
 
 from celery import Celery
 from celery.utils.log import get_task_logger
-from celery.signals import celeryd_init
+from celery.signals import beat_init
 from django.conf import settings
 
 logger = get_task_logger(__name__)
 
-@celeryd_init.connect
+@beat_init.connect
 def reset_tallies_task(sender=None, conf=None, **kwargs):
     '''
     Resets the status of the all the AuthEvents with tally pending or started
