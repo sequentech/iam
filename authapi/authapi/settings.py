@@ -44,20 +44,6 @@ class CeleryConfig:
         }
     }
     result_backend = 'django-db'
-    task_queues = (
-        Queue(
-            'api',
-            routing_key='api.tasks.*'
-        ),
-        Queue(
-            'io',
-            routing_key='*.io.*'
-        ),
-        Queue(
-            'self-testing',
-            routing_key='tasks.self_test_task'
-        )
-    )
 
 CELERY_CONFIG = CeleryConfig
 
