@@ -199,7 +199,15 @@ class Task(models.Model):
 
             # if the task has finished, then save and break the loop
             if process.poll() is not None:
-                self.save()
+                # save only metadata and output, otherwise we would be also
+                # updating status and this might mess up with a task marked for
+                # cancelling
+                self.save(
+                    update_fields=[
+                        "metadata",
+                        "output"
+                    ]
+                )
                 break
 
             # if the status has been update to cancelling (meaning, the
@@ -244,7 +252,15 @@ class Task(models.Model):
                 self.save()
                 return
             else:
-                self.save()
+                # save only metadata and output, otherwise we would be also
+                # updating status and this might mess up with a task marked for
+                # cancelling
+                self.save(
+                    update_fields=[
+                        "metadata",
+                        "output"
+                    ]
+                )
 
         # refresh the model from the database before writing
         self.refresh_from_db()
