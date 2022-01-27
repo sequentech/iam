@@ -49,4 +49,7 @@ def self_test_task(task_id):
     '''
     logger.info(f"tasks.self_test_task(task_id = {task_id})")
     task = Task.objects.get(pk=task_id)
-    task.run_command(command=settings.TASK_SELF_TEST_COMMAND)
+    task.run_command(
+        command=settings.TASK_SELF_TEST_COMMAND,
+        kill_command=settings.TASK_SELF_TEST_KILL_COMMAND
+    )

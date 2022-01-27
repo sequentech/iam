@@ -102,7 +102,8 @@ class Task(models.Model):
     def run_command(
         self,
         command,
-        timeout_secs=settings.TASK_DEFAULT_TIMEOUT_SECS
+        timeout_secs=settings.TASK_DEFAULT_TIMEOUT_SECS,
+        kill_command=None
     ):
         logger.info(
             f"Task({self.id}).run_command(command={command})"
@@ -236,18 +237,8 @@ class Task(models.Model):
                 # This might fail, and if so, we need to catch the exception
                 # and handle it
                 try:
-                    # If it's a command run with sudo, we might not have
-                    # permission to kill it so we try with
-                    # `sudo pkill -f <command>``
-                    if len(command) > 0 and command[0] == 'sudo':
-                        command_str = " ".join(command)
-                        kill_command = [
-                            'sudo',
-                            '/usr/bin/pkill',
-                            '--full',
-                            '--exact',
-                            command_str
-                        ]
+                    # Sometimes to kill the process a specific command is given
+                    if kill_command is not None:
                         ret_process = subprocess.run(
                             kill_command,
                             timeout=debounce_secs
