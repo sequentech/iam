@@ -243,7 +243,7 @@ class Task(models.Model):
                             kill_command,
                             timeout=debounce_secs
                         )
-                        if ret_process != 0:
+                        if not ret_process or ret_process.returncode != 0:
                             raise Exception("Couldn't kill the process")
                     else:
                         process.kill()
