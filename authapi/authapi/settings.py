@@ -249,7 +249,7 @@ TASK_PROCESS_UPDATE_DEBOUNCE_SECS = 2.0
 TASK_SELF_TEST_COMMAND = ["/home/agoragui/launch_selftest.sh"]
 
 # This is the command to be executed to kill a self-test
-TASK_SELF_TEST_KILL_COMMAND = ["/home/agoragui/kill_selftest.sh"]
+TASK_SELF_TEST_KILL_COMMAND = ["sudo", "/home/agoragui/kill_selftest.sh"]
 
 # Default maximum amount of time in seconds that a task should last. After this,
 # amount of time, the task is killed
