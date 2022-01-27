@@ -243,7 +243,7 @@ class Task(models.Model):
                         command_str = " ".join(command)
                         kill_command = [
                             'sudo',
-                            'pkill',
+                            '/usr/bin/pkill',
                             '--full',
                             '--exact',
                             command_str
