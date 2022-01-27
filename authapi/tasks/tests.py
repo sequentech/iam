@@ -310,7 +310,7 @@ class TestTasks(TestCase):
             task.output,
             dict(
                 error=(
-                    "Error while running 'wrong command':\n"
+                    "ERROR while running 'wrong command':\n"
                     "[Errno 2] No such file or directory: 'wrong command'"
                 )
             )
@@ -411,7 +411,7 @@ class TestTasks(TestCase):
         )
         task.run_command(runfile_path)
         task.refresh_from_db()
-        self.assertEqual(task.status, Task.SUCCESS)
+        self.assertEqual(task.status, Task.ERROR)
         # As the command failed to launch, command_return_code should be 1
         self.assertEqual(task.metadata['command_return_code'], 1)
 

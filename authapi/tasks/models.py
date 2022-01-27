@@ -145,7 +145,7 @@ class Task(models.Model):
             # self.save() will be performed by self._error_task()
             exc_info = sys.exc_info()[1]
             self._error_task(
-                f"Error while running '{command}':\n{exc_info}"
+                f"ERROR while running '{command}':\n{exc_info}"
             )
             return
 
@@ -213,14 +213,14 @@ class Task(models.Model):
                 if self.status == Task.CANCELLING:
                     error = (
                         f"{current_time}: Task({self.id}).run_command(): "
-                        "cancelling task -> KILLING process with "
+                        "CANCELLING task -> KILLING process with "
                         f"pid={process.pid}"
                     )
                     self.status = Task.CANCELLED
                 else:
                     error = (
                         f"{current_time}: Task({self.id}).run_command(): "
-                        "task timedout -> KILLING process with "
+                        "task TIMEDOUT -> KILLING process with "
                         f"pid={process.pid}"
                     )
                     self.status = Task.TIMEDOUT
@@ -236,17 +236,27 @@ class Task(models.Model):
 
         # refresh the model from the database before writing
         self.refresh_from_db()
-        self.status = Task.SUCCESS
         self.metadata['last_update'] = timezone.now().isoformat()
         self.metadata['finished_date'] = self.metadata['last_update']
         self.output["stdout"] += stdout
-        self.metadata['command_return_code'] = process.poll()
+        ret_code = process.poll()
+        self.metadata['command_return_code'] = ret_code
+        if ret_code == 0:
+            self.status = Task.SUCCESS
+            logger.debug(
+                f"{current_time}: Task({self.id}).run_command(): "
+                f"process with pid={process.pid} finished SUCCESSFULLY, "
+                f"return_code={ret_code}, and last stdout='''{stdout}'''"
+            )
+        else:
+            self.status = Task.ERROR
+            error = (
+                f"{current_time}: Task({self.id}).run_command(): "
+                f"ERROR: process with pid={process.pid} finished with NON-ZERO "
+                f"return-code: return_code={ret_code}, "
+                f"and last stdout='''{stdout}'''"
+            )
 
-        logger.debug(
-            f"{current_time}: Task({self.id}).run_command(): "
-            f"process finished with pid={process.pid} finished, "
-            f"return_code={process.poll()}, and last stdout='''{stdout}'''"
-        )
         self.save()
 
     def serialize(self):
