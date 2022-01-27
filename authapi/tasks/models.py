@@ -75,7 +75,7 @@ class Task(models.Model):
     #       "started_date": <datetime> | null,
     #       "finished_date": <datetime> | null,
     #       "process_id": <int> | null,
-    #       "command": <string> | null,
+    #       "command": <string[]> | null,
     #       "command_return_code": <int> | null,
     #       "last_update": <datetime>
     # }
@@ -233,17 +233,37 @@ class Task(models.Model):
                     )
                     self.status = Task.TIMEDOUT
                 logger.error(error)
+                # This might fail, and if so, we need to catch the exception
+                # and handle it
                 try:
-                    # This might fail, and if so, we need to catch the exception
-                    # and handle it
-                    process.kill()
+                    # If it's a command run with sudo, we might not have
+                    # permission to kill it so we try with
+                    # `sudo pkill -f <command>``
+                    if len(command) > 0 and command[0] == 'sudo':
+                        command_str = " ".join(command)
+                        kill_command = [
+                            'sudo',
+                            'pkill',
+                            '--full',
+                            '--exact',
+                            command_str
+                        ]
+                        ret_process = subprocess.run(
+                            kill_command,
+                            timeout=debounce_secs
+                        )
+                        if ret_process != 0:
+                            raise Exception("Couldn't kill the process")
+                    else:
+                        process.kill()
                 except Exception as exception:
                     logger.error(
                         f"{current_time}: Task({self.id}).run_command(): "
-                        f"EXCEPTION {exception}"
+                        f"EXCEPTION {exception}.\n"
                     )
+
                     exc_info = sys.exc_info()[1]
-                    error += exc_info
+                    error += str(exc_info)
                     self.status = Task.ERROR
 
                 self.metadata['last_update'] = timezone.now().isoformat()
@@ -278,7 +298,7 @@ class Task(models.Model):
             )
         else:
             self.status = Task.ERROR
-            error = (
+            logger.error(
                 f"{current_time}: Task({self.id}).run_command(): "
                 f"ERROR: process with pid={process.pid} finished with NON-ZERO "
                 f"return-code: return_code={ret_code}, "
