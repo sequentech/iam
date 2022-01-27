@@ -136,7 +136,7 @@ class Task(models.Model):
         except Exception as error:
             logger.error(
                 f"{current_time}: Task({self.id}).run_command(): "
-                f"exception {error}"
+                f"EXCEPTION {error}"
             )
             self.metadata['last_update'] = timezone.now().isoformat()
             self.metadata['finished_date'] = self.metadata['last_update']
@@ -225,7 +225,19 @@ class Task(models.Model):
                     )
                     self.status = Task.TIMEDOUT
                 logger.error(error)
-                process.kill()
+                try:
+                    # This might fail, and if so, we need to catch the exception
+                    # and handle it
+                    process.kill()
+                except Exception as exception:
+                    logger.error(
+                        f"{current_time}: Task({self.id}).run_command(): "
+                        f"EXCEPTION {exception}"
+                    )
+                    exc_info = sys.exc_info()[1]
+                    error += exc_info
+                    self.status = Task.ERROR
+
                 self.metadata['last_update'] = timezone.now().isoformat()
                 self.metadata['finished_date'] = self.metadata['last_update']
                 self.output['error'] = error
