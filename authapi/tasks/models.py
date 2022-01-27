@@ -263,7 +263,7 @@ class Task(models.Model):
                     )
 
                     exc_info = sys.exc_info()[1]
-                    error += str(exc_info)
+                    error += '\n' + str(exc_info)
                     self.status = Task.ERROR
 
                 self.metadata['last_update'] = timezone.now().isoformat()
