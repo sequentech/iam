@@ -530,7 +530,6 @@ STATUSES = (
     ('dis', 'Disabled'),
 )
 
-
 class UserData(models.Model):
     '''
     This is a class attached one to one to a user, that stores extra user
@@ -794,7 +793,6 @@ class BallotBox(models.Model):
         unique_together = (
             ("auth_event", "name"),
         )
-
 
 class TallySheet(models.Model):
     '''

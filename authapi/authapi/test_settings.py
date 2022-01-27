@@ -23,6 +23,7 @@ https://docs.djangoproject.com/en/1.7/ref/settings/
 
 import os
 from datetime import timedelta
+from kombu import Exchange, Queue
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -33,7 +34,7 @@ class CeleryConfig:
     timezone = 'Europe/Madrid'
     beat_schedule = {
         'review_tallies': {
-            'task': 'tasks.process_tallies',
+            'task': 'api.tasks.process_tallies',
             'schedule': timedelta(seconds=5),
             'args': []
         },
@@ -42,6 +43,23 @@ class CeleryConfig:
     cache_backend = 'memory'
     task_always_eager = True
     task_eager_propagates = True
+    task_queues = (
+        Queue(
+            'api',
+            Exchange('default'),
+            routing_key='api.tasks.*'
+        ),
+        Queue(
+            'io',
+            Exchange('default'),
+            routing_key='*.io.*'
+        ),
+        Queue(
+            'self-testing',
+            Exchange('default'),
+            routing_key='tasks.self_test_task'
+        )
+    )
 
 CELERY_CONFIG = CeleryConfig
 
@@ -91,6 +109,7 @@ INSTALLED_APPS = (
     'api',
     'authmethods',
     'captcha',
+    'tasks',
 
     #3rd party
     'corsheaders',
@@ -179,6 +198,21 @@ CORS_ORIGIN_WHITELIST = (
 )
 
 OPENID_CONNECT_PROVIDERS_CONF = []
+
+# When a task is performed by launching a subprocess, the output of this process
+# is going to be written to the database. We use this setting to prevent too
+# many updates per second, by setting a minimum elapsed time between DB updates.
+TASK_PROCESS_UPDATE_DEBOUNCE_SECS = 2.0
+
+# This is the command to be executed to launch a self-test
+TASK_SELF_TEST_COMMAND = ["/home/authapi/launch_selftest.sh"]
+
+# This is the command to be executed to kill a self-test
+TASK_SELF_TEST_KILL_COMMAND = ["sudo", "/home/agoragui/kill_selftest.sh"]
+
+# Default maximum amount of time in seconds that a task should last. After this,
+# amount of time, the task is killed
+TASK_DEFAULT_TIMEOUT_SECS = 60
 
 ENABLE_CAPTCHA = True
 PREGENERATION_CAPTCHA = 100

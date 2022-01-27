@@ -25,6 +25,7 @@ https://docs.djangoproject.com/en/1.7/ref/settings/
 
 import os
 from datetime import timedelta
+from kombu import Exchange, Queue
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -34,7 +35,7 @@ class CeleryConfig:
     timezone = 'Europe/Madrid'
     beat_schedule = {
         'review_tallies': {
-            'task': 'tasks.process_tallies',
+            'task': 'api.tasks.process_tallies',
             'schedule': timedelta(seconds=10),
             'args': [],
             'options': {
@@ -47,7 +48,7 @@ class CeleryConfig:
 CELERY_CONFIG = CeleryConfig
 
 CELERY_ANNOTATIONS = {
-    'tasks.process_tallies': {
+    'api.tasks.process_tallies': {
         'time_limit': 10
     }
 }
@@ -93,6 +94,7 @@ INSTALLED_APPS = (
     'api',
     'authmethods',
     'captcha',
+    'tasks',
 
     #3rd party
     'django_celery_results',
@@ -237,6 +239,21 @@ IMAGE_STORE_PATH = os.path.join(BASE_DIR, 'imgfields')
 # ]
 OPENID_CONNECT_PROVIDERS_CONF = [
 ]
+
+# When a task is performed by launching a subprocess, the output of this process
+# is going to be written to the database. We use this setting to prevent too
+# many updates per second, by setting a minimum elapsed time between DB updates.
+TASK_PROCESS_UPDATE_DEBOUNCE_SECS = 2.0
+
+# This is the command to be executed to launch a self-test
+TASK_SELF_TEST_COMMAND = ["/home/agoragui/launch_selftest.sh"]
+
+# This is the command to be executed to kill a self-test
+TASK_SELF_TEST_KILL_COMMAND = ["sudo", "/home/agoragui/kill_selftest.sh"]
+
+# Default maximum amount of time in seconds that a task should last. After this,
+# amount of time, the task is killed
+TASK_DEFAULT_TIMEOUT_SECS = 60
 
 if not os.path.exists(IMAGE_STORE_PATH):
     os.mkdir(IMAGE_STORE_PATH)
