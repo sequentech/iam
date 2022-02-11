@@ -105,7 +105,8 @@ class Command(BaseCommand):
 
             db_user.userdata.save()
 
-            # make sure the user has permission to login as an admin
+            # make sure the user has permission to login as an admin and edit
+            # its own profile
             insert_or_update(
                 ACL,
                 dict(
@@ -115,6 +116,16 @@ class Command(BaseCommand):
                     object_id=1
                 )
             )
+            if db_user.is_staff or db_user.is_admin:
+                insert_or_update(
+                    ACL,
+                    dict(
+                        user=db_user.userdata,
+                        perm='edit',
+                        object_type='UserData',
+                        object_id=db_user.userdata.id
+                    )
+                )
 
             for el in udata['election_permissions']:
                 # if permission list is empty, it means we have to ensure
