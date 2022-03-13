@@ -1853,12 +1853,6 @@ class AuthEventView(View):
                     q &= Q(id__in=ids)
                 except:
                     ids = None
-            
-            if only_parent_elections is not None:
-                q &= (
-                    Q(parent_id=None) |
-                    Q(parent_id__isnull=False, children_election_info__isnull=False)
-                )
 
             serialize_method = 'serialize_restrict'
             if (
@@ -1889,6 +1883,28 @@ class AuthEventView(View):
                         'view-archived' in perms_split
                     ):
                         serialize_method = 'serialize'
+
+            if only_parent_elections is not None:
+                q &= (
+                    Q(parent_id=None) |
+                    Q(parent_id__isnull=False, children_election_info__isnull=False) |
+                    ~Q(
+                        parent_id__in=user.\
+                            userdata.\
+                            acls\
+                            .filter(
+                                object_type='AuthEvent',
+                                perm__in=perms_split
+                            )\
+                            .annotate(
+                                object_id_int=Cast(
+                                    'object_id',
+                                    output_field=IntegerField()
+                                )
+                            )\
+                            .values('object_id_int')
+                    )
+                )
 
             events = AuthEvent.objects.filter(q)
             aes = paginate(
