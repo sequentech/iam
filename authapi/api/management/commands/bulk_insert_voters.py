@@ -28,6 +28,14 @@ class Command(BaseCommand):
   '''
   Inserts in bulk a CSV list of voters in an election. It's made using COPY
   command and a temporal table to make it fast.
+
+  CSV format is used, with ';' as separator. Data cannot be escaped with quotes,
+  so the separator cannot appear in the data.
+
+  It supports parent-children elections. An example CSV is:
+
+  email;tlf;Número de colegiado;Nombre;children_event_id_list
+  john@example.com;+34777444111;50010;DOE JOHN;[11222,11223]
   '''
   # URL of sources of inspiration:
   #
@@ -100,7 +108,7 @@ class Command(BaseCommand):
     assert(self.iterations > 0)
 
     with open(voters_csv, 'r') as csv_file:
-      csv_reader = csv.reader(csv_file)
+      csv_reader = csv.reader(csv_file, delimiter=';')
       self.columns = [column.strip() for column in csv_reader.__next__()]
       assert(len(self.columns) > 0)
   
@@ -135,9 +143,9 @@ class Command(BaseCommand):
       # ignore the first line, which contains the column headers
       csv_file.readline()
       self.exec_sql(
-        sql="self.cursor.copy_from(csv_file, 'voters_csv_table', sep=',')",
+        sql="self.cursor.copy_from(csv_file, 'voters_csv_table', sep=';')",
         exec_lambda=lambda: 
-          self.cursor.copy_from(csv_file, 'voters_csv_table', sep=',')
+          self.cursor.copy_from(csv_file, 'voters_csv_table', sep=';')
       )
   
   def load_password_function(self):
@@ -264,20 +272,23 @@ class Command(BaseCommand):
 
     # metadata will be a collection of data from the CSV fields, just without
     # tlf or email fields
-    sql_options['metadata'] = "concat('{'"
-    first = True
+    if 'children_event_id_list' in self.columns:
+      sql_options['metadata'] = """
+      concat(
+        '{"children_event_id_list": ',
+        csv_data.children_event_id_list"""
+    else:
+      sql_options['metadata'] = """
+      concat(
+        '{"children_event_id_list": []'"""
+
     for column in self.columns:
       if column in ['tlf', 'email', 'password', 'children_event_id_list']:
         continue
-      if first:
-        first = False
-        sql_options['metadata'] += """
-        , '"%(column)s": "', csv_data."%(column)s", '"'
-        """ % dict(column=column)
-      else:
-        sql_options['metadata'] += """
-        , ', "%(column)s": "', csv_data."%(column)s", '"'
-        """ % dict(column=column)
+      sql_options['metadata'] += """, 
+      ', "%(column)s": "',
+      csv_data."%(column)s",
+      '"' """ % dict(column=column)
       
     sql_options['metadata'] += ", '}')::jsonb AS metadata"
 
