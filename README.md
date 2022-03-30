@@ -1,27 +1,27 @@
-# authapi [![tests_badge]][tests_link] [![coverage_badge]][coverage_link]
+# iam [![tests_badge]][tests_link] [![coverage_badge]][coverage_link]
 
-[tests_badge]: https://github.com/agoravoting/authapi/workflows/Test%20python/badge.svg
-[tests_link]: https://github.com/agoravoting/authapi/actions?query=workflow%3A%22Test+python%22
-[coverage_badge]: https://coveralls.io/repos/agoravoting/authapi/badge.svg?branch=master
-[coverage_link]: https://coveralls.io/r/agoravoting/authapi?branch=master
+[tests_badge]: https://github.com/sequentech/iam/workflows/Test%20python/badge.svg
+[tests_link]: https://github.com/sequentech/iam/actions?query=workflow%3A%22Test+python%22
+[coverage_badge]: https://coveralls.io/repos/sequentech/iam/badge.svg?branch=master
+[coverage_link]: https://coveralls.io/r/sequentech/iam?branch=master
 
 # Introduction
 
-The authapi is an isolated server-side component that provides
+The iam is an isolated server-side component that provides
 authentication and authorization primitives. It's is completely decoupled
-from agora-core, and it's ignorant of concepts like "election", "vote" or
-"agora", even though its primarily developed with Agora voting use-case in
+from sequent-core, and it's ignorant of concepts like "election", "vote" or
+"sequent", even though its primarily developed with Agora voting use-case in
 mind. It can be used for other services, completely unrelated to elections.
 
 An Authentication Event (or auth-event) is an important concept in the
-authapi. Let's explain it with an example: imagine you're creating a single
+iam. Let's explain it with an example: imagine you're creating a single
 election, where you have a given census of electors, and you authenticate the
 electors sending a SMS code to their mobile phones. In that case, the election
-will have an associated event auth in an authapi, configured with a
+will have an associated event auth in an iam, configured with a
 census, configured to use the "SMS-code" authentication method, and the SMS
 provider credentials details needed to be able to send emails.
 
-Another important entity in authapi is an "User". Each auth-user can be uniquely
+Another important entity in iam is an "User". Each auth-user can be uniquely
 referenced by the user-id. The users have some authorization to act over some
 objects using ACLs.
 
@@ -41,7 +41,7 @@ kind of object.
 
 1. Download from the git repository if you haven't got a copy
     ```
-    $ git clone https://github.com/agoravoting/authapi && cd authapi
+    $ git clone https://github.com/sequentech/iam && cd iam
     ```
 
 2. Install package and its dependencies
@@ -54,9 +54,9 @@ kind of object.
 3. Create postgres database:
     ```
     $ sudo su postgres
-    $ createuser -P authapi
-    $ psql -tAc "ALTER USER authapi PASSWORD '<SOMEPASSWORD>';" -U postgres
-    $ createdb -O authapi authapi
+    $ createuser -P iam
+    $ psql -tAc "ALTER USER iam PASSWORD '<SOMEPASSWORD>';" -U postgres
+    $ createdb -O iam iam
     ```
 
 4. Create scheme and load initial data. This command create username admin with
@@ -86,19 +86,19 @@ Optional. Added some plugin:
 
 # Run unit tests
 
-You can run unit tests by having a local `authapi` postgresql database, managed by the user
-`authapi` with password `authapi` and then executing the `runtests.sh` script:
+You can run unit tests by having a local `iam` postgresql database, managed by the user
+`iam` with password `iam` and then executing the `runtests.sh` script:
 
     $ sudo su postgres
-    $ psql -tAc "CREATE USER authapi WITH PASSWORD 'authapi';" -U postgres
-    $ psql -tAc "ALTER USER authapi CREATEDB;" -U postgres
-  - $ psql -tAc "CREATE DATABASE authapi OWNER authapi;" -U postgres
+    $ psql -tAc "CREATE USER iam WITH PASSWORD 'iam';" -U postgres
+    $ psql -tAc "ALTER USER iam CREATEDB;" -U postgres
+  - $ psql -tAc "CREATE DATABASE iam OWNER iam;" -U postgres
     $ exit
-    (authapi-env) ~/authapi $ ./runtests.sh
+    (iam-env) ~/iam $ ./runtests.sh
 
 # Tecnical details
 
-Technically, authapi should:
+Technically, iam should:
  * allow migrations
  * implement unit-tests for the API calls
 
@@ -123,8 +123,8 @@ Basic Database tables:
     * object_id: string (255) object related to which the user is granted permission to id
       (default=0) mean permission in all id
 
-The authapi is extensible using modules. The mudile can extend authapi in
-different entry points defined in authapi, providing:
+The iam is extensible using modules. The mudile can extend iam in
+different entry points defined in iam, providing:
 
 * new authentication methods
 * new pipeline
@@ -378,7 +378,7 @@ Request:
     
     {
         "dni": "11111111H",
-        "mail": "test@agoravoting.com",
+        "mail": "test@sequentech.io",
         "tlf": "+34666666666",
         "code": "deadbeef"
     }
@@ -403,25 +403,25 @@ Description: Get ids auth-event of request user
 
 # Utils Commands
 
-* Look at agora-admin.py script in [agora-tools](https://github.com/agoravoting/agora-tools/)
+* Look at sequent-admin.py script in [misc-tools](https://github.com/sequentech/misc-tools/)
 
 # License
 
-Copyright (C) 2015 Agora Voting SL and/or its subsidiary(-ies).
-Contact: legal@agoravoting.com
+Copyright (C) 2015 Sequent Tech Inc and/or its subsidiary(-ies).
+Contact: legal@sequentech.io
 
-This file is part of the authapi module of the Agora Voting project.
+This file is part of the iam module of the Sequent Tech project.
 
 This program is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 Commercial License Usage
-Licensees holding valid commercial Agora Voting project licenses may use this
+Licensees holding valid commercial Sequent Tech project licenses may use this
 file in accordance with the commercial license agreement provided with the
 Software or, alternatively, in accordance with the terms contained in
-a written agreement between you and Agora Voting SL. For licensing terms and
-conditions and further information contact us at legal@agoravoting.com .
+a written agreement between you and Sequent Tech Inc. For licensing terms and
+conditions and further information contact us at legal@sequentech.io .
 
 GNU Affero General Public License Usage
 Alternatively, this file may be used under the terms of the GNU Affero General
