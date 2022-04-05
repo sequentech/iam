@@ -20,9 +20,9 @@ jobs:
       postgres:
         image: postgres:12
         env:
-          POSTGRES_USER: authapi
-          POSTGRES_PASSWORD: authapi
-          POSTGRES_DB: authapi
+          POSTGRES_USER: iam
+          POSTGRES_PASSWORD: iam
+          POSTGRES_DB: iam
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -73,11 +73,11 @@ jobs:
 
     - name: coverage
       run: |
-        cd authapi
-        python manage.py migrate --settings=authapi.test_settings
-        python manage.py loaddata --settings=authapi.test_settings initial
-        python manage.py test --settings=authapi.test_settings --failfast --nocapture
-        python -m coverage run --source='.' manage.py test --settings=authapi.test_settings
+        cd iam
+        python manage.py migrate --settings=iam.test_settings
+        python manage.py loaddata --settings=iam.test_settings initial
+        python manage.py test --settings=iam.test_settings --failfast --nocapture
+        python -m coverage run --source='.' manage.py test --settings=iam.test_settings
       env:
           POSTGRES_HOST: postgres
           POSTGRES_PORT: 5432

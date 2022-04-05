@@ -13,9 +13,9 @@ django views and should provide a login method.
 Add a new auth method is simple. You only need to add a new python module
 with a class in it.
 
-The module should be inside the authapi/authmethods/ folder and this module
+The module should be inside the iam/authmethods/ folder and this module
 name should starts with an 'm\_', for example if we want to add a DNIe auth
-method we can add the module authapi/authmethods/m\_dnie.py.
+method we can add the module iam/authmethods/m\_dnie.py.
 
 To register the new method you should call the register\_method function,
 for example:
