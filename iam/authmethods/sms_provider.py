@@ -17,6 +17,7 @@
 
 import re
 import sys
+import boto3
 import requests
 import logging
 import xmltodict
@@ -79,15 +80,17 @@ class SMSProvider(object):
         Instance the SMS provider specified in the app config
         '''
         provider = settings.SMS_PROVIDER
-        if provider == "twilio":
+        if provider == "aws-sns":
+            return AWSSNSProvider()
+        elif provider == "twilio":
             return TwilioSMSProvider()
-        if provider == "altiria":
+        elif provider == "altiria":
             return AltiriaSMSProvider()
-        if provider == "esendex":
+        elif provider == "esendex":
             return EsendexSMSProvider()
-        if provider == "console":
+        elif provider == "console":
             return ConsoleSMSProvider()
-        if provider == "test":
+        elif provider == "test":
             return TestSMSProvider()
         else:
             raise Exception("invalid SMS_PROVIDER='%s' in app config" % provider)
@@ -115,7 +118,8 @@ class TestSMSProvider(SMSProvider):
             "is_audio '%r'\n"\
             "Stack trace: \n%s",\
             content, receiver, is_audio, stack_trace_str())
-            
+
+
 class ConsoleSMSProvider(SMSProvider):
     provider_name = "console"
 
@@ -130,6 +134,45 @@ class ConsoleSMSProvider(SMSProvider):
             "is_audio '%r'\n"\
             "Stack trace: \n%s",\
             content, receiver, is_audio, stack_trace_str())
+
+
+class AWSSNSProvider(SMSProvider):
+    provider_name = "aws-sns"
+    sns_resource = None
+
+    def __init__(self):
+        self.sns_resource = boto3.resource('sns')
+
+    def send_sms(self, receiver, content, is_audio):
+        LOGGER.info(
+            "AWSSNSProvider.send_sms\n"
+            f"1/2 sending message '{content}'\n"
+            f"to '{receiver}'\n"
+            f"is_audio '{is_audio}'\n"
+            f"Stack trace: \n{stack_trace_str()}"
+        )
+        try:
+            response = self.sns_resource.meta.client.publish(
+                PhoneNumber=receiver,
+                Message=content,
+                MessageAttributes=settings.AWS_SNS_MESSAGE_ATTRIBUTES
+            )
+            message_id = response['MessageId']
+            LOGGER.info(
+                "AWSSNSProvider.send_sms\n"
+                f"2/2 published message '{content}'\n"
+                f"to '{receiver}'\n"
+                f"is_audio '{is_audio}'\n"
+                f"message_id '{message_id}'"
+            )
+        except Exception:
+            LOGGER.exception(
+                "AWSSNSProvider.send_sms\n"
+                f"2/2 error publishing message '{content}'\n"
+                f"to '{receiver}'\n"
+                f"is_audio '{is_audio}'\n"
+            )
+            raise
 
 
 class AltiriaSMSProvider(SMSProvider):
