@@ -2,6 +2,12 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-only
 ---
+- id: "PyPI::appnope"
+  curations:
+    comment: "Invalid license with a space."
+    declared_license_mapping:
+      "BSD License": "BSD-3-Clause"
+
 - id: "PyPI::babel"
   curations:
     comment: "Invalid license with a space."
