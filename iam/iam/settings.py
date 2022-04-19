@@ -74,6 +74,8 @@ ALLOW_ADMIN_AUTH_REGISTRATION = False
 
 ALLOW_DEREGISTER = True
 
+AWS_SNS_MESSAGE_ATTRIBUTES = {}
+
 # If this option is true, when an user tries to register and the user is
 # already registered, iam will return an error with the 'user_exists'
 # codename. Otherwise, on error, iam will always return the same generic

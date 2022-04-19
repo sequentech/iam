@@ -154,7 +154,8 @@ class AWSSNSProvider(SMSProvider):
         try:
             response = self.sns_resource.meta.client.publish(
                 PhoneNumber=receiver,
-                Message=content
+                Message=content,
+                MessageAttributes=settings.AWS_SNS_MESSAGE_ATTRIBUTES
             )
             message_id = response['MessageId']
             LOGGER.info(
