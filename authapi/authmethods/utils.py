@@ -787,6 +787,8 @@ def edit_user(user, req, auth_event):
 
     if auth_event.extra_fields:
         for extra in auth_event.extra_fields:
+            if extra.get('type') not in req:
+                continue
             if extra.get('type') == 'email' and req.get(extra.get('name')):
                 user.email = req.get(extra.get('name'))
                 req.pop(extra.get('name'))
@@ -851,7 +853,10 @@ def get_trimmed_user_req(req, ae):
 
     if ae.extra_fields:
         for extra in ae.extra_fields:
-            if extra.get('type') in ['password', 'image']:
+            if (
+                extra.get('type') in ['password', 'image'] and
+                extra.get('name') in metadata
+            ):
                 metadata.pop(extra.get('name'))
 
     return metadata
@@ -865,7 +870,10 @@ def get_trimmed_user(user, ae):
 
     if ae.extra_fields:
         for extra in ae.extra_fields:
-            if extra.get('type') in ['password', 'image']:
+            if (
+                extra.get('type') in ['password', 'image'] and
+                extra.get('name') in metadata
+            ):
                 metadata.pop(extra.get('name'))
 
     if user.email:
