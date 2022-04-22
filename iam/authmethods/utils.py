@@ -771,20 +771,6 @@ def get_cannonical_tlf(tlf):
 
 
 def edit_user(user, req, auth_event):
-    if auth_event.auth_method == 'user-and-password':
-        req.pop('username')
-        req.pop('password')
-    elif auth_event.auth_method == 'email-and-password':
-        req.pop('email')
-        req.pop('password')
-
-    if req.get('email'):
-        user.email = req.get('email')
-        req.pop('email')
-    if req.get('tlf'):
-        user.userdata.tlf = get_cannonical_tlf(req['tlf'])
-        req.pop('tlf')
-
     if auth_event.extra_fields:
         for extra in auth_event.extra_fields:
             if extra.get('type') not in req:
@@ -975,7 +961,7 @@ def post_verify_fields_on_auth(user, req, auth_event):
         for field in auth_event.extra_fields:
             if not field.get('required_on_authentication'):
                 continue
-            
+
             # Raise exception if a required field is not provided.
             # It will be catched by parent as an error.
             if field.get('name') not in req:

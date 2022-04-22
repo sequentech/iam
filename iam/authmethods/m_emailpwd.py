@@ -169,7 +169,6 @@ class EmailPWD:
     def authenticate(self, auth_event, request, mode='authenticate'):
         d = {'status': 'ok'}
         req = json.loads(request.body.decode('utf-8'))
-        password = req.get('password', '')
 
         msg = ""
         msg += check_fields_in_request(req, auth_event, 'authenticate')
