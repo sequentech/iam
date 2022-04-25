@@ -771,22 +771,10 @@ def get_cannonical_tlf(tlf):
 
 
 def edit_user(user, req, auth_event):
-    if auth_event.auth_method == 'user-and-password':
-        req.pop('username')
-        req.pop('password')
-    elif auth_event.auth_method == 'email-and-password':
-        req.pop('email')
-        req.pop('password')
-
-    if req.get('email'):
-        user.email = req.get('email')
-        req.pop('email')
-    if req.get('tlf'):
-        user.userdata.tlf = get_cannonical_tlf(req['tlf'])
-        req.pop('tlf')
-
     if auth_event.extra_fields:
         for extra in auth_event.extra_fields:
+            if extra.get('type') not in req:
+                continue
             if extra.get('type') == 'email' and req.get(extra.get('name')):
                 user.email = req.get(extra.get('name'))
                 req.pop(extra.get('name'))
@@ -851,7 +839,10 @@ def get_trimmed_user_req(req, ae):
 
     if ae.extra_fields:
         for extra in ae.extra_fields:
-            if extra.get('type') in ['password', 'image']:
+            if (
+                extra.get('type') in ['password', 'image'] and
+                extra.get('name') in metadata
+            ):
                 metadata.pop(extra.get('name'))
 
     return metadata
@@ -865,7 +856,10 @@ def get_trimmed_user(user, ae):
 
     if ae.extra_fields:
         for extra in ae.extra_fields:
-            if extra.get('type') in ['password', 'image']:
+            if (
+                extra.get('type') in ['password', 'image'] and
+                extra.get('name') in metadata
+            ):
                 metadata.pop(extra.get('name'))
 
     if user.email:
@@ -967,7 +961,7 @@ def post_verify_fields_on_auth(user, req, auth_event):
         for field in auth_event.extra_fields:
             if not field.get('required_on_authentication'):
                 continue
-            
+
             # Raise exception if a required field is not provided.
             # It will be catched by parent as an error.
             if field.get('name') not in req:
