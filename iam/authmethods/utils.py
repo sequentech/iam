@@ -459,7 +459,7 @@ def get_user_match_query(auth_event, user_data, base_query):
         field_data = user_data.get(field_name)
 
         if field_type == 'email':
-            query = query & Q(email=field_data)
+            query = query & Q(email__iexact=field_data)
         elif field_type == 'tlf':
             query = query & Q(userdata__tlf=field_data)
         else:
@@ -528,7 +528,7 @@ def canonize_extra_field(extra, req):
             req[field_name] = encode_dni(normalize_dni(field_value))
     elif field_type == 'email':
         if isinstance(field_value, str):
-            req[field_name] = field_value.strip().replace(' ', '')
+            req[field_name] = field_value.strip().replace(' ', '').lower()
     elif field_type == 'bool':
         if isinstance(field_value, str):
             req[field_name] = field_value.lower().strip() not in ["", "false"]
@@ -992,7 +992,7 @@ def get_required_fields_on_auth(req, ae, q):
 
             value = req.get(field.get('name'), '')
             if typee == 'email':
-                q = q & Q(email=value)
+                q = q & Q(email__iexact=value)
             elif typee == 'tlf':
                 q = q & Q(userdata__tlf=value)
             elif typee == 'password':
