@@ -376,11 +376,12 @@ class SmartLink:
       return self.error("Incorrect data", error_codename="invalid_credentials")
 
     try:
+      # enforce user_id to match the token user_id in the request
+      req['user_id'] = user_id
       user_query = get_base_auth_query(auth_event)
-      user_query = (
-        user_query & Q(userdata__metadata__contains=dict(user_id=user_id))
-      )
+      user_query = get_required_fields_on_auth(req, auth_event, user_query)
       user = User.objects.get(user_query)
+      post_verify_fields_on_auth(user, req, auth_event)
     except:
       LOGGER.error(\
         "SmartLink.authenticate error\n"\
