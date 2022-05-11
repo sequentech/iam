@@ -663,7 +663,11 @@ VALID_FIELDS = (
   #
   # Note that if a field is marked as userid_field, it should always have a
   # valid convertable-to-string value.
-  'userid_field')
+  'userid_field',
+
+  # adds a list of css classes to the input field in the login/register screen
+  'css_classes'
+)
 REQUIRED_FIELDS = ('name', 'type', 'required_on_authentication')
 VALID_PIPELINES = (
     'check_whitelisted',
@@ -824,6 +828,11 @@ def check_fields(key, value):
         else:
             if value >= maxsize or value <= -maxsize :
                 msg += "Invalid extra_fields: bad %s.\n" % key
+    elif key == 'css_classes':
+        if not isinstance(value, str):
+            msg += "Invalid extra_fields: bad %s.\n" % key
+        elif not re.match("[ 0-9a-zA-Z_-]+", value):
+            msg += "Invalid extra_fields: bad %s.\n" % key
     return msg
 
 def check_extra_fields(fields, mandatory_fields=dict(types=[], names=[])):
