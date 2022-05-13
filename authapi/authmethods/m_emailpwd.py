@@ -190,16 +190,12 @@ class EmailPWD:
             return self.authenticate_error("invalid-pipeline", req, auth_event)
 
         if mode == "authenticate":
-            if not verify_num_successful_logins(auth_event, 'OpenIdConnect', user, req):
+            if not verify_num_successful_logins(auth_event, 'EmailPWD', user, req):
                 return self.authenticate_error(
                     "invalid_num_successful_logins_allowed", req, auth_event
                 )
-            if (auth_event.num_successful_logins_allowed > 0 and
-                user.userdata.successful_logins.filter(is_active=True).count() >= auth_event.num_successful_logins_allowed):
-                return self.authenticate_error(
-                    "invalid_num_successful_logins_allowed", req, auth_event)
 
-            return return_auth_data('PWD', req, request, user, auth_event)
+            return return_auth_data('EmailPWD', req, request, user, auth_event)
 
         LOGGER.debug(\
             "EmailPWD.authenticate success\n"\
