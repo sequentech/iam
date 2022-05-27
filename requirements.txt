@@ -65,7 +65,7 @@ python-dateutil==2.5.3
 pytz==2016.4
 PyYAML==6.0
 raven==5.19.0
-reportlab==3.5.55
+reportlab==3.6.9
 requests==2.27.1
 s3transfer==0.5.2
 simplegeneric==0.8.1
