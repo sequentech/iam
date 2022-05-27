@@ -26,7 +26,7 @@ django-celery-results==2.0.1
 django-cors-headers==3.2.1
 django-nose==1.4.5
 dnspython==2.2.0
-eventlet==0.33.0
+eventlet==0.33.1
 filelock==3.4.0
 future==0.18.2
 greenlet==1.1.2
