@@ -61,7 +61,7 @@ Pygments==2.10.0
 pyjwkest==1.4.2
 PyJWT==2.3.0
 PySocks==1.7.1
-python-dateutil==2.5.3
+python-dateutil==2.8.2
 pytz==2016.4
 PyYAML==6.0
 raven==5.19.0
