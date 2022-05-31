@@ -210,7 +210,18 @@ class AuthMethodSmartLinkTestCase(TestCase):
           auth_method='smart-link',
           auth_method_config=auth_method_config,
           status='started',
-          census='open'
+          census='open',
+          extra_fields=[
+            dict(
+              name="user_id",
+              type="text",
+              required=True,
+              min=1,
+              max=255,
+              unique=True,
+              required_on_authentication=True
+            )
+          ]
         )
         auth_event.save()
         self.auth_event = auth_event
