@@ -169,7 +169,7 @@ class Command(BaseCommand):
                     ))
                     continue
                 else:
-                    db_user = User.objects.create_user(kwargs)
+                    db_user = User.objects.create_user(**kwargs)
             else:
                 if create_only:
                     print("Error: user with id %s does not exist" % user_id)
