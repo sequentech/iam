@@ -188,8 +188,8 @@ class Command(BaseCommand):
                     db_user.email = user_data['email']
             
             db_user.is_active = user_data.get('is_active', False)
-            db_user.is_admin = user_data.get('is_admin', False)
-            db_user.is_staff = user_data.get('is_admin', False)
+            db_user.is_superuser = user_data.get('is_superuser', False)
+            db_user.is_staff = user_data.get('is_staff', False)
 
             # if password is set, update it
             if 'password' in user_data:
