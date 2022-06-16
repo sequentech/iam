@@ -474,7 +474,7 @@ class AuthMethodSmsTestCase(TestCase):
         import utils
         from authmethods.sms_provider import TestSMSProvider
         sms_count0 = TestSMSProvider.sms_count
-        utils.send_codes(users=[user_id], ip='127.0.0.1', auth_method='sms',
+        utils.send_codes(users=[user_id], ip='127.0.0.1',
                          config={'msg':'url[__URL2__], code[__CODE__]',
                                  'subject':'subject'})
         self.assertEqual(1+sms_count0, TestSMSProvider.sms_count)

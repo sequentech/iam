@@ -13,20 +13,31 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with iam.  If not, see <http://www.gnu.org/licenses/>.
 
+from django.conf.urls import url
 import json
 import logging
-from . import register_method
-from utils import genhmac
-from django.conf import settings
 from django.contrib.auth.models import User
-from django.conf.urls import url
-from django.db.models import Q
+from . import register_method
 
-from utils import json_response
-from utils import stack_trace_str
-from authmethods.utils import *
-from django.contrib.auth.signals import user_logged_in
-
+from authmethods.utils import (
+    check_fields_in_request,
+    exists_unique_user,
+    add_unique_user,
+    exist_user,
+    create_user,
+    give_perms,
+    check_pipeline,
+    verify_num_successful_logins,
+    return_auth_data,
+    check_field_type,
+    check_field_value,
+    get_base_auth_query,
+    get_required_fields_on_auth,
+    post_verify_fields_on_auth,
+    resend_auth_code,
+    generate_auth_code,
+    stack_trace_str
+)
 
 LOGGER = logging.getLogger('iam')
 
@@ -36,7 +47,7 @@ def testview(request, param):
     return json_response(data)
 
 
-class EmailPWD:
+class EmailPassword:
     DESCRIPTION = 'Register using email and password. '
     CONFIG = {}
     PIPELINES = {
@@ -71,9 +82,6 @@ class EmailPWD:
 
     def check_config(self, config):
         return ''
-
-    def resend_auth_code(self, config):
-        return {'status': 'ok'}
 
     def census(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))
@@ -211,9 +219,24 @@ class EmailPWD:
         # whatever
         return self.authenticate(ae, request, "census-query")
 
+    def resend_auth_code(self, auth_event, request):
+        return resend_auth_code(
+            auth_event=auth_event,
+            request=request,
+            logger_name="EmailPassword",
+            default_pipelines=EmailPassword.PIPELINES
+        )
+
+    def generate_auth_code(self, auth_event, request):
+        return generate_auth_code(
+            auth_event=auth_event,
+            request=request,
+            logger_name="EmailPassword"
+        )
+
     views = [
         url(r'^test/(\w+)$', testview),
     ]
 
 
-register_method('email-and-password', EmailPWD)
+register_method('email-and-password', EmailPassword)

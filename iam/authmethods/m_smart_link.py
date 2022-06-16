@@ -16,16 +16,37 @@
 import json
 import logging
 from . import register_method
-from utils import verifyhmac, HMACToken
+from utils import (
+  verifyhmac,
+  HMACToken,
+  verify_admin_generated_auth_code
+)
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.conf.urls import url
-from django.db.models import Q
-
-from utils import json_response
-from utils import stack_trace_str
-from authmethods.utils import *
-from django.contrib.auth.signals import user_logged_in
+from utils import (
+    verify_admin_generated_auth_code
+)
+from authmethods.utils import (
+    verify_children_election_info,
+    check_fields_in_request,
+    verify_valid_children_elections,
+    exists_unique_user,
+    add_unique_user,
+    exist_user,
+    create_user,
+    give_perms,
+    check_pipeline,
+    verify_num_successful_logins,
+    return_auth_data,
+    check_field_type,
+    check_field_value,
+    get_base_auth_query,
+    get_required_fields_on_auth,
+    post_verify_fields_on_auth,
+    resend_auth_code,
+    generate_auth_code,
+    stack_trace_str,
+)
 
 from contracts.base import check_contract
 from contracts import CheckException
@@ -93,9 +114,6 @@ class SmartLink:
       except CheckException as e:
         return str(e.data)
     return ''
-
-  def resend_auth_code(self, config):
-    return {'status': 'ok'}
 
   def census(self, auth_event, request):
     req = json.loads(request.body.decode('utf-8'))
@@ -235,6 +253,20 @@ class SmartLink:
 
   def authenticate(self, auth_event, request):
     req = json.loads(request.body.decode('utf-8'))
+    verified, user = verify_admin_generated_auth_code(
+        auth_event=auth_event,
+        req_data=req,
+        log_prefix="Email"
+    )
+    if verified:
+        if not verify_num_successful_logins(auth_event, 'Email', user, req):
+            return self.error(
+                "Incorrect data",
+                error_codename="invalid_credentials"
+            )
+
+        return return_auth_data('Email', req, request, user)
+
     msg = ''
     auth_token = req.get('auth-token')
     if not auth_token or not isinstance(auth_token, str):
@@ -408,6 +440,18 @@ class SmartLink:
     return return_auth_data('SmartLink', req, request, user)
 
   def resend_auth_code(self, auth_event, request):
-    return {'status': 'ok'}
+    return resend_auth_code(
+      auth_event=auth_event,
+      request=request,
+      logger_name="SmartLink",
+      default_pipelines=SmartLink.PIPELINES
+    )
+
+  def generate_auth_code(self, auth_event, request):
+    return generate_auth_code(
+      auth_event=auth_event,
+      request=request,
+      logger_name="SmartLink"
+    )
 
 register_method('smart-link', SmartLink)

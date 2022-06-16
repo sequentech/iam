@@ -14,16 +14,23 @@
 # along with iam.  If not, see <http://www.gnu.org/licenses/>.
 
 from . import register_method
-from utils import genhmac, constant_time_compare, json_response, stack_trace_str
-from authmethods.utils import *
+from authmethods.utils import (
+    create_user,
+    give_perms,
+    check_pipeline,
+    verify_num_successful_logins,
+    return_auth_data,
+    resend_auth_code,
+    generate_auth_code,
+    stack_trace_str,
+    json_response,
+    constant_time_compare
+)
 
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.conf.urls import url
-from django.db.models import Q
-from django.contrib.auth.signals import user_logged_in
 
-import requests
 import json
 import logging
 
@@ -33,7 +40,7 @@ from oic.oic.message import (
     RegistrationResponse,
     AuthorizationResponse
 )
-from oic.utils.keyio import KeyBundle, KeyJar
+from oic.utils.keyio import KeyJar
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 from oic.utils.time_util import utc_time_sans_frac
 
@@ -110,9 +117,6 @@ class OpenIdConnect(object):
 
     def check_config(self, config):
         return ''
-
-    def resend_auth_code(self, config):
-        return {'status': 'ok'}
 
     def census(self, ae, request):
         return {'status': 'ok'}
@@ -220,6 +224,21 @@ class OpenIdConnect(object):
     def public_census_query(self, ae, request):
         # whatever
         return self.authenticate(ae, request, "census-query")
+
+    def resend_auth_code(self, auth_event, request):
+        return resend_auth_code(
+            auth_event=auth_event,
+            request=request,
+            logger_name="OpenIdConnect",
+            default_pipelines=OpenIdConnect.PIPELINES
+        )
+
+    def generate_auth_code(self, auth_event, request):
+        return generate_auth_code(
+            auth_event=auth_event,
+            request=request,
+            logger_name="OpenIdConnect"
+        )
 
     views = [
         url(r'^test/(\w+)$', testview),
