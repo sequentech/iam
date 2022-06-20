@@ -286,7 +286,7 @@ class SmartLink:
     user_id = None
     try:
       hmac_token = HMACToken(auth_token)
-      user_id, perm_obj, auth_event_id, perm_action, timestamp = hmac_token.msg.split(':')
+      user_id, perm_obj, auth_event_id, perm_action, _timestamp = hmac_token.msg.split(':')
       if len(user_id) == 0:
         LOGGER.error(\
           "SmartLink.authenticate auth-token: invalid user_id\n"\
@@ -437,7 +437,7 @@ class SmartLink:
       )
       return self.error("Incorrect data", error_codename="invalid_credentials")
 
-    return return_auth_data('SmartLink', req, request, user)
+    return return_auth_data('SmartLink', req, request, user, auth_event)
 
   def resend_auth_code(self, auth_event, request):
     return resend_auth_code(

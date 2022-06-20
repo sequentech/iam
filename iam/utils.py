@@ -700,11 +700,25 @@ def send_code(
     # add a sending path for each related otp-field for which the user has a
     # corresponding usable extra_field
     if auth_method_override is None:
-        otp_fields = [
-            parse_otp_code_field(auth_event.extra_fields, extra_field)
-            for extra_field in auth_event.extra_fields
-            if extra_field['type'] == 'otp-code'
-        ]
+        otp_fields = []
+        for extra_field in auth_event.extra_fields:
+            if extra_field['type'] != 'otp-code':
+                continue
+            otp_field_error, otp_field = parse_otp_code_field(
+                auth_event.extra_fields,
+                extra_field
+            )
+            if otp_field_error is not None:
+                LOGGER.error(
+                    f"send_code error\n" +
+                    "Error running parse_otp_code_field\n" +
+                    f"authevent '{auth_event}'\n" +
+                    f"extra_field '{extra_field}'\n" +
+                    f"Stack trace: \n{stack_trace_str()}"
+                )
+                return
+            otp_fields.append(otp_field)
+
         for otp_field in otp_fields:
             field_type = otp_field['source_field_type']
             field_name = otp_field['source_field']['name']

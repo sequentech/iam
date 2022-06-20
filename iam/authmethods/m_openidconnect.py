@@ -14,8 +14,13 @@
 # along with iam.  If not, see <http://www.gnu.org/licenses/>.
 
 from . import register_method
+
+from utils import (
+    verify_admin_generated_auth_code
+)
 from authmethods.utils import (
     create_user,
+    get_base_auth_query,
     give_perms,
     check_pipeline,
     verify_num_successful_logins,
@@ -136,6 +141,25 @@ class OpenIdConnect(object):
     def authenticate(self, auth_event, request, mode='authenticate'):
         ret_data = {'status': 'ok'}
         req = json.loads(request.body.decode('utf-8'))
+        if mode == 'authenticate':
+            verified, user = verify_admin_generated_auth_code(
+                auth_event=auth_event,
+                req_data=req,
+                log_prefix="OpenIdConnect"
+            )
+            if verified:
+                if not verify_num_successful_logins(
+                    auth_event,
+                    'OpenIdConnect',
+                    user,
+                    req
+                ):
+                    return self.authenticate_error(
+                        "invalid_num_successful_logins_allowed", req, auth_event
+                    )
+
+                return return_auth_data('OpenIdConnect', req, request, user)
+
         id_token = req.get('id_token', '')
         provider_id = req.get('provider', '')
         nonce = req.get('nonce', '')
@@ -176,16 +200,17 @@ class OpenIdConnect(object):
         # get user_id and get/create user
         user_id = id_token_dict['sub']
         try:
-            user = User.objects.get(
-                userdata__event=auth_event,
-                userdata__metadata__contains={"sub": user_id}
-            )
+
+            user_query = get_base_auth_query(auth_event)
+            user_query["userdata__metadata__contains"]={"sub": user_id}
+            user = User.objects.get(user_query)
         except:
             user = create_user(
                 req=dict(sub=user_id),
                 ae=auth_event,
                 active=True,
-                creator=request.user)
+                creator=request.user
+            )
             give_perms(user, auth_event)
 
         msg = check_pipeline(request, auth_event, 'authenticate')
@@ -194,20 +219,26 @@ class OpenIdConnect(object):
                 message=msg)
 
         if mode == "authenticate":
-            if not user.is_active:
-                return self.authenticate_error("user-inactive", req, auth_event)
-
             if not verify_num_successful_logins(auth_event, 'OpenIdConnect', user, req):
                 return self.authenticate_error(
                     "invalid_num_successful_logins_allowed", req, auth_event
                 )
 
+            LOGGER.debug(\
+                "OpenIdConnect.authenticate success\n"\
+                "returns '%r'\n"\
+                "authevent '%r'\n"\
+                "id_token_dict '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                ret_data, auth_event, id_token_dict, req, stack_trace_str()
+            )
             return return_auth_data(
-                auth_event, 
                 'OpenIdConnect', 
                 req, 
                 request, 
                 user,
+                auth_event, 
                 extra_debug="id_token_dict '%r'\n" % id_token_dict
             )
 
@@ -218,7 +249,8 @@ class OpenIdConnect(object):
             "id_token_dict '%r'\n"\
             "request '%r'\n"\
             "Stack trace: \n%s",\
-            ret_data, auth_event, id_token_dict, req, stack_trace_str())
+            ret_data, auth_event, id_token_dict, req, stack_trace_str()
+        )
         return ret_data
 
     def public_census_query(self, ae, request):

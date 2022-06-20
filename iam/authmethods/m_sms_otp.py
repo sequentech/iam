@@ -707,7 +707,7 @@ class SmsOtp:
             )
             q = get_required_fields_on_auth(req, auth_event, q)
             user = User.objects.get(q)
-            post_verify_fields_on_auth(user, req, auth_event)
+            otp_field_code = post_verify_fields_on_auth(user, req, auth_event)
         except:
             LOGGER.error(\
                 "SmsOtp.authenticate error\n"\
@@ -722,11 +722,13 @@ class SmsOtp:
         if not verify_num_successful_logins(auth_event, 'SmsOtp', user, req):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-
-        code = get_user_code(
-            user,
-            timeout_seconds=settings.SMS_OTP_EXPIRE_SECONDS
-        )
+        if otp_field_code is not None:
+            code = otp_field_code
+        else:
+            code = get_user_code(
+                user,
+                timeout_seconds=settings.SMS_OTP_EXPIRE_SECONDS
+            )
         if not code:       
             LOGGER.error(
                 "SmsOtp.authenticate error\n"\
@@ -743,8 +745,11 @@ class SmsOtp:
                 "Incorrect data",
                 error_codename="invalid_credentials"
             )
-          
-        disable_previous_user_codes(user)
+
+        # if otp_field_code is not None then post_verify_fields_on_auth already
+        # disabled the user code
+        if otp_field_code is None:
+            disable_previous_user_codes(user)
 
         if not constant_time_compare(req.get('code').upper(), code.code):  
             LOGGER.error(\

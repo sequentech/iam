@@ -704,7 +704,7 @@ class Sms:
             q = get_base_auth_query(auth_event)
             q = get_required_fields_on_auth(req, auth_event, q)
             user = User.objects.get(q)
-            post_verify_fields_on_auth(user, req, auth_event)
+            otp_field_code = post_verify_fields_on_auth(user, req, auth_event)
         except:
             LOGGER.error(\
                 "Sms.authenticate error\n"\
@@ -719,8 +719,14 @@ class Sms:
         if not verify_num_successful_logins(auth_event, 'Sms', user, req):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        code = get_user_code(user, timeout_seconds=None)
-        if not code:            
+        if otp_field_code is not None:
+            code = otp_field_code
+        else:
+            code = get_user_code(
+                user,
+                timeout_seconds=None
+            )
+        if not code:
             LOGGER.error(\
                 "Sms.authenticate error\n"\
                 "Code not found on db for user '%r'\n"\

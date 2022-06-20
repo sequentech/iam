@@ -714,7 +714,7 @@ class EmailOtp:
             q = get_base_auth_query(auth_event)
             q = get_required_fields_on_auth(req, auth_event, q)
             user = User.objects.get(q)
-            post_verify_fields_on_auth(user, req, auth_event)
+            otp_field_code = post_verify_fields_on_auth(user, req, auth_event)
         except:
             LOGGER.error(\
                 "EmailOtp.authenticate error\n"\
@@ -729,10 +729,13 @@ class EmailOtp:
         if not verify_num_successful_logins(auth_event, 'EmailOtp', user, req):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        code = get_user_code(
-            user,
-            timeout_seconds=settings.SMS_OTP_EXPIRE_SECONDS
-        )
+        if otp_field_code is not None:
+            code = otp_field_code
+        else:
+            code = get_user_code(
+                user,
+                timeout_seconds=settings.SMS_OTP_EXPIRE_SECONDS
+            )
         if not code:
             LOGGER.error(
                 "EmailOtp.authenticate error\n"\
@@ -750,7 +753,10 @@ class EmailOtp:
                 error_codename="invalid_credentials"
             )
 
-        disable_previous_user_codes(user)
+        # if otp_field_code is not None then post_verify_fields_on_auth already
+        # disabled the user code
+        if otp_field_code is None:
+            disable_previous_user_codes(user)
 
         if not constant_time_compare(req.get('code').upper(), code.code):  
             LOGGER.error(\
@@ -766,7 +772,7 @@ class EmailOtp:
 
             return self.error("Incorrect data", error_codename="invalid_credentials")
             
-        return return_auth_data('Email', req, request, user)
+        return return_auth_data('EmailOtp', req, request, user)
 
     def resend_auth_code(self, auth_event, request):
         return resend_auth_code(

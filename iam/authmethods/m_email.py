@@ -709,7 +709,7 @@ class Email:
             q = get_base_auth_query(auth_event)
             q = get_required_fields_on_auth(req, auth_event, q)
             user = User.objects.get(q)
-            post_verify_fields_on_auth(user, req, auth_event)
+            otp_field_code = post_verify_fields_on_auth(user, req, auth_event)
         except:
             LOGGER.error(\
                 "Email.authenticate error\n"\
@@ -726,7 +726,13 @@ class Email:
         if not verify_num_successful_logins(user_auth_event, 'Email', user, req):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        code = get_user_code(user, timeout_seconds=None)
+        if otp_field_code is not None:
+            code = otp_field_code
+        else:
+            code = get_user_code(
+                user,
+                timeout_seconds=None
+            )
         if not code:
             LOGGER.error(\
                 "Email.authenticate error\n"\

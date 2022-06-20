@@ -19,8 +19,9 @@ from . import register_method
 from django.contrib.auth.models import User
 from django.conf.urls import url
 
-from utils import json_response
-from utils import stack_trace_str
+from utils import (
+    verify_admin_generated_auth_code
+)
 from authmethods.utils import (
     check_fields_in_request,
     exists_unique_user,
@@ -126,7 +127,7 @@ class Password:
             else:
                 if msg:
                     LOGGER.debug(\
-                        "PWD.census warning\n"\
+                        "UserPassword.census warning\n"\
                         "error (but validation disabled) '%r'\n"\
                         "request '%r'\n"\
                         "validation '%r'\n"\
@@ -151,7 +152,7 @@ class Password:
                 give_perms(u, auth_event)
         if msg and validation:
             LOGGER.error(\
-                "PWD.census error\n"\
+                "UserPassword.census error\n"\
                 "error '%r'\n"\
                 "request '%r'\n"\
                 "validation '%r'\n"\
@@ -179,7 +180,7 @@ class Password:
         
         ret = {'status': 'ok'}
         LOGGER.debug(\
-            "PWD.census\n"\
+            "UserPassword.census\n"\
             "request '%r'\n"\
             "validation '%r'\n"\
             "authevent '%r'\n"\
@@ -191,7 +192,7 @@ class Password:
     def authenticate_error(self, error, req, ae):
         d = {'status': 'nok'}
         LOGGER.error(\
-            "PWD.census error\n"\
+            "UserPassword.census error\n"\
             "error '%r'\n"\
             "request '%r'\n"\
             "authevent '%r'\n"\
@@ -200,15 +201,32 @@ class Password:
         return d
 
     def authenticate(self, auth_event, request, mode="authenticate"):
-        d = {'status': 'ok'}
+        ret_data = {'status': 'ok'}
         req = json.loads(request.body.decode('utf-8'))
-        password = req.get('password', '')
+        if mode == 'authenticate':
+            verified, user = verify_admin_generated_auth_code(
+                auth_event=auth_event,
+                req_data=req,
+                log_prefix="UserPassword"
+            )
+            if verified:
+                if not verify_num_successful_logins(
+                    auth_event,
+                    'UserPassword',
+                    user,
+                    req
+                ):
+                    return self.authenticate_error(
+                        "invalid_num_successful_logins_allowed", req, auth_event
+                    )
+
+                return return_auth_data('UserPassword', req, request, user)
 
         msg = ""
         msg += check_fields_in_request(req, auth_event, mode)
         if msg:
             LOGGER.error(\
-                "PWD.authenticate error\n"\
+                "UserPassword.authenticate error\n"\
                 "error '%r'"\
                 "authevent '%r'\n"\
                 "request '%r'\n"\
@@ -230,21 +248,30 @@ class Password:
             return self.authenticate_error("invalid-pipeline", req, auth_event)
 
         if mode == "authenticate":
-            if not verify_num_successful_logins(auth_event, 'PWD', user, req):
+            if not verify_num_successful_logins(auth_event, 'UserPassword', user, req):
                 return self.authenticate_error(
                     "invalid_num_successful_logins_allowed", req, auth_event
                 )
 
-            return return_auth_data('PWD', req, request, user, auth_event)
+            LOGGER.debug(\
+                f"UserPassword.authenticate success\n"\
+                "returns '%r'\n"\
+                "authevent '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                ret_data, auth_event, req, stack_trace_str()
+            )
+            return return_auth_data('UserPassword', req, request, user, auth_event)
 
         LOGGER.debug(\
-            "PWD.authenticate success\n"\
+            f"UserPassword.authenticate success\n"\
             "returns '%r'\n"\
             "authevent '%r'\n"\
             "request '%r'\n"\
             "Stack trace: \n%s",\
-            d, auth_event, req, stack_trace_str())
-        return d
+            ret_data, auth_event, req, stack_trace_str()
+        )
+        return ret_data
 
     def public_census_query(self, ae, request):
         # whatever

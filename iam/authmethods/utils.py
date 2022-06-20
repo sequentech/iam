@@ -606,8 +606,12 @@ def check_field_value(definition, field, req=None, ae=None, step='register'):
     if step == 'census' and definition.get('type') == 'captcha':
         return msg
     if field is None:
-        if definition.get('required') and (
-            definition.get('type') != 'password' or step != 'census-query'
+        if (
+            definition.get('required') and
+            (
+                definition.get('type') not in ['password', 'otp-code'] or
+                step != 'census-query'
+            )
         ):
             msg += "Field %s is required" % definition.get('name')
     else:
@@ -936,13 +940,21 @@ def parse_otp_code_field(extra_fields, otp_field):
     Processes and validates an OTP Code field, throwing an exception if it's
     invalid
     '''
+    # check that there's no field called "code" because any otp will be received
+    # under that key name so it's not allowed
+    for extra_field in extra_fields:
+        if extra_field.get('name') == 'code':
+            error = "parse_otp_field: extra_field with name 'code' not allowed"
+            LOGGER.error(f"{error}\n%sStack trace:\n{stack_trace_str()}")
+            return error, None
+
     # get the source_field
     if (
         'source_field' not in otp_field or
         not isinstance(otp_field['source_field'], str)
     ):
         error = "parse_otp_field: Source field missing"
-        LOGGER.error(f"{error}\n%sStack trace:\n%s", stack_trace_str())
+        LOGGER.error(f"{error}\n%sStack trace:\n{stack_trace_str()}")
         return error, None
     source_field_name = otp_field['source_field']
     source_field = None
@@ -952,13 +964,13 @@ def parse_otp_code_field(extra_fields, otp_field):
             break
     if source_field is None:
         error = f"parse_otp_field: Source field '{source_field_name}' not found"
-        LOGGER.error(f"{error}\n%sStack trace:\n%s", stack_trace_str())
+        LOGGER.error(f"{error}\n%sStack trace:\n{stack_trace_str()}")
         return error, None
     # check source_field is 'email' or 'tlf', as it's the only ones currently
     # supported
     if source_field['type'] not in ['email', 'tlf']:
         error = f"parse_otp_field: Source field '{source_field_name}' has invalid type"
-        LOGGER.error(f"{error}\n%sStack trace:\n%s", stack_trace_str())
+        LOGGER.error(f"{error}\n%sStack trace:\n{stack_trace_str()}")
         return error, None
     # parse templates
     if (
@@ -968,7 +980,7 @@ def parse_otp_code_field(extra_fields, otp_field):
         not isinstance(otp_field['templates']['message_body'], str)
     ):
         error = f"parse_otp_field: invalid templates in field '{otp_field}'"
-        LOGGER.error(f"{error}\n%sStack trace:\n%s", stack_trace_str())
+        LOGGER.error(f"{error}\n%sStack trace:\n{stack_trace_str()}")
         return error, None
     if (
         source_field['type'] == 'email' and
@@ -978,7 +990,7 @@ def parse_otp_code_field(extra_fields, otp_field):
         )
     ):
         error = f"parse_otp_field: invalid templates in field '{otp_field}'"
-        LOGGER.error(f"{error}\n%sStack trace:\n%s", stack_trace_str())
+        LOGGER.error(f"{error}\n%sStack trace:\n{stack_trace_str()}")
         return error, None
 
     ret_value = dict(
@@ -989,67 +1001,108 @@ def parse_otp_code_field(extra_fields, otp_field):
     )
     return None, ret_value
 
-def post_verify_fields_on_auth(user, req, auth_event):
+def post_verify_fields_on_auth(user, req, auth_event, mode="auth"):
     '''
     Verifies fields that cannot be verified during the user orm query on the 
     database. Currently this is only password fields.
+
+    Returns the otp_field_code if any, so that it can be reused as the user
+    code to check in authentication methods like email, email-otp, sms, sms-otp.
     '''
+    otp_field_code = None
     if auth_event.extra_fields:
         for field in auth_event.extra_fields:
             if not field.get('required_on_authentication'):
                 continue
 
-            # Raise exception if a required field is not provided.
-            # It will be catched by parent as an error.
-            if field.get('name') not in req:
-                raise Exception()
             field_name = field.get('name')
+            type_field = field.get('type')
+            # Raise exception if a required_on_authentication field is not
+            # provided. It will be catched by parent as an error. The exception
+            # is the otp-code fields, that do not need to be provided in
+            # resend-auth mode
+            if (
+                field_name not in req and
+                mode != "resend-auth" and
+                type_field != 'otp-code'
+            ):
+                raise Exception()
 
             field_value = req.get(field_name, '')
-            type_field = field.get('type')
             if type_field == 'password':
                 if not user.check_password(field_value):
                     raise Exception()
-            elif type_field == 'otp-code':
-                # ensure the otp-field is valid
-                _parsed_otp_field = parse_otp_code_field(
+            # we do not verify otp-code in mode 'resend-auth', since the
+            # whole point is to send the auth-code before being able to verify
+            # it
+            elif type_field == 'otp-code' and mode == 'auth':
+                # ensure the otp-code field is valid
+                otp_field_error, _otp_field = parse_otp_code_field(
                     auth_event.extra_fields,
                     field
                 )
-                timeout = settings.SMS_OTP_EXPIRE_SECONDS
-                code = get_user_code(user, timeout)
-                if not code:
+                if otp_field_error is not None:
                     LOGGER.error(
-                        "post_verify_fields_on_auth::OTPCode error\n"\
-                        "Code not found on db for user '%r'\n"\
-                        "and time between now and '%r' seconds earlier\n"\
-                        "authevent '%r'\n"\
-                        "request '%r'\n"\
-                        "field name '%r'\n"\
-                        "Stack trace: \n%s",
-                        user.userdata,
-                        settings.SMS_OTP_EXPIRE_SECONDS,
-                        auth_event, req, field_name, stack_trace_str()
+                        f"post_verify_fields_on_auth::OTPCode error\n" +
+                        "Error running parse_otp_code_field\n" +
+                        f"authevent '{auth_event}'\n" +
+                        f"request '{req}'\n" +
+                        f"field name '{field_name}'\n" +
+                        f"Stack trace: \n{stack_trace_str()}"
                     )
                     raise Exception()
 
-                disable_previous_user_codes(user)
-
-                if not constant_time_compare(field_value.upper(), code.code):
-                    LOGGER.error(\
-                        "post_verify_fields_on_auth::OTPCode error\n"\
-                        "Code mismatch for user '%r'\n"\
-                        "Code received '%r'\n"\
-                        "and latest code in the db for the user '%r'\n"\
-                        "authevent '%r'\n"\
-                        "request '%r'\n"\
-                        "field name '%r'\n"\
-                        "Stack trace: \n%s",\
-                        user.userdata,
-                        req.get('code').upper(),
-                        code.code, auth_event, req, field_name, stack_trace_str()
+                # get the field value, because in otp-code it's always under the
+                # key 'code'
+                field_value = req.get('code', None)
+                if not isinstance(field_value, str):
+                    LOGGER.error(
+                        f"post_verify_fields_on_auth::OTPCode error\n" +
+                        "Error: code is not a string\n" +
+                        f"authevent '{auth_event}'\n" +
+                        f"request '{req}'\n" +
+                        f"field name '{field_name}'\n" +
+                        f"Stack trace: \n{stack_trace_str()}"
                     )
                     raise Exception()
+
+                timeout = settings.SMS_OTP_EXPIRE_SECONDS
+                if otp_field_code is None:
+                    otp_field_code = get_user_code(user, timeout)
+
+                if not otp_field_code:
+                    LOGGER.error(
+                        "post_verify_fields_on_auth::OTPCode error\n" +
+                        f"Code not found on db for user '{user.userdata}'\n" +
+                        f"and time between now and '{timeout}' seconds earlier\n" +
+                        f"authevent '{auth_event}'\n" +
+                        f"request '{req}'\n" +
+                        f"field name '{field_name}'\n" +
+                        f"Stack trace: \n{stack_trace_str()}"
+                    )
+                    raise Exception()
+
+                if not constant_time_compare(
+                    field_value.upper(),
+                    otp_field_code.code
+                ):
+                    LOGGER.error(
+                        f"post_verify_fields_on_auth::OTPCode error\n" +
+                        f"Code mismatch for user '{user.userdata}'\n" +
+                        f"Code received '{req.get('code').upper()}'\n" +
+                        f"and latest code in the db for the user '{otp_field_code.code}'\n" +
+                        f"authevent '{auth_event}'\n" +
+                        f"request '{req}'\n" +
+                        f"field name '{field_name}'\n" +
+                        f"Stack trace: \n{stack_trace_str()}"
+                    )
+                    raise Exception()
+
+    # disable the user code if any
+    if otp_field_code is not None:
+        disable_previous_user_codes(user)
+
+    return otp_field_code
 
 def generate_auth_code(auth_event, request, logger_name):
     request_data = json.loads(request.body.decode('utf-8'))
@@ -1060,10 +1113,9 @@ def generate_auth_code(auth_event, request, logger_name):
         LOGGER.error(
             f"{logger_name}.generate_auth_code error\n" +
             "error: invalid username" +
-            "authevent '%r'\n" +
-            "request '%r'\n" +
-            "Stack trace: \n%s",
-            auth_event, request_data, stack_trace_str()
+            f"authevent '{auth_event}'\n" +
+            f"request '{request_data}'\n" +
+            f"Stack trace: \n{stack_trace_str()}"
         )
         raise Exception()
 
@@ -1075,14 +1127,13 @@ def generate_auth_code(auth_event, request, logger_name):
         )
         query = base_query & Q(username=username)
         user = User.objects.get(query)
-    except:
+    except Exception as _error:
         LOGGER.error(
             f"{logger_name}.generate_auth_code error\n" +
-            "error: username '%r' not found\n" +
-            "authevent '%r'\n" +
-            "request '%r'\n" +
-            "Stack trace: \n%s",
-            username, auth_event, request_data, stack_trace_str()
+            f"error: username '{username}' not found\n" +
+            f"authevent '{auth_event}'\n" +
+            f"request '{request_data}'\n" +
+            f"Stack trace: \n{stack_trace_str()}"
         )
         raise Exception()
 
@@ -1090,10 +1141,9 @@ def generate_auth_code(auth_event, request, logger_name):
         LOGGER.error(
             f"{logger_name}.generate_auth_code error\n" +
             "error: voter has voted enough times already\n" +
-            "authevent '%r'\n" +
-            "request '%r'\n" +
-            "Stack trace: \n%s",
-            username, auth_event, request_data, stack_trace_str()
+            f"authevent '{auth_event}'\n" +
+            f"request '{request_data}'\n" +
+            f"Stack trace: \n{stack_trace_str()}"
         )
         raise Exception()
 
@@ -1120,7 +1170,7 @@ def resend_auth_code(
     either:
      - tlf field if it is an sms-otp auth_method
      - email field if it is an email-otp auth_method
-     - otp-field extra field in any other case
+     - otp-code extra field in any other case
     '''
     request_data = json.loads(request.body.decode('utf-8'))
 
@@ -1142,11 +1192,22 @@ def resend_auth_code(
     error_message = ''
 
     # check the auth_event is valid for resend_auth_code
-    parsed_otp_fields = [
-        parse_otp_code_field(auth_event.extra_fields, extra_field)
-        for extra_field in auth_event.extra_fields
-        if extra_field['type'] == 'otp-code'
-    ]
+    parsed_otp_fields = []
+    for extra_field in auth_event.extra_fields:
+        if extra_field['type'] != 'otp-code':
+            continue
+        otp_field_error, otp_field = parse_otp_code_field(
+            auth_event.extra_fields,
+            extra_field
+        )
+        if otp_field_error is not None:
+            error_message += f'parse_otp_code_field error: {otp_field_error}'
+            return ret_error(
+                log_error_message=error_message,
+                error_message="Incorrect data",
+                error_codename="invalid_credentials"
+            )
+        parsed_otp_fields.append(otp_field)
 
     if (
         auth_event.auth_method not in ['sms', 'email', 'sms-otp', 'email-otp'] and
@@ -1179,7 +1240,7 @@ def resend_auth_code(
         query = get_base_auth_query(auth_event)
         query = get_required_fields_on_auth(request_data, auth_event, query)
         user = User.objects.get(query)
-        post_verify_fields_on_auth(user, request_data, auth_event)
+        post_verify_fields_on_auth(user, request_data, auth_event, mode="resend-auth")
     except:
         return ret_error(
             log_error_message="user not found with given characteristics",
@@ -1190,7 +1251,7 @@ def resend_auth_code(
     error_message = check_pipeline(
         request,
         auth_event,
-        step='resend-auth-pipeline',
+        step='resend-auth',
         default_pipeline=default_pipelines.get('resend-auth-pipeline', None)
     )
 
@@ -1238,7 +1299,10 @@ def get_required_fields_on_auth(req, ae, q):
             # Raise exception if a required field is not provided.
             # It will be catched by parent as an error.
             typee = field.get('type')
-            if field.get('name') not in req and typee != 'password':
+            if (
+                field.get('name') not in req and
+                typee not in ['password', 'otp-code']
+            ):
                 raise Exception()
 
             value = req.get(field.get('name'), '')
@@ -1246,7 +1310,7 @@ def get_required_fields_on_auth(req, ae, q):
                 q = q & Q(email__iexact=value)
             elif typee == 'tlf':
                 q = q & Q(userdata__tlf=value)
-            elif typee == 'password':
+            elif typee in ['password', 'otp-code']:
                 # we verify this later im post_verify_fields_on_auth
                 continue
             else:
