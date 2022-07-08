@@ -32,6 +32,7 @@ urlpatterns = [
     url(r'^auth-event/(?P<pk>\d+)/calculate-results/$', views.calculate_results, name='calculate-results'),
     url(r'^auth-event/(?P<pk>\d+)/publish-results/$', views.publish_results, name='publish-results'),
     url(r'^auth-event/(?P<pk>\d+)/unpublish-results/$', views.unpublish_results, name='unpublish-results'),
+    url(r'^auth-event/(?P<pk>\d+)/set-public-candidates/$', views.set_public_candidates, name='set-public-candidates'),
     url(r'^auth-event/(?P<pk>\d+)/archive/$', views.archive, name='archive'),
     url(r'^auth-event/(?P<pk>\d+)/unarchive/$', views.unarchive, name='unarchive'),
     url(r'^auth-event/(?P<pk>\d+)/callback/$', views.callback, name='callback'),
