@@ -656,7 +656,7 @@ def publish_results_task(user_id, auth_event_id, visit_children, parent_auth_eve
     if auth_event.children_election_info is not None and visit_children:
         for child_id in auth_event.children_election_info['natural_order']:
             publish_results_task.apply_async(
-                args=[user_id, child_id, True, parent_auth_event_id]
+                args=[user_id, child_id, True, auth_event_id]
             )
 
     # A.2 call to ballot-box
@@ -764,7 +764,7 @@ def unpublish_results_task(user_id, auth_event_id, parent_auth_event_id=None):
     if auth_event.children_election_info is not None:
         for child_id in auth_event.children_election_info['natural_order']:
             unpublish_results_task.apply_async(
-                args=[user_id, child_id, parent_auth_event_id]
+                args=[user_id, child_id, auth_event_id]
             )
 
     # A.2 call to ballot-box
@@ -877,7 +877,7 @@ def set_public_candidates_task(
     if auth_event.children_election_info is not None:
         for child_id in auth_event.children_election_info['natural_order']:
             set_public_candidates_task.apply_async(
-                args=[user_id, child_id, make_public, parent_auth_event_id]
+                args=[user_id, child_id, make_public, auth_event_id]
             )
 
     # A.2 call to ballot-box
@@ -992,7 +992,7 @@ def allow_tally_task(user_id, auth_event_id, parent_auth_event_id=None):
     if auth_event.children_election_info is not None:
         for child_id in auth_event.children_election_info['natural_order']:
             allow_tally_task.apply_async(
-                args=[user_id, child_id, parent_auth_event_id]
+                args=[user_id, child_id, auth_event_id]
             )
 
     # A.2 call to ballot-box
