@@ -756,7 +756,7 @@ def unpublish_results_task(user_id, auth_event_id, parent_auth_event_id=None):
     auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
 
     # if this auth event has children, update also them
-    if parent_auth_event is None:
+    if parent_auth_event_id is None:
         parent_auth_event = auth_event
     else:
       parent_auth_event = get_object_or_404(AuthEvent, pk=parent_auth_event_id)
@@ -869,7 +869,7 @@ def set_public_candidates_task(
     auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
 
     # if this auth event has children, update also them
-    if parent_auth_event is None:
+    if parent_auth_event_id is None:
         parent_auth_event = auth_event
     else:
       parent_auth_event = get_object_or_404(AuthEvent, pk=parent_auth_event_id)
