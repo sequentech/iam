@@ -764,7 +764,7 @@ def unpublish_results_task(user_id, auth_event_id, parent_auth_event_id=None):
     if auth_event.children_election_info is not None:
         for child_id in auth_event.children_election_info['natural_order']:
             unpublish_results_task.apply_async(
-                args=[user_id, child_id, parent_auth_event]
+                args=[user_id, child_id, parent_auth_event_id]
             )
 
     # A.2 call to ballot-box
@@ -877,7 +877,7 @@ def set_public_candidates_task(
     if auth_event.children_election_info is not None:
         for child_id in auth_event.children_election_info['natural_order']:
             set_public_candidates_task.apply_async(
-                args=[user_id, child_id, make_public, parent_auth_event]
+                args=[user_id, child_id, make_public, parent_auth_event_id]
             )
 
     # A.2 call to ballot-box
