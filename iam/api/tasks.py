@@ -844,6 +844,125 @@ def unpublish_results_task(user_id, auth_event_id, parent_auth_event_id=None):
         )
         action.save()
 
+
+@shared_task(name='api.tasks.set_public_candidates')
+def set_public_candidates_task(
+    user_id,
+    auth_event_id,
+    make_public,
+    parent_auth_event_id=None
+):
+    '''
+    Launches the unpublish results ballot-box call in a task.
+    If the election has children, also launches the call for
+    those.
+    '''
+    logger.info(
+        '\n\nset_public_candidates_task(user_id=%r, auth_event_id=%r, make_public=%r,parent_auth_event_id=%r)' % (
+            user_id,
+            auth_event_id,
+            make_public,
+            parent_auth_event_id
+        )
+    )
+    user = get_object_or_404(User, pk=user_id)
+    auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
+
+    # if this auth event has children, update also them
+    if parent_auth_event is None:
+        parent_auth_event = auth_event
+    else:
+      parent_auth_event = get_object_or_404(AuthEvent, pk=parent_auth_event_id)
+
+    if auth_event.children_election_info is not None:
+        for child_id in auth_event.children_election_info['natural_order']:
+            set_public_candidates_task.apply_async(
+                args=[user_id, child_id, make_public, parent_auth_event]
+            )
+
+    # A.2 call to ballot-box
+    for callback_base in settings.SEQUENT_ELECTIONS_BASE:
+        callback_url = "%s/api/election/%s/set-public-candidates" % (
+            callback_base,
+            auth_event_id
+        )
+        data = {
+            "publicCandidates": make_public
+        }
+
+        req = requests.post(
+            callback_url,
+            json=data,
+            headers={
+                'Authorization': genhmac(
+                    settings.SHARED_SECRET,
+                    "1:AuthEvent:%s:set-public-candidates" % auth_event_id
+                ),
+                'Content-type': 'application/json'
+            }
+        )
+        if req.status_code != 200:
+            logger.error(
+                "set_public_candidates_task(user_id=%r, auth_event_id=%r,make_public=%r,parent_auth_event_id=%r): post\n"\
+                "ballot_box.callback_url '%r'\n"\
+                "ballot_box.data '%r'\n"\
+                "ballot_box.status_code '%r'\n"\
+                "ballot_box.text '%r'\n",\
+                user_id,
+                auth_event_id,
+                make_public,
+                parent_auth_event_id,
+                callback_url,
+                data,
+                req.status_code,
+                req.text
+            )
+
+            # log the action
+            action = Action(
+                executer=user,
+                receiver=None,
+                action_name='authevent:set-public-candidates:error',
+                event=parent_auth_event,
+                metadata=dict(
+                    auth_event=auth_event.pk,
+                    make_public=make_public,
+                    request_status_code=req.status_code,
+                    request_text=req.text
+                )
+            )
+            action.save()
+            return
+
+        logger.info(
+            "publish_results_task(user_id=%r, auth_event_id=%r,make_public=%r,parent_auth_event_id=%r): post\n"\
+            "ballot_box.callback_url '%r'\n"\
+            "ballot_box.data '%r'\n"\
+            "ballot_box.status_code '%r'\n"\
+            "ballot_box.text '%r'\n",\
+            user_id,
+            auth_event_id,
+            make_public,
+            parent_auth_event_id,
+            callback_url,
+            data,
+            req.status_code,
+            req.text
+        )
+
+        # log the action
+        action = Action(
+            executer=user,
+            receiver=None,
+            action_name='authevent:set-public-candidates:success',
+            event=parent_auth_event,
+            metadata=dict(
+                auth_event=auth_event.pk,
+                make_public=make_public
+            )
+        )
+        action.save()
+
 @shared_task(name='api.tasks.allow_tally')
 def allow_tally_task(user_id, auth_event_id, parent_auth_event_id=None):
     '''

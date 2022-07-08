@@ -82,7 +82,8 @@ from .tasks import (
     publish_results_task,
     unpublish_results_task,
     allow_tally_task,
-    calculate_results_task
+    calculate_results_task,
+    set_public_candidates_task
 )
 from captcha.views import generate_captcha
 from utils import send_codes, get_client_ip, parse_json_request
@@ -3014,6 +3015,46 @@ class UnpublishResultsView(View):
 
         return json_response()
 unpublish_results = login_required(UnpublishResultsView.as_view())
+
+
+class SetPublicCandidatesView(View):
+
+    def post(self, request, pk):
+        '''
+        Launches the setting of public candidates in a celery background task.
+        If the election has children, also launches the same task there.
+        '''
+        # check permissions
+        permission_required(
+            request.user,
+            'AuthEvent',
+            ['edit', 'set-public-candidates'],
+            pk
+        )
+
+        # parse input
+        req_json = parse_json_request(request)
+        if (
+            "publicCandidates" not in req_json or
+            not isinstance(req_json['publicCandidates'], bool)
+        ):
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST
+            )
+        make_public = req_json['publicCandidates']
+
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        set_public_candidates_task.apply_async(
+            args=[
+                request.user.id,
+                auth_event.id,
+                make_public
+            ]
+        )
+
+        return json_response()
+set_public_candidates = login_required(SetPublicCandidatesView.as_view())
 
 
 class AllowTallyView(View):
