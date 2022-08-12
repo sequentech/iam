@@ -442,8 +442,7 @@ class CensusActivate(View):
             send_codes.apply_async(
                 args=[
                   [u for u in user_ids],
-                  get_client_ip(request),
-                  ae.auth_method
+                  get_client_ip(request)
                 ])
 
         return json_response()

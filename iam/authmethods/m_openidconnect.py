@@ -14,16 +14,28 @@
 # along with iam.  If not, see <http://www.gnu.org/licenses/>.
 
 from . import register_method
-from utils import genhmac, constant_time_compare, json_response, stack_trace_str
-from authmethods.utils import *
+
+from utils import (
+    verify_admin_generated_auth_code
+)
+from authmethods.utils import (
+    create_user,
+    get_base_auth_query,
+    give_perms,
+    check_pipeline,
+    verify_num_successful_logins,
+    return_auth_data,
+    resend_auth_code,
+    generate_auth_code,
+    stack_trace_str,
+    json_response,
+    constant_time_compare
+)
 
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.conf.urls import url
-from django.db.models import Q
-from django.contrib.auth.signals import user_logged_in
 
-import requests
 import json
 import logging
 
@@ -33,7 +45,7 @@ from oic.oic.message import (
     RegistrationResponse,
     AuthorizationResponse
 )
-from oic.utils.keyio import KeyBundle, KeyJar
+from oic.utils.keyio import KeyJar
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 from oic.utils.time_util import utc_time_sans_frac
 
@@ -111,9 +123,6 @@ class OpenIdConnect(object):
     def check_config(self, config):
         return ''
 
-    def resend_auth_code(self, config):
-        return {'status': 'ok'}
-
     def census(self, ae, request):
         return {'status': 'ok'}
 
@@ -132,6 +141,25 @@ class OpenIdConnect(object):
     def authenticate(self, auth_event, request, mode='authenticate'):
         ret_data = {'status': 'ok'}
         req = json.loads(request.body.decode('utf-8'))
+        if mode == 'authenticate':
+            verified, user = verify_admin_generated_auth_code(
+                auth_event=auth_event,
+                req_data=req,
+                log_prefix="OpenIdConnect"
+            )
+            if verified:
+                if not verify_num_successful_logins(
+                    auth_event,
+                    'OpenIdConnect',
+                    user,
+                    req
+                ):
+                    return self.authenticate_error(
+                        "invalid_num_successful_logins_allowed", req, auth_event
+                    )
+
+                return return_auth_data('OpenIdConnect', req, request, user)
+
         id_token = req.get('id_token', '')
         provider_id = req.get('provider', '')
         nonce = req.get('nonce', '')
@@ -172,16 +200,17 @@ class OpenIdConnect(object):
         # get user_id and get/create user
         user_id = id_token_dict['sub']
         try:
-            user = User.objects.get(
-                userdata__event=auth_event,
-                userdata__metadata__contains={"sub": user_id}
-            )
+
+            user_query = get_base_auth_query(auth_event)
+            user_query["userdata__metadata__contains"]={"sub": user_id}
+            user = User.objects.get(user_query)
         except:
             user = create_user(
                 req=dict(sub=user_id),
                 ae=auth_event,
                 active=True,
-                creator=request.user)
+                creator=request.user
+            )
             give_perms(user, auth_event)
 
         msg = check_pipeline(request, auth_event, 'authenticate')
@@ -190,20 +219,26 @@ class OpenIdConnect(object):
                 message=msg)
 
         if mode == "authenticate":
-            if not user.is_active:
-                return self.authenticate_error("user-inactive", req, auth_event)
-
             if not verify_num_successful_logins(auth_event, 'OpenIdConnect', user, req):
                 return self.authenticate_error(
                     "invalid_num_successful_logins_allowed", req, auth_event
                 )
 
+            LOGGER.debug(\
+                "OpenIdConnect.authenticate success\n"\
+                "returns '%r'\n"\
+                "authevent '%r'\n"\
+                "id_token_dict '%r'\n"\
+                "request '%r'\n"\
+                "Stack trace: \n%s",\
+                ret_data, auth_event, id_token_dict, req, stack_trace_str()
+            )
             return return_auth_data(
-                auth_event, 
                 'OpenIdConnect', 
                 req, 
                 request, 
                 user,
+                auth_event, 
                 extra_debug="id_token_dict '%r'\n" % id_token_dict
             )
 
@@ -214,12 +249,28 @@ class OpenIdConnect(object):
             "id_token_dict '%r'\n"\
             "request '%r'\n"\
             "Stack trace: \n%s",\
-            ret_data, auth_event, id_token_dict, req, stack_trace_str())
+            ret_data, auth_event, id_token_dict, req, stack_trace_str()
+        )
         return ret_data
 
     def public_census_query(self, ae, request):
         # whatever
         return self.authenticate(ae, request, "census-query")
+
+    def resend_auth_code(self, auth_event, request):
+        return resend_auth_code(
+            auth_event=auth_event,
+            request=request,
+            logger_name="OpenIdConnect",
+            default_pipelines=OpenIdConnect.PIPELINES
+        )
+
+    def generate_auth_code(self, auth_event, request):
+        return generate_auth_code(
+            auth_event=auth_event,
+            request=request,
+            logger_name="OpenIdConnect"
+        )
 
     views = [
         url(r'^test/(\w+)$', testview),
