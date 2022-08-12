@@ -731,27 +731,47 @@ def send_code(
                 **otp_field['otp_field']['templates'],
                 **otp_base_config
             }
-            if (
-                field_type == 'tlf' and
-                field_name in user.userdata.metadata and
-                isinstance(user.userdata.metadata[field_name], str) and
-                len(user.userdata.metadata[field_name]) > 0
-            ):
+            if field_type == 'tlf':
+                if (
+                    field_name == 'tlf' and
+                    isinstance(user.userdata.tlf, str) and
+                    len(user.userdata.tlf) > 0
+                ):
+                    tlf = user.userdata.tlf
+                elif (
+                    field_name in user.userdata.metadata and
+                    isinstance(user.userdata.metadata[field_name], str) and
+                    len(user.userdata.metadata[field_name]) > 0
+                ):
+                    tlf = user.userdata.metadata[field_name]
+                else:
+                    continue
+
                 sending_paths\
                     .append(dict(
-                        receiver=user.userdata.metadata[field_name],
+                        receiver=tlf,
                         method="sms",
                         templates=templates
                     ))
-            if (
-                field_type == 'email' and
-                field_name in user.userdata.metadata and
-                isinstance(user.userdata.metadata[field_name], str) and
-                len(user.userdata.metadata[field_name]) > 0
-            ):
+            elif field_type == 'email':
+                if (
+                    field_name == 'email' and
+                    isinstance(user.email, str) and
+                    len(user.email) > 0
+                ):
+                    email = user.email
+                elif (
+                    field_name in user.userdata.metadata and
+                    isinstance(user.userdata.metadata[field_name], str) and
+                    len(user.userdata.metadata[field_name]) > 0
+                ):
+                    email = user.userdata.metadata[field_name]
+                else:
+                    continue
+
                 sending_paths\
                     .append(dict(
-                        receiver=user.userdata.metadata[field_name],
+                        receiver=email,
                         method="email",
                         templates=templates
                     ))
@@ -890,7 +910,13 @@ VALID_FIELDS = (
   'userid_field',
 
   # adds a list of css classes to the input field in the login/register screen
-  'css_classes'
+  'css_classes',
+
+  # used by otp-code
+  'templates',
+
+  # user by otp-code
+  'source_field'
 )
 REQUIRED_FIELDS = ('name', 'type', 'required_on_authentication')
 VALID_PIPELINES = (

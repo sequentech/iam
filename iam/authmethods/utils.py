@@ -1252,7 +1252,7 @@ def resend_auth_code(
         request,
         auth_event,
         step='resend-auth',
-        default_pipeline=default_pipelines.get('resend-auth-pipeline', None)
+        default_pipeline=default_pipelines.get('resend-auth-pipeline', [])
     )
 
     if error_message:
