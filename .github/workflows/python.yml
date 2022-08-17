@@ -67,8 +67,8 @@ jobs:
       run: |
         apt install -y libfreetype6-dev python3-dev libjpeg-dev zlib1g-dev libpq-dev libssl-dev git gcc
         python -m pip install --upgrade pip
-        python -m pip install –-upgrade wheel
-        python -m pip install –-upgrade setuptools
+        python -m pip install --upgrade wheel
+        python -m pip install --upgrade setuptools
         python -m pip install -r requirements.txt
         python -m pip install coveralls
 
