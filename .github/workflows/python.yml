@@ -65,15 +65,10 @@ jobs:
         python-version: 3.8
     - name: Install dependencies
       run: |
-        python --version
         apt install -y libfreetype6-dev python3-dev libjpeg-dev zlib1g-dev libpq-dev libssl-dev git gcc
-        echo "FFF upgrade pip wheel"
-        python -m pip install --upgrade pip wheel
-        echo "FFF install requirements"
+        python -m pip install --upgrade pip
         python -m pip install -r requirements.txt
-        echo "FFF install coveralls"
         python -m pip install coveralls
-        echo "FFF done"
 
 
     - name: coverage
