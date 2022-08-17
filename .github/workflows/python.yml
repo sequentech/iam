@@ -67,11 +67,11 @@ jobs:
       run: |
         python --version
         apt install -y libfreetype6-dev python3-dev libjpeg-dev zlib1g-dev libpq-dev libssl-dev git gcc
-        echo "upgrade pip wheel setuptools"
-        python -m pip install --upgrade pip wheel setuptools
-        echo "install requirements"
+        echo "FFF upgrade pip wheel"
+        python -m pip install --upgrade pip wheel
+        echo "FFF install requirements"
         python -m pip install -r requirements.txt
-        echo "install coveralls"
+        echo "FFF install coveralls"
         python -m pip install coveralls
         echo "FFF done"
 
