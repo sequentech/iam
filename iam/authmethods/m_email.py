@@ -143,6 +143,20 @@ class Email:
       },
       {
         'check': 'index-check-list',
+        'index': 'html_message',
+        'check-list': [
+          {
+            'check': 'isinstance',
+            'type': str
+          },
+          {
+            'check': 'length',
+            'range': [1, 5000]
+          }
+        ]
+      },
+      {
+        'check': 'index-check-list',
         'index': 'subject',
         'check-list': [
           {
