@@ -144,10 +144,15 @@ class Email:
       {
         'check': 'index-check-list',
         'index': 'html_message',
+        'optional': True,
         'check-list': [
           {
-            'check': 'lambda',
-            'lambda': lambda x: (x is None) or ((isinstance(x, str) and len(x) > 0 and len(x) < 5000))
+            'check': 'isinstance',
+            'type': str
+          },
+          {
+            'check': 'length',
+            'range': [1, 5000]
           }
         ]
       },
