@@ -2161,7 +2161,7 @@ class CensusSendAuth(View):
             config = {}
             if req.get('msg', ''):
                 config['msg'] = req.get('msg', '')
-            if req.get('html_message', ''):
+            if req.get('html_message', None):
                 config['html_message'] = req.get('html_message', '')
             if req.get('subject', ''):
                 config['subject'] = req.get('subject', '')
