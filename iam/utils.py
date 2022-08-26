@@ -489,6 +489,8 @@ def send_email_code(
         template_dict
     )
 
+    message_html = message_html if settings.ALLOW_HTML_EMAILS else None
+
     if message_html:
         message_html = template_replace_data(
             message_html,
