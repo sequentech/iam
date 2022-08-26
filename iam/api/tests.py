@@ -214,9 +214,9 @@ class ApiTestHtmlEmail(TestCase):
         self.assertEqual(response.status_code, 200)
         return c.post('/api/auth-event/', authevent)
 
-    def test_add_census_authevent_email_default(self, aeid):
+    def add_census(self, aeid):
         c = JClient()
-        response = c.authenticate(aeid, test_data.auth_email_default)
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
         self.assertEqual(response.status_code, 200)
 
         response = c.census(aeid, test_data.census_email_default)
@@ -239,7 +239,7 @@ class ApiTestHtmlEmail(TestCase):
 
         aeid = ae.pk
 
-        self.test_add_census_authevent_email_default(aeid) # Add census
+        self.add_census(aeid) # Add census
         correct_tpl = {
             "subject": "Vote",
             "msg": "this is an example __CODE__ and __URL__",
@@ -254,8 +254,9 @@ class ApiTestHtmlEmail(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(MsgLog.objects.count(), 4)
         msg_log = MsgLog.objects.all().last().msg
-        self.assertEqual(msg_log.get('subject'), 'Confirm your email - Sequent')
+        self.assertEqual(msg_log.get('subject'),  ae.auth_method_config['config'].get('subject') + ' - Sequent')
         self.assertTrue(msg_log.get('msg').count(' -- Sequent https://sequentech.io'))
+        self.assertTrue(msg_log.get('html_message').count('and put this code'))
 
         response = c.post('/api/auth-event/%d/census/send_auth/' % aeid, correct_tpl)
         self.assertEqual(response.status_code, 200)
@@ -263,6 +264,7 @@ class ApiTestHtmlEmail(TestCase):
         msg_log = MsgLog.objects.all().last().msg
         self.assertEqual(msg_log.get('subject'), correct_tpl.get('subject') + ' - Sequent')
         self.assertTrue(msg_log.get('msg').count('this is an example'))
+        self.assertTrue(msg_log.get('html_message').count('this is an example'))
 
         response = c.post('/api/auth-event/%d/census/send_auth/' % aeid, incorrect_tpl)
         self.assertEqual(response.status_code, 400)
