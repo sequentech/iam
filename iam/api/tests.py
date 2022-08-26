@@ -179,6 +179,51 @@ class TestHmacToken(TestCase):
             self.assertEqual(token.userid, case['userid'])
             self.assertEqual(token.other_values, case['other_values'])
 
+class ApiTestHtmlEmail(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        self.aeid_special = 1
+        u = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u.set_password(test_data.admin['password'])
+        u.save()
+        u.userdata.event = AuthEvent.objects.get(pk=1)
+        u.userdata.save()
+        self.user = u
+
+        self.admin_auth_data = dict(
+            email=test_data.admin['email'],
+            code="ERGERG")
+        c = Code(
+            user=self.user.userdata,
+            code=self.admin_auth_data['code'],
+            auth_event_id=self.aeid_special)
+        c.save()
+
+        u2 = User(username='noperm', email="noperm@sequentech.io")
+        u2.set_password("qwerty")
+        u2.save()
+        u2.userdata.save()
+
+        self.aeid_special = 1
+
+    def create_authevent(self, authevent):
+        c = JClient()
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+        return c.post('/api/auth-event/', authevent)
+
+    def test_create_authevent_html_email(self):
+        acl = ACL(user=self.user.userdata, object_type='AuthEvent', perm='create',
+                object_id=0)
+        acl.save()
+        # test 1
+        data = test_data.ae_email_config_html
+        response = self.create_authevent(data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(AuthEvent.objects.last().auth_method_config['config']['html_message'], data['auth_method_config']['html_message'])
+
 class ApiTestCreateNotReal(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
