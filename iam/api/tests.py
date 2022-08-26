@@ -214,6 +214,18 @@ class ApiTestHtmlEmail(TestCase):
         self.assertEqual(response.status_code, 200)
         return c.post('/api/auth-event/', authevent)
 
+    def test_add_census_authevent_email_default(self):
+        c = JClient()
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
+        response = c.census(self.aeid, test_data.census_email_default)
+        self.assertEqual(response.status_code, 200)
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(len(r['object_list']), 4)
+
     def test_create_authevent_html_email(self):
         acl = ACL(user=self.user.userdata, object_type='AuthEvent', perm='create',
                 object_id=0)
@@ -222,7 +234,39 @@ class ApiTestHtmlEmail(TestCase):
         data = test_data.ae_email_config_html
         response = self.create_authevent(data)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AuthEvent.objects.last().auth_method_config['config']['html_message'], data['auth_method_config']['html_message'])
+        ae = AuthEvent.objects.last()
+        self.assertEqual(ae.auth_method_config['config']['html_message'], data['auth_method_config']['html_message'])
+
+        self.ae = ae
+        self.aeid = ae.pk
+
+        self.test_add_census_authevent_email_default() # Add census
+        correct_tpl = {
+            "subject": "Vote",
+            "msg": "this is an example __CODE__ and __URL__",
+            "html_message": "<html><head></head><body>this is an example __CODE__ and __URL__</body></html>"
+        }
+        incorrect_tpl = {"msg": 10001*"a"}
+
+        c = JClient()
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(MsgLog.objects.count(), 4)
+        msg_log = MsgLog.objects.all().last().msg
+        self.assertEqual(msg_log.get('subject'), 'Confirm your email - Sequent')
+        self.assertTrue(msg_log.get('msg').count(' -- Sequent https://sequentech.io'))
+
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, correct_tpl)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(MsgLog.objects.count(), 4*2)
+        msg_log = MsgLog.objects.all().last().msg
+        self.assertEqual(msg_log.get('subject'), correct_tpl.get('subject') + ' - Sequent')
+        self.assertTrue(msg_log.get('msg').count('this is an example'))
+
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, incorrect_tpl)
+        self.assertEqual(response.status_code, 400)
 
 class ApiTestCreateNotReal(TestCase):
     def setUpTestData():
