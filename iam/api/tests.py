@@ -230,13 +230,14 @@ class ApiTestHtmlEmail(TestCase):
         acl = ACL(user=self.user.userdata, object_type='AuthEvent', perm='create',
                 object_id=0)
         acl.save()
-        # test 1
+        # create election with html_message set
         data = test_data.ae_email_config_html
         response = self.create_authevent(data)
         self.assertEqual(response.status_code, 200)
         ae = AuthEvent.objects.last()
         self.assertEqual(ae.auth_method_config['config']['html_message'], data['auth_method_config']['html_message'])
 
+        # create election without html_message set and check it still works
         response = self.create_authevent(test_data.ae_email_config)
         self.assertEqual(response.status_code, 200)
         ae2 = AuthEvent.objects.last()
@@ -252,6 +253,11 @@ class ApiTestHtmlEmail(TestCase):
             "html_message": "<html><head></head><body>this is an example __CODE__ and __URL__</body></html>"
         }
         incorrect_tpl = {"msg": 10001*"a"}
+        incorrect_tpl2 = {
+            "subject": "Vote",
+            "msg": "this is an example __CODE__ and __URL__",
+            "html_message": 10001*"a"
+        }
 
         c = JClient()
         response = c.authenticate(self.aeid_special, self.admin_auth_data)
@@ -274,6 +280,52 @@ class ApiTestHtmlEmail(TestCase):
 
         response = c.post('/api/auth-event/%d/census/send_auth/' % aeid, incorrect_tpl)
         self.assertEqual(response.status_code, 400)
+
+        response = c.post('/api/auth-event/%d/census/send_auth/' % aeid, incorrect_tpl2)
+        self.assertEqual(response.status_code, 400)
+
+    def test_no_html_message_with_disabled_settings(self):
+        settings.ALLOW_HTML_EMAILS = False
+
+        acl = ACL(user=self.user.userdata, object_type='AuthEvent', perm='create',
+                object_id=0)
+        acl.save()
+        # create election with html_message set
+        data = test_data.ae_email_config_html
+        response = self.create_authevent(data)
+        self.assertEqual(response.status_code, 200)
+        ae = AuthEvent.objects.last()
+        self.assertEqual(ae.auth_method_config['config']['html_message'], data['auth_method_config']['html_message'])
+
+        aeid = ae.pk
+
+        self.add_census(aeid) # Add census
+        correct_tpl = {
+            "subject": "Vote",
+            "msg": "this is an example __CODE__ and __URL__",
+            "html_message": "<html><head></head><body>this is an example __CODE__ and __URL__</body></html>"
+        }
+
+        c = JClient()
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+        response = c.post('/api/auth-event/%d/census/send_auth/' % aeid, {})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(MsgLog.objects.count(), 4)
+        msg_log = MsgLog.objects.all().last().msg
+        self.assertEqual(msg_log.get('subject'),  ae.auth_method_config['config'].get('subject') + ' - Sequent')
+        self.assertTrue(msg_log.get('msg').count(' -- Sequent https://sequentech.io'))
+        self.assertTrue(msg_log.get('html_message') is None)
+
+        response = c.post('/api/auth-event/%d/census/send_auth/' % aeid, correct_tpl)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(MsgLog.objects.count(), 4*2)
+        msg_log = MsgLog.objects.all().last().msg
+        self.assertEqual(msg_log.get('subject'), correct_tpl.get('subject') + ' - Sequent')
+        self.assertTrue(msg_log.get('msg').count('this is an example'))
+        self.assertTrue(msg_log.get('html_message') is None)
+
+        settings.ALLOW_HTML_EMAILS = True
 
 class ApiTestCreateNotReal(TestCase):
     def setUpTestData():
