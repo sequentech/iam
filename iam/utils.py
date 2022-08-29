@@ -430,7 +430,7 @@ def send_email_code(
     auth_event = user.userdata.event
     message_body = templates['message_body']
     message_subject= templates['message_subject']
-    message_html = templates['message_html']
+    message_html = templates.get('message_html')
 
     base_home_url = settings.HOME_URL
     home_url = template_replace_data(
