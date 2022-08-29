@@ -33,7 +33,7 @@ from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
-from django.core.mail import send_mail, EmailMessage
+from django.core.mail import send_mail, EmailMessage, EmailMultiAlternatives
 from django.core.paginator import Paginator
 from django.conf import settings
 from django.http import HttpResponse
@@ -445,9 +445,11 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None, save_
         conf = user.userdata.event.auth_method_config.get('config')
         msg = conf.get('msg')
         subject = conf.get('subject')
+        message_html = conf.get('message_html')
     else:
         msg = config.get('msg')
         subject = config.get('subject')
+        message_html = config.get('message_html')
 
     # only generate the code if required
     needs_code = "__URL2__" in msg or "__CODE__" in msg
@@ -506,6 +508,9 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None, save_
     if subject and "sms" != auth_method:
         raw_title = template_replace_data(base_title, dict(title=subject))
         subject = template_replace_data(raw_title, template_dict)
+    
+    if message_html and "sms" != auth_method:
+        message_html = template_replace_data(message_html, template_dict)
 
     # msg is the message sent by the user
     raw_msg = template_replace_data(base_msg, dict(message=msg))
@@ -513,7 +518,7 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None, save_
 
     code_msg = {'subject': subject, 'msg': msg}
 
-    cm = MsgLog(authevent_id=event_id, receiver=receiver, msg=code_msg)
+    cm = MsgLog(authevent_id=event_id, receiver=receiver, msg=code_msg, message_html=message_html)
     cm.save()
 
     if auth_method in ["sms", "sms-otp"]:
@@ -541,13 +546,15 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None, save_
         if acl:
             headers['Reply-To'] = acl.user.user.email
 
-        email = EmailMessage(
+        email = EmailMultiAlternatives(
             subject,
             msg,
             settings.DEFAULT_FROM_EMAIL,
             [receiver],
             headers=headers,
         )
+        if message_html:
+            email.attach_alternative(message_html, 'text/html')
         send_email(email)
         if save_message:
           m = Message(tlf=receiver[:20], ip=ip[:15], auth_event_id=event_id)
@@ -559,6 +566,151 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None, save_
             user.email:
             send_code(user, ip, config, 'sms', code, save_message=False)
 
+<<<<<<< HEAD
+=======
+    # If the override is not set, then for sure add the sending path related
+    # to the specific auth-method of the election, if any
+    if (
+        (
+            (
+                auth_method_override is None and
+                auth_method in ['sms', 'sms-otp']
+            ) or
+            auth_method_override in ['sms', 'sms-otp']
+        ) and
+        user.userdata.tlf is not None and
+        len(user.userdata.tlf) > 0
+    ):
+        sending_paths\
+            .append(dict(
+                receiver=user.userdata.tlf,
+                method="sms",
+                templates=dict(
+                    message_body=base_config.get('msg'),
+                    message_subject=base_config.get('subject')
+                ),
+            ))
+    if (
+        (
+            (
+                auth_method_override is None and
+                auth_method in ['email', 'email-otp']
+            ) or
+            auth_method_override in ['email', 'email-otp']
+        ) and
+        user.email is not None and
+        len(user.email) > 0
+    ):
+        sending_paths\
+            .append(dict(
+                receiver=user.email,
+                method="email",
+                templates=dict(
+                    message_body=base_config.get('msg'),
+                    message_html=base_config.get('html_message'),
+                    message_subject=base_config.get('subject')
+                )
+            ))
+
+    # add a sending path for each related otp-field for which the user has a
+    # corresponding usable extra_field
+    if auth_method_override is None:
+        otp_fields = []
+        for extra_field in auth_event.extra_fields:
+            if extra_field['type'] != 'otp-code':
+                continue
+            otp_field_error, otp_field = parse_otp_code_field(
+                auth_event.extra_fields,
+                extra_field
+            )
+            if otp_field_error is not None:
+                LOGGER.error(
+                    f"send_code error\n" +
+                    "Error running parse_otp_code_field\n" +
+                    f"authevent '{auth_event}'\n" +
+                    f"extra_field '{extra_field}'\n" +
+                    f"Stack trace: \n{stack_trace_str()}"
+                )
+                return
+            otp_fields.append(otp_field)
+
+        for otp_field in otp_fields:
+            field_type = otp_field['source_field_type']
+            field_name = otp_field['source_field']['name']
+            otp_base_config =(
+                dict()
+                if config is None
+                else config
+            )
+            templates = {
+                **otp_field['otp_field']['templates'],
+                **otp_base_config
+            }
+            if field_type == 'tlf':
+                if (
+                    field_name == 'tlf' and
+                    isinstance(user.userdata.tlf, str) and
+                    len(user.userdata.tlf) > 0
+                ):
+                    tlf = user.userdata.tlf
+                elif (
+                    field_name in user.userdata.metadata and
+                    isinstance(user.userdata.metadata[field_name], str) and
+                    len(user.userdata.metadata[field_name]) > 0
+                ):
+                    tlf = user.userdata.metadata[field_name]
+                else:
+                    continue
+
+                sending_paths\
+                    .append(dict(
+                        receiver=tlf,
+                        method="sms",
+                        templates=templates
+                    ))
+            elif field_type == 'email':
+                if (
+                    field_name == 'email' and
+                    isinstance(user.email, str) and
+                    len(user.email) > 0
+                ):
+                    email = user.email
+                elif (
+                    field_name in user.userdata.metadata and
+                    isinstance(user.userdata.metadata[field_name], str) and
+                    len(user.userdata.metadata[field_name]) > 0
+                ):
+                    email = user.userdata.metadata[field_name]
+                else:
+                    continue
+
+                sending_paths\
+                    .append(dict(
+                        receiver=email,
+                        method="email",
+                        templates=templates
+                    ))
+
+    # iterate within all the sending paths, and send messages through them
+    for sending_path in sending_paths:
+        method = sending_path['method']
+        if method == 'sms':
+            send_sms_code(
+                user=user,
+                tlf_number=sending_path['receiver'],
+                ip_address=ip_address,
+                templates=sending_path['templates'],
+                code=code
+            )
+        elif method == 'email':
+            send_email_code(
+                user=user,
+                email_address=sending_path['receiver'],
+                ip_address=ip_address,
+                templates=sending_path['templates'],
+                code=code
+            )
+>>>>>>> e9e980f (Support HTML format when sending email auth-codes (#233))
 
 def send_msg(data, msg, subject=''):
     if 'tlf' in data:
