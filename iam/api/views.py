@@ -1568,10 +1568,11 @@ class AuthEventView(View):
             if msg:
                 return json_response(status=400, message=msg)
 
-            auth_method_config = {
+            from copy import deepcopy
+            auth_method_config = deepcopy({
                     "config": METHODS.get(auth_method).CONFIG,
                     "pipeline": METHODS.get(auth_method).PIPELINES
-            }
+            })
             config = req.get('auth_method_config', None)
             if config:
                 msg += check_config(config, auth_method)

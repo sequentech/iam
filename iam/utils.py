@@ -33,7 +33,7 @@ from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
-from django.core.mail import send_mail, EmailMessage
+from django.core.mail import send_mail, EmailMessage, EmailMultiAlternatives
 from django.core.paginator import Paginator
 from django.conf import settings
 from django.http import HttpResponse
@@ -430,6 +430,7 @@ def send_email_code(
     auth_event = user.userdata.event
     message_body = templates['message_body']
     message_subject= templates['message_subject']
+    message_html = templates.get('message_html')
 
     base_home_url = settings.HOME_URL
     home_url = template_replace_data(
@@ -488,13 +489,23 @@ def send_email_code(
         template_dict
     )
 
+    message_html = message_html if settings.ALLOW_HTML_EMAILS else None
+
+    if message_html:
+        message_html = template_replace_data(
+            message_html,
+            template_dict
+        )
+
+
     # store the message log in the DB
     db_message_log = MsgLog(
         authevent_id=auth_event.id,
         receiver=receiver,
         msg=dict(
             subject=message_subject,
-            msg=message_body
+            msg=message_body,
+            html_message=message_html
         )
     )
     db_message_log.save()
@@ -512,15 +523,17 @@ def send_email_code(
     if acl:
         headers['Reply-To'] = acl.user.user.email
 
-    # TODO: Allow HTML messages for emails
-    email = EmailMessage(
+    email = EmailMultiAlternatives(
         message_subject,
         message_body,
         settings.DEFAULT_FROM_EMAIL,
         [receiver],
         headers=headers,
     )
+    if message_html:
+        email.attach_alternative(message_html, 'text/html')
     send_email(email)
+    
     db_message = Message(
         tlf=receiver[:20],
         ip=ip_address[:15],
@@ -693,6 +706,7 @@ def send_code(
                 method="email",
                 templates=dict(
                     message_body=base_config.get('msg'),
+                    message_html=base_config.get('html_message'),
                     message_subject=base_config.get('subject')
                 )
             ))

@@ -154,6 +154,21 @@ class Sms:
       },
       {
         'check': 'index-check-list',
+        'index': 'html_message',
+        'optional': True,
+        'check-list': [
+          {
+            'check': 'isinstance',
+            'type': str
+          },
+          {
+            'check': 'length',
+            'range': [1, 5000]
+          }
+        ]
+      },
+      {
+        'check': 'index-check-list',
         'index': 'registration-action',
         'check-list': [
           {
