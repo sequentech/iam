@@ -166,7 +166,15 @@ def check_index_check_list(contract, data):
           {"index": 1, "check-list": [{"check:" "isinstance", "type": str}]},
           ["a", 1, 5.6])
     '''
-    check_list(contract['check-list'], data[contract['index']])
+    index = contract['index']
+    if not contract.get('optional') and index not in data:
+            raise CheckException(
+                key="index-not-found",
+                context={
+                    "contract":contract,
+                    "data":data})
+    if index in data:
+        check_list(contract['check-list'], data[index])
 
 def check_dict_keys_exist(contract, data):
     '''

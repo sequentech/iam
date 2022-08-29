@@ -1566,10 +1566,11 @@ class AuthEventView(View):
             if msg:
                 return json_response(status=400, message=msg)
 
-            auth_method_config = {
+            from copy import deepcopy
+            auth_method_config = deepcopy({
                     "config": METHODS.get(auth_method).CONFIG,
                     "pipeline": METHODS.get(auth_method).PIPELINES
-            }
+            })
             config = req.get('auth_method_config', None)
             if config:
                 msg += check_config(config, auth_method)
@@ -2161,6 +2162,8 @@ class CensusSendAuth(View):
             config = {}
             if req.get('msg', ''):
                 config['msg'] = req.get('msg', '')
+            if req.get('html_message', None):
+                config['html_message'] = req.get('html_message', '')
             if req.get('subject', ''):
                 config['subject'] = req.get('subject', '')
         else:
@@ -2178,6 +2181,12 @@ class CensusSendAuth(View):
 
         if config.get('msg', None) is not None:
             if type(config.get('msg', '')) != str or len(config.get('msg', '')) > settings.MAX_AUTH_MSG_SIZE[e.auth_method]:
+                return json_response(
+                    status=400,
+                    error_codename=ErrorCodes.BAD_REQUEST)
+
+        if config.get('html_message', None) is not None:
+            if type(config.get('html_message', '')) != str or len(config.get('html_message', '')) > settings.MAX_AUTH_MSG_SIZE[e.auth_method]:
                 return json_response(
                     status=400,
                     error_codename=ErrorCodes.BAD_REQUEST)
