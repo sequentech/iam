@@ -237,6 +237,12 @@ class ApiTestHtmlEmail(TestCase):
         ae = AuthEvent.objects.last()
         self.assertEqual(ae.auth_method_config['config']['html_message'], data['auth_method_config']['html_message'])
 
+        response = self.create_authevent(test_data.ae_email_config)
+        self.assertEqual(response.status_code, 200)
+        ae2 = AuthEvent.objects.last()
+        self.assertFalse(ae2.id == ae.id)     
+        self.assertFalse('html_message' in ae2.auth_method_config['config'])        
+
         aeid = ae.pk
 
         self.add_census(aeid) # Add census
