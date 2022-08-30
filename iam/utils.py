@@ -516,9 +516,9 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None, save_
     raw_msg = template_replace_data(base_msg, dict(message=msg))
     msg = template_replace_data(raw_msg, template_dict)
 
-    code_msg = {'subject': subject, 'msg': msg}
+    code_msg = {'subject': subject, 'msg': msg, 'message_html':message_html}
 
-    cm = MsgLog(authevent_id=event_id, receiver=receiver, msg=code_msg, message_html=message_html)
+    cm = MsgLog(authevent_id=event_id, receiver=receiver, msg=code_msg)
     cm.save()
 
     if auth_method in ["sms", "sms-otp"]:
