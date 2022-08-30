@@ -445,11 +445,11 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None, save_
         conf = user.userdata.event.auth_method_config.get('config')
         msg = conf.get('msg')
         subject = conf.get('subject')
-        message_html = conf.get('message_html')
+        message_html = conf.get('html_message') if settings.ALLOW_HTML_EMAILS else None
     else:
         msg = config.get('msg')
         subject = config.get('subject')
-        message_html = config.get('message_html')
+        message_html = config.get('html_message') if settings.ALLOW_HTML_EMAILS else None
 
     # only generate the code if required
     needs_code = "__URL2__" in msg or "__CODE__" in msg
@@ -516,7 +516,7 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None, save_
     raw_msg = template_replace_data(base_msg, dict(message=msg))
     msg = template_replace_data(raw_msg, template_dict)
 
-    code_msg = {'subject': subject, 'msg': msg, 'message_html':message_html}
+    code_msg = {'subject': subject, 'msg': msg, 'html_message': message_html}
 
     cm = MsgLog(authevent_id=event_id, receiver=receiver, msg=code_msg)
     cm.save()
