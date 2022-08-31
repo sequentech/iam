@@ -1058,6 +1058,23 @@ ae_email_config.update( {
     }
 })
 
+ae_email_config_html = ae_email_default.copy()
+ae_email_config_html.update( {
+    "auth_method_config": {
+        "authentication-action":{
+            "mode":"vote",
+            "mode-config": None
+        },
+        "registration-action":{
+            "mode":"vote",
+            "mode-config":None
+        },
+        "subject": "Vote",
+        "msg": "Enter in __URL__ and put this code __CODE__",
+        "html_message": "<html><head></head><body>HTML Click __URL__ and put this code __CODE__</body></html>",
+    }
+})
+
 ae_email_config_incorrect1 = ae_email_config.copy()
 ae_email_config_incorrect1.update({"config": {"aaaaaa": "bbbb"}})
 

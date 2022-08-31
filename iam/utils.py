@@ -33,7 +33,7 @@ from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
-from django.core.mail import send_mail, EmailMessage
+from django.core.mail import send_mail, EmailMessage, EmailMultiAlternatives
 from django.core.paginator import Paginator
 from django.conf import settings
 from django.http import HttpResponse
@@ -445,9 +445,11 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None, save_
         conf = user.userdata.event.auth_method_config.get('config')
         msg = conf.get('msg')
         subject = conf.get('subject')
+        message_html = conf.get('html_message') if settings.ALLOW_HTML_EMAILS else None
     else:
         msg = config.get('msg')
         subject = config.get('subject')
+        message_html = config.get('html_message') if settings.ALLOW_HTML_EMAILS else None
 
     # only generate the code if required
     needs_code = "__URL2__" in msg or "__CODE__" in msg
@@ -506,12 +508,15 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None, save_
     if subject and "sms" != auth_method:
         raw_title = template_replace_data(base_title, dict(title=subject))
         subject = template_replace_data(raw_title, template_dict)
+    
+    if message_html and "sms" != auth_method:
+        message_html = template_replace_data(message_html, template_dict)
 
     # msg is the message sent by the user
     raw_msg = template_replace_data(base_msg, dict(message=msg))
     msg = template_replace_data(raw_msg, template_dict)
 
-    code_msg = {'subject': subject, 'msg': msg}
+    code_msg = {'subject': subject, 'msg': msg, 'html_message': message_html}
 
     cm = MsgLog(authevent_id=event_id, receiver=receiver, msg=code_msg)
     cm.save()
@@ -541,13 +546,15 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None, save_
         if acl:
             headers['Reply-To'] = acl.user.user.email
 
-        email = EmailMessage(
+        email = EmailMultiAlternatives(
             subject,
             msg,
             settings.DEFAULT_FROM_EMAIL,
             [receiver],
             headers=headers,
         )
+        if message_html:
+            email.attach_alternative(message_html, 'text/html')
         send_email(email)
         if save_message:
           m = Message(tlf=receiver[:20], ip=ip[:15], auth_event_id=event_id)
