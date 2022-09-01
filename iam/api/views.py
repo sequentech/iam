@@ -2166,6 +2166,8 @@ class CensusSendAuth(View):
                 config['html_message'] = req.get('html_message', '')
             if req.get('subject', ''):
                 config['subject'] = req.get('subject', '')
+            if req.get('filter', None):
+                config['filter'] = req.get('filter', None)
         else:
             send_error = census_send_auth_task(
                 pk,
@@ -2187,6 +2189,12 @@ class CensusSendAuth(View):
 
         if config.get('html_message', None) is not None:
             if type(config.get('html_message', '')) != str or len(config.get('html_message', '')) > settings.MAX_AUTH_MSG_SIZE[e.auth_method]:
+                return json_response(
+                    status=400,
+                    error_codename=ErrorCodes.BAD_REQUEST)
+
+        if config.get('filter', None) is not None:
+            if type(config.get('filter', None)) != str or config.get('filter', None) not in ['voted', 'not_voted']:
                 return json_response(
                     status=400,
                     error_codename=ErrorCodes.BAD_REQUEST)
