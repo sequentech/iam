@@ -1314,7 +1314,7 @@ class TestExtraFields(TestCase):
         response = c.census(self.ae.pk, test_data.census_date_field_nok)
         self.assertEqual(response.status_code, 400)
 
-class TestFilterSendAuth(TestCase):
+class TestFilterSendAuthEmail(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
 
@@ -1509,19 +1509,21 @@ class TestFilterSendAuth(TestCase):
 
         data = test_data.send_auth_filter_fields.copy()
 
+        # send message to all those that have voted
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, data)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(MsgLog.objects.count(), 1)
         msg_log = MsgLog.objects.all().last().msg
-        self.assertEqual(msg_log.get('subject'), data.get('subject'))
+        self.assertEqual(msg_log.get('subject'), 'Test Vote now with Sequent Tech Inc. - Sequent')
 
         data['filter'] = 'not_voted'
 
+        # send message to those that haven't voted yet
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, data)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(MsgLog.objects.count(), 4)
         msg_log = MsgLog.objects.all().last().msg
-        self.assertEqual(msg_log.get('subject'), data.get('subject'))
+        self.assertEqual(msg_log.get('subject'), 'Test Vote now with Sequent Tech Inc. - Sequent')
 
 
 class TestRegisterAndAuthenticateEmail(TestCase):
