@@ -848,12 +848,19 @@ auth_sms_fields = {
         "code": "123456"
 }
 
-send_auth_filter_fields = {
+send_auth_email_filter_fields = {
     "msg": "Vote in __URL__ with code __CODE__",
     "subject": "Test Vote now with Sequent Tech Inc.",
     "user-ids": None,
     "auth-method": "email",
     "filter": "voted"
+}
+
+send_auth_sms_filter_fields = {
+    "msg": "Vote in __URL__ with code __CODE__",
+    "user-ids": None,
+    "auth-method": "sms",
+    "filter":" voted"
 }
 
 # Authmethod config
