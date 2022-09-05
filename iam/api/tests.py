@@ -1399,7 +1399,78 @@ class TestFilterSendAuth(TestCase):
         vote.save()
         return vote
 
-    def add_census_authevent_email_default(self):
+    @override_settings(CELERY_ALWAYS_EAGER=True)
+    def test_register_and_resend_code(self):
+        c = JClient()
+        response = c.register(self.aeid, test_data.register_email_default)
+        self.assertEqual(response.status_code, 200)
+
+        data = test_data.auth_email_default.copy()
+        # bad: self.aeid.census = close
+        self.ae.census = 'close'
+        self.ae.save()
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        r = parse_json_response(response)
+        self.assertEqual(r['error_codename'], 'AUTH_EVENT_NOT_STARTED')
+
+        # good: self.aeid.census = close but allow_user_resend = True
+        self.ae.auth_method_config['config']['allow_user_resend'] = True
+        self.ae.save()
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
+        r = parse_json_response(response)
+        self.assertEqual(response.status_code, 200)
+
+        # bad: self.aeid.census = open and status != started
+        self.ae.auth_method_config['config']['allow_user_resend'] = False
+        self.ae.census = 'open'
+        self.ae.status = 'stopped'
+        self.ae.save()
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        r = parse_json_response(response)
+        self.assertEqual(r['error_codename'], 'AUTH_EVENT_NOT_STARTED')
+
+        # bad: invalid credentials
+        self.ae.status = 'started'
+        self.ae.save()
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, {})
+        self.assertEqual(response.status_code, 400)
+        r = parse_json_response(response)
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
+
+        # bad: problem user inactive
+        self.u.user.is_active = False
+        self.u.user.save()
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+        r = parse_json_response(response)
+        self.assertEqual(r['error_codename'], 'invalid_credentials')
+
+        # good
+        self.u.user.is_active = True
+        self.u.user.save()
+        code = get_user_code(self.u.user)
+
+        credentials = dict(
+            email=self.u.user.email,
+            code=code.code
+        )
+
+        response = c.authenticate(self.aeid, credentials)
+        self.assertEqual(response.status_code, 200)
+
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
+        r = parse_json_response(response)
+        self.assertEqual(response.status_code, 200)
+
+        # good
+        self.ae.auth_method_config['config']['allow_user_resend'] = True
+        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
+        r = parse_json_response(response)
+        self.assertEqual(response.status_code, 200)
+
+    def test_add_census_authevent_email_default(self):
         c = JClient()
         response = c.authenticate(self.aeid, test_data.auth_email_default)
         self.assertEqual(response.status_code, 200)
@@ -1411,8 +1482,8 @@ class TestFilterSendAuth(TestCase):
         r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 4)
 
-    @override_settings(CELERY_ALWAYS_EAGER=True)
-    def test_register_and_resend_code(self):
+    #@override_settings(CELERY_ALWAYS_EAGER=True)
+    def FOO_test_register_and_resend_code(self):
         c = JClient()
         response = c.authenticate(self.aeid, test_data.auth_email_default)
         self.assertEqual(response.status_code, 200)
