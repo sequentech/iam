@@ -1451,6 +1451,12 @@ class TestFilterSendAuthEmail(TestCase):
         msg_log = MsgLog.objects.all().last().msg
         self.assertEqual(msg_log.get('subject'), 'Test Vote now with Sequent Tech Inc. - Sequent')
 
+        data['filter'] = 'error'
+
+        # send message to those that haven't voted yet
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+
 class TestFilterSendAuthSms(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
@@ -1550,6 +1556,12 @@ class TestFilterSendAuthSms(TestCase):
         self.assertEqual(MsgLog.objects.count(), 4)
         msg_log = MsgLog.objects.all().last().msg
         self.assertEqual(msg_log.get('msg'), 'Test Vote now with Sequent Tech Inc. -- Sequent')
+
+        data['filter'] = 'error'
+
+        # send message to those that haven't voted yet
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, data)
+        self.assertEqual(response.status_code, 400)
 
 class TestRegisterAndAuthenticateEmail(TestCase):
     def setUpTestData():
