@@ -1349,23 +1349,23 @@ class TestFilterSendAuth(TestCase):
         self.uid_admin = u_admin.id
 
         acl = ACL(
-            user=u_admin.userdata,
+            user=u_admin.userdata, 
             object_type='AuthEvent',
             perm='edit',
             object_id=self.aeid
         )
         acl.save()
-        self.add_census_authevent_email_default()
 
-        u = self.new_user('test', test_data.auth_email_default['email'], ae)
-        # register vote
-        self.add_vote(u, datetime(2010, 10, 10, 0, 30, 30, 0, None), ae)
+        u = User(username='test', email=test_data.auth_email_default['email'])
+        u.save()
+        u.userdata.event = ae
+        u.userdata.save()
         self.u = u.userdata
         self.uid = u.id
 
         acl = ACL(
             user=u.userdata,
-            object_type='AuthEvent',
+            object_type='AuthEvent', 
             perm='edit',
             object_id=self.aeid
         )
