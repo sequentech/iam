@@ -1379,10 +1379,23 @@ class TestFilterSendAuth(TestCase):
         c.save()
         self.code = c
 
+    def add_census_authevent_email_default(self):
+        c = JClient()
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
+        response = c.census(self.aeid, test_data.census_email_default)
+        self.assertEqual(response.status_code, 200)
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(len(r['object_list']), 4)
+
     @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_register_and_resend_code(self):
+        self.add_census_authevent_email_default()
         c = JClient()
-        response = c.register(self.aeid, test_data.register_email_default)
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
         self.assertEqual(response.status_code, 200)
 
         data = test_data.send_auth_filter_fields.copy()
