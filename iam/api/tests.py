@@ -1355,11 +1355,11 @@ class TestFilterSendAuth(TestCase):
             object_id=self.aeid
         )
         acl.save()
+        self.add_census_authevent_email_default()
 
-        u = User(username='test', email=test_data.auth_email_default['email'])
-        u.save()
-        u.userdata.event = ae
-        u.userdata.save()
+        u = self.new_user('test', test_data.auth_email_default['email'], ae)
+        # register vote
+        self.add_vote(u, datetime(2010, 10, 10, 0, 30, 30, 0, None), ae)
         self.u = u.userdata
         self.uid = u.id
 
@@ -1379,6 +1379,26 @@ class TestFilterSendAuth(TestCase):
         c.save()
         self.code = c
 
+    def new_user(self, name, email, auth_event):
+        user = User(
+            username=name, 
+            email=email
+        )
+        user.save()
+        user.userdata.event = auth_event
+        user.userdata.save()
+        return user
+
+    def add_vote(self, user, date, auth_event):
+        vote = SuccessfulLogin(
+            created=date,
+            user=user.userdata,
+            auth_event=auth_event,
+            is_active=True
+        )
+        vote.save()
+        return vote
+
     def add_census_authevent_email_default(self):
         c = JClient()
         response = c.authenticate(self.aeid, test_data.auth_email_default)
@@ -1393,12 +1413,19 @@ class TestFilterSendAuth(TestCase):
 
     @override_settings(CELERY_ALWAYS_EAGER=True)
     def test_register_and_resend_code(self):
-        self.add_census_authevent_email_default()
         c = JClient()
         response = c.authenticate(self.aeid, test_data.auth_email_default)
         self.assertEqual(response.status_code, 200)
 
         data = test_data.send_auth_filter_fields.copy()
+
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(MsgLog.objects.count(), 1)
+        msg_log = MsgLog.objects.all().last().msg
+        self.assertEqual(msg_log.get('subject'), data.get('subject'))
+
+        data['filter'] = 'not_voted'
 
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, data)
         self.assertEqual(response.status_code, 200)
