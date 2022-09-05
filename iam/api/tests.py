@@ -1314,6 +1314,85 @@ class TestExtraFields(TestCase):
         response = c.census(self.ae.pk, test_data.census_date_field_nok)
         self.assertEqual(response.status_code, 400)
 
+class TestFilterSendAuth(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+
+    def setUp(self):
+        ae = AuthEvent(
+            auth_method="email",
+            auth_method_config=test_data.authmethod_config_email_default,
+            extra_fields=test_data.ae_email_default['extra_fields'],
+            status='started',
+            census="open"
+        )
+        ae.save()
+        self.ae = ae
+        self.aeid = ae.pk
+
+        u_admin = User(
+            username=test_data.admin['username'],
+            email=test_data.admin['email']
+        )
+        u_admin.set_password(test_data.admin['password'])
+        u_admin.save()
+        u_admin.userdata.event = ae
+        u_admin.userdata.save()
+        self.uid_admin = u_admin.id
+
+        acl = ACL(
+            user=u_admin.userdata,
+            object_type='AuthEvent',
+            perm='edit',
+            object_id=self.aeid
+        )
+        acl.save()
+
+        u = User(username='test', email=test_data.auth_email_default['email'])
+        u.save()
+        u.userdata.event = ae
+        u.userdata.save()
+        self.u = u.userdata
+        self.uid = u.id
+
+        acl = ACL(
+            user=u.userdata,
+            object_type='AuthEvent',
+            perm='edit',
+            object_id=self.aeid
+        )
+        acl.save()
+
+        c = Code(
+            user=u.userdata,
+            code=test_data.auth_email_default['code'],
+            auth_event_id=ae.pk
+        )
+        c.save()
+        self.code = c
+
+    @override_settings(CELERY_ALWAYS_EAGER=True)
+    def test_register_and_resend_code(self):
+        c = JClient()
+        response = c.register(self.aeid, test_data.register_email_default)
+        self.assertEqual(response.status_code, 200)
+
+        data = test_data.send_auth_filter_fields.copy()
+
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(MsgLog.objects.count(), 4)
+        msg_log = MsgLog.objects.all().last().msg
+        self.assertEqual(msg_log.get('subject'), data.get('subject'))
+
 
 class TestRegisterAndAuthenticateEmail(TestCase):
     def setUpTestData():
