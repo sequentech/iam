@@ -1470,7 +1470,7 @@ class TestFilterSendAuth(TestCase):
         r = parse_json_response(response)
         self.assertEqual(response.status_code, 200)
 
-    def test_add_census_authevent_email_default(self):
+    def add_census_authevent_email_default(self):
         c = JClient()
         response = c.authenticate(self.aeid, test_data.auth_email_default)
         self.assertEqual(response.status_code, 200)
@@ -1481,9 +1481,28 @@ class TestFilterSendAuth(TestCase):
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
         self.assertEqual(len(r['object_list']), 4)
+        return r['object_list']
 
-    #@override_settings(CELERY_ALWAYS_EAGER=True)
-    def FOO_test_register_and_resend_code(self):
+    def add_vote(self, user, date, auth_event):
+        vote = SuccessfulLogin(
+            created=date,
+            user=user.userdata,
+            auth_event=auth_event
+        )
+        vote.save()
+        return vote
+
+    @override_settings(CELERY_ALWAYS_EAGER=True)
+    def test_register_and_resend_code(self):
+        # add census
+        users = self.add_census_authevent_email_default()
+
+        # add vote
+        user1 = User.objects.get(id=users[0]["id"])
+        date = datetime(2010, 10, 10, 0, 30, 30, 0, None)
+        self.add_vote(user1, date, self.ae)
+
+        # authenticate
         c = JClient()
         response = c.authenticate(self.aeid, test_data.auth_email_default)
         self.assertEqual(response.status_code, 200)
