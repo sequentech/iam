@@ -857,10 +857,10 @@ send_auth_email_filter_fields = {
 }
 
 send_auth_sms_filter_fields = {
-    "msg": "Vote in __URL__ with code __CODE__",
+    "msg": "Test Vote now with Sequent Tech Inc.",
     "user-ids": None,
     "auth-method": "sms",
-    "filter":" voted"
+    "filter": "voted"
 }
 
 # Authmethod config

@@ -1540,7 +1540,7 @@ class TestFilterSendAuthSms(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(MsgLog.objects.count(), 1)
         msg_log = MsgLog.objects.all().last().msg
-        self.assertEqual(msg_log.get('subject'), 'Test Vote now with Sequent Tech Inc. - Sequent')
+        self.assertEqual(msg_log.get('msg'), 'Test Vote now with Sequent Tech Inc. -- Sequent')
 
         data['filter'] = 'not_voted'
 
@@ -1549,7 +1549,7 @@ class TestFilterSendAuthSms(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(MsgLog.objects.count(), 4)
         msg_log = MsgLog.objects.all().last().msg
-        self.assertEqual(msg_log.get('subject'), 'Test Vote now with Sequent Tech Inc. - Sequent')
+        self.assertEqual(msg_log.get('msg'), 'Test Vote now with Sequent Tech Inc. -- Sequent')
 
 class TestRegisterAndAuthenticateEmail(TestCase):
     def setUpTestData():
