@@ -25,7 +25,7 @@ from jsonfield import JSONField
 
 from django.dispatch import receiver
 from django.db.models.signals import post_save
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.conf import settings
 from utils import genhmac
 from django.utils import timezone
@@ -372,6 +372,7 @@ class AuthEvent(models.Model):
             'auth_method': self.auth_method,
             'census': self.census,
             'users': self.len_census(),
+            'voted': self.len_voted_census(),
             'has_ballot_boxes': self.has_ballot_boxes,
             'tally_status': self.tally_status,
             'allow_public_census_query': self.allow_public_census_query,
@@ -510,6 +511,14 @@ class AuthEvent(models.Model):
 
     def len_census(self):
         return self.get_census_query().count()
+
+    def len_voted_census(self):
+        return self.get_census_query()\
+            .annotate(
+                logins=Count('user__successful_logins')
+            )\
+            .filter(logins__gt=0)\
+            .count()
 
     def autofill_fields(self, from_user=None, to_user=None):
         if not from_user or not to_user:
