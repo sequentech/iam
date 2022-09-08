@@ -603,6 +603,7 @@ class Authenticate(View):
                 AuthEvent,
                 pk=pk,
                 status__in=[
+                    AuthEvent.NOT_STARTED,
                     AuthEvent.STARTED,
                     AuthEvent.RESUMED
                 ]
