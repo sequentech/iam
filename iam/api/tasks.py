@@ -65,6 +65,20 @@ def census_send_auth_task(
     census = []
     if userids is None:
         new_census = ACL.objects.filter(perm="vote", object_type="AuthEvent", object_id=str(pk))
+        filter =  config.get('filter', None) if isinstance(config, dict) else None
+        if filter is not None:
+            if 'voted' == filter:
+                new_census = new_census\
+                    .annotate(
+                        logins=Count('user__successful_logins')
+                    )\
+                    .filter(logins__gt=0)
+            elif 'not_voted' == filter:
+                new_census = new_census\
+                    .annotate(
+                        logins=Count('user__successful_logins')
+                    )\
+                    .filter(logins__exact=0)
     else:
         users = User.objects.filter(id__in=userids)
         userdata = UserData.objects.filter(user__in=users)

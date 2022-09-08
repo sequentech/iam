@@ -1314,6 +1314,254 @@ class TestExtraFields(TestCase):
         response = c.census(self.ae.pk, test_data.census_date_field_nok)
         self.assertEqual(response.status_code, 400)
 
+class TestFilterSendAuthEmail(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+
+    def setUp(self):
+        ae = AuthEvent(
+            auth_method="email",
+            auth_method_config=test_data.authmethod_config_email_default,
+            extra_fields=test_data.ae_email_default['extra_fields'],
+            status='started',
+            census="open"
+        )
+        ae.save()
+        self.ae = ae
+        self.aeid = ae.pk
+
+        u_admin = User(
+            username=test_data.admin['username'],
+            email=test_data.admin['email']
+        )
+        u_admin.set_password(test_data.admin['password'])
+        u_admin.save()
+        u_admin.userdata.event = ae
+        u_admin.userdata.save()
+        self.uid_admin = u_admin.id
+
+        acl = ACL(
+            user=u_admin.userdata, 
+            object_type='AuthEvent',
+            perm='edit',
+            object_id=self.aeid
+        )
+        acl.save()
+
+        u = self.new_user('test', test_data.auth_email_default['email'], ae)
+        self.u = u.userdata
+        self.uid = u.id
+
+        acl = ACL(
+            user=u.userdata,
+            object_type='AuthEvent', 
+            perm='edit',
+            object_id=self.aeid
+        )
+        acl.save()
+
+        c = Code(
+            user=u.userdata,
+            code=test_data.auth_email_default['code'],
+            auth_event_id=ae.pk
+        )
+        c.save()
+        self.code = c
+
+    def new_user(self, name, email, auth_event):
+        user = User(
+            username=name, 
+            email=email
+        )
+        user.save()
+        user.userdata.event = auth_event
+        user.userdata.save()
+        return user
+
+    def add_vote(self, user, date, auth_event):
+        vote = SuccessfulLogin(
+            created=date,
+            user=user.userdata,
+            auth_event=auth_event,
+            is_active=True
+        )
+        vote.save()
+        return vote
+
+    def add_census_authevent_email_default(self):
+        c = JClient()
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
+        response = c.census(self.aeid, test_data.census_email_default)
+        self.assertEqual(response.status_code, 200)
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        election_users = parse_json_response(response)
+        self.assertEqual(len(election_users['object_list']), 4)
+        return election_users['object_list']
+
+    def add_vote(self, user, date, auth_event):
+        vote = SuccessfulLogin(
+            created=date,
+            user=user.userdata,
+            auth_event=auth_event
+        )
+        vote.save()
+        return vote
+
+    @override_settings(CELERY_ALWAYS_EAGER=True)
+    def test_register_and_resend_code(self):
+        # add census
+        users = self.add_census_authevent_email_default()
+
+        # add vote
+        user1 = User.objects.get(id=users[0]["id"])
+        date = datetime(2010, 10, 10, 0, 30, 30, 0, None)
+        self.add_vote(user1, date, self.ae)
+
+        # authenticate
+        c = JClient()
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+
+        data = test_data.send_auth_email_filter_fields.copy()
+
+        # send message to all those that have voted
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(MsgLog.objects.count(), 1)
+        msg_log = MsgLog.objects.all().last().msg
+        self.assertEqual(msg_log.get('subject'), 'Test Vote now with Sequent Tech Inc. - Sequent')
+
+        data['filter'] = 'not_voted'
+
+        # send message to those that haven't voted yet
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(MsgLog.objects.count(), 4)
+        msg_log = MsgLog.objects.all().last().msg
+        self.assertEqual(msg_log.get('subject'), 'Test Vote now with Sequent Tech Inc. - Sequent')
+
+        data['filter'] = 'error'
+
+        # send message to those that haven't voted yet
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, data)
+        self.assertEqual(response.status_code, 400)
+
+class TestFilterSendAuthSms(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        ae = AuthEvent(
+            auth_method="sms",
+            extra_fields=test_data.ae_sms_default['extra_fields'],
+            auth_method_config=test_data.authmethod_config_sms_default,
+            status='started',
+            census="open"
+        )
+        ae.save()
+        self.ae = ae
+        self.aeid = ae.pk
+
+        u_admin = User(username=test_data.admin['username'], email=test_data.admin['email'])
+        u_admin.set_password(test_data.admin['password'])
+        u_admin.save()
+        u_admin.userdata.event = ae
+        u_admin.userdata.save()
+        self.uid_admin = u_admin.id
+
+        acl = ACL(user=u_admin.userdata, object_type='AuthEvent', perm='edit',
+            object_id=self.aeid)
+        acl.save()
+
+        u = User()
+        u.save()
+        u.userdata.event = ae
+        u.userdata.tlf = get_cannonical_tlf(test_data.auth_sms_default['tlf'])
+        u.userdata.save()
+        self.u = u.userdata
+        self.uid = u.id
+
+        acl = ACL(user=u.userdata, object_type='AuthEvent', perm='edit',
+            object_id=self.aeid)
+        acl.save()
+
+        c = Code(user=u.userdata, code=test_data.auth_sms_default['code'], auth_event_id=ae.pk)
+        c.save()
+        self.code = c
+
+    def add_vote(self, user, date, auth_event):
+        vote = SuccessfulLogin(
+            created=date,
+            user=user.userdata,
+            auth_event=auth_event,
+            is_active=True
+        )
+        vote.save()
+        return vote
+
+    def add_census_authevent_sms_default(self):
+        c = JClient()
+        response = c.authenticate(self.aeid, test_data.auth_sms_default)
+        self.assertEqual(response.status_code, 200)
+
+        response = c.census(self.aeid, test_data.census_sms_default)
+        self.assertEqual(response.status_code, 200)
+
+        response = c.get('/api/auth-event/%d/census/' % self.aeid, {})
+        self.assertEqual(response.status_code, 200)
+        election_users = parse_json_response(response)
+        self.assertEqual(len(election_users['object_list']), 4)
+        return election_users['object_list']
+
+    @override_settings(CELERY_ALWAYS_EAGER=True)
+    def test_register_and_resend_code(self):
+        # add census
+        users = self.add_census_authevent_sms_default()
+
+        # add vote
+        user1 = User.objects.get(id=users[0]["id"])
+        date = datetime(2010, 10, 10, 0, 30, 30, 0, None)
+        self.add_vote(user1, date, self.ae)
+
+        # authenticate
+        c = JClient()
+        response = c.authenticate(self.aeid, test_data.auth_sms_default)
+        self.assertEqual(response.status_code, 200)
+
+        data = test_data.send_auth_sms_filter_fields.copy()
+
+        # send message to all those that have voted
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(MsgLog.objects.count(), 1)
+        msg_log = MsgLog.objects.all().last().msg
+        self.assertEqual(msg_log.get('msg'), 'Test Vote now with Sequent Tech Inc. -- Sequent')
+
+        data['filter'] = 'not_voted'
+
+        # send message to those that haven't voted yet
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(MsgLog.objects.count(), 4)
+        msg_log = MsgLog.objects.all().last().msg
+        self.assertEqual(msg_log.get('msg'), 'Test Vote now with Sequent Tech Inc. -- Sequent')
+
+        data['filter'] = 'error'
+
+        # send message to those that haven't voted yet
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, data)
+        self.assertEqual(response.status_code, 400)
 
 class TestRegisterAndAuthenticateEmail(TestCase):
     def setUpTestData():
