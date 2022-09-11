@@ -629,6 +629,7 @@ class Authenticate(View):
                 event=user.userdata.event,
                 metadata=dict())
             action.save()
+            data["show-pdf"] = e.auth_method_config.get("show_pdf", False)
 
             return json_response(data)
         else:
