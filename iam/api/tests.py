@@ -1895,6 +1895,9 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.assertTrue(msg_log.get('msg').count("This is an example %(code)s and " % dict(code=format_code(code.code))))
         ae_codes = Code.objects.filter(auth_event_id=self.ae.id, user=userdata)
         self.assertEqual(ae_codes.count(), 1)
+        
+        del self.ae.auth_method_config['config']['fixed-code']
+        self.ae.save()
 
     @override_settings(**override_celery_data)
     def test_send_auth_email(self):
