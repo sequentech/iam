@@ -305,12 +305,40 @@ class Command(BaseCommand):
 
     return sql_options
   
+  def insert_codes_statement(self):
+    if 'authmethods_code' not in self.columns:
+      return ''
+
+    return '''
+      code_insert AS (
+        INSERT INTO authmethods_code (
+          code,
+          user_id,
+          auth_event_id,
+          is_enabled
+        )
+        SELECT
+          csv_data.authmethods_code AS code,
+          userdata_insert.userdata_id AS user_id,
+          %(event_id)d AS auth_event_id,
+          true AS is_enabled
+        FROM user_insert
+        INNER JOIN csv_data ON csv_data.username = user_insert.username
+        INNER JOIN userdata_insert ON userdata_insert.user_id = user_insert.user_id
+        WHERE csv_data.authmethods_code IS NOT NULL
+      ),
+    ''' % dict(
+      event_id=self.event_id
+    )
+
   def load_voters_into_django_tables(self):
     '''
     With a single composite SQL statement, insert the voters into the django
     tables from the temporal voters_csv_table
     '''
     sql_options = self.get_loader_sql_options()
+    code_sql_statement = self.insert_codes_statement()
+
     load_voters_statement = '''
     START TRANSACTION;
 
@@ -367,8 +395,9 @@ class Command(BaseCommand):
         False AS use_generated_auth_code
       FROM user_insert
       LEFT JOIN csv_data ON csv_data.username = user_insert.username
-      RETURNING id AS userdata_id
+      RETURNING id AS userdata_id, user_id
     ),
+    %(code_sql_statement)s
     vote_perm AS (
       INSERT INTO api_acl (
         perm,
@@ -410,7 +439,8 @@ class Command(BaseCommand):
       metadata=sql_options['metadata'],
       children_event_id_list=sql_options['children_event_id_list'],
       tlf=sql_options['tlf'],
-      email_field=sql_options['email_field']
+      email_field=sql_options['email_field'],
+      code_sql_statement=code_sql_statement
     )
     self.exec_sql(load_voters_statement)
   
