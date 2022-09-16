@@ -667,10 +667,10 @@ def send_code(
             user=user.userdata,
             auth_event_id=user.userdata.event.id,
             is_enabled=True
-        ).order_by('created').last()
+        ).order_by('created').last().code
 
     if not code:
-        code = generate_code(user.userdata, is_fixed_code = is_fixed_code).code
+        code = generate_code(user.userdata).code
     base_config = (
         auth_config
         if not config

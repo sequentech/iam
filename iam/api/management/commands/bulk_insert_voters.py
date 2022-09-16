@@ -315,13 +315,15 @@ class Command(BaseCommand):
           code,
           user_id,
           auth_event_id,
-          is_enabled
+          is_enabled,
+          created
         )
         SELECT
           csv_data.authmethods_code AS code,
           userdata_insert.userdata_id AS user_id,
           %(event_id)d AS auth_event_id,
-          true AS is_enabled
+          true AS is_enabled,
+          NOW() AS created
         FROM user_insert
         INNER JOIN csv_data ON csv_data.username = user_insert.username
         INNER JOIN userdata_insert ON userdata_insert.user_id = user_insert.user_id
