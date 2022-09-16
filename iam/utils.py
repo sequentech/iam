@@ -665,7 +665,8 @@ def send_code(
         from authmethods.models import Code
         code = Code.objects.filter(
             user=user.userdata,
-            auth_event_id=user.userdata.event.id
+            auth_event_id=user.userdata.event.id,
+            is_enabled=True
         ).order_by('created').last()
 
     if not code:
