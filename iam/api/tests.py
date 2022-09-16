@@ -1855,6 +1855,48 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.assertEqual(response.status_code, 200)
 
     @override_settings(**override_celery_data)
+    def test_fixed_code_email(self):
+        # set fixed code for election
+        self.ae.auth_method_config['config']['fixed-code'] = True
+        self.ae.save()
+
+        # Add census
+        self.test_add_census_authevent_email_default()
+
+        # get user
+        user_email = test_data.census_email_default["census"][0]["email"]
+        user = User.objects.get(email=user_email)
+        from api.models import UserData
+        userdata = UserData.objects.get(event_id=self.ae.id, user=user)
+
+        # check there are no codes for user
+        ae_codes = Code.objects.filter(auth_event_id=self.ae.id, user=userdata)
+        self.assertEqual(ae_codes.count(), 0)
+
+        # add code to user
+        from utils import generate_code, format_code
+        code = generate_code(userdata)
+        ae_codes = Code.objects.filter(auth_event_id=self.ae.id, user=userdata)
+        self.assertEqual(ae_codes.count(), 1)
+
+        # send auth message
+        correct_tpl = { "subject": "Vote", "msg": "This is an example __CODE__ and __URL__", "user-ids": [userdata.id] }
+        c = JClient()
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, correct_tpl)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(MsgLog.objects.count(), 1)
+
+        # check no code was created, existing code was used
+        msg_log = MsgLog.objects.all().last().msg
+        self.assertEqual(msg_log.get('subject'), correct_tpl.get('subject') + ' - Sequent')
+        self.assertTrue(msg_log.get('msg').count(' -- Sequent https://sequentech.io'))
+        self.assertTrue(msg_log.get('msg').count("This is an example %(code)s and " % dict(code=format_code(code.code))))
+        ae_codes = Code.objects.filter(auth_event_id=self.ae.id, user=userdata)
+        self.assertEqual(ae_codes.count(), 1)
+
+    @override_settings(**override_celery_data)
     def test_send_auth_email(self):
         self.test_add_census_authevent_email_default() # Add census
         correct_tpl = {"subject": "Vote", "msg": "this is an example __CODE__ and __URL__"}
