@@ -22,7 +22,7 @@ from api import test_data
 from api.models import AuthEvent, UserData
 from authmethods.models import Code
 
-class TestBulkInsertVoters(TestCase):
+class BaseBulkInsertVoters(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
 
@@ -49,12 +49,14 @@ class TestBulkInsertVoters(TestCase):
         self.ae = ae
         self.aeid = ae.pk
 
+class SimpleBulkInsertVoters(BaseBulkInsertVoters):
     def test_insert_users_base(self):
         self.assertEqual(UserData.objects.filter(event_id=self.ae.id).count(), 0)
         self.call_command(self.ae.id, "api/fixtures/bulk_users_base.csv")
         self.assertEqual(UserData.objects.filter(event_id=self.ae.id).count(), 2)
 
-    def test_insert_users_base(self):
+class FixedCaseBulkInsertVoters(BaseBulkInsertVoters):
+    def test_insert_users_fixed_code(self):
         # set fixed code for election
         self.ae.auth_method_config['config']['fixed-code'] = True
         self.ae.save()
@@ -73,3 +75,27 @@ class TestBulkInsertVoters(TestCase):
 
         del self.ae.auth_method_config['config']['fixed-code']
         self.ae.save()
+
+class ExtraFieldsBulkInsertVoters(BaseBulkInsertVoters):
+    def setUp(self):
+        ae = AuthEvent(
+            auth_method="email",
+            auth_method_config=test_data.authmethod_config_email_default,
+            extra_fields=test_data.auth_event1['extra_fields'],
+            status='started',
+            census="open"
+        )
+        ae.save()
+        self.ae = ae
+        self.aeid = ae.pk
+
+    def test_insert_users_extra_fields(self):
+        self.assertEqual(UserData.objects.filter(event_id=self.ae.id).count(), 0)
+        self.call_command(self.ae.id, "api/fixtures/bulk_users_extra_fields.csv")
+        usersdata = UserData.objects.filter(event_id=self.ae.id)
+        self.assertEqual(UserData.objects.filter(event_id=self.ae.id).count(), 2)
+        self.assertEqual(Code.objects.filter(auth_event_id=self.ae.id, is_enabled=True).count(), 2)
+        self.assertEqual(usersdata[0].user.email, "john@example.com")
+        self.assertEqual(usersdata[0].name, "John Fuentes")
+        self.assertEqual(usersdata[0].dni, "44044873A")
+        self.assertEqual(usersdata[0].tlf, "+34654342312")
