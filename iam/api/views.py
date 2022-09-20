@@ -602,13 +602,14 @@ class Authenticate(View):
         try:
             e = get_object_or_404(
                 AuthEvent,
-                pk=pk,
-                status__in=[
-                    AuthEvent.STARTED,
-                    AuthEvent.RESUMED
-                ]
+                pk=pk
             )
         except:
+            return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
+
+        if (e.status != AuthEvent.STARTED and
+            e.status != AuthEvent.RESUMED and
+            e.auth_method_config.get("show_pdf") != True):
             return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
         if not hasattr(request.user, 'account'):
@@ -629,6 +630,7 @@ class Authenticate(View):
                 event=user.userdata.event,
                 metadata=dict())
             action.save()
+            data["show-pdf"] = e.auth_method_config.get("show_pdf", False)
 
             return json_response(data)
         else:
