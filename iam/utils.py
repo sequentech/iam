@@ -659,6 +659,16 @@ def send_code(
     auth_event = user.userdata.event
     auth_method = auth_event.auth_method
     auth_config = auth_event.auth_method_config.get('config')
+
+    is_fixed_code = type(auth_config) is dict and auth_config.get('fixed-code')
+    if is_fixed_code and not code:
+        from authmethods.models import Code
+        code = Code.objects.filter(
+            user=user.userdata,
+            auth_event_id=user.userdata.event.id,
+            is_enabled=True
+        ).order_by('created').last().code
+
     if not code:
         code = generate_code(user.userdata).code
     base_config = (
