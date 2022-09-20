@@ -69,11 +69,11 @@ class FixedCaseBulkInsertVoters(BaseBulkInsertVoters):
         self.assertEqual(usersdata[0].user.email, "john@example.com")
         user_code1 = Code.objects.get(auth_event_id=self.ae.id, user=usersdata[0], is_enabled=True)
         self.assertEqual(user_code1.code, "22224444")
-        self.assertEqual(user_code1.metadata["authmethods_code"], "22224444")
+        self.assertEqual(usersdata[0].metadata["authmethods_code"], "22224444")
         self.assertEqual(usersdata[1].user.email, "adam@test.com")
         user_code2 = Code.objects.get(auth_event_id=self.ae.id, user=usersdata[1], is_enabled=True)
         self.assertEqual(user_code2.code, "77775555")
-        self.assertEqual(user_code2.metadata["authmethods_code"], "77775555")
+        self.assertEqual(usersdata[1].metadata["authmethods_code"], "77775555")
 
         del self.ae.auth_method_config['config']['fixed-code']
         self.ae.save()
