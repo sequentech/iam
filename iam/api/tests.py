@@ -1888,13 +1888,9 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         created_code = ae_codes[0]
 
         # send new auth message
-        correct_tpl = { "subject": "Vote", "msg": "This is an example __CODE__ and __URL__", "user-ids": [userdata.id] }
-        c = JClient()
-        response = c.authenticate(self.aeid, test_data.auth_email_default)
-        self.assertEqual(response.status_code, 200)
         response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, correct_tpl)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(MsgLog.objects.count(), 1)
+        self.assertEqual(MsgLog.objects.count(), 2)
 
         # check no code was created, existing code was used
         from utils import format_code
