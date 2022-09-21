@@ -43,5 +43,5 @@ class Command(BaseCommand):
         current_value = auth_event.auth_method_config.get("show_pdf", False)
         print("Current show_pdf value for election: ", current_value)
         print("New show_pdf value for election: ", show_pdf)
-        auth_event.auth_method_config["show_pdf"] = show_pdf
+        auth_event.auth_method_config["config"]["show_pdf"] = show_pdf
         auth_event.save()
