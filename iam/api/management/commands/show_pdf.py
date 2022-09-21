@@ -40,7 +40,7 @@ class Command(BaseCommand):
         show_pdf = kwargs["show_pdf"]
 
         auth_event = AuthEvent.objects.get(pk=election_id)
-        current_value = auth_event.auth_method_config.get("show_pdf", False)
+        current_value = auth_event.auth_method_config.get("config",dict()).get("show_pdf", False)
         print("Current show_pdf value for election: ", current_value)
         print("New show_pdf value for election: ", show_pdf)
         auth_event.auth_method_config["config"]["show_pdf"] = show_pdf
