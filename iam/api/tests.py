@@ -1873,12 +1873,6 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         ae_codes = Code.objects.filter(auth_event_id=self.ae.id, user=userdata)
         self.assertEqual(ae_codes.count(), 0)
 
-        # add code to user
-        from utils import generate_code, format_code
-        code = generate_code(userdata)
-        ae_codes = Code.objects.filter(auth_event_id=self.ae.id, user=userdata)
-        self.assertEqual(ae_codes.count(), 1)
-
         # send auth message
         correct_tpl = { "subject": "Vote", "msg": "This is an example __CODE__ and __URL__", "user-ids": [userdata.id] }
         c = JClient()
@@ -1888,11 +1882,26 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(MsgLog.objects.count(), 1)
 
+        # check code was created
+        ae_codes = Code.objects.filter(auth_event_id=self.ae.id, user=userdata)
+        self.assertEqual(ae_codes.count(), 1)
+        created_code = ae_codes[0]
+
+        # send new auth message
+        correct_tpl = { "subject": "Vote", "msg": "This is an example __CODE__ and __URL__", "user-ids": [userdata.id] }
+        c = JClient()
+        response = c.authenticate(self.aeid, test_data.auth_email_default)
+        self.assertEqual(response.status_code, 200)
+        response = c.post('/api/auth-event/%d/census/send_auth/' % self.aeid, correct_tpl)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(MsgLog.objects.count(), 1)
+
         # check no code was created, existing code was used
+        from utils import format_code
         msg_log = MsgLog.objects.all().last().msg
         self.assertEqual(msg_log.get('subject'), correct_tpl.get('subject') + ' - Sequent')
         self.assertTrue(msg_log.get('msg').count(' -- Sequent https://sequentech.io'))
-        self.assertTrue(msg_log.get('msg').count("This is an example %(code)s and " % dict(code=format_code(code.code))))
+        self.assertTrue(msg_log.get('msg').count("This is an example %(code)s and " % dict(code=format_code(created_code.code))))
         ae_codes = Code.objects.filter(auth_event_id=self.ae.id, user=userdata)
         self.assertEqual(ae_codes.count(), 1)
         
