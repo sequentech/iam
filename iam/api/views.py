@@ -608,7 +608,7 @@ class Authenticate(View):
 
         if (e.status != AuthEvent.STARTED and
             e.status != AuthEvent.RESUMED and
-            e.auth_method_config.get("show_pdf") != True):
+            e.auth_method_config.get("config", dict()).get("show_pdf") != True):
             return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
         if not hasattr(request.user, 'account'):
