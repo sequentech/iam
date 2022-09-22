@@ -16,27 +16,49 @@
 import json
 import logging
 from django.conf import settings
-from django.conf.urls import url
 from django.db.models import Q
 from django.contrib.auth.models import User
-from django.shortcuts import get_object_or_404
 from utils import (
-    genhmac,
+    constant_time_compare,
     send_codes,
     get_client_ip,
     is_valid_url,
-    constant_time_compare,
     verify_admin_generated_auth_code
 )
-
+from authmethods.utils import (
+    get_cannonical_tlf,
+    verify_children_election_info,
+    check_fields_in_request,
+    verify_valid_children_elections,
+    exists_unique_user,
+    add_unique_user,
+    exist_user,
+    create_user,
+    give_perms,
+    check_pipeline,
+    get_user_match_query,
+    get_fill_if_empty_query,
+    MissingFieldError,
+    fill_empty_fields,
+    edit_user,
+    verify_num_successful_logins,
+    return_auth_data,
+    check_field_type,
+    check_field_value,
+    get_base_auth_query,
+    get_required_fields_on_auth,
+    post_verify_fields_on_auth,
+    resend_auth_code,
+    generate_auth_code,
+    stack_trace_str,
+    get_user_code
+)
 import plugins
 from . import register_method
 from .utils import get_user_code
 from contracts.base import check_contract, JsonTypeEncoder
 from contracts import CheckException
-from authmethods.utils import *
 from utils import stack_trace_str
-from django.contrib.auth.signals import user_logged_in
 
 LOGGER = logging.getLogger('iam')
 
@@ -127,6 +149,21 @@ class Sms:
           {
             'check': 'length',
             'range': [1, 200]
+          }
+        ]
+      },
+      {
+        'check': 'index-check-list',
+        'index': 'html_message',
+        'optional': True,
+        'check-list': [
+          {
+            'check': 'isinstance',
+            'type': str
+          },
+          {
+            'check': 'length',
+            'range': [1, 5000]
           }
         ]
       },
@@ -616,8 +653,7 @@ class Sms:
         send_codes.apply_async(
             args=[
                 [register_user.id,],
-                get_client_ip(request),
-                'sms'
+                get_client_ip(request)
             ]
         )
         LOGGER.info(
@@ -683,7 +719,7 @@ class Sms:
             q = get_base_auth_query(auth_event)
             q = get_required_fields_on_auth(req, auth_event, q)
             user = User.objects.get(q)
-            post_verify_fields_on_auth(user, req, auth_event)
+            otp_field_code = post_verify_fields_on_auth(user, req, auth_event)
         except:
             LOGGER.error(\
                 "Sms.authenticate error\n"\
@@ -698,8 +734,14 @@ class Sms:
         if not verify_num_successful_logins(auth_event, 'Sms', user, req):
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
-        code = get_user_code(user, timeout_seconds=None)
-        if not code:            
+        if otp_field_code is not None:
+            code = otp_field_code
+        else:
+            code = get_user_code(
+                user,
+                timeout_seconds=None
+            )
+        if not code:
             LOGGER.error(\
                 "Sms.authenticate error\n"\
                 "Code not found on db for user '%r'\n"\
@@ -740,146 +782,18 @@ class Sms:
         return return_auth_data('Sms', req, request, user)
 
     def resend_auth_code(self, auth_event, request):
-        req = json.loads(request.body.decode('utf-8'))
-        msg = ''
-        if req.get('tlf'):
-            req['tlf'] = get_cannonical_tlf(req.get('tlf'))
-        tlf = req.get('tlf')
-        if isinstance(tlf, str):
-            tlf = tlf.strip()
-
-        if auth_event.parent is not None:
-            msg += 'you can only authenticate to parent elections'
-            LOGGER.error(\
-                "Sms.authenticate error\n"\
-                "error '%r'"\
-                "authevent '%r'\n"\
-                "request '%r'\n"\
-                "Stack trace: \n%s",\
-                msg, auth_event, req, stack_trace_str())
-            return self.error("Incorrect data", error_codename="invalid_credentials")
-
-
-        msg += check_fields_in_request(req, auth_event, 'resend-auth')
-        if msg:
-            LOGGER.error(\
-                "Sms.resend_auth_code error\n"\
-                "error '%r'"\
-                "authevent '%r'\n"\
-                "request '%r'\n"\
-                "Stack trace: \n%s",\
-                msg, auth_event, req, stack_trace_str())
-            return self.error("Incorrect data", error_codename="invalid_credentials")
-
-        try:
-            q = get_base_auth_query(auth_event)
-            q = get_required_fields_on_auth(req, auth_event, q)
-            u = User.objects.get(q)
-            post_verify_fields_on_auth(u, req, auth_event)
-        except:
-            LOGGER.error(\
-                "Sms.resend_auth_code error\n"\
-                "user not found with these characteristics: tlf '%r'\n"\
-                "authevent '%r'\n"\
-                "request '%r'\n"\
-                "Stack trace: \n%s",\
-                tlf, auth_event, req, stack_trace_str())
-            return self.error("Incorrect data", error_codename="invalid_credentials")
-
-        msg = check_pipeline(
-          request,
-          auth_event,
-          'resend-auth-pipeline',
-          Sms.PIPELINES['resend-auth-pipeline'])
-
-        if msg:
-            LOGGER.error(\
-                "Sms.resend_auth_code error\n"\
-                "check_pipeline error '%r'\n"\
-                "authevent '%r'\n"\
-                "request '%r'\n"\
-                "Stack trace: \n%s",\
-                msg, auth_event, req, stack_trace_str())
-            return self.error("Incorrect data", error_codename="invalid_credentials")
-
-        result = plugins.call("extend_send_sms", auth_event, 1)
-        if result:
-            LOGGER.error(\
-                "Sms.resend_auth_code error\n"\
-                "extend_send_sms plugin error\n"\
-                "Error '%r'\n"\
-                "authevent '%r'\n"\
-                "request '%r'\n"\
-                "Stack trace: \n%s",\
-                result, auth_event, req, stack_trace_str())
-            return self.error("Incorrect data", error_codename="invalid_credentials")
-        send_codes.apply_async(args=[[u.id,], get_client_ip(request),'sms'])
-        LOGGER.info(\
-            "Sms.resend_auth_code.\n"\
-            "Sending (sms) codes to user id '%r'\n"\
-            "client ip '%r'\n"\
-            "authevent '%r'\n"\
-            "request '%r'\n"\
-            "Stack trace: \n%s",\
-            u.id, get_client_ip(request), auth_event, req, stack_trace_str())
-        return {'status': 'ok', 'user': u}
-
+        return resend_auth_code(
+            auth_event=auth_event,
+            request=request,
+            logger_name="Sms",
+            default_pipelines=Sms.PIPELINES
+        )
 
     def generate_auth_code(self, auth_event, request):
-        req_data = json.loads(request.body.decode('utf-8'))
-        if (
-            'username' not in req_data or
-            not isinstance(req_data['username'], str)
-        ):
-            LOGGER.error(
-                "Sms.generate_auth_code error\n" +
-                "error: invalid username" +
-                "authevent '%r'\n" +
-                "request '%r'\n" +
-                "Stack trace: \n%s",
-                auth_event, req_data, stack_trace_str()
-            )
-            raise Exception()
-        
-        username = req_data['username']
-        try:
-            base_query = get_base_auth_query(
-                auth_event,
-                ignore_generated_code=True
-            )
-            query = base_query & Q(username=username)
-            user = User.objects.get(query)
-        except:
-            LOGGER.error(
-                "Sms.generate_auth_code error\n" +
-                "error: username '%r' not found\n" +
-                "authevent '%r'\n" +
-                "request '%r'\n" +
-                "Stack trace: \n%s",
-                username, auth_event, req_data, stack_trace_str()
-            )
-            raise Exception()
-
-        if not verify_num_successful_logins(auth_event, 'Sms', user, req_data):
-            LOGGER.error(
-                "Sms.generate_auth_code error\n" +
-                "error: voter has voted enough times already\n" +
-                "authevent '%r'\n" +
-                "request '%r'\n" +
-                "Stack trace: \n%s",
-                username, auth_event, req_data, stack_trace_str()
-            )
-            raise Exception()
-
-        code = generate_code(user.userdata)
-        user.userdata.use_generated_auth_code=True
-        user.userdata.save()
-        return (
-            dict(
-                code=code.code,
-                created=code.created.isoformat()
-            ),
-            user
+        return generate_auth_code(
+            auth_event=auth_event,
+            request=request,
+            logger_name="Sms"
         )
 
 register_method('sms', Sms)

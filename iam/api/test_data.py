@@ -15,6 +15,7 @@
 
 import copy
 from django.conf import settings
+from django.contrib.auth.models import User
 
 
 pwd_auth = {'username': 'john', 'password': 'smith'}
@@ -1073,6 +1074,23 @@ ae_email_config.update( {
     }
 })
 
+ae_email_config_html = ae_email_default.copy()
+ae_email_config_html.update( {
+    "auth_method_config": {
+        "authentication-action":{
+            "mode":"vote",
+            "mode-config": None
+        },
+        "registration-action":{
+            "mode":"vote",
+            "mode-config":None
+        },
+        "subject": "Vote",
+        "msg": "Enter in __URL__ and put this code __CODE__",
+        "html_message": "<html><head></head><body>HTML Click __URL__ and put this code __CODE__</body></html>",
+    }
+})
+
 ae_email_config_incorrect1 = ae_email_config.copy()
 ae_email_config_incorrect1.update({"config": {"aaaaaa": "bbbb"}})
 
@@ -1457,3 +1475,306 @@ def get_auth_event20_census_invalid(auth_method):
                 }
             ]
         }
+
+
+def generate_auth_event_and_voter_credentials(auth_method):
+    '''
+    Creates a basic authentication event and voter credentials for the given
+    authentication method.
+    '''
+    from api.models import AuthEvent
+    from authmethods.utils import genhmac
+    from authmethods.models import Code
+    auth_event = None
+    voter = None
+    credentials = None
+    if auth_method == 'email-otp':
+        auth_event = AuthEvent(
+            auth_method='email-otp',
+            auth_method_config=authmethod_config_email_default,
+            num_successful_logins_allowed=1,
+            extra_fields=[
+                {
+                    "name": "email",
+                    "type": "email",
+                    "required": True,
+                    "unique": True,
+                    "min": 4,
+                    "max": 255,
+                    "required_on_authentication": True
+                }
+            ],
+            status='started', 
+            census='close'
+        )
+        auth_event.save()
+        voter = User(
+            username='test1',
+            email='test@sequentech.io',
+            is_active=True
+        )
+        voter.save()
+        voter.userdata.event = auth_event
+        voter.userdata.save()
+        
+        code = Code(
+            user=voter.userdata,
+            code='12345678',
+            auth_event_id=auth_event.pk
+        )
+        code.save()
+        credentials = dict(
+            email=voter.email,
+            code=code.code
+        )
+    elif auth_method == 'email':
+        auth_event = AuthEvent(
+            auth_method='email',
+            auth_method_config=authmethod_config_email_default,
+            num_successful_logins_allowed=1,
+            extra_fields=[
+                {
+                    "name": "email",
+                    "type": "email",
+                    "required": True,
+                    "unique": True,
+                    "min": 4,
+                    "max": 255,
+                    "required_on_authentication": True
+                }
+            ],
+            status='started', 
+            census='close'
+        )
+        auth_event.save()
+        voter = User(
+            username='test1',
+            email='test@sequentech.io',
+            is_active=True
+        )
+        voter.save()
+        voter.userdata.event = auth_event
+        voter.userdata.save()
+        
+        code = Code(
+            user=voter.userdata,
+            code='12345678',
+            auth_event_id=auth_event.pk
+        )
+        code.save()
+        credentials = dict(
+            email=voter.email,
+            code=code.code
+        )
+    elif auth_method == 'email-and-password':
+        auth_event = AuthEvent(
+            auth_method='email-and-password',
+            auth_method_config=authmethod_config_email_default,
+            num_successful_logins_allowed=1,
+            extra_fields=[
+                {
+                    "name": "email",
+                    "type": "email",
+                    "required": True,
+                    "unique": True,
+                    "min": 4,
+                    "max": 255,
+                    "required_on_authentication": True
+                },
+                {
+                    "name": "password",
+                    "type": "password",
+                    "required": True,
+                    "min": 3,
+                    "max": 200,
+                    "required_on_authentication": True
+                }
+            ],
+            status='started', 
+            census='close'
+        )
+        auth_event.save()
+        voter = User(
+            username='test1',
+            email='test@sequentech.io',
+            is_active=True
+        )
+        voter.set_password('qwerty123')
+        voter.save()
+        voter.userdata.event = auth_event
+        voter.userdata.save()
+        
+        credentials = dict(
+            email=voter.email,
+            password='qwerty123'
+        )
+    elif auth_method == 'user-and-password':
+        auth_event = AuthEvent(
+            auth_method='user-and-password',
+            auth_method_config=authmethod_config_email_default,
+            num_successful_logins_allowed=1,
+            extra_fields=[
+                {
+                    "name": "username",
+                    "type": "text",
+                    "required": True,
+                    "unique": True,
+                    "min": 4,
+                    "max": 255,
+                    "required_on_authentication": True
+                },
+                {
+                    "name": "password",
+                    "type": "password",
+                    "required": True,
+                    "min": 3,
+                    "max": 200,
+                    "required_on_authentication": True
+                }
+            ],
+            status='started',
+            census='close'
+        )
+        auth_event.save()
+        voter = User(
+            username='test1',
+            email='test@sequentech.io',
+            is_active=True
+        )
+        voter.set_password('qwerty123')
+        voter.save()
+        voter.userdata.event = auth_event
+        voter.userdata.save()
+
+        credentials = dict(
+            username=voter.username,
+            password='qwerty123'
+        )
+    elif auth_method == 'sms-otp':
+        auth_event = AuthEvent(
+            auth_method='sms-otp',
+            auth_method_config=authmethod_config_sms_default,
+            num_successful_logins_allowed=1,
+            extra_fields=[
+                {
+                    "name": "tlf",
+                    "type": "tlf",
+                    "required": True,
+                    "unique": True,
+                    "min": 4,
+                    "max": 255,
+                    "required_on_authentication": True
+                }
+            ],
+            status='started', 
+            census='close'
+        )
+        auth_event.save()
+        voter = User(
+            username='test1',
+            email='test@sequentech.io',
+            is_active=True
+        )
+        voter.save()
+        voter.userdata.tlf = '+34666666666'
+        voter.userdata.event = auth_event
+        voter.userdata.save()
+        
+        code = Code(
+            user=voter.userdata,
+            code='12345678',
+            auth_event_id=auth_event.pk
+        )
+        code.save()
+        credentials = dict(
+            tlf=voter.userdata.tlf,
+            code=code.code
+        )
+    elif auth_method == 'sms':
+        auth_event = AuthEvent(
+            auth_method='sms',
+            auth_method_config=authmethod_config_sms_default,
+            num_successful_logins_allowed=1,
+            extra_fields=[
+                {
+                    "name": "tlf",
+                    "type": "tlf",
+                    "required": True,
+                    "unique": True,
+                    "min": 4,
+                    "max": 255,
+                    "required_on_authentication": True
+                }
+            ],
+            status='started', 
+            census='close'
+        )
+        auth_event.save()
+        voter = User(
+            username='test1',
+            email='test@sequentech.io',
+            is_active=True
+        )
+        voter.save()
+        voter.userdata.tlf = '+34666666666'
+        voter.userdata.event = auth_event
+        voter.userdata.save()
+        
+        code = Code(
+            user=voter.userdata,
+            code='12345678',
+            auth_event_id=auth_event.pk
+        )
+        code.save()
+        credentials = dict(
+            tlf=voter.userdata.tlf,
+            code=code.code
+        )
+    elif auth_method == 'smart-link':
+        auth_event = AuthEvent(
+            auth_method='smart-link',
+            auth_method_config=authmethod_config_smart_link_default,
+            num_successful_logins_allowed=1,
+            extra_fields=[
+                dict(
+                    name="user_id",
+                    type="text",
+                    required=True,
+                    min=1,
+                    max=255,
+                    unique=True,
+                    required_on_authentication=True
+                )
+            ],
+            status='started',
+            census='close'
+        )
+        auth_event.save()
+        voter = User(
+            username='test1',
+            email='test@sequentech.io',
+            is_active=True
+        )
+        voter.save()
+        voter.userdata.metadata = {
+          'user_id': 'test@sequentech.io'
+        }
+        voter.userdata.event = auth_event
+        voter.userdata.save()
+
+        credentials = {
+          'auth-token': genhmac(
+            key=settings.SHARED_SECRET,
+            msg=':'.join([
+                voter.userdata.metadata['user_id'],
+                'AuthEvent',
+                str(auth_event.id),
+                'vote'
+            ])
+          )
+        }
+    else:
+        raise Exception(f'Unrecognized auth-method {auth_method}')
+        
+
+    return auth_event, voter, credentials

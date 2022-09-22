@@ -33,7 +33,7 @@ from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
-from django.core.mail import send_mail, EmailMessage
+from django.core.mail import send_mail, EmailMessage, EmailMultiAlternatives
 from django.core.paginator import Paginator
 from django.conf import settings
 from django.http import HttpResponse
@@ -298,8 +298,6 @@ def verify_admin_generated_auth_code(
         get_user_code
     )
     from django.db.models import Q
-    from authmethods.models import Code
-    from datetime import timedelta
     
     username = req_data['__username']
     base_query = get_base_auth_query(
@@ -319,7 +317,7 @@ def verify_admin_generated_auth_code(
 
     if not code:       
         LOGGER.error(
-            "%s.authenticate error\n" +
+            "%s.verify_admin_generated_auth_code error\n" +
             "Code not found on db for user '%r'\n" +
             "and time between now and '%r' seconds earlier\n" +
             "authevent '%r'\n" +
@@ -337,7 +335,7 @@ def verify_admin_generated_auth_code(
 
     if not constant_time_compare(req_data['code'], code.code):  
         LOGGER.error(
-            "%s.authenticate error\n" +
+            "%s.verify_admin_generated_auth_code error\n" +
             "Code mismatch for user '%r'\n" +
             "Code received '%r'\n" +
             "and latest code in the db for the user '%r'\n" +
@@ -387,7 +385,7 @@ def send_mail(subject, msg, receiver):
     send_email(email)
 
 
-def send_sms_code(receiver, msg):
+def send_sms_message(receiver, msg):
     try:
         from authmethods.sms_provider import SMSProvider
         con = SMSProvider.get_instance()
@@ -411,10 +409,230 @@ def template_replace_data(templ, data):
         ret = ret.replace("__%s__" % key.upper(), str(value))
     return ret
 
-def send_code(user, ip, config=None, auth_method_override=None, code=None, save_message=True):
+def send_email_code(
+    user,
+    email_address,
+    ip_address,
+    templates,
+    code=None
+):
+    if email_address is None:
+        LOGGER.error(
+            f"send_email_code error\n" +
+            f"Receiver is None for user '{user}'\n" +
+            f"authevent '{auth_event}'\n" +
+            f"Stack trace: \n{stack_trace_str()}"
+        )
+        return "Receiver is none"
+
+    from authmethods.models import Message, MsgLog
+    from api.models import ACL
+    auth_event = user.userdata.event
+    message_body = templates['message_body']
+    message_subject= templates['message_subject']
+    message_html = templates.get('message_html')
+
+    base_home_url = settings.HOME_URL
+    home_url = template_replace_data(
+      base_home_url,
+      dict(event_id=auth_event.id)
+    )
+    receiver = email_address
+    base_auth_url = settings.EMAIL_AUTH_CODE_URL
+
+    url = template_replace_data(
+        base_auth_url,
+        dict(
+            event_id=auth_event.id,
+            receiver=receiver
+        )
+    )
+
+    # initialize template data dict
+    template_dict = dict(
+        event_id=auth_event.id,
+        url=url,
+        home_url=home_url
+    )
+    if code is not None:
+        template_dict['code'] = format_code(code)
+        template_dict['url2'] = url + '/' + code
+    if user.userdata.event.extra_fields:
+        for field in user.userdata.event.extra_fields:
+            if (
+                'name' in field and
+                'slug' in field and
+                field['name'] in user.userdata.metadata
+            ):
+                template_dict[field['slug']] = user.userdata.metadata[field['name']]
+
+    # base_msg is the base template, allows the iam superadmin to configure
+    # a prefix or suffix to all messages
+    # email
+    base_message_subject = settings.EMAIL_BASE_TITLE_TEMPLATE
+    raw_message_subject = template_replace_data(
+        base_message_subject,
+        dict(title=message_subject)
+    )
+    message_subject = template_replace_data(
+        raw_message_subject,
+        template_dict
+    )
+
+    base_message_body = settings.EMAIL_BASE_TEMPLATE
+    raw_message_body = template_replace_data(
+        base_message_body,
+        dict(message=message_body)
+    )
+    message_body = template_replace_data(
+        raw_message_body,
+        template_dict
+    )
+
+    message_html = message_html if settings.ALLOW_HTML_EMAILS else None
+
+    if message_html:
+        message_html = template_replace_data(
+            message_html,
+            template_dict
+        )
+
+
+    # store the message log in the DB
+    db_message_log = MsgLog(
+        authevent_id=auth_event.id,
+        receiver=receiver,
+        msg=dict(
+            subject=message_subject,
+            msg=message_body,
+            html_message=message_html
+        )
+    )
+    db_message_log.save()
+
+    headers = dict()
+
+    # obtain the authevent administrator to use his
+    # email address as the email reply-to address
+    acl = ACL.objects.filter(
+        object_type='AuthEvent',
+        perm__in=['edit', 'unarchive'],
+        object_id=auth_event.id
+    ).first()
+
+    if acl:
+        headers['Reply-To'] = acl.user.user.email
+
+    email = EmailMultiAlternatives(
+        message_subject,
+        message_body,
+        settings.DEFAULT_FROM_EMAIL,
+        [receiver],
+        headers=headers,
+    )
+    if message_html:
+        email.attach_alternative(message_html, 'text/html')
+    send_email(email)
+    
+    db_message = Message(
+        tlf=receiver[:20],
+        ip=ip_address[:15],
+        auth_event_id=auth_event.id
+    )
+    db_message.save()
+
+def send_sms_code(
+    user,
+    tlf_number,
+    ip_address,
+    templates,
+    code=None
+):
+    if tlf_number is None:
+        LOGGER.error(
+            f"send_sms_code error\n" +
+            f"Receiver is None for user '{user}'\n" +
+            f"authevent '{auth_event}'\n" +
+            f"Stack trace: \n{stack_trace_str()}"
+        )
+        return "Receiver is none"
+
+    from authmethods.models import Message, MsgLog
+    auth_event = user.userdata.event
+    message_body = templates['message_body']
+
+    base_home_url = settings.HOME_URL
+    home_url = template_replace_data(
+      base_home_url,
+      dict(event_id=auth_event.id)
+    )
+    receiver = tlf_number
+    base_auth_url = settings.SMS_AUTH_CODE_URL
+
+    url = template_replace_data(
+        base_auth_url,
+        dict(
+            event_id=auth_event.id,
+            receiver=receiver
+        )
+    )
+
+    # initialize template data dict
+    template_dict = dict(
+        event_id=auth_event.id,
+        url=url,
+        home_url=home_url
+    )
+    if code is not None:
+        template_dict['code'] = format_code(code)
+        template_dict['url2'] = url + '/' + code
+    if user.userdata.event.extra_fields:
+        for field in user.userdata.event.extra_fields:
+            if (
+                'name' in field and
+                'slug' in field and
+                field['name'] in user.userdata.metadata
+            ):
+                template_dict[field['slug']] = user.userdata.metadata[field['name']]
+
+    # base_msg is the base template, allows the iam superadmin to configure
+    # a prefix or suffix to all messages
+    base_message_body = settings.SMS_BASE_TEMPLATE
+    raw_message_body = template_replace_data(
+        base_message_body,
+        dict(message=message_body)
+    )
+    message_body = template_replace_data(
+        raw_message_body,
+        template_dict
+    )
+
+    # store the message log in the DB
+    db_message_log = MsgLog(
+        authevent_id=auth_event.id,
+        receiver=receiver,
+        msg=dict(subject=None, msg=message_body)
+    )
+    db_message_log.save()
+
+    send_sms_message(receiver, message_body)
+    db_message = Message(
+        tlf=receiver[:20],
+        ip=ip_address[:15],
+        auth_event_id=auth_event.id
+    )
+    db_message.save()
+
+def send_code(
+    user,
+    ip_address,
+    config=None,
+    auth_method_override=None,
+    code=None
+):
     '''
     Sends the code for authentication in the related auth event, to the user
-    in a message sent via sms and/or email, depending on the authentication 
+    in a message sent via sms and/or email, depending on the authentication
     method of the auth event and the fields it has. If election authentication
     method is email-otp but it also has an tlf extra field, it will also send
     authentication through that method.
@@ -422,150 +640,194 @@ def send_code(user, ip, config=None, auth_method_override=None, code=None, save_
     The message will be automatically completed with the base message in
     settings.
 
-    NOTE: You are responsible of not calling this on a stopped auth event
+    NOTE: You are responsible of not calling this on a stopped auth event. In
+    any case, if the event is stopped, the authentication won't work.
     '''
-    from authmethods.models import Message, MsgLog
-    # Check if the client is requesting to use an authentication method
-    # different from the default one for this election
-    if auth_method_override is not None:
-        auth_method = auth_method_override
-    else:
-        auth_method = user.userdata.event.auth_method
-    event_id = user.userdata.event.id
+    from authmethods.utils import parse_otp_code_field
 
-    # if blank tlf or email
-    if auth_method in ["sms", "sms-otp"]:
-        if not user.userdata.tlf:
-            return
-    # else email or email-top
-    elif not user.email:
-        return
+    # List containing the multiple paths through which we will send the OTP
+    # codes. Each path has a format similar to:
+    # dict(
+    #     receiver="+34666666666",
+    #     method="sms",
+    #     templates=dict(
+    #         message="Your code is __CODE__"
+    #     )
+    # )
+    sending_paths = []
 
-    if config is None:
-        conf = user.userdata.event.auth_method_config.get('config')
-        msg = conf.get('msg')
-        subject = conf.get('subject')
-    else:
-        msg = config.get('msg')
-        subject = config.get('subject')
+    auth_event = user.userdata.event
+    auth_method = auth_event.auth_method
+    auth_config = auth_event.auth_method_config.get('config')
 
-    # only generate the code if required
-    needs_code = "__URL2__" in msg or "__CODE__" in msg
-    if needs_code and code is None:
+    is_fixed_code = type(auth_config) is dict and auth_config.get('fixed-code')
+    if is_fixed_code and not code:
+        from authmethods.models import Code
+        last_code = Code.objects.filter(
+            user=user.userdata,
+            auth_event_id=user.userdata.event.id,
+            is_enabled=True
+        ).order_by('created').last()
+        if last_code:
+            code = last_code.code
+
+    if not code:
         code = generate_code(user.userdata).code
+    base_config = (
+        auth_config
+        if not config
+        else config
+    )
 
-    default_receiver_account = user.email
-    if user.userdata.event.auth_method in ["sms", "sms-otp"]:
-        default_receiver_account = user.userdata.tlf
+    # If the override is not set, then for sure add the sending path related
+    # to the specific auth-method of the election, if any
+    if (
+        (
+            (
+                auth_method_override is None and
+                auth_method in ['sms', 'sms-otp']
+            ) or
+            auth_method_override in ['sms', 'sms-otp']
+        ) and
+        user.userdata.tlf is not None and
+        len(user.userdata.tlf) > 0
+    ):
+        sending_paths\
+            .append(dict(
+                receiver=user.userdata.tlf,
+                method="sms",
+                templates=dict(
+                    message_body=base_config.get('msg'),
+                    message_subject=base_config.get('subject')
+                ),
+            ))
+    if (
+        (
+            (
+                auth_method_override is None and
+                auth_method in ['email', 'email-otp']
+            ) or
+            auth_method_override in ['email', 'email-otp']
+        ) and
+        user.email is not None and
+        len(user.email) > 0
+    ):
+        sending_paths\
+            .append(dict(
+                receiver=user.email,
+                method="email",
+                templates=dict(
+                    message_body=base_config.get('msg'),
+                    message_html=base_config.get('html_message'),
+                    message_subject=base_config.get('subject')
+                )
+            ))
 
-    base_home_url = settings.HOME_URL
-    home_url = template_replace_data(
-      base_home_url,
-      dict(event_id=event_id))
+    # add a sending path for each related otp-field for which the user has a
+    # corresponding usable extra_field
+    if auth_method_override is None:
+        otp_fields = []
+        for extra_field in auth_event.extra_fields:
+            if extra_field['type'] != 'otp-code':
+                continue
+            otp_field_error, otp_field = parse_otp_code_field(
+                auth_event.extra_fields,
+                extra_field
+            )
+            if otp_field_error is not None:
+                LOGGER.error(
+                    f"send_code error\n" +
+                    "Error running parse_otp_code_field\n" +
+                    f"authevent '{auth_event}'\n" +
+                    f"extra_field '{extra_field}'\n" +
+                    f"Stack trace: \n{stack_trace_str()}"
+                )
+                return
+            otp_fields.append(otp_field)
 
-    if auth_method in ["sms", "sms-otp"]:
-        receiver = user.userdata.tlf
-        base_auth_url = settings.SMS_AUTH_CODE_URL
-    else:
-        # email
-        receiver = user.email
-        base_auth_url = settings.EMAIL_AUTH_CODE_URL
+        for otp_field in otp_fields:
+            field_type = otp_field['source_field_type']
+            field_name = otp_field['source_field']['name']
+            otp_base_config =(
+                dict()
+                if config is None
+                else config
+            )
+            templates = {
+                **otp_field['otp_field']['templates'],
+                **otp_base_config
+            }
+            if field_type == 'tlf':
+                if (
+                    field_name == 'tlf' and
+                    isinstance(user.userdata.tlf, str) and
+                    len(user.userdata.tlf) > 0
+                ):
+                    tlf = user.userdata.tlf
+                elif (
+                    field_name in user.userdata.metadata and
+                    isinstance(user.userdata.metadata[field_name], str) and
+                    len(user.userdata.metadata[field_name]) > 0
+                ):
+                    tlf = user.userdata.metadata[field_name]
+                else:
+                    continue
 
-    url = template_replace_data(
-      base_auth_url,
-      dict(event_id=event_id, receiver=default_receiver_account))
+                sending_paths\
+                    .append(dict(
+                        receiver=tlf,
+                        method="sms",
+                        templates=templates
+                    ))
+            elif field_type == 'email':
+                if (
+                    field_name == 'email' and
+                    isinstance(user.email, str) and
+                    len(user.email) > 0
+                ):
+                    email = user.email
+                elif (
+                    field_name in user.userdata.metadata and
+                    isinstance(user.userdata.metadata[field_name], str) and
+                    len(user.userdata.metadata[field_name]) > 0
+                ):
+                    email = user.userdata.metadata[field_name]
+                else:
+                    continue
 
-    # TODO use proper error codes
-    if receiver is None:
-        return "Receiver is none"
+                sending_paths\
+                    .append(dict(
+                        receiver=email,
+                        method="email",
+                        templates=templates
+                    ))
 
-    # base_msg is the base template, allows the iam superadmin to configure
-    # a prefix or suffix to all messages
-    if auth_method in ["sms", "sms-otp"]:
-        base_msg = settings.SMS_BASE_TEMPLATE
-    else:
-        # email
-        base_msg = settings.EMAIL_BASE_TEMPLATE
-        base_title = settings.EMAIL_BASE_TITLE_TEMPLATE
-
-    # url with authentication code
-    if needs_code:
-        url2 = url + '/' + code
-
-    template_dict = dict(event_id=event_id, url=url, home_url=home_url)
-    if needs_code:
-        template_dict['code'] = format_code(code)
-        template_dict['url2'] = url2
-
-    if user.userdata.event.extra_fields:
-        for field in user.userdata.event.extra_fields:
-            if 'name' in field and 'slug' in field and field['name'] in user.userdata.metadata:
-                template_dict[field['slug']] = user.userdata.metadata[field['name']]
-
-    # replace fields on subject and message
-    if subject and "sms" != auth_method:
-        raw_title = template_replace_data(base_title, dict(title=subject))
-        subject = template_replace_data(raw_title, template_dict)
-
-    # msg is the message sent by the user
-    raw_msg = template_replace_data(base_msg, dict(message=msg))
-    msg = template_replace_data(raw_msg, template_dict)
-
-    code_msg = {'subject': subject, 'msg': msg}
-
-    cm = MsgLog(authevent_id=event_id, receiver=receiver, msg=code_msg)
-    cm.save()
-
-    if auth_method in ["sms", "sms-otp"]:
-        send_sms_code(receiver, msg)
-        if save_message:
-          m = Message(tlf=receiver[:20], ip=ip[:15], auth_event_id=event_id)
-          m.save()
-
-        # also send via email if possible and only if there was no override (to 
-        # remove infinite looping). Do not save message twice.
-        if user.userdata.event.auth_method in ["sms", "sms-otp"] and\
-            user.email:
-            send_code(user, ip, config, 'email', code, save_message=False)
-            
-    else: # email or email-otp
-        # TODO: Allow HTML messages for emails
-        from api.models import ACL
-        acl = ACL.objects.filter(
-            object_type='AuthEvent',
-            perm__in=['edit', 'unarchive'],
-            object_id=event_id
-        ).first()
-
-        headers = {}
-        if acl:
-            headers['Reply-To'] = acl.user.user.email
-
-        email = EmailMessage(
-            subject,
-            msg,
-            settings.DEFAULT_FROM_EMAIL,
-            [receiver],
-            headers=headers,
-        )
-        send_email(email)
-        if save_message:
-          m = Message(tlf=receiver[:20], ip=ip[:15], auth_event_id=event_id)
-          m.save()
-
-        # also send via sms if possible and only if there was no override (to 
-        # remove infinite looping). Do not save message twice.
-        if user.userdata.event.auth_method in ["email", "email-otp"] and\
-            user.email:
-            send_code(user, ip, config, 'sms', code, save_message=False)
-
+    # iterate within all the sending paths, and send messages through them
+    for sending_path in sending_paths:
+        method = sending_path['method']
+        if method == 'sms':
+            send_sms_code(
+                user=user,
+                tlf_number=sending_path['receiver'],
+                ip_address=ip_address,
+                templates=sending_path['templates'],
+                code=code
+            )
+        elif method == 'email':
+            send_email_code(
+                user=user,
+                email_address=sending_path['receiver'],
+                ip_address=ip_address,
+                templates=sending_path['templates'],
+                code=code
+            )
 
 def send_msg(data, msg, subject=''):
     if 'tlf' in data:
         from authmethods.models import Message
         auth_method = 'sms'
         receiver = data['tlf']
-        send_sms_code(receiver, msg)
+        send_sms_message(receiver, msg)
         m = Message(tlf=receiver, auth_event_id=0)
         m.save()
     elif 'email' in data:
@@ -591,7 +853,14 @@ def get_client_ip(request):
 
 
 @shared_task(name='api.io.send_codes')
-def send_codes(users, ip, auth_method, config=None, sender_uid=None, eid=None):
+def send_codes(
+    users,
+    ip,
+    auth_method=None,
+    config=None,
+    sender_uid=None,
+    eid=None
+):
     from api.models import Action, AuthEvent
 
     # delay between send code calls
@@ -609,13 +878,14 @@ def send_codes(users, ip, auth_method, config=None, sender_uid=None, eid=None):
     user_objs = User.objects.filter(id__in=users)
     for user in user_objs:
         action = Action(
-                executer=sender,
-                receiver=user,
-                action_name='user:send-auth',
-                event=auth_event,
-                metadata=dict())
+            executer=sender,
+            receiver=user,
+            action_name='user:send-auth',
+            event=auth_event,
+            metadata=dict()
+        )
         action.save()
-        send_code(user, ip, config, auth_method)
+        send_code(user, ip, config, auth_method_override=auth_method)
         if delay > 0:
             sleep(delay)
 
@@ -663,7 +933,17 @@ VALID_FIELDS = (
   #
   # Note that if a field is marked as userid_field, it should always have a
   # valid convertable-to-string value.
-  'userid_field')
+  'userid_field',
+
+  # adds a list of css classes to the input field in the login/register screen
+  'css_classes',
+
+  # used by otp-code
+  'templates',
+
+  # user by otp-code
+  'source_field'
+)
 REQUIRED_FIELDS = ('name', 'type', 'required_on_authentication')
 VALID_PIPELINES = (
     'check_whitelisted',
@@ -684,7 +964,8 @@ VALID_TYPE_FIELDS = (
     'dni',
     'dict',
     'image',
-    'date'
+    'date',
+    'otp-code'
 )
 REQUIRED_ADMIN_FIELDS = ('name', 'type')
 VALID_ADMIN_FIELDS = VALID_FIELDS + (
@@ -824,6 +1105,11 @@ def check_fields(key, value):
         else:
             if value >= maxsize or value <= -maxsize :
                 msg += "Invalid extra_fields: bad %s.\n" % key
+    elif key == 'css_classes':
+        if not isinstance(value, str):
+            msg += "Invalid extra_fields: bad %s.\n" % key
+        elif not re.match("[ 0-9a-zA-Z_-]+", value):
+            msg += "Invalid extra_fields: bad %s.\n" % key
     return msg
 
 def check_extra_fields(fields, mandatory_fields=dict(types=[], names=[])):

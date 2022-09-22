@@ -21,12 +21,13 @@ from django.test.utils import override_settings
 
 import json
 import time
+from datetime import datetime
 from api import test_data
 from api.tests import JClient, flush_db_load_fixture
-from api.models import AuthEvent, ACL, UserData
+from api.models import AuthEvent, ACL, UserData, SuccessfulLogin
 from .m_email import Email
 from .m_sms import Sms
-from .models import Message, Code, Connection
+from .models import Message, Code
 from utils import genhmac
 
 
@@ -210,7 +211,18 @@ class AuthMethodSmartLinkTestCase(TestCase):
           auth_method='smart-link',
           auth_method_config=auth_method_config,
           status='started',
-          census='open'
+          census='open',
+          extra_fields=[
+            dict(
+              name="user_id",
+              type="text",
+              required=True,
+              min=1,
+              max=255,
+              unique=True,
+              required_on_authentication=True
+            )
+          ]
         )
         auth_event.save()
         self.auth_event = auth_event
@@ -261,7 +273,7 @@ class AuthMethodSmartLinkTestCase(TestCase):
         self.assertEqual(r['username'], self.user.username)
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
 
-    def test_authenticate_invvalid_khmac(self):
+    def test_authenticate_invalid_khmac(self):
         c = JClient()
         data = {
           'auth-token': 'this is an invalid khmac'
@@ -463,7 +475,7 @@ class AuthMethodSmsTestCase(TestCase):
         import utils
         from authmethods.sms_provider import TestSMSProvider
         sms_count0 = TestSMSProvider.sms_count
-        utils.send_codes(users=[user_id], ip='127.0.0.1', auth_method='sms',
+        utils.send_codes(users=[user_id], ip='127.0.0.1',
                          config={'msg':'url[__URL2__], code[__CODE__]',
                                  'subject':'subject'})
         self.assertEqual(1+sms_count0, TestSMSProvider.sms_count)
@@ -867,50 +879,32 @@ class AdminGeneratedAuthCodes(TestCase):
         superuser.userdata.event = admin_auth_event
         superuser.userdata.save()
 
-        # create a normal auth event
-        auth_method_config = test_data.authmethod_config_sms_default
-        normal_auth_event = AuthEvent(
-            auth_method='sms-otp',
-            auth_method_config=auth_method_config,
-            extra_fields=test_data.auth_event11['extra_fields'],
-            status='started', 
-            census=test_data.auth_event11['census']
-        )
-        normal_auth_event.extra_fields[0]['required_on_authentication'] = True
-        normal_auth_event.save()
-        self.normal_auth_event_id = normal_auth_event.pk
-
-        # Create user for authevent11
-        normal_user = User(
-            username='test1',
-            email='test@sequentech.io',
-            is_active=True
-        )
-        normal_user.save()
-        normal_user.userdata.event = normal_auth_event
-        normal_user.userdata.tlf = None
-        normal_user.userdata.metadata = {
-            'match_field': 'match_code_555'
-        }
-        normal_user.userdata.save()
-        self.normal_user = normal_user
-
-    @override_settings(
-        CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
-        CELERY_ALWAYS_EAGER=True,
-        BROKER_BACKEND='memory'
-    )
-    def test_generate_codes(self):
-        # authenticate as admin
+    def _test_generate_codes(self, auth_event, voter, credentials):
         c = JClient()
+
+        # authenticate with voter credentials should work
+        response = c.authenticate(
+            auth_event.id,
+            credentials
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # authenticate as admin
         response = c.authenticate(self.admin_auth_event_id, test_data.admin)
         self.assertEqual(response.status_code, 200)
 
+        # before generating code for voter, the voter should not marked as
+        # use_generated_auth_code=True
+        self.assertEqual(
+            User.objects.get(pk=voter.id).userdata.use_generated_auth_code,
+            False
+        )
+
         # generate code for user
         response = c.post(
-            '/api/auth-event/%d/generate-auth-code/' % self.normal_auth_event_id,
+            '/api/auth-event/%d/generate-auth-code/' % auth_event.id,
             dict(
-                username=self.normal_user.username
+                username=voter.username
             )
         )
         # ensure code is there
@@ -922,11 +916,26 @@ class AdminGeneratedAuthCodes(TestCase):
         )
         code = generated_code['code']
 
-        # try to authenticate with a wrong code after code generation, fails
+        # after generating code for voter, the voter should be marked as
+        # use_generated_auth_code=True
+        self.assertEqual(
+            User.objects.get(pk=voter.id).userdata.use_generated_auth_code,
+            True
+        )
+
+        # authenticate with voter credentials should not work anymore
         response = c.authenticate(
-            self.normal_auth_event_id,
+            auth_event.id,
+            credentials
+        )
+        self.assertEqual(response.status_code, 400)
+
+        # try to authenticate with a wrong admin-generated code after code
+        # generation also should fail
+        response = c.authenticate(
+            auth_event.id,
             dict(
-                __username=self.normal_user.username,
+                __username=voter.username,
                 code="erroneous-code456"
             )
         )
@@ -935,9 +944,9 @@ class AdminGeneratedAuthCodes(TestCase):
         # try to authenticate with the correct code, fails because codes can
         # only be tested once
         response = c.authenticate(
-            self.normal_auth_event_id,
+            auth_event.id,
             dict(
-                __username=self.normal_user.username,
+                __username=voter.username,
                 code=code
             )
         )
@@ -950,25 +959,450 @@ class AdminGeneratedAuthCodes(TestCase):
 
         # generate code for user again
         response = c.post(
-            '/api/auth-event/%d/generate-auth-code/' % self.normal_auth_event_id,
+            '/api/auth-event/%d/generate-auth-code/' % auth_event.id,
             dict(
-                username=self.normal_user.username
+                username=voter.username
             )
         )
-        # ensure code is there again
         self.assertEqual(response.status_code, 200)
+
+        # ensure code is there again
         generated_code2 = response.json()
         code2 = generated_code2['code']
 
         # try to authenticate with the correct code, works
         response = c.authenticate(
-            self.normal_auth_event_id,
+            auth_event.id,
             dict(
-                __username=self.normal_user.username,
+                __username=voter.username,
                 code=code2
             )
         )
         self.assertEqual(response.status_code, 200)
 
-    def test_generate_codes_if_voted(self):
-        pass
+        # authenticate as admin again
+        response = c.authenticate(self.admin_auth_event_id, test_data.admin)
+        self.assertEqual(response.status_code, 200)
+
+        # mark the voter as voted
+        vote = SuccessfulLogin(
+            created=datetime(2010, 10, 10, 0, 30, 30, 0, None),
+            user=voter.userdata,
+            auth_event=auth_event,
+            is_active=True
+        )
+        vote.save()
+
+        # generate code for voter should fail if voter has already voted
+        response = c.post(
+            '/api/auth-event/%d/generate-auth-code/' % auth_event.id,
+            dict(
+                username=voter.username
+            )
+        )
+        self.assertEqual(response.status_code, 400)
+
+    @override_settings(
+        CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+        CELERY_ALWAYS_EAGER=True,
+        BROKER_BACKEND='memory'
+    )
+    def test_generate_codes_email_otp(self):
+        auth_event, voter, credentials = test_data.generate_auth_event_and_voter_credentials('email-otp')
+        self._test_generate_codes(auth_event, voter, credentials)
+
+    @override_settings(
+        CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+        CELERY_ALWAYS_EAGER=True,
+        BROKER_BACKEND='memory'
+    )
+    def test_generate_codes_email(self):
+        auth_event, voter, credentials = test_data.generate_auth_event_and_voter_credentials('email')
+        self._test_generate_codes(auth_event, voter, credentials)
+
+    @override_settings(
+        CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+        CELERY_ALWAYS_EAGER=True,
+        BROKER_BACKEND='memory'
+    )
+    def test_generate_codes_email_and_password(self):
+        auth_event, voter, credentials = test_data.generate_auth_event_and_voter_credentials('email-and-password')
+        self._test_generate_codes(auth_event, voter, credentials)
+
+    @override_settings(
+        CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+        CELERY_ALWAYS_EAGER=True,
+        BROKER_BACKEND='memory'
+    )
+    def test_generate_codes_user_and_password(self):
+        auth_event, voter, credentials = test_data.generate_auth_event_and_voter_credentials('user-and-password')
+        self._test_generate_codes(auth_event, voter, credentials)
+
+    @override_settings(
+        CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+        CELERY_ALWAYS_EAGER=True,
+        BROKER_BACKEND='memory'
+    )
+    def test_generate_codes_smart_link(self):
+        auth_event, voter, credentials = test_data.generate_auth_event_and_voter_credentials('smart-link')
+        self._test_generate_codes(auth_event, voter, credentials)
+
+    @override_settings(
+        CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+        CELERY_ALWAYS_EAGER=True,
+        BROKER_BACKEND='memory'
+    )
+    def test_generate_codes_sms_otp(self):
+        auth_event, voter, credentials = test_data.generate_auth_event_and_voter_credentials('sms-otp')
+        self._test_generate_codes(auth_event, voter, credentials)
+
+    @override_settings(
+        CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+        CELERY_ALWAYS_EAGER=True,
+        BROKER_BACKEND='memory'
+    )
+    def test_generate_codes_sms(self):
+        auth_event, voter, credentials = test_data.generate_auth_event_and_voter_credentials('sms')
+        self._test_generate_codes(auth_event, voter, credentials)
+
+class TestOTPCodeExtraField(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        # configure admin auth event
+        admin_auth_event = AuthEvent.objects.get(pk=1)
+        admin_auth_event.auth_method = 'user-and-password'
+        admin_auth_event.extra_fields = test_data.auth_event4['extra_fields']
+        admin_auth_event.save()
+        self.admin_auth_event_id = admin_auth_event.id
+
+        # create superuser
+        superuser = User(
+            username=test_data.admin['username'],
+            email=test_data.admin['email']
+        )
+        superuser.is_staff = True
+        superuser.is_superuser = True
+        superuser.set_password(test_data.admin['password'])
+        superuser.save()
+        superuser.userdata.event = admin_auth_event
+        superuser.userdata.save()
+
+    @override_settings(
+        CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+        CELERY_ALWAYS_EAGER=True,
+        BROKER_BACKEND='memory'
+    )
+    def test_resend_auth_codes_email(self):
+        auth_event, voter, credentials = test_data\
+            .generate_auth_event_and_voter_credentials('email')
+        self._test_resend_auth_codes(
+            auth_event,
+            voter,
+            credentials,
+            resend_auth_codes_data=dict(
+                email=voter.email
+            ),
+            source_field_name="email"
+        )
+
+    @override_settings(
+        CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+        CELERY_ALWAYS_EAGER=True,
+        BROKER_BACKEND='memory'
+    )
+    def test_resend_auth_codes_email_otp(self):
+        auth_event, voter, credentials = test_data\
+            .generate_auth_event_and_voter_credentials('email-otp')
+        self._test_resend_auth_codes(
+            auth_event,
+            voter,
+            credentials,
+            resend_auth_codes_data=dict(
+                email=voter.email
+            ),
+            source_field_name="email"
+        )
+
+    @override_settings(
+        CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+        CELERY_ALWAYS_EAGER=True,
+        BROKER_BACKEND='memory'
+    )
+    def test_resend_auth_codes_sms(self):
+        auth_event, voter, credentials = test_data\
+            .generate_auth_event_and_voter_credentials('sms')
+        self._test_resend_auth_codes(
+            auth_event,
+            voter,
+            credentials,
+            resend_auth_codes_data=dict(
+                tlf=voter.userdata.tlf
+            ),
+            source_field_name="tlf"
+        )
+
+    @override_settings(
+        CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+        CELERY_ALWAYS_EAGER=True,
+        BROKER_BACKEND='memory'
+    )
+    def test_resend_auth_codes_sms_otp(self):
+        auth_event, voter, credentials = test_data\
+            .generate_auth_event_and_voter_credentials('sms-otp')
+        self._test_resend_auth_codes(
+            auth_event,
+            voter,
+            credentials,
+            resend_auth_codes_data=dict(
+                tlf=voter.userdata.tlf
+            ),
+            source_field_name="tlf"
+        )
+
+    @override_settings(
+        CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+        CELERY_ALWAYS_EAGER=True,
+        BROKER_BACKEND='memory'
+    )
+    def test_resend_auth_codes_user_and_password(self):
+        auth_event, voter, credentials = test_data\
+            .generate_auth_event_and_voter_credentials('user-and-password')
+
+        auth_event.extra_fields.append(
+            {
+                "name": "email",
+                "type": "email",
+                "required": False,
+                "unique": True,
+                "private": True,
+                "min": 4,
+                "max": 255,
+                "required_on_authentication": False
+            }
+        )
+        auth_event.save()
+
+        voter.email = "test@sequentech.io"
+        voter.save()
+
+        self._test_resend_auth_codes(
+            auth_event,
+            voter,
+            credentials,
+            resend_auth_codes_data=dict(
+                username=voter.username,
+                password=credentials['password']
+            ),
+            source_field_name="email"
+        )
+
+    @override_settings(
+        CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+        CELERY_ALWAYS_EAGER=True,
+        BROKER_BACKEND='memory'
+    )
+    def test_resend_auth_codes_email_and_password(self):
+        auth_event, voter, credentials = test_data\
+            .generate_auth_event_and_voter_credentials('email-and-password')
+        self._test_resend_auth_codes(
+            auth_event,
+            voter,
+            credentials,
+            resend_auth_codes_data=dict(
+                email=voter.email,
+                password=credentials['password']
+            ),
+            source_field_name="email"
+        )
+
+    @override_settings(
+        CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+        CELERY_ALWAYS_EAGER=True,
+        BROKER_BACKEND='memory'
+    )
+    def test_resend_auth_codes_smart_link(self):
+        auth_event, voter, credentials = test_data\
+            .generate_auth_event_and_voter_credentials('smart-link')
+
+        auth_event.extra_fields.append(
+            {
+                "name": "email",
+                "type": "email",
+                "required": False,
+                "unique": True,
+                "min": 4,
+                "max": 255,
+                "required_on_authentication": True
+            }
+        )
+        auth_event.save()
+
+        voter.email = "test@sequentech.io"
+        voter.save()
+        credentials['email'] = voter.email
+
+        self._test_resend_auth_codes(
+            auth_event,
+            voter,
+            credentials,
+            resend_auth_codes_data=dict(
+                email=voter.email,
+                user_id=voter.userdata.metadata['user_id']
+            ),
+            source_field_name="email"
+        )
+
+    def _test_resend_auth_codes(
+        self,
+        auth_event,
+        voter,
+        credentials,
+        resend_auth_codes_data,
+        source_field_name
+    ):
+        auth_event.auth_method_config['config']['allow_user_resend'] = False
+        auth_event.auth_method_config['pipeline'] = {
+            "give_perms": [
+                {
+                    'object_type': 'UserData',
+                    'perms': ['edit',],
+                    'object_id': 'UserDataId'
+                },
+                {
+                    'object_type': 'AuthEvent',
+                    'perms': ['vote',],
+                    'object_id': 'AuthEventId'
+                }
+            ],
+            "register-pipeline": [],
+            "authenticate-pipeline": [],
+            "resend-auth-pipeline": []
+        }
+        auth_event.save()
+        client = JClient()
+        initial_codes_count = voter.userdata.codes.count()
+
+        # resend auth code should not work as this auth event is not email-otp
+        # nor sms-otp and has no otp-code field 
+        auth_event.save()
+        response = client.post(
+            f'/api/auth-event/{auth_event.id}/resend_auth_code/',
+            resend_auth_codes_data
+        )
+        self.assertEqual(response.status_code, 400)
+
+        # Check that the number of codes associated with this voter did not
+        # change
+        self.assertEqual(voter.userdata.codes.count(), initial_codes_count)
+
+        # add the otp-code field to the auth event
+        auth_event.extra_fields.append(
+            dict(
+                name="otp-code",
+                type="otp-code",
+                required=False,
+                min=1,
+                max=255,
+                unique=False,
+                required_on_authentication=True,
+                source_field=source_field_name,
+                templates=dict(
+                    message_body="Your code is __CODE__",
+                    message_subject="Your OTP Code"
+                )
+            )
+        )
+        auth_event.save()
+
+        # the resend_auth_code call should still fail because the auth event
+        # does not have the allow_user_resend property enabled yet
+        response = client.post(
+            f'/api/auth-event/{auth_event.id}/resend_auth_code/',
+            resend_auth_codes_data
+        )
+        self.assertEqual(response.status_code, 400)
+
+        # Check that the number of codes associated with this voter did not
+        # change
+        self.assertEqual(voter.userdata.codes.count(), initial_codes_count)
+
+        auth_event.auth_method_config['config']['allow_user_resend'] = True
+        auth_event.save()
+
+        # the resend_auth_code call should now work
+        response = client.post(
+            f'/api/auth-event/{auth_event.id}/resend_auth_code/',
+            resend_auth_codes_data
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # Check that there's still one more new code associated with this voter
+        self.assertEqual(voter.userdata.codes.count(), initial_codes_count + 1)
+
+        # get the code and authenticate with it
+        code = voter.userdata.codes.order_by('-created')[0]
+        credentials['code'] = code.code
+        response = client.authenticate(auth_event.id, credentials)
+        self.assertEqual(response.status_code, 200)
+
+        # the code is one time: it cannot be reused so trying to login again 
+        # with it fails
+        response = client.authenticate(auth_event.id, credentials)
+        self.assertEqual(response.status_code, 400)
+
+        # if we try to login with a bogus code it also fails
+        credentials['code'] = '11111111'
+        response = client.authenticate(auth_event.id, credentials)
+        self.assertEqual(response.status_code, 400)
+
+        # but if we obtain a new one, we can use it to authenticate
+        # the resend_auth_code call should now work
+        response = client.post(
+            f'/api/auth-event/{auth_event.id}/resend_auth_code/',
+            resend_auth_codes_data
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(voter.userdata.codes.count(), initial_codes_count + 2)
+        code = voter.userdata.codes.order_by('-created')[0]
+        credentials['code'] = code.code
+        response = client.authenticate(auth_event.id, credentials)
+        self.assertEqual(response.status_code, 200)
+
+        # generating a code from the admin api should work as any extra field
+        # should not interfere there, and thus also authentication using that
+        # admin-generated code should work too
+
+        # authenticate as admin
+        response = client.authenticate(
+            self.admin_auth_event_id,
+            test_data.admin
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # generate code for user
+        response = client.post(
+            '/api/auth-event/%d/generate-auth-code/' % auth_event.id,
+            dict(
+                username=voter.username
+            )
+        )
+        # ensure code is there
+        self.assertEqual(response.status_code, 200)
+        generated_code = response.json()
+        self.assertTrue(
+            'code' in generated_code and
+            isinstance(generated_code['code'], str)
+        )
+        code = generated_code['code']
+
+        # authenticate with admin-generated voter credentials should work
+        response = client.authenticate(
+            auth_event.id,
+            dict(
+                __username=voter.username,
+                code=code
+            )
+        )
+        self.assertEqual(response.status_code, 200)

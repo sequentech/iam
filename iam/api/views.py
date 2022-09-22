@@ -442,8 +442,7 @@ class CensusActivate(View):
             send_codes.apply_async(
                 args=[
                   [u for u in user_ids],
-                  get_client_ip(request),
-                  ae.auth_method
+                  get_client_ip(request)
                 ])
 
         return json_response()
@@ -609,7 +608,7 @@ class Authenticate(View):
 
         if (e.status != AuthEvent.STARTED and
             e.status != AuthEvent.RESUMED and
-            e.auth_method_config.get("show_pdf") != True):
+            e.auth_method_config.get("config", dict()).get("show_pdf") != True):
             return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
 
         if not hasattr(request.user, 'account'):
@@ -630,7 +629,7 @@ class Authenticate(View):
                 event=user.userdata.event,
                 metadata=dict())
             action.save()
-            data["show-pdf"] = e.auth_method_config.get("show_pdf", False)
+            data["show-pdf"] = e.auth_method_config.get("config", dict()).get("show_pdf", False)
 
             return json_response(data)
         else:
@@ -1569,10 +1568,11 @@ class AuthEventView(View):
             if msg:
                 return json_response(status=400, message=msg)
 
-            auth_method_config = {
+            from copy import deepcopy
+            auth_method_config = deepcopy({
                     "config": METHODS.get(auth_method).CONFIG,
                     "pipeline": METHODS.get(auth_method).PIPELINES
-            }
+            })
             config = req.get('auth_method_config', None)
             if config:
                 msg += check_config(config, auth_method)

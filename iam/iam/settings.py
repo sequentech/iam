@@ -74,6 +74,8 @@ ALLOW_ADMIN_AUTH_REGISTRATION = False
 
 ALLOW_DEREGISTER = True
 
+ALLOW_HTML_EMAILS = False
+
 AWS_SNS_MESSAGE_ATTRIBUTES = {}
 
 # If this option is true, when an user tries to register and the user is
