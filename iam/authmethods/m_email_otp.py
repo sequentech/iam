@@ -50,6 +50,7 @@ from authmethods.utils import (
     post_verify_fields_on_auth,
     resend_auth_code,
     generate_auth_code,
+    authenticate_otl,
     stack_trace_str,
     get_user_code,
     disable_previous_user_codes
@@ -788,6 +789,13 @@ class EmailOtp:
             return self.error("Incorrect data", error_codename="invalid_credentials")
             
         return return_auth_data('EmailOtp', req, request, user)
+
+    def authenticate_otl(self, auth_event, request):
+        return authenticate_otl(
+            auth_event=auth_event,
+            request=request,
+            logger_name="EmailOtp"
+        )
 
     def resend_auth_code(self, auth_event, request):
         return resend_auth_code(

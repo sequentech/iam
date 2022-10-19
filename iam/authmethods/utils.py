@@ -39,7 +39,8 @@ from utils import (
     genhmac,
     stack_trace_str,
     generate_code,
-    send_codes
+    send_codes,
+    get_or_create_code
 )
 from pipelines.base import execute_pipeline, PipeReturnvalue
 
@@ -603,6 +604,9 @@ def check_field_value(definition, field, req=None, ae=None, step='register'):
             return msg
         elif definition.get('type') == 'otp-code':
             return msg
+    if step == 'authenticate-otl':
+        if not definition.get('match_against_census_on_otl_authentication'):
+            return msg
     if step == 'census' and definition.get('type') == 'captcha':
         return msg
     if field is None:
@@ -670,25 +674,53 @@ def check_captcha(code, answer):
         return 'Invalid captcha'
     return ''
 
-def check_fields_in_request(req, ae, step='register', validation=True):
-    """ Checked fields in extra_fields are correct, checked the type of field and the value if
-    validation is True. """
-    msg = ''
+def check_fields_in_request(
+    request_data,
+    auth_event,
+    step='register',
+    validation=True
+):
+    '''
+    Checked fields in extra_fields are correct, checked the type of field and
+    the value if validation is True.
+    '''
+    error_messages = ''
 
-    if ae.extra_fields:
-        if len(req) > settings.MAX_EXTRA_FIELDS * 2:
+    if auth_event.extra_fields:
+        if len(request_data) > settings.MAX_EXTRA_FIELDS * 2:
             return "Number of fields is bigger than allowed fields."
-        for extra in ae.extra_fields:
-            canonize_extra_field(extra, req)
-            msg += check_field_type(extra, req.get(extra.get('name')), step)
-            canonize_extra_field(extra, req)
+        for extra in auth_event.extra_fields:
+            canonize_extra_field(extra, request_data)
+            error_messages += check_field_type(
+                extra,
+                request_data.get(extra.get('name')),
+                step
+            )
+            canonize_extra_field(extra, request_data)
             if validation:
-                msg += check_field_value(extra, req.get(extra.get('name')), req, ae, step)
-                if not msg and extra.get('type') == 'captcha' and step != 'census':
-                    if (step == 'register' and extra.get('required')) or\
-                            (step == 'authenticate' and extra.get('required_on_authentication')):
-                        msg += check_captcha(req.get('captcha_code'), req.get(extra.get('name')))
-    return msg
+                error_messages += check_field_value(
+                    extra, 
+                    request_data.get(extra.get('name')),
+                    request_data, 
+                    auth_event, 
+                    step
+                )
+                if (
+                    not error_messages and
+                    extra.get('type') == 'captcha' and
+                    step != 'census'
+                ):
+                    if (
+                        step == 'register' and extra.get('required')
+                    ) or (
+                        step == 'authenticate' and 
+                        extra.get('required_on_authentication')
+                    ):
+                        error_messages += check_captcha(
+                            request_data.get('captcha_code'),
+                            request_data.get(extra.get('name'))
+                        )
+    return error_messages
 
 
 def have_captcha(ae, step='register'):
@@ -1158,6 +1190,127 @@ def generate_auth_code(auth_event, request, logger_name):
         user
     )
 
+def authenticate_otl(
+    auth_event,
+    request,
+    logger_name
+):
+    '''
+    Implements the authenticate_otl call for an authentication method.
+    '''
+    from authmethods.models import OneTimeLink
+    from api.models import Action
+    request_data = json.loads(request.body.decode('utf-8'))
+
+    def ret_error(log_error_message, error_message, error_codename):
+        LOGGER.error(
+            f"{logger_name}.authenticate_otl error\n"\
+            f"{log_error_message}\n"\
+            f"{error_message}\n"\
+            f"authevent '{auth_event}'\n"\
+            f"request '{request_data}'\n"\
+            f"Stack trace: \n{stack_trace_str()}"
+        )
+        return dict(
+            status='nok',
+            msg=error_message,
+            error_codename=error_codename
+        )
+
+    if auth_event.parent is not None:
+        return ret_error(
+            log_error_message='you can only do authenticate_otl to parent elections',
+            error_message="Incorrect data",
+            error_codename="invalid_credentials"
+        )
+
+    if auth_event.support_otl_enabled is not True:
+        return ret_error(
+            log_error_message='election without OTL enabled',
+            error_message="Incorrect data",
+            error_codename="invalid_credentials"
+        )
+
+    if auth_event.inside_authenticate_otl_period is not True:
+        return ret_error(
+            log_error_message='election outside OTL period',
+            error_message="Incorrect data",
+            error_codename="invalid_credentials"
+        )
+
+    error_message = ''
+
+    error_message += check_fields_in_request(
+        request_data,
+        auth_event, 
+        'authenticate-otl'
+    )
+    if error_message:
+        return ret_error(
+            log_error_message=error_message,
+            error_message="Incorrect data",
+            error_codename="invalid_credentials"
+        )
+
+    otl_secret = request_data.get('__otl_secret')
+    if '__otl_secret' not in request_data:
+        return ret_error(
+            log_error_message=error_message,
+            error_message="Incorrect data",
+            error_codename="invalid_credentials"
+        )
+
+    try:
+        otl = OneTimeLink\
+            .objects\
+            .filter(
+                secret=otl_secret,
+                used=None,
+                is_enabled=True,
+                auth_event_id=auth_event.id
+            )\
+            .order_by('-created')\
+            .first()
+        query = get_base_auth_query(auth_event)
+        query = query & Q(userdata=otl.user)
+        query = get_required_fields_on_auth(
+            request_data,
+            auth_event,
+            query,
+            selector='match_against_census_on_otl_authentication'
+        )
+        user = User.objects.get(query)
+    except:
+        return ret_error(
+            log_error_message="user not found with given characteristics",
+            error_message="Incorrect data",
+            error_codename="invalid_credentials"
+        )
+
+    code = get_or_create_code(user)
+    otl.used = timezone.now()
+    otl.is_enabled = False
+    otl.save()
+
+    action = Action(
+        executer=user,
+        receiver=user,
+        action_name='user:authenticate-otl',
+        event=auth_event,
+        metadata=get_trimmed_user_req(request_data, auth_event)
+    )
+    action.save()
+
+    LOGGER.info(
+        f"{logger_name}.authenticate_otl.\n"\
+        f"Returning auth-code={code} for user.id='{user.id}'\n"\
+        f"client ip '{get_client_ip(request)}'\n"\
+        f"authevent '{auth_event}'\n"\
+        f"request '{request_data}'\n"\
+        f"Stack trace: \n{stack_trace_str()}"
+    )
+    return dict(status='ok', code=code, username=user.username)
+
 def resend_auth_code(
     auth_event,
     request,
@@ -1286,40 +1439,47 @@ def resend_auth_code(
     )
     return dict(status='ok', user=user)
 
-def get_required_fields_on_auth(req, ae, q):
+def get_required_fields_on_auth(
+    request_data,
+    auth_event,
+    query,
+    selector='required_on_authentication'
+):
     '''
     Modifies a Q query adding required_on_authentication fields with the values
     from the http request, used to filter users
     '''
-    if ae.extra_fields:
-        for field in ae.extra_fields:
-            if not field.get('required_on_authentication'):
+    if auth_event.extra_fields:
+        for field in auth_event.extra_fields:
+            if not field.get(selector):
                 continue
             
             # Raise exception if a required field is not provided.
             # It will be catched by parent as an error.
             typee = field.get('type')
             if (
-                field.get('name') not in req and
+                field.get('name') not in request_data and
                 typee not in ['password', 'otp-code']
             ):
                 raise Exception()
 
-            value = req.get(field.get('name'), '')
+            value = request_data.get(field.get('name'), '')
             if typee == 'email':
-                q = q & Q(email__iexact=value)
+                query = query & Q(email__iexact=value)
             elif typee == 'tlf':
-                q = q & Q(userdata__tlf=value)
+                query = query & Q(userdata__tlf=value)
             elif typee in ['password', 'otp-code']:
                 # we verify this later im post_verify_fields_on_auth
                 continue
             else:
                 if typee == 'text' and field.get('name') == 'username':
-                    q = q & Q(username=value)
+                    query = query & Q(username=value)
                 else:
-                    q = q & Q(userdata__metadata__contains={field.get('name'): value})
+                    query = query & Q(
+                        userdata__metadata__contains={field.get('name'): value}
+                    )
 
-    return q
+    return query
 
 def give_perms(u, ae):
     pipe = ae.auth_method_config.get('pipeline')

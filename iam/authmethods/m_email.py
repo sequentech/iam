@@ -50,7 +50,8 @@ from authmethods.utils import (
     resend_auth_code,
     generate_auth_code,
     stack_trace_str,
-    get_user_code
+    get_user_code,
+    authenticate_otl
 )
 from django.db.models import Q
 from contracts.base import check_contract, JsonTypeEncoder
@@ -787,6 +788,13 @@ class Email:
 
     def generate_auth_code(self, auth_event, request):
         return generate_auth_code(
+            auth_event=auth_event,
+            request=request,
+            logger_name="Email"
+        )
+
+    def authenticate_otl(self, auth_event, request):
+        return authenticate_otl(
             auth_event=auth_event,
             request=request,
             logger_name="Email"
