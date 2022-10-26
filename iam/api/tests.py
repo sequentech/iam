@@ -6399,11 +6399,6 @@ class TestOtl(TestCase):
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
         otp_auth_event_id = r['id']
-        auth_event_otl = AuthEvent.objects.get(pk=otp_auth_event_id)
-
-        # TODO: fix that fixed-code should have been set during creation
-        auth_event_otl.auth_method_config['config']['fixed-code'] = True
-        auth_event_otl.save()
 
         # add user to the census
         response = c.census(

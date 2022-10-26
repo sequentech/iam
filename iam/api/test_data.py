@@ -1365,8 +1365,15 @@ auth_event19 = {
 auth_event_otp1 = {
     "auth_method": "email",
     "census": "open",
-    "config": {
-        "authentication-action": {"mode": ""},
+    "auth_method_config": {
+        "authentication-action":{
+            "mode":"vote",
+            "mode-config": None
+        },
+        "registration-action":{
+            "mode":"vote",
+            "mode-config":None
+        },
         "subject": "Confirm your email",
         "msg": "Click __URL__ and put this code __CODE__",
         "fixed-code": True
