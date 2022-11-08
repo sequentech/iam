@@ -39,7 +39,8 @@ from authmethods.utils import (
     post_verify_fields_on_auth,
     resend_auth_code,
     generate_auth_code,
-    stack_trace_str
+    stack_trace_str,
+    authenticate_otl
 )
 
 LOGGER = logging.getLogger('iam')
@@ -266,6 +267,14 @@ class EmailPassword:
             logger_name="EmailPassword",
             default_pipelines=EmailPassword.PIPELINES
         )
+
+    def authenticate_otl(self, auth_event, request):
+        return authenticate_otl(
+            auth_event=auth_event,
+            request=request,
+            logger_name="EmailPassword"
+        )
+
 
     def generate_auth_code(self, auth_event, request):
         return generate_auth_code(

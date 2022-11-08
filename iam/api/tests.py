@@ -28,7 +28,7 @@ from django.contrib.auth.models import User
 
 from . import test_data
 from .models import ACL, AuthEvent, Action, BallotBox, TallySheet, SuccessfulLogin
-from authmethods.models import Code, MsgLog
+from authmethods.models import Code, MsgLog, OneTimeLink
 from authmethods import m_sms_otp
 from utils import HMACToken, verifyhmac, reproducible_json_dumps
 from authmethods.utils import get_cannonical_tlf, get_user_code
@@ -998,6 +998,25 @@ class TestAuthEvent(TestCase):
         response = self.create_authevent(test_data.ae_email_default)
         self.assertEqual(response.status_code, 200)
 
+    def test_create_authevent_otl(self):
+        auth_event_data = copy.deepcopy(test_data.ae_email_default)
+        auth_event_data['support_otl_enabled'] = True
+        response = self.create_authevent(auth_event_data)
+        self.assertEqual(response.status_code, 200)
+        response_json = parse_json_response(response)
+        auth_event_id = response_json['id']
+        self.assertEqual(
+            AuthEvent.objects.get(pk=auth_event_id).support_otl_enabled,
+            True
+        )
+
+    def test_create_authevent_invalid_otl(self):
+        auth_event_data = copy.deepcopy(test_data.ae_email_default)
+        # try creating with invalid data type
+        auth_event_data['support_otl_enabled'] = "foobar"
+        response = self.create_authevent(auth_event_data)
+        self.assertEqual(response.status_code, 400)
+
     def test_create_authevent_sms(self):
         response = self.create_authevent(test_data.ae_sms_default)
         self.assertEqual(response.status_code, 200)
@@ -1155,6 +1174,8 @@ class TestAuthEvent(TestCase):
                 'id': rid,
                 'users': 0,
                 'num_successful_logins_allowed': 0,
+                'support_otl_enabled': False,
+                'inside_authenticate_otl_period': False,
                 'hide_default_login_lookup_field': False,
                 'parent_id': None,
                 'children_election_info': None,
@@ -6152,3 +6173,364 @@ class TestAuthEventList(TestCase):
         self.assertEqual(response.status_code, 200)
         r = parse_json_response(response)
         self.assertEqual(len(r['events']), 1)
+
+
+class TestOtl(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        self.aeid_special = 1
+        u = User(
+            username=test_data.admin['username'], 
+            email=test_data.admin['email']
+        )
+        u.set_password(test_data.admin['password'])
+        u.save()
+        u.userdata.event = AuthEvent.objects.get(pk=1)
+        u.userdata.save()
+        self.user = u
+
+        self.admin_auth_data = dict(
+            email=test_data.admin['email'],
+            code="ERGERG"
+        )
+        c = Code(
+            user=self.user.userdata,
+            code=self.admin_auth_data['code'],
+            auth_event_id=self.aeid_special
+        )
+        c.save()
+        
+        acl = ACL(
+            user=self.user.userdata, 
+            object_type='AuthEvent', 
+            perm='create',
+            object_id=0
+        )
+        acl.save()
+
+    def test_create_otl_auth_event(self):
+        '''
+        Create an OTL auth event
+        '''
+        # authenticate as an admin
+        c = JClient()
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # create otp auth-event
+        response = c.post('/api/auth-event/', test_data.auth_event_otp1)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        otp_auth_event_id = r['id']
+
+        # retrieve otp auth-event
+        response = c.get(f'/api/auth-event/{otp_auth_event_id}/', {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+
+        # check the otp auth-event has support of otl enabled
+        self.assertEqual(r['events']['support_otl_enabled'], True)
+        self.assertEqual(r['events']['inside_authenticate_otl_period'], False)
+
+    def test_toggle_otl_period_flag(self):
+        '''
+        Checks that the API to enable and disable the OTL period does change
+        the inside_authenticate_otl_period flag
+        '''
+        # authenticate as an admin
+        c = JClient()
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # create otp auth-event
+        response = c.post('/api/auth-event/', test_data.auth_event_otp1)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        otp_auth_event_id = r['id']
+
+        # check there's no action related yet
+        self.assertEqual(
+            Action.objects.filter(
+                executer__id=self.user.id,
+                action_name='authevent:set-authenticate-otl-period',
+                event=otp_auth_event_id
+            ).count(),
+            0
+        )
+
+        # enable otl period
+        response = c.post(
+            f'/api/auth-event/{otp_auth_event_id}/set-authenticate-otl-period/',
+            dict(set_authenticate_otl_period=True)
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # retrieve otp auth-event and check otl period
+        response = c.get(f'/api/auth-event/{otp_auth_event_id}/', {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(r['events']['inside_authenticate_otl_period'], True)
+
+        # check a new action was registered
+        self.assertEqual(
+            Action.objects.filter(
+                executer__id=self.user.id,
+                action_name='authevent:set-authenticate-otl-period',
+                event=otp_auth_event_id
+            ).count(),
+            1
+        )
+
+        # enable otl period again (no change)
+        response = c.post(
+            f'/api/auth-event/{otp_auth_event_id}/set-authenticate-otl-period/',
+            dict(set_authenticate_otl_period=True)
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # retrieve otp auth-event and check otl period
+        response = c.get(f'/api/auth-event/{otp_auth_event_id}/', {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(r['events']['inside_authenticate_otl_period'], True)
+
+        # check a new action was registered
+        self.assertEqual(
+            Action.objects.filter(
+                executer__id=self.user.id,
+                action_name='authevent:set-authenticate-otl-period',
+                event=otp_auth_event_id
+            ).count(),
+            2
+        )
+
+        # disable otl period
+        response = c.post(
+            f'/api/auth-event/{otp_auth_event_id}/set-authenticate-otl-period/',
+            dict(set_authenticate_otl_period=False)
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # retrieve otp auth-event and check otl period
+        response = c.get(f'/api/auth-event/{otp_auth_event_id}/', {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(r['events']['inside_authenticate_otl_period'], False)
+
+        # check a new action was registered
+        self.assertEqual(
+            Action.objects.filter(
+                executer__id=self.user.id,
+                action_name='authevent:set-authenticate-otl-period',
+                event=otp_auth_event_id
+            ).count(),
+            3
+        )
+
+    def test_invalid_set_otl_period(self):
+        '''
+        Checks multiple cases in which the setting of the OTL period should
+        fail:
+        - no authentication
+        - invalid input data
+        - invalid permissions
+        '''
+        # authenticate as an admin
+        c = JClient()
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # create otp auth-event
+        response = c.post('/api/auth-event/', test_data.auth_event_otp1)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        otp_auth_event_id = r['id']
+
+        # invalid input data
+        response = c.post(
+            f'/api/auth-event/{otp_auth_event_id}/set-authenticate-otl-period/',
+            dict(set_authenticate_otl_period="invalid")
+        )
+        self.assertEqual(response.status_code, 400)
+        response = c.post(
+            f'/api/auth-event/{otp_auth_event_id}/set-authenticate-otl-period/',
+            dict(whatever="invalid")
+        )
+        self.assertEqual(response.status_code, 400)
+
+        # log out and try to set otl period
+        c.set_auth_token(None)
+        response = c.post(
+            f'/api/auth-event/{otp_auth_event_id}/set-authenticate-otl-period/',
+            dict(set_authenticate_otl_period=True)
+        )
+        self.assertEqual(response.status_code, 403)
+
+        # check there's no action related yet
+        self.assertEqual(
+            Action.objects.filter(
+                executer__id=self.user.id,
+                action_name='authevent:set-authenticate-otl-period',
+                event=otp_auth_event_id
+            ).count(),
+            0
+        )
+
+        # retrieve otp auth-event and check otl period didn't change
+        response = c.get(f'/api/auth-event/{otp_auth_event_id}/', {})
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        self.assertEqual(r['events']['inside_authenticate_otl_period'], False)
+
+    @override_settings(**override_celery_data)
+    def test_otl_flow(self):
+        '''
+        Test the whole OTL flow, from election creation to voter authentication
+        '''
+        # authenticate as an admin
+        c = JClient()
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # create otp auth-event
+        response = c.post('/api/auth-event/', test_data.auth_event_otp1)
+        self.assertEqual(response.status_code, 200)
+        r = parse_json_response(response)
+        otp_auth_event_id = r['id']
+
+        # add user to the census
+        response = c.census(
+            otp_auth_event_id,
+            {
+                "field-validation": "enabled",
+                "census": [
+                    {
+                        "email": "baaa@aaa.com",
+                        "membership-id": "1234"
+                    }
+                ]
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # enable otl period
+        response = c.post(
+            f'/api/auth-event/{otp_auth_event_id}/set-authenticate-otl-period/',
+            dict(set_authenticate_otl_period=True)
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # enable authentication period
+        response = c.post(
+            f'/api/auth-event/{otp_auth_event_id}/started/',
+            dict()
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # send authentication, which should generate an OTL
+        self.assertEqual(OneTimeLink.objects.count(), 0)
+        response = c.post(
+            f'/api/auth-event/{otp_auth_event_id}/census/send_auth/',
+            {
+                "msg": "Vote in __URL__ but obtain code in __OTL__",
+                "subject": "Test Vote",
+                "user-ids": None,
+                "auth-method": "email"
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+
+        self.assertEqual(OneTimeLink.objects.count(), 1)
+        otl = OneTimeLink.objects.filter()[0]
+
+        # perform otp authentication
+        response = c.post(
+            f'/api/auth-event/{otp_auth_event_id}/authenticate-otl/',
+            {
+                "email": "baaa@aaa.com",
+                "membership-id": "1234",
+                "__otl_secret": str(otl.secret)
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        response_json = parse_json_response(response)
+        self.assertTrue(
+            'code' in response_json and isinstance(response_json['code'], str)
+        )
+        code = response_json['code']
+
+        # perform authentication using otp
+        c.authenticate(
+            otp_auth_event_id,
+            {
+                'email': "baaa@aaa.com",
+                'code': code
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # authenticate as an admin again
+        c = JClient()
+        response = c.authenticate(self.aeid_special, self.admin_auth_data)
+        self.assertEqual(response.status_code, 200)
+
+        # resend the OTL, creating a new OTL and invalidating previous one
+        response = c.post(
+            f'/api/auth-event/{otp_auth_event_id}/census/send_auth/',
+            {
+                "msg": "Vote in __URL__ but obtain code in __OTL__",
+                "subject": "Test Vote",
+                "user-ids": None,
+                "auth-method": "email",
+                "force_create_otl": True
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # sanity checks
+        self.assertEqual(OneTimeLink.objects.count(), 2)
+        [new_otl, old_otl] = OneTimeLink.objects.order_by("-created")
+        self.assertEqual(old_otl.secret, otl.secret)
+        self.assertEqual(old_otl.is_enabled, False)
+        self.assertEqual(new_otl.is_enabled, True)
+        self.assertTrue(new_otl.secret != old_otl.secret)
+
+        # perform otp authentication with old code fails
+        response = c.post(
+            f'/api/auth-event/{otp_auth_event_id}/authenticate-otl/',
+            {
+                "email": "baaa@aaa.com",
+                "membership-id": "1234",
+                "__otl_secret": str(old_otl.secret)
+            }
+        )
+        self.assertEqual(response.status_code, 400)
+
+        # perform otp auth with new code works
+        response = c.post(
+            f'/api/auth-event/{otp_auth_event_id}/authenticate-otl/',
+            {
+                "email": "baaa@aaa.com",
+                "membership-id": "1234",
+                "__otl_secret": str(new_otl.secret)
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        response_json = parse_json_response(response)
+        new_code = response_json['code']
+
+        # the new code obtained is the same as before because this election is
+        # configured to use static codes
+        self.assertEqual(code, new_code)
+
+        # the code can still be used for authentication
+        c.authenticate(
+            otp_auth_event_id,
+            {
+                'email': "baaa@aaa.com",
+                'code': new_code
+            }
+        )
+        self.assertEqual(response.status_code, 200)
