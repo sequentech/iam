@@ -3160,7 +3160,7 @@ class SetAuthenticateOtlPeriodView(View):
             action_name="authevent:set-authenticate-otl-period",
             event=auth_event,
             metadata={
-                authenticate_otl_period: authenticate_otl_period
+                "authenticate_otl_period": authenticate_otl_period
             }
         )
         action.save()
