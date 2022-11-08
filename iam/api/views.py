@@ -35,6 +35,7 @@ from django.db.models import Count, OuterRef, Subquery
 import plugins
 from authmethods import (
     auth_authenticate,
+    auth_authenticate_otl,
     auth_census,
     auth_register,
     auth_resend_auth_code,
@@ -638,6 +639,46 @@ class Authenticate(View):
               error_codename=data.get('error_codename'),
               message=data.get('msg', '-'))
 authenticate = Authenticate.as_view()
+
+
+class AuthenticateOtl(View):
+    ''' Authenticate into the iam '''
+
+    def post(self, request, pk):
+        try:
+            e = get_object_or_404(
+                AuthEvent,
+                pk=pk,
+                support_otl_enabled=True,
+                inside_authenticate_otl_period=True
+            )
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST
+            )
+
+        if not hasattr(request.user, 'account'):
+            error_kwargs = plugins.call("extend_auth", e)
+            if error_kwargs:
+                return json_response(**error_kwargs[0])
+        try:
+            data = auth_authenticate_otl(e, request)
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST
+            )
+
+        if data and 'status' in data and data['status'] == 'ok':
+            return json_response(data)
+        else:
+            return json_response(
+                status=400,
+                error_codename=data.get('error_codename'),
+                message=data.get('msg', '-')
+            )
+authenticate_otl = AuthenticateOtl.as_view()
 
 
 class GenerateAuthCode(View):
@@ -1617,6 +1658,13 @@ class AuthEventView(View):
                 return json_response(
                     status=400,
                     error_codename="INVALID_BALLOT_BOXES")
+            
+            # check if it has support_otl_enabled
+            support_otl_enabled = req.get('support_otl_enabled', False)
+            if not isinstance(support_otl_enabled, bool):
+                return json_response(
+                    status=400,
+                    error_codename="INVALID_SUPPORT_OTL_ENABLED")
 
             # check if it has hide_default_login_lookup_field
             hide_default_login_lookup_field = req.get(
@@ -1699,7 +1747,8 @@ class AuthEventView(View):
                 based_in=based_in,
                 has_ballot_boxes=has_ballot_boxes,
                 hide_default_login_lookup_field=hide_default_login_lookup_field,
-                allow_public_census_query=allow_public_census_query
+                allow_public_census_query=allow_public_census_query,
+                support_otl_enabled=support_otl_enabled
             )
             # If the election exists, we are doing an update. Else, we are 
             # doing an insert. We use this update method instead of just 
@@ -3074,6 +3123,53 @@ class SetPublicCandidatesView(View):
         return json_response()
 set_public_candidates = login_required(SetPublicCandidatesView.as_view())
 
+
+
+class SetAuthenticateOtlPeriodView(View):
+
+    def post(self, request, pk):
+        '''
+        Sets the Authenticate OTL Period
+        '''
+        # check permissions
+        permission_required(
+            request.user,
+            'AuthEvent',
+            ['edit', 'set-authenticate-otl-period'],
+            pk
+        )
+
+        # parse input
+        req_json = parse_json_request(request)
+        if (
+            "set_authenticate_otl_period" not in req_json or
+            not isinstance(req_json['set_authenticate_otl_period'], bool)
+        ):
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST
+            )
+        authenticate_otl_period = req_json['set_authenticate_otl_period']
+
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        auth_event.inside_authenticate_otl_period = authenticate_otl_period
+        auth_event.save()
+        action = Action(
+            executer=request.user,
+            receiver=None,
+            action_name="authevent:set-authenticate-otl-period",
+            event=auth_event,
+            metadata={
+                "authenticate_otl_period": authenticate_otl_period
+            }
+        )
+        action.save()
+
+        return json_response()
+
+set_authenticate_otl_period = login_required(
+    SetAuthenticateOtlPeriodView.as_view()
+)
 
 class AllowTallyView(View):
 

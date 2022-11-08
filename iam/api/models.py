@@ -292,6 +292,8 @@ class AuthEvent(models.Model):
     
     created = models.DateTimeField(auto_now_add=True)
     admin_fields = JSONField(blank=True, null=True)
+    support_otl_enabled = models.BooleanField(default=False)
+    inside_authenticate_otl_period = models.BooleanField(default=False)
     has_ballot_boxes = models.BooleanField(default=True)
     allow_public_census_query = models.BooleanField(default=True)
 
@@ -391,7 +393,9 @@ class AuthEvent(models.Model):
             'openid_connect_providers': [
                 provider['public_info']
                 for provider in settings.OPENID_CONNECT_PROVIDERS_CONF
-            ]
+            ],
+            'support_otl_enabled': self.support_otl_enabled,
+            'inside_authenticate_otl_period': self.inside_authenticate_otl_period
         }
 
         def none_list(e):

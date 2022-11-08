@@ -1356,6 +1356,52 @@ auth_event19 = {
     ]
 }
 
+
+# election configuration:
+# - uses email authentication
+# - static codes (allows setting them when uploading census)
+# - allows one time links
+# - membership-id extra field that is required during OTL auth
+auth_event_otp1 = {
+    "auth_method": "email",
+    "census": "open",
+    "auth_method_config": {
+        "authentication-action":{
+            "mode":"vote",
+            "mode-config": None
+        },
+        "registration-action":{
+            "mode":"vote",
+            "mode-config":None
+        },
+        "subject": "Confirm your email",
+        "msg": "Click __URL__ and put this code __CODE__",
+        "fixed-code": True
+    },
+    "support_otl_enabled": True,
+    "extra_fields": [
+        {
+            "name": "email",
+            "type": "email",
+            "required": True,
+            "min": 4,
+            "max": 255,
+            "required_on_authentication": True,
+            "match_against_census_on_otl_authentication": True
+        },
+        {
+            "name": "membership-id",
+            "type": "text",
+            "required": False,
+            "unique": True,
+            "min": 1,
+            "max": 64,
+            "required_on_authentication": False,
+            "match_against_census_on_otl_authentication": True
+        }
+    ]
+}
+
 def get_auth_event19_census(auth_method):
     if 'email' in auth_method:
         return {

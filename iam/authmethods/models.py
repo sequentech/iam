@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with iam.  If not, see <http://www.gnu.org/licenses/>.
 
+import uuid
 from django.db import models
 from jsonfield import JSONField
 
@@ -58,4 +59,40 @@ class Code(models.Model):
     code = models.CharField(max_length=64)
     created = models.DateTimeField(auto_now_add=True)
     auth_event_id = models.IntegerField()
+    is_enabled = models.BooleanField(default=True)
+
+class OneTimeLink(models.Model):
+    '''
+    Stores information related to "secret" One Time Links (OTLs) that are used
+    to obtain voter authentication codes.
+    '''
+    # The OTL will be valid only for this user 
+    user = models.ForeignKey(
+        UserData,
+        models.CASCADE,
+        related_name="one_time_links"
+    )
+
+    # The OTL will be valid only for this auth event
+    auth_event_id = models.IntegerField()
+
+    # stores the secret that is part of the one time link and makes it secure
+    # because it's difficult to guess. See for security 
+    # https://stackoverflow.com/questions/41505448/is-python-uuid-uuid4-strong-enough-for-password-reset-links
+    secret = models.UUIDField(default=uuid.uuid4, editable=False, db_index=True)
+    
+    # Time at which this link was created. If a user has multiple enabled links,
+    # only the last one should work.
+    created = models.DateTimeField(auto_now_add=True)
+
+    # time at which the link was used - the link should be used only once so
+    # when used, it should be disabled
+    used = models.DateTimeField(
+        auto_now=False,
+        auto_now_add=False,
+        null=True,
+        blank=True
+    )
+
+    # is the link enabled? it could be manually disabled
     is_enabled = models.BooleanField(default=True)

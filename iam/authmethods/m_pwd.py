@@ -40,7 +40,8 @@ from authmethods.utils import (
     resend_auth_code,
     generate_auth_code,
     stack_trace_str,
-    json_response
+    json_response,
+    authenticate_otl
 )
 
 LOGGER = logging.getLogger('iam')
@@ -284,6 +285,14 @@ class Password:
             logger_name="Password",
             default_pipelines=Password.PIPELINES
         )
+
+    def authenticate_otl(self, auth_event, request):
+        return authenticate_otl(
+            auth_event=auth_event,
+            request=request,
+            logger_name="Password"
+        )
+
 
     def generate_auth_code(self, auth_event, request):
         return generate_auth_code(
