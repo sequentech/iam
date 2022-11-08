@@ -46,6 +46,7 @@ from authmethods.utils import (
     resend_auth_code,
     generate_auth_code,
     stack_trace_str,
+    authenticate_otl
 )
 
 from contracts.base import check_contract
@@ -445,6 +446,13 @@ class SmartLink:
       request=request,
       logger_name="SmartLink",
       default_pipelines=SmartLink.PIPELINES
+    )
+
+  def authenticate_otl(self, auth_event, request):
+    return authenticate_otl(
+      auth_event=auth_event,
+      request=request,
+      logger_name="SmartLink"
     )
 
   def generate_auth_code(self, auth_event, request):

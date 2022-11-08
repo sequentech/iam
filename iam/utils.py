@@ -466,6 +466,10 @@ def send_email_code(
             ):
                 template_dict[field['slug']] = user.userdata.metadata[field['name']]
 
+
+    if auth_event.support_otl_enabled:
+        template_dict['otl'] = get_or_create_otl(user)
+
     # base_msg is the base template, allows the iam superadmin to configure
     # a prefix or suffix to all messages
     # email
@@ -595,6 +599,9 @@ def send_sms_code(
             ):
                 template_dict[field['slug']] = user.userdata.metadata[field['name']]
 
+    if auth_event.support_otl_enabled:
+        template_dict['otl'] = get_or_create_otl(user)
+
     # base_msg is the base template, allows the iam superadmin to configure
     # a prefix or suffix to all messages
     base_message_body = settings.SMS_BASE_TEMPLATE
@@ -622,6 +629,55 @@ def send_sms_code(
         auth_event_id=auth_event.id
     )
     db_message.save()
+
+def get_or_create_code(user):
+    auth_event = user.userdata.event
+    auth_config = auth_event.auth_method_config.get('config')
+    is_fixed_code = type(auth_config) is dict and auth_config.get('fixed-code')
+    code = None
+    if is_fixed_code:
+        from authmethods.models import Code
+        last_code = Code.objects.filter(
+            user=user.userdata,
+            auth_event_id=user.userdata.event.id,
+            is_enabled=True
+        ).order_by('created').last()
+        if last_code:
+            code = last_code.code
+
+    if not code:
+        code = generate_code(user.userdata).code
+    return code
+
+def get_or_create_otl(user):
+    '''
+    Gets or creates an One Time Link
+    '''
+    from authmethods.models import OneTimeLink
+    auth_event = user.userdata.event
+    otlf_config = dict(
+        user=user.userdata,
+        used=None,
+        is_enabled=True,
+        auth_event_id=auth_event.id
+    )
+    otl = OneTimeLink\
+        .objects\
+        .filter(**otlf_config)\
+        .order_by('-created')\
+        .first()
+    if otl is None:
+        otl = OneTimeLink(**otlf_config)
+        otl.save()
+    
+    otl_url = template_replace_data(
+        settings.OTL_URL,
+        dict(
+            event_id=auth_event.id,
+            secret=otl.secret
+        )
+    )
+    return otl_url
 
 def send_code(
     user,
@@ -660,19 +716,7 @@ def send_code(
     auth_method = auth_event.auth_method
     auth_config = auth_event.auth_method_config.get('config')
 
-    is_fixed_code = type(auth_config) is dict and auth_config.get('fixed-code')
-    if is_fixed_code and not code:
-        from authmethods.models import Code
-        last_code = Code.objects.filter(
-            user=user.userdata,
-            auth_event_id=user.userdata.event.id,
-            is_enabled=True
-        ).order_by('created').last()
-        if last_code:
-            code = last_code.code
-
-    if not code:
-        code = generate_code(user.userdata).code
+    code = get_or_create_code(user)
     base_config = (
         auth_config
         if not config
@@ -859,9 +903,11 @@ def send_codes(
     auth_method=None,
     config=None,
     sender_uid=None,
-    eid=None
+    eid=None,
+    force_create_otl=False
 ):
     from api.models import Action, AuthEvent
+    from authmethods.models import OneTimeLink
 
     # delay between send code calls
     delay = 0
@@ -869,7 +915,6 @@ def send_codes(
     if extend_info:
         for info in extend_info:
              delay = info
-
 
     sender = User.objects.get(pk=sender_uid) if sender_uid else None
     auth_event = AuthEvent.objects.get(pk=eid) if eid else None
@@ -885,6 +930,25 @@ def send_codes(
             metadata=dict()
         )
         action.save()
+        if force_create_otl:
+            # invalidate old otls
+            old_otls = OneTimeLink.objects.filter(
+                user=user.userdata,
+                auth_event_id=auth_event.id,
+                is_enabled=True
+            )
+            for old_otl in old_otls:
+                old_otl.is_enabled = False
+            OneTimeLink.objects.bulk_update(old_otls, ['is_enabled'])
+
+            # create a new one
+            otl = OneTimeLink(
+                user=user.userdata,
+                used=False,
+                is_enabled=True,
+                auth_event_id=auth_event.id
+            )
+            otl.save()
         send_code(user, ip, config, auth_method_override=auth_method)
         if delay > 0:
             sleep(delay)
@@ -942,7 +1006,11 @@ VALID_FIELDS = (
   'templates',
 
   # user by otp-code
-  'source_field'
+  'source_field',
+
+  # Used to match this extra field during authentication in One Time Links
+  # (OTLs).
+  'match_against_census_on_otl_authentication'
 )
 REQUIRED_FIELDS = ('name', 'type', 'required_on_authentication')
 VALID_PIPELINES = (

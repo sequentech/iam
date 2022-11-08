@@ -51,7 +51,8 @@ from authmethods.utils import (
     resend_auth_code,
     generate_auth_code,
     stack_trace_str,
-    get_user_code
+    get_user_code,
+    authenticate_otl
 )
 import plugins
 from . import register_method
@@ -780,6 +781,13 @@ class Sms:
             return self.error("Incorrect data", error_codename="invalid_credentials")
 
         return return_auth_data('Sms', req, request, user)
+
+    def authenticate_otl(self, auth_event, request):
+        return authenticate_otl(
+            auth_event=auth_event,
+            request=request,
+            logger_name="Sms"
+        )
 
     def resend_auth_code(self, auth_event, request):
         return resend_auth_code(

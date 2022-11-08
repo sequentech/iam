@@ -93,15 +93,24 @@ def census_send_auth_task(
                census.append(item.user.user.id)
            elif "email" == auth_method and item.user.user.email:
                census.append(item.user.user.id)
-    
+
     extend_errors = plugins.call("extend_send_message", e, len(census), kwargs)
     if extend_errors:
         logger.info("census_send_auth_task(pk = %r): errors" % pk)
         # Only can return one error at least for now
         return extend_errors[0]
 
+    force_create_otl = (
+        e.support_otl_enabled and
+        isinstance(config, dict) and
+        'force_create_otl' in config and
+        isinstance(config['force_create_otl'], bool) and
+        config.get('force_create_otl', False)
+    )
     logger.info("census_send_auth_task(pk = %r): send_codes.apply_async" % pk)
-    send_codes.apply_async(args=[census, ip, auth_method, config, sender_uid, pk])
+    send_codes.apply_async(
+        args=[census, ip, auth_method, config, sender_uid, pk, force_create_otl]
+    )
 
 def launch_tally(auth_event):
     '''
