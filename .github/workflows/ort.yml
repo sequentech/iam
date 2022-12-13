@@ -38,7 +38,7 @@ jobs:
       #      PdfTemplate=template.path=/project/.ort-data/disclosure_document.ftl
 
       - name: Run GitHub Action for ORT
-        uses: oss-review-toolkit/ort-ci-github-action@v1
+        uses: oss-review-toolkit/ort-ci-github-action@main
         with:
           log-level: debug
           fail-on: issues,violations
