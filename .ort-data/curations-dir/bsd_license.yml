@@ -66,6 +66,13 @@
   curations:
     comment: "Invalid license with a space."
     declared_license_mapping:
+      "BSD License": "BSD-2-Clause"
+
+
+- id: "PyPI::reportlab"
+  curations:
+    comment: "Invalid license with a space."
+    declared_license_mapping:
       "BSD License": "BSD-3-Clause"
 
 - id: "PyPI::anyjson"
@@ -209,7 +216,6 @@
 - id: "PyPI::reportlab"
   curations:
     comment: "Invalid license with a space."
-    concluded_license: "BSD-3-Clause"
     declared_license_mapping:
       "BSD License": "BSD-3-Clause"
 
