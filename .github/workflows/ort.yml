@@ -49,6 +49,5 @@ jobs:
             --force-overwrite
             --stacktrace
             -P ort.analyzer.enabledPackageManagers=PIP
-          ort-cli-evaluate-args: >
-            --rules-file $ORT_CONFIG_PATH/rules.kts
-            --license-classifications-file $ORT_CONFIG_PATH/license-classifications.yml
+          ort-cli-evaluate-args: --rules-file /home/runner/.ort/config/rules.kts
+            --license-classifications-file /home/runner/.ort/config/license-classifications.yml
