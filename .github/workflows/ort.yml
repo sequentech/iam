@@ -42,7 +42,7 @@ jobs:
         with:
           log-level: debug
           fail-on: issues,violations
-          report-formats: AdocTemplate,PdfTemplate,Excel,StaticHtml,WebApp
+          report-formats: SpdxDocument,Excel,StaticHtml,WebApp
           ort-cli-args: > # using the default plus the package managers setting
             --force-overwrite
             --stacktrace
