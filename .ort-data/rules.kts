@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2021 Sequent Tech Inc <legal@sequentech.io>
+ * SPDX-FileCopyrightText: 2021-2022 Sequent Tech Inc <legal@sequentech.io>
  * SPDX-FileCopyrightText: 2019 HERE Europe B.V.
  *
  * SPDX-License-Identifier: AGPL-3.0-only
@@ -187,7 +187,7 @@ val ruleSet = ruleSet(ortResult, licenseInfoResolver) {
         require {
             -isExcluded()
             +hasVulnerability(maxAcceptedSeverity, scoringSystem) { value, threshold ->
-                value.toFloat().compareTo(threshold.toFloat())
+                value.toFloat() >= threshold.toFloat()
             }
         }
 
