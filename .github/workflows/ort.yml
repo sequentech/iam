@@ -41,6 +41,7 @@ jobs:
         uses: oss-review-toolkit/ort-ci-github-action@main
         with:
           log-level: debug
+          ort-config-repository: https://github.com/sequentech/ort-config.git
           # advisors: '' # don't run advisors, we use github for that
           #fail-on: issues,violations
           report-formats: SpdxDocument,Excel,StaticHtml,WebApp
@@ -49,5 +50,5 @@ jobs:
             --stacktrace
             -P ort.analyzer.enabledPackageManagers=PIP
           ort-cli-evaluate-args: >
-            --rules-file ${{ github.workspace }}/.ort-data/rules.kts
-            --license-classifications-file ${{ github.workspace }}/.ort-data/license-classifications.yml
+            --rules-file ${ORT_CONFIG_PATH}/rules.kts
+            --license-classifications-file ${ORT_CONFIG_PATH}/license-classifications.yml
