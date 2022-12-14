@@ -43,7 +43,7 @@ jobs:
           log-level: debug
           fail-on: issues,violations
           report-formats: AdocTemplate,PdfTemplate,Excel,StaticHtml,WebApp
-          ort-cli-analyze-args: '--package-managers PIP'
+          ort-cli-analyze-args: '-P ort.analyzer.enabledPackageManagers=PIP'
           ort-cli-evaluate-args: >
             --package-curations-dir ${{ github.workspace }}/.ort-data/curations-dir/
             --rules-file ${{ github.workspace }}/.ort-data/rules.kts

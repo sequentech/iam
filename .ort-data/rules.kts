@@ -102,7 +102,7 @@ val ruleSet = ruleSet(ortResult, licenseInfoResolver) {
             error(
                 "The license $license is currently not covered by policy rules. " +
                         "The license was ${licenseSource.name.lowercase()} in package " +
-                        "${pkg.id.toCoordinates()}",
+                        "${pkg.metadata.id.toCoordinates()}",
                 howToFixDefault()
             )
         }
@@ -116,7 +116,7 @@ val ruleSet = ruleSet(ortResult, licenseInfoResolver) {
         resolvedLicenseInfo.licenseInfo.declaredLicenseInfo.processed.unmapped.forEach { unmappedLicense ->
             warning(
                 "The declared license '$unmappedLicense' could not be mapped to a valid license or parsed as an SPDX " +
-                        "expression. The license was found in package ${pkg.id.toCoordinates()}.",
+                        "expression. The license was found in package ${pkg.metadata.id.toCoordinates()}.",
                 howToFixDefault()
             )
         }
@@ -135,9 +135,9 @@ val ruleSet = ruleSet(ortResult, licenseInfoResolver) {
 
             val message = if (licenseSource == LicenseSource.DETECTED) {
                 "The ScanCode copyleft categorized license $license was ${licenseSource.name.lowercase()} " +
-                        "in package ${pkg.id.toCoordinates()}."
+                        "in package ${pkg.metadata.id.toCoordinates()}."
             } else {
-                "The package ${pkg.id.toCoordinates()} has the ${licenseSource.name.lowercase()} ScanCode copyleft " +
+                "The package ${pkg.metadata.id.toCoordinates()} has the ${licenseSource.name.lowercase()} ScanCode copyleft " +
                         "catalogized license $license."
             }
 
@@ -151,15 +151,15 @@ val ruleSet = ruleSet(ortResult, licenseInfoResolver) {
             }
 
             val message = if (licenseSource == LicenseSource.DETECTED) {
-                if (pkg.id.type == "Unmanaged") {
+                if (pkg.metadata.id.type == "Unmanaged") {
                     "The ScanCode copyleft-limited categorized license $license was ${licenseSource.name.lowercase()} " +
-                            "in package ${pkg.id.toCoordinates()}."
+                            "in package ${pkg.metadata.id.toCoordinates()}."
                 } else {
                     "The ScanCode copyleft-limited categorized license $license was ${licenseSource.name.lowercase()} " +
-                            "in package ${pkg.id.toCoordinates()}."
+                            "in package ${pkg.metadata.id.toCoordinates()}."
                 }
             } else {
-                "The package ${pkg.id.toCoordinates()} has the ${licenseSource.name.lowercase()} ScanCode " +
+                "The package ${pkg.metadata.id.toCoordinates()} has the ${licenseSource.name.lowercase()} ScanCode " +
                         "copyleft-limited categorized license $license."
             }
 
@@ -175,7 +175,7 @@ val ruleSet = ruleSet(ortResult, licenseInfoResolver) {
 
         issue(
             Severity.WARNING,
-            "The package ${pkg.id.toCoordinates()} has a vulnerability",
+            "The package ${pkg.metadata.id.toCoordinates()} has a vulnerability",
             howToFixDefault()
         )
     }
@@ -193,7 +193,7 @@ val ruleSet = ruleSet(ortResult, licenseInfoResolver) {
 
         issue(
             Severity.ERROR,
-            "The package ${pkg.id.toCoordinates()} has a vulnerability with $scoringSystem severity > " +
+            "The package ${pkg.metadata.id.toCoordinates()} has a vulnerability with $scoringSystem severity > " +
                     "$maxAcceptedSeverity",
             howToFixDefault()
         )
