@@ -42,8 +42,8 @@ jobs:
         with:
           log-level: debug
           ort-config-repository: 'https://github.com/sequentech/ort-config.git'
-          # advisors: '' # don't run advisors, we use github for that
-          #fail-on: issues,violations
+          advisors: '' # don't run advisors, we use github for that
+          fail-on: issues,violations
           report-formats: SpdxDocument,Excel,StaticHtml,WebApp
           ort-cli-args: > # using the default plus the package managers setting
             --force-overwrite
