@@ -40,9 +40,15 @@ jobs:
       - name: Run GitHub Action for ORT
         uses: oss-review-toolkit/ort-ci-github-action@main
         with:
+          run: > # remove the advisor step since we are not using it
+            cache-dependencies,
+            metadata-labels,
+            analyzer,
+            reporter,
+            upload-results,
+            upload-evaluation-result
           log-level: debug
           ort-config-repository: 'https://github.com/sequentech/ort-config.git'
-          advisors: '' # don't run advisors, we use github for that
           fail-on: issues,violations
           report-formats: SpdxDocument,Excel,StaticHtml,WebApp
           ort-cli-args: > # using the default plus the package managers setting
