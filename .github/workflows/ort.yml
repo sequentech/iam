@@ -41,7 +41,7 @@ jobs:
         uses: oss-review-toolkit/ort-ci-github-action@main
         with:
           log-level: debug
-          fail-on: issues,violations
+          #fail-on: issues,violations
           report-formats: SpdxDocument,Excel,StaticHtml,WebApp
           ort-cli-args: > # using the default plus the package managers setting
             --force-overwrite
