@@ -209,6 +209,7 @@
 - id: "PyPI::reportlab"
   curations:
     comment: "Invalid license with a space."
+    concluded_license: "BSD-3-Clause"
     declared_license_mapping:
       "BSD License": "BSD-3-Clause"
 
