@@ -49,6 +49,5 @@ jobs:
             --stacktrace
             -P ort.analyzer.enabledPackageManagers=PIP
           ort-cli-evaluate-args: >
-            --package-curations-dir ${{ github.workspace }}/.ort-data/curations-dir/
             --rules-file ${{ github.workspace }}/.ort-data/rules.kts
             --license-classifications-file ${{ github.workspace }}/.ort-data/license-classifications.yml
