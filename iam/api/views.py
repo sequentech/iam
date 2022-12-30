@@ -3209,6 +3209,6 @@ class GetHighestAutheventView(View):
             highest_pk = 0
 
         return json_response(dict(
-            highest_pk=highest_pk
+            highest_id=highest_pk
         ))
 get_highest_authevent = login_required(GetHighestAutheventView.as_view())
