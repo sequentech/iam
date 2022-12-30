@@ -3204,7 +3204,7 @@ class GetHighestAutheventView(View):
     def get(self, request):
         permission_required(request.user, 'ACL', 'view')
         try:
-            highest_pk = AuthEvent.ojects.latest('pk').pk
+            highest_pk = AuthEvent.objects.latest('pk').pk
         except AuthEvent.DoesNotExist:
             highest_pk = 0
 
