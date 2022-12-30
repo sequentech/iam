@@ -25,6 +25,7 @@ urlpatterns = [
     url(r'^acl/mine/$', views.aclmine, name='aclmine'),
 
     url(r'^auth-event/$', views.authevent, name='authevent'),
+    url(r'^auth-event/highest/$', views.get_highest_authevent, name='authevent'),
     url(r'^auth-event/(?P<pk>\d+)/$', views.authevent, name='authevent'),
     url(r'^auth-event/(?P<pk>\d+)/edit-children-parent/$', views.edit_children_parent, name='edit-children-parent'),
     url(r'^auth-event/(?P<pk>\d+)/allow-tally/$', views.allow_tally, name='allow-tally'),

@@ -3198,3 +3198,17 @@ class AllowTallyView(View):
 
         return json_response()
 allow_tally = login_required(AllowTallyView.as_view())
+
+
+class GetHighestAutheventView(View):
+    def get(self, request, pk):
+        permission_required(request.user, 'ACL', 'view')
+        try:
+            highest_pk = AuthEvent.ojects.latest('pk').pk
+        except AuthEvent.DoesNotExist:
+            highest_pk = 0
+
+        return json_response(dict(
+            highest_pk=highest_pk
+        ))
+get_highest_authevent = login_required(GetHighestAutheventView.as_view())
