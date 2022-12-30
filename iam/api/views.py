@@ -3201,7 +3201,7 @@ allow_tally = login_required(AllowTallyView.as_view())
 
 
 class GetHighestAutheventView(View):
-    def get(self, request, pk):
+    def get(self, request):
         permission_required(request.user, 'ACL', 'view')
         try:
             highest_pk = AuthEvent.ojects.latest('pk').pk
