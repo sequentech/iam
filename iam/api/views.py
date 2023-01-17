@@ -3206,7 +3206,7 @@ class GetHighestAutheventView(View):
         try:
             highest_pk = AuthEvent.objects.latest('pk').pk
         except AuthEvent.DoesNotExist:
-            highest_pk = 0
+            highest_pk = 1
 
         return json_response(dict(
             highest_id=highest_pk
