@@ -33,7 +33,7 @@ identify==2.4.0
 idna==2.8
 ipdb==0.10.0
 ipdbplugin==1.4.5
-ipython==7.31.1
+ipython==8.10.0
 ipython-genutils==0.2.0
 jedi==0.17.2
 jmespath==1.0.0
