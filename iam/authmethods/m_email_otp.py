@@ -474,7 +474,7 @@ class EmailOtp:
         # inside check_fields_in_request might modify this
         req['active'] = True
 
-        msg += check_fields_in_request(req, auth_event)
+        msg = check_fields_in_request(req, auth_event)
         if msg:
             LOGGER.error(\
                 "EmailOtp.register error\n"\
