@@ -461,6 +461,10 @@ def get_user_match_query(auth_event, user_data, base_query):
             query = query & Q(email__iexact=field_data)
         elif field_type == 'tlf':
             query = query & Q(userdata__tlf=field_data)
+        elif field_type == 'bool':
+            query = query & Q(
+                userdata__metadata__contains={field_name: True}
+            )
         else:
             query = query & Q(
                 userdata__metadata__contains={field_name: field_data}
