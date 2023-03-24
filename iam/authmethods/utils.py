@@ -19,6 +19,7 @@ import re
 import os
 import binascii
 import logging
+import urllib
 from datetime import timedelta, datetime
 from django.conf import settings
 from django.contrib.auth.models import User, AnonymousUser
@@ -40,7 +41,8 @@ from utils import (
     stack_trace_str,
     generate_code,
     send_codes,
-    get_or_create_code
+    get_or_create_code,
+    template_replace_data
 )
 from pipelines.base import execute_pipeline, PipeReturnvalue
 
@@ -1625,7 +1627,7 @@ def return_auth_data(logger_name, req_json, request, user, auth_event=None):
     # add redirection
     auth_action = auth_event.auth_method_config['config']['authentication-action']
     if auth_action['mode'] == 'go-to-url':
-        data['redirect-to-url'] = auth_action['mode-config']['url']
+        data['redirect-to-url'] = get_redirect_to_url(auth_event, data)
 
     LOGGER.debug(\
         "%s.authenticate success\n"\
@@ -1635,6 +1637,35 @@ def return_auth_data(logger_name, req_json, request, user, auth_event=None):
         "Stack trace: \n%s",\
         logger_name, data, auth_event, req_json, stack_trace_str())
     return data
+
+def get_redirect_to_url(auth_event, data):
+    '''
+    Return the redirect-to-url, with templated vars replaced
+    '''
+
+    auth_action = auth_event.auth_method_config['config']['authentication-action']
+    if auth_event.children_election_info is None:
+        vote_children_info = []
+    else:
+        def map_child_info(child_info):
+            mapped = child_info.copy()
+            mapped['can-vote'] = (mapped['vote-permission-token'] is not None)
+            del mapped['vote-permission-token']
+            return mapped
+
+        vote_children_info = [
+            map_child_info(child_event_info)
+            for child_event_info in data['vote-children-info']
+        ]
+
+    # encode to json, then url encode it for safety too
+    vote_children_info = urllib.parse.quote(json.dumps(vote_children_info))
+
+    url = template_replace_data(
+        auth_action['mode-config']['url'],
+        dict(vote_children_info=vote_children_info)
+    )
+    return url
 
 def verify_num_successful_logins(auth_event, logger_name, user, req_json):
     '''

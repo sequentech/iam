@@ -893,6 +893,31 @@ authmethod_config_email_default = {
         }
 }
 
+authmethod_config_email_go_to_url = {
+        "config": {
+            "subject": "Confirm your email",
+            "msg": "Click __URL__ and put this code __CODE__",
+            "authentication-action": {
+                "mode": "go-to-url",
+                "mode-config": {"url": "https://example.com/path/to/somewhere/"}
+            }
+        },
+        "pipeline": {
+            'give_perms': [
+                {'object_type': 'UserData', 'perms': ['edit',], 'object_id': 'UserDataId' },
+                {'object_type': 'AuthEvent', 'perms': ['vote',], 'object_id': 'AuthEventId' }
+            ],
+            "register-pipeline": [
+                ["check_whitelisted", {"field": "ip"}],
+                ["check_blacklisted", {"field": "ip"}],
+                ["check_total_max", {"field": "ip", "max": pipe_total_max_ip}],
+            ],
+            "authenticate-pipeline": [
+                #['check_total_connection', {'times': pipe_times }],
+            ]
+        }
+}
+
 authmethod_config_sms_default = {
         "config": {
             "msg": "Enter in __URL__ and put this code __CODE__",
