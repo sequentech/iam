@@ -1659,7 +1659,7 @@ def get_redirect_to_url(auth_event, data):
         ]
 
     # encode to json, then url encode it for safety too
-    vote_children_info = urllib.quote(json.dumps(vote_children_info))
+    vote_children_info = urllib.parse.quote(json.dumps(vote_children_info))
 
     url = template_replace_data(
         auth_action['mode-config']['url'],
