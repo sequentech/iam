@@ -6543,7 +6543,7 @@ class ApiTestGoToUrlAuthenticate(TestCase):
     def setUp(self):
         self.auth_event = AuthEvent(
             auth_method='email',
-            auth_method_config=test_data.authmethod_config_email_go_to_url,
+            auth_method_config=copy.deepcopy(test_data.authmethod_config_email_go_to_url),
             extra_fields=[],
             status='started',
             census='open')
@@ -6591,7 +6591,11 @@ class ApiTestGoToUrlAuthenticate(TestCase):
         Test that the user gets a return url after successful login, replacing
         also __VOTE_CHILDREN_INFO__ in the url template
         '''
-        self.auth_event.auth_method_config['config']['authentication-action']['mode-config']['url'] += "?children=__VOTE_CHILDREN_INFO__"
+        self.auth_event.auth_method_config['config']['authentication-action']['mode-config']['url'] = (
+            test_data.authmethod_config_email_go_to_url['config']['authentication-action']['mode-config']['url'] +
+            "?children=__VOTE_CHILDREN_INFO__"
+        )
+        self.auth_event.save()
         client = JClient()
         user_data = dict(
             email='foo@bar.com',
