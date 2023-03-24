@@ -6534,3 +6534,82 @@ class TestOtl(TestCase):
             }
         )
         self.assertEqual(response.status_code, 200)
+
+
+class ApiTestGoToUrlAuthenticate(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        self.auth_event = AuthEvent(
+            auth_method='email',
+            auth_method_config=copy.deepcopy(test_data.authmethod_config_email_go_to_url),
+            extra_fields=[],
+            status='started',
+            census='open')
+        self.auth_event.save()
+
+        self.user = User(
+            username='foo',
+            email='foo@bar.com')
+        self.user.set_password('qwerty')
+        self.user.save()
+        self.user.userdata.event = self.auth_event
+        self.user.userdata.save()
+
+        code = Code(
+            user=self.user.userdata,
+            code='ERGERG',
+            auth_event_id=self.auth_event.id)
+        code.save()
+
+        acl = ACL(
+            user=self.user.userdata,
+            object_type='AuthEvent',
+            perm='vote',
+            object_id=self.auth_event.id)
+        acl.save()
+
+    def test_go_to_url_login(self):
+        '''
+        Test that the user gets a return url after successful login
+        '''
+        client = JClient()
+        user_data = dict(
+            email='foo@bar.com',
+            code='ERGERG'
+        )
+        url_auth = '/api/auth-event/%d/authenticate/' % self.auth_event.id
+        response = client.post(url_auth, user_data)
+        self.assertEqual(response.status_code, 200)
+        response_data = parse_json_response(response)
+        redirect_url = test_data.authmethod_config_email_go_to_url['config']['authentication-action']['mode-config']['url']
+        self.assertEqual(response_data['redirect-to-url'], redirect_url)
+
+    def test_go_to_url_login_template(self):
+        '''
+        Test that the user gets a return url after successful login, replacing
+        also __VOTE_CHILDREN_INFO__ in the url template
+        '''
+        self.auth_event.auth_method_config['config']['authentication-action']['mode-config']['url'] = (
+            test_data.authmethod_config_email_go_to_url['config']['authentication-action']['mode-config']['url'] +
+            "?children=__VOTE_CHILDREN_INFO__"
+        )
+        self.auth_event.save()
+        client = JClient()
+        user_data = dict(
+            email='foo@bar.com',
+            code='ERGERG'
+        )
+        url_auth = '/api/auth-event/%d/authenticate/' % self.auth_event.id
+        response = client.post(url_auth, user_data)
+        self.assertEqual(response.status_code, 200)
+        response_data = parse_json_response(response)
+
+        # Note '%5B%5D' is urlencoded for '[]', which is what is expected since
+        # this is not a parent-children election
+        redirect_url = (
+            test_data.authmethod_config_email_go_to_url['config']['authentication-action']['mode-config']['url'] +
+            "?children=%5B%5D"
+        )
+        self.assertEqual(response_data['redirect-to-url'], redirect_url)
