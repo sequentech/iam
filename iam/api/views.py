@@ -1755,18 +1755,37 @@ class AuthEventView(View):
             # creating an AuthEvent with the election id set because it would
             # fail to set some properties like the AuthEvent.created attribute.
             if election_exists:
-              AuthEvent.objects\
-                .filter(pk=requested_id)\
-                .update(**election_options)
-              ae = AuthEvent.objects.get(pk=requested_id)
+                AuthEvent.objects\
+                    .filter(pk=requested_id)\
+                    .update(**election_options)
+                ae = AuthEvent.objects.get(pk=requested_id)
             else:
-              ae = AuthEvent(
-                # this is needed to set the election id if election id is 
-                # supplied but the election doesn't exist
-                pk=requested_id,
-                **election_options
-              )
-              ae.save()
+                ae = AuthEvent(
+                    # this is needed to set the election id if election id is
+                    # supplied but the election doesn't exist
+                    pk=requested_id,
+                    **election_options
+                )
+                ae.save()
+
+            # if requested a specific id, we will update the authevent autoinc
+            # sequence id, otherwise we might have conflicts in future
+            # auth events creation
+            if requested_id:
+                from django.db import connection
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        '''
+                        select
+                            setval(
+                                'api_authevent_id_seq',
+                                GREATEST(
+                                    (SELECT MAX(id) FROM api_authevent),
+                                    nextval('api_authevent_id_seq') - 1
+                                )
+                            );
+                        '''
+                    )
 
             acl = ACL(
                 user=request.user.userdata,
