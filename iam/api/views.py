@@ -2843,8 +2843,19 @@ class TallyStatusView(View):
                 status=400,
                 error_codename=ErrorCodes.BAD_REQUEST
             )
+        
+        # Stablishes the tally mode. It can be either:
+        # - 'all': all cast votes will be counted.
+        # - 'active': only cast votes related to currently active voters will
+        #   be counted.
+        tally_mode = req.get('mode', 'active')
+        if tally_mode not in ['active', 'all']:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST
+            )
 
-        # Stablishes the tally force type. It can be eith:
+        # Stablishes the tally force type. It can be either:
         # - 'do-not-force': only initiates the tally for an election if it
         #   didn't start.
         # - 'force-untallied': starts again the tally of any pending or
@@ -2912,9 +2923,11 @@ class TallyStatusView(View):
                     force_tally in ['force-all']
                 )
             ):
-                # set tally status to pending
+                # set tally status to pending and set the tally mode
                 previous_tally_status = auth_event_to_tally.tally_status
+                previous_tally_mode = auth_event_to_tally.tally_mode
                 auth_event_to_tally.tally_status = AuthEvent.PENDING
+                auth_event_to_tally.tally_mode = tally_mode
                 auth_event_to_tally.save()
 
                 # log the action
@@ -2926,7 +2939,9 @@ class TallyStatusView(View):
                     metadata=dict(
                         auth_event=auth_event_to_tally.pk,
                         previous_tally_status=previous_tally_status,
+                        previous_tally_mode=previous_tally_mode,
                         force_tally=force_tally,
+                        tally_mode=tally_mode,
                         forced=(previous_tally_status != AuthEvent.NOT_STARTED)
                     )
                 )

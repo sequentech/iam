@@ -57,6 +57,11 @@ AE_TALLY_STATUSES = (
     ('success', 'success'),
 )
 
+AE_TALLY_MODES = (
+    ('active', 'active'),
+    ('all', 'all'),
+)
+
 CHILDREN_EVENT_ID_LIST_CONTRACT = [
     {
         'check': 'isinstance',
@@ -271,6 +276,9 @@ class AuthEvent(models.Model):
     RESUMED = "resumed"
     PENDING = "pending"
     SUCCESS = "success"
+    TALLY_MODE_ACTIVE = 'active'
+    TALLY_MODE_ALL = 'all'
+
 
     auth_method = models.CharField(max_length=255)
     census = models.CharField(max_length=5, choices=CENSUS, default="close")
@@ -288,6 +296,15 @@ class AuthEvent(models.Model):
         max_length=15, 
         choices=AE_TALLY_STATUSES, 
         default=NOT_STARTED
+    )
+
+    # used by iam_celery to know what tallies mode should be used, and to
+    # serialize those launches one by one. set/get with (s|g)et_tally_status api
+    # calls
+    tally_mode = models.CharField(
+        max_length=15, 
+        choices=AE_TALLY_MODES, 
+        default=TALLY_MODE_ACTIVE
     )
     
     created = models.DateTimeField(auto_now_add=True)

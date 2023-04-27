@@ -123,10 +123,16 @@ def launch_tally(auth_event):
         return
 
     callback_base = settings.SEQUENT_ELECTIONS_BASE[0]
-    callback_url = "%s/api/election/%s/tally-voter-ids" % (
-        callback_base,
-        auth_event.id
-    )
+    if auth_event.tally_mode == AuthEvent.TALLY_MODE_ACTIVE:
+        callback_url = "%s/api/election/%s/tally-voter-ids" % (
+            callback_base,
+            auth_event.id
+        )
+    else: # TALLY_MODE_ALL
+        callback_url = "%s/api/election/%s/tally" % (
+            callback_base,
+            auth_event.id
+        )
 
     if auth_event.parent is None:
         parent_auth_event = auth_event
@@ -172,7 +178,9 @@ def launch_tally(auth_event):
             metadata=dict(
                 auth_event=auth_event.pk,
                 request_status_code=ballot_box_request.status_code,
-                request_text=ballot_box_request.text
+                request_text=ballot_box_request.text,
+                callback_url=callback_url,
+                tally_mode=auth_event.tally_mode
             )
         )
         action.save()
