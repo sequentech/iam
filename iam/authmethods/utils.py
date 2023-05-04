@@ -815,12 +815,12 @@ def get_cannonical_tlf(tlf):
 def edit_user(user, req, auth_event):
     if auth_event.extra_fields:
         for extra in auth_event.extra_fields:
-            if extra.get('type') not in req:
+            if extra.get('name') not in req:
                 continue
-            if extra.get('type') == 'email' and req.get(extra.get('name')):
+            if extra.get('type') == 'email':
                 user.email = req.get(extra.get('name'))
                 req.pop(extra.get('name'))
-            elif extra.get('type') == 'tlf' and req.get(extra.get('name')):
+            elif extra.get('type') == 'tlf':
                 user.userdata.tlf = get_cannonical_tlf(req[extra.get('name')])
                 req.pop(extra.get('name'))
             elif extra.get('type') == 'password':
