@@ -506,7 +506,7 @@ def send_email_code(
     # store the message log in the DB
     db_message_log = MsgLog(
         authevent_id=auth_event.id,
-        receiver=receiver,
+        receiver=email_address,
         msg=dict(
             subject=message_subject,
             msg=message_body,
@@ -532,7 +532,7 @@ def send_email_code(
         message_subject,
         message_body,
         settings.DEFAULT_FROM_EMAIL,
-        [receiver],
+        [email_address],
         headers=headers,
     )
     if message_html:
@@ -540,7 +540,7 @@ def send_email_code(
     send_email(email)
     
     db_message = Message(
-        tlf=receiver[:20],
+        tlf=email_address[:20],
         ip=ip_address[:15],
         auth_event_id=auth_event.id
     )
@@ -619,14 +619,14 @@ def send_sms_code(
     # store the message log in the DB
     db_message_log = MsgLog(
         authevent_id=auth_event.id,
-        receiver=receiver,
+        receiver=tlf_number,
         msg=dict(subject=None, msg=message_body)
     )
     db_message_log.save()
 
-    send_sms_message(receiver, message_body)
+    send_sms_message(tlf_number, message_body)
     db_message = Message(
-        tlf=receiver[:20],
+        tlf=tlf_number[:20],
         ip=ip_address[:15],
         auth_event_id=auth_event.id
     )
@@ -725,7 +725,7 @@ def send_code(
     if auth_method in ['sms', 'sms-otp']:
         auth_method_receiver = user.userdata.tlf
     elif auth_method in ['email', 'email-otp']:
-        auth_method_receiver = email
+        auth_method_receiver = user.email
     else:
         auth_method_receiver = None
 
