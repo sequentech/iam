@@ -414,7 +414,8 @@ def send_email_code(
     email_address,
     ip_address,
     templates,
-    code=None
+    code=None,
+    auth_method_receiver=None
 ):
     if email_address is None:
         LOGGER.error(
@@ -437,7 +438,7 @@ def send_email_code(
       base_home_url,
       dict(event_id=auth_event.id)
     )
-    receiver = email_address
+    receiver = email_address if auth_method_receiver is None else auth_method_receiver
     base_auth_url = settings.EMAIL_AUTH_CODE_URL
 
     url = template_replace_data(
@@ -505,7 +506,7 @@ def send_email_code(
     # store the message log in the DB
     db_message_log = MsgLog(
         authevent_id=auth_event.id,
-        receiver=receiver,
+        receiver=email_address,
         msg=dict(
             subject=message_subject,
             msg=message_body,
@@ -531,7 +532,7 @@ def send_email_code(
         message_subject,
         message_body,
         settings.DEFAULT_FROM_EMAIL,
-        [receiver],
+        [email_address],
         headers=headers,
     )
     if message_html:
@@ -539,7 +540,7 @@ def send_email_code(
     send_email(email)
     
     db_message = Message(
-        tlf=receiver[:20],
+        tlf=email_address[:20],
         ip=ip_address[:15],
         auth_event_id=auth_event.id
     )
@@ -550,7 +551,8 @@ def send_sms_code(
     tlf_number,
     ip_address,
     templates,
-    code=None
+    code=None,
+    auth_method_receiver=None
 ):
     if tlf_number is None:
         LOGGER.error(
@@ -570,7 +572,7 @@ def send_sms_code(
       base_home_url,
       dict(event_id=auth_event.id)
     )
-    receiver = tlf_number
+    receiver = tlf_number if auth_method_receiver is None else auth_method_receiver
     base_auth_url = settings.SMS_AUTH_CODE_URL
 
     url = template_replace_data(
@@ -617,14 +619,14 @@ def send_sms_code(
     # store the message log in the DB
     db_message_log = MsgLog(
         authevent_id=auth_event.id,
-        receiver=receiver,
+        receiver=tlf_number,
         msg=dict(subject=None, msg=message_body)
     )
     db_message_log.save()
 
-    send_sms_message(receiver, message_body)
+    send_sms_message(tlf_number, message_body)
     db_message = Message(
-        tlf=receiver[:20],
+        tlf=tlf_number[:20],
         ip=ip_address[:15],
         auth_event_id=auth_event.id
     )
@@ -705,6 +707,8 @@ def send_code(
     # codes. Each path has a format similar to:
     # dict(
     #     receiver="+34666666666",
+    #     telephone="+34666666666",
+    #     email=None,
     #     method="sms",
     #     templates=dict(
     #         message="Your code is __CODE__"
@@ -715,6 +719,15 @@ def send_code(
     auth_event = user.userdata.event
     auth_method = auth_event.auth_method
     auth_config = auth_event.auth_method_config.get('config')
+
+    # The auth_method_receiver is part of the __LINK__ or __LINK2__ in message
+    # templates, and is dependent on the authentication method
+    if auth_method in ['sms', 'sms-otp']:
+        auth_method_receiver = user.userdata.tlf
+    elif auth_method in ['email', 'email-otp']:
+        auth_method_receiver = user.email
+    else:
+        auth_method_receiver = None
 
     code = get_or_create_code(user)
     base_config = (
@@ -738,7 +751,9 @@ def send_code(
     ):
         sending_paths\
             .append(dict(
-                receiver=user.userdata.tlf,
+                email=user.email,
+                telephone=user.userdata.tlf,
+                auth_method_receiver=auth_method_receiver,
                 method="sms",
                 templates=dict(
                     message_body=base_config.get('msg'),
@@ -758,7 +773,9 @@ def send_code(
     ):
         sending_paths\
             .append(dict(
-                receiver=user.email,
+                email=user.email,
+                telephone=user.userdata.tlf,
+                auth_method_receiver=auth_method_receiver,
                 method="email",
                 templates=dict(
                     message_body=base_config.get('msg'),
@@ -819,7 +836,9 @@ def send_code(
 
                 sending_paths\
                     .append(dict(
-                        receiver=tlf,
+                        email=user.email,
+                        telephone=tlf,
+                        auth_method_receiver=auth_method_receiver,
                         method="sms",
                         templates=templates
                     ))
@@ -841,7 +860,9 @@ def send_code(
 
                 sending_paths\
                     .append(dict(
-                        receiver=email,
+                        email=email,
+                        telephone=user.userdata.tlf,
+                        auth_method_receiver=auth_method_receiver,
                         method="email",
                         templates=templates
                     ))
@@ -852,18 +873,20 @@ def send_code(
         if method == 'sms':
             send_sms_code(
                 user=user,
-                tlf_number=sending_path['receiver'],
+                tlf_number=sending_path['telephone'],
                 ip_address=ip_address,
                 templates=sending_path['templates'],
-                code=code
+                code=code,
+                auth_method_receiver=sending_path['auth_method_receiver']
             )
         elif method == 'email':
             send_email_code(
                 user=user,
-                email_address=sending_path['receiver'],
+                email_address=sending_path['email'],
                 ip_address=ip_address,
                 templates=sending_path['templates'],
-                code=code
+                code=code,
+                auth_method_receiver=sending_path['auth_method_receiver']
             )
 
 def send_msg(data, msg, subject=''):
