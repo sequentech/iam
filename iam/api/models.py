@@ -295,10 +295,10 @@ class AuthEvent(models.Model):
     # [
     #     {
     #         "id": "email",
-    #         "name": "Email",
-    #         "auth_method": "email",
+    #         "auth_method_name": "email",
     #         "auth_method_config": <auth_method_config>,
     #         "extra_fields": <extra_fields>, 
+    #         "public_name": "Email",
     #         "public_name_i18n": {"es": "Nombre"},
     #         "icon": "{null/name/url}"
     #     }

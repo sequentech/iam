@@ -17,6 +17,92 @@ from django.test import TestCase
 from utils import check_alt_auth_methods
 
 class CheckAltAuthMethodsTestCase(TestCase):
-    def test_empty_auth_method(self):
-        ret = check_alt_auth_methods(None, {})
+    '''
+    Checks check_alt_auth_methods() works as expected
+    '''
+
+    def test_empty(self):
+        '''
+        Test when empty
+        '''
+        ret = check_alt_auth_methods(
+            alternative_auth_methods=None, extra_fields=[]
+        )
+        self.assertEqual(ret, '')
+
+        ret = check_alt_auth_methods(
+            alternative_auth_methods=None,
+            extra_fields=[
+                {
+                    "name": "name",
+                    "help": "put the name that appear in your dni",
+                    "type": "text",
+                    "required": True,
+                    "min": 2,
+                    "max": 64,
+                    "required_on_authentication": True
+                },
+                {
+                    "name": "email",
+                    "type": "email",
+                    "required": True,
+                    "min": 4,
+                    "max": 255,
+                    "required_on_authentication": True
+                },
+            ]
+        )
+        self.assertEqual(ret, '')
+
+    def test_basic(self):
+        ret = check_alt_auth_methods(
+            alternative_auth_methods=[
+                {
+                    "id": "email",
+                    "auth_method_name": "email",
+                    "auth_method_config": {"msg": "Enter in __URL__ and put this code __CODE__"},
+                    "extra_fields": [
+                        {
+                            "name": "name",
+                            "help": "put the name that appear in your dni",
+                            "type": "text",
+                            "required": True,
+                            "min": 2,
+                            "max": 64,
+                            "required_on_authentication": True
+                        },
+                        {
+                            "name": "email",
+                            "type": "email",
+                            "required": True,
+                            "min": 4,
+                            "max": 255,
+                            "required_on_authentication": True
+                        },
+                    ], 
+                    "public_name": "Email",
+                    "public_name_i18n": {"es": "Nombre"},
+                    "icon": "{null/name/url}"
+                }
+            ],
+            extra_fields=[
+                {
+                    "name": "name",
+                    "help": "put the name that appear in your dni",
+                    "type": "text",
+                    "required": True,
+                    "min": 2,
+                    "max": 64,
+                    "required_on_authentication": True
+                },
+                {
+                    "name": "email",
+                    "type": "email",
+                    "required": True,
+                    "min": 4,
+                    "max": 255,
+                    "required_on_authentication": True
+                },
+            ]
+        )
         self.assertEqual(ret, '')

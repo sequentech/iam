@@ -1263,10 +1263,10 @@ def check_alt_auth_methods(
         ```json [
             {
                 "id": "email",
-                "name": "Email",
-                "auth_method": "email",
+                "auth_method_name": "email",
                 "auth_method_config": <auth_method_config>,
                 "extra_fields": <extra_fields>, 
+                "public_name": "Email",
                 "public_name_i18n": {"es": "Nombre"},
                 "icon": "{null/name/url}"
             }
@@ -1282,17 +1282,29 @@ def check_alt_auth_methods(
     5. Ensure that alternative_auth_methods[<any>].name are unique.
     '''
     from authmethods import check_config, METHODS
-
+    from copy import deepcopy
+    
     if alternative_auth_methods is None:
         return ''
+    
+    def check_and_update_config(auth_method):
+        updated_config = deepcopy(
+            METHODS.get(auth_method['auth_method_name']).CONFIG
+        )
+        updated_config.update(auth_method['auth_method_config'])
+        auth_method['auth_method_config'] = updated_config
+        return check_config(
+            auth_method['auth_method_config'],
+            auth_method['auth_method_name']
+        ) == ''
 
-    def has_same_extra_fields(extra_fields1, extra_fields2):
+    def has_same_extra_fields(extra_fields1):
         '''
         Check that both lists of extra fields have the same ids and types
         '''
         if (
             set([extra_field['name'] for extra_field in extra_fields1]) != 
-            set([extra_field['name'] for extra_field in extra_fields2])
+            set([extra_field['name'] for extra_field in extra_fields])
         ):
             return "an alternative authentication method doesn't have the same extra fields as the default auth_method"
         
@@ -1301,9 +1313,9 @@ def check_alt_auth_methods(
             name = extra_field['name']
             matching_extra_field_type = [
                 extra_field2['type']
-                for extra_field2 in extra_fields2
+                for extra_field2 in extra_fields
                 if extra_field2['name'] == name
-            ]
+            ][0]
             if matching_extra_field_type != extra_field['type']:
                 return "an alternative authentication method contain mismatching types for at least one extra_field with respect to the default auth_method"
         return ''
@@ -1318,11 +1330,13 @@ def check_alt_auth_methods(
             'check-list': [
                 {
                     'check': 'isinstance',
+                    'help': 'check alternative_auth_methods is a list',
                     'type': dict
                 },
                 {
                     'check': 'dict-keys-exact',
-                    'keys': ["id", "auth_method", "auth_method_config", "extra_fields", "public_name", "public_name_i18n", "icon"]
+                    'help': 'check the alternative auth_method dict has all required keys',
+                    'keys': ["id", "auth_method_name", "auth_method_config", "extra_fields", "public_name", "public_name_i18n", "icon"]
                 },
                 {
                     'check': 'index-check-list',
@@ -1330,17 +1344,19 @@ def check_alt_auth_methods(
                     'check-list': [
                         {
                             'check': 'isinstance',
+                            'help': 'check the alternative auth_method is a string',
                             'type': str
                         }
                     ]
                 },
                 {
                     'check': 'index-check-list',
-                    'index': 'auth_method',
+                    'index': 'auth_method_name',
                     'check-list': [
                         {
                             'check': 'lambda',
-                            'type': lambda auth_method_name: (
+                            'help': "check the alternative auth_method name is valid",
+                            'lambda': lambda auth_method_name: (
                                 check_authmethod(auth_method_name) == ''
                             )
                         }
@@ -1352,6 +1368,7 @@ def check_alt_auth_methods(
                     'check-list': [
                         {
                             'check': 'lambda',
+                            'help': "check the alternative auth_method icon is null or a string",
                             'lambda': lambda icon: (
                                 icon is None or isinstance(icon, str)
                             )
@@ -1364,6 +1381,7 @@ def check_alt_auth_methods(
                     'check-list': [
                         {
                             'check': 'isinstance',
+                            'help': "check the alternative auth_method public_name is a string",
                             'type': str
                         }
                     ]
@@ -1374,10 +1392,12 @@ def check_alt_auth_methods(
                     'check-list': [
                         {
                             'check': 'isinstance',
+                            'help': "check the alternative public_name_i18n is a dict",
                             'type': dict
                         },
                         {
                             'check': 'lambda',
+                            'help': "check the alternative auth_method_i18n dict values are strings",
                             'lambda': lambda public_name_i18n: (
                                 all([
                                     isinstance(i18n, str)
@@ -1389,35 +1409,37 @@ def check_alt_auth_methods(
                 },
                 {
                     'check': 'lambda',
-                    'type': lambda auth_method: check_config(
-                        auth_method['auth_method_config'],
-                        auth_method['auth_method']
+                    'help': "check the alternative auth_method config is valid",
+                    'lambda': lambda auth_method: (
+                        check_and_update_config(auth_method)
+                    )
+                },
+                {
+                    'check': 'lambda',
+                    'help': "check the alternative auth_method extra fields are valid",
+                    'lambda': lambda auth_method: check_extra_fields(
+                        auth_method['extra_fields'],
+                        METHODS.get(auth_method['auth_method_name']).MANDATORY_FIELDS
                     ) == ''
                 },
                 {
                     'check': 'lambda',
-                    'type': lambda auth_method: check_extra_fields(
-                        auth_method['extra_fields'],
-                        METHODS.get(auth_method).MANDATORY_FIELDS
-                    ) == ''
-                },
-                {
-                    'check': 'lambda',
-                    'type': lambda auth_method: has_same_extra_fields(
-                        auth_method['extra_fields'],
-                        extra_fields
+                    'help': "check the alternative auth_method has the same extra fields",
+                    'lambda': lambda auth_method: has_same_extra_fields(
+                        auth_method['extra_fields']
                     ) == ''
                 },
             ]
         },
         {
             'check': 'lambda',
+            'help': "check for duplicated alternative auth method ids",
             'lambda': lambda l: (
                 len(l) == len([auth_method['id'] for auth_method in l])
             )
         }
     ]
-            # validate input
+    # validate input
     try:
         check_contract(contract, alternative_auth_methods)
     except CheckException as error:
