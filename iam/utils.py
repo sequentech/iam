@@ -29,6 +29,7 @@ import inspect
 import traceback
 
 from celery import shared_task
+from django.utils.text import slugify
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
@@ -46,6 +47,7 @@ from pipelines.base import check_pipeline_conf
 from contracts import CheckException, JSONContractEncoder
 from time import sleep
 import plugins
+from contracts.base import check_contract
 
 RE_SPLIT_FILTER = re.compile('(__lt|__gt|__equals|__in)')
 RE_SPLIT_SORT = re.compile('__sort')
@@ -1159,7 +1161,7 @@ def check_pipeline(pipe):
                 msg += "Invalid pipeline functions: %s not possible.\n" % func
     return msg
 
-def check_fields(key, value):
+def check_extra_field(key, value):
     """ Check fields in extra_fields when create auth-event. """
     from sys import maxsize
     msg = ''
@@ -1216,6 +1218,8 @@ def check_extra_fields(fields, mandatory_fields=dict(types=[], names=[])):
     for field in fields:
         fname = field.get('name')
         ftype = field.get('type')
+        if fname is None:
+            msg += "some extra_fields have no name\n"
         if fname in used_fields:
             msg += "Two fields with same name: %s.\n" % fname
         used_fields.append(fname)
@@ -1228,14 +1232,203 @@ def check_extra_fields(fields, mandatory_fields=dict(types=[], names=[])):
                 msg += "Required field %s.\n" % required
         for key in field.keys():
             if key in VALID_FIELDS:
-                msg += check_fields(key, field.get(key))
+                msg += check_extra_field(key, field.get(key))
             else:
                 msg += "Invalid extra_field: %s not possible.\n" % key
     if set(found_used_type_fields) != set(mandatory_type_fields):
         msg += "Not all mandatory type fields were found"
     if set(found_used_name_fields) != set(mandatory_name_fields):
         msg += "Not all mandatory type fields were found"
+    
+    slug_set = set()
+    for field in fields:
+        field['slug'] = slugify(field['name'])\
+            .replace("-","_")\
+            .upper()
+        slug_set.add(field['slug'])
+    if len(slug_set) != len(fields):
+        msg += "some extra_fields may have repeated slug names\n"
     return msg
+
+def check_alt_auth_methods(
+        alternative_auth_methods, extra_fields
+    ):
+    '''
+    Check that the alternative authentication methods conform with their
+    requirements, returning any error as a string, otherwise return an empty
+    string.
+    
+    1. They contain information about the alternative
+    authentication methods supported in this Auth Event, if any. Example:
+        ```json [
+            {
+                "id": "email",
+                "name": "Email",
+                "auth_method": "email",
+                "auth_method_config": <auth_method_config>,
+                "extra_fields": <extra_fields>, 
+                "public_name_i18n": {"es": "Nombre"},
+                "icon": "{null/name/url}"
+            }
+        ]
+        ````
+    2. Check the extra_fields with `check_extra_fields(extra_fields)` that
+       returns a string with an error if there is any.
+    3. Ensure that the `check_alt_auth_methods` input parameter `extra_fields`
+       and the alternative_auth_methods[<any>].extra_fields always contain the
+       same extra_field names and matching type.
+    4. Ensure the auth_method is valid with
+       `msg = check_authmethod(auth_method)`.
+    5. Ensure that alternative_auth_methods[<any>].name are unique.
+    '''
+    from authmethods import check_config, METHODS
+
+    if alternative_auth_methods is None:
+        return ''
+
+    def has_same_extra_fields(extra_fields1, extra_fields2):
+        '''
+        Check that both lists of extra fields have the same ids and types
+        '''
+        if (
+            set([extra_field['name'] for extra_field in extra_fields1]) != 
+            set([extra_field['name'] for extra_field in extra_fields2])
+        ):
+            return "an alternative authentication method doesn't have the same extra fields as the default auth_method"
+        
+        # Check the extra field with the same name has the same type
+        for extra_field in extra_fields1:
+            name = extra_field['name']
+            matching_extra_field_type = [
+                extra_field2['type']
+                for extra_field2 in extra_fields2
+                if extra_field2['name'] == name
+            ]
+            if matching_extra_field_type != extra_field['type']:
+                return "an alternative authentication method contain mismatching types for at least one extra_field with respect to the default auth_method"
+        return ''
+
+    contract = [
+        {
+            'check': 'isinstance',
+            'type': list
+        },
+        {
+            'check': "iterate-list",
+            'check-list': [
+                {
+                    'check': 'isinstance',
+                    'type': dict
+                },
+                {
+                    'check': 'dict-keys-exact',
+                    'keys': ["id", "auth_method", "auth_method_config", "extra_fields", "public_name", "public_name_i18n", "icon"]
+                },
+                {
+                    'check': 'index-check-list',
+                    'index': 'id',
+                    'check-list': [
+                        {
+                            'check': 'isinstance',
+                            'type': str
+                        }
+                    ]
+                },
+                {
+                    'check': 'index-check-list',
+                    'index': 'auth_method',
+                    'check-list': [
+                        {
+                            'check': 'lambda',
+                            'type': lambda auth_method_name: (
+                                check_authmethod(auth_method_name) == ''
+                            )
+                        }
+                    ]
+                },
+                {
+                    'check': 'index-check-list',
+                    'index': 'icon',
+                    'check-list': [
+                        {
+                            'check': 'lambda',
+                            'lambda': lambda icon: (
+                                icon is None or isinstance(icon, str)
+                            )
+                        }
+                    ]
+                },
+                {
+                    'check': 'index-check-list',
+                    'index': 'public_name',
+                    'check-list': [
+                        {
+                            'check': 'isinstance',
+                            'type': str
+                        }
+                    ]
+                },
+                {
+                    'check': 'index-check-list',
+                    'index': 'public_name_i18n',
+                    'check-list': [
+                        {
+                            'check': 'isinstance',
+                            'type': dict
+                        },
+                        {
+                            'check': 'lambda',
+                            'lambda': lambda public_name_i18n: (
+                                all([
+                                    isinstance(i18n, str)
+                                    for i18n in public_name_i18n.values()
+                                ])
+                            )
+                        }
+                    ]
+                },
+                {
+                    'check': 'lambda',
+                    'type': lambda auth_method: check_config(
+                        auth_method['auth_method_config'],
+                        auth_method['auth_method']
+                    ) == ''
+                },
+                {
+                    'check': 'lambda',
+                    'type': lambda auth_method: check_extra_fields(
+                        auth_method['extra_fields'],
+                        METHODS.get(auth_method).MANDATORY_FIELDS
+                    ) == ''
+                },
+                {
+                    'check': 'lambda',
+                    'type': lambda auth_method: has_same_extra_fields(
+                        auth_method['extra_fields'],
+                        extra_fields
+                    ) == ''
+                },
+            ]
+        },
+        {
+            'check': 'lambda',
+            'lambda': lambda l: (
+                len(l) == len([auth_method['id'] for auth_method in l])
+            )
+        }
+    ]
+            # validate input
+    try:
+        check_contract(contract, alternative_auth_methods)
+    except CheckException as error:
+        LOGGER.error(\
+            "check_alt_auth_methods()\n"\
+            "alternative_auth_methods '%r'\n"\
+            "error '%r'\n"\
+            "Stack trace: \n%s",\
+            alternative_auth_methods, error.data, stack_trace_str())
+        return JSONContractEncoder().encode(error.data)
+    return ''
 
 def check_admin_field(key, value):
     """ Check fields in admin_field when create auth-event. """

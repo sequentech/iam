@@ -29,7 +29,6 @@ from django.views.generic import View
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from base64 import encodestring
-from django.utils.text import slugify
 from django.db.models import Count, OuterRef, Subquery
 
 import plugins
@@ -48,6 +47,7 @@ from authmethods.utils import reset_voter_to_preregistration
 from utils import (
     check_authmethod,
     check_extra_fields,
+    check_alt_auth_methods,
     check_admin_fields,
     check_pipeline,
     genhmac,
@@ -1624,23 +1624,19 @@ class AuthEventView(View):
                     extra_fields,
                     METHODS.get(auth_method).MANDATORY_FIELDS
                 )
-                slug_set = set()
-                for field in extra_fields:
-                    if 'name' in field:
-                        field['slug'] = slugify(field['name'])\
-                            .replace("-","_")\
-                            .upper()
-                        slug_set.add(field['slug'])
-                    else:
-                        msg += "some extra_fields have no name\n"
-                if len(slug_set) != len(extra_fields):
-                    msg += "some extra_fields may have repeated slug names\n"
+
+            alternative_auth_methods = req.get('alternative_auth_methods', None)
+            if alternative_auth_methods:
+                msg += check_alt_auth_methods(
+                    alternative_auth_methods, extra_fields
+                )
 
             admin_fields = req.get('admin_fields', None)
             if admin_fields:
                 msg += check_admin_fields(
                     admin_fields,
-                    METHODS.get(auth_method).MANDATORY_FIELDS)
+                    METHODS.get(auth_method).MANDATORY_FIELDS
+                )
 
             # check census mode
             census = req.get('census', '')
@@ -1849,6 +1845,12 @@ class AuthEventView(View):
             extra_fields = req.get('extra_fields', None)
             if extra_fields:
                 msg += check_extra_fields(extra_fields)
+
+            alternative_auth_methods = req.get('alternative_auth_methods', None)
+            if alternative_auth_methods:
+                msg += check_alt_auth_methods(
+                    alternative_auth_methods, extra_fields
+                )
 
             if msg:
                 return json_response(status=400, message=msg)

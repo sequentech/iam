@@ -290,6 +290,21 @@ class AuthEvent(models.Model):
         default=NOT_STARTED
     )
 
+    # Contains information about the alternative authentication methods
+    # supported in this Auth Event, if any. Example:
+    # [
+    #     {
+    #         "id": "email",
+    #         "name": "Email",
+    #         "auth_method": "email",
+    #         "auth_method_config": <auth_method_config>,
+    #         "extra_fields": <extra_fields>, 
+    #         "public_name_i18n": {"es": "Nombre"},
+    #         "icon": "{null/name/url}"
+    #     }
+    # ]
+    alternative_auth_methods = JSONField(blank=True, db_index=False, null=True)
+
     # used by iam_celery to know what tallies to launch, and to serialize
     # those launches one by one. set/get with (s|g)et_tally_status api calls
     tally_status = models.CharField(
@@ -419,22 +434,42 @@ class AuthEvent(models.Model):
           if e is None:
               return []
           return e
+        
+        def restrict_extra_fields(fields):
+            return [
+                f for f in none_list(fields)
+                    if not f.get('private', False)
+            ]
+
+        def restrict_alt_auth_methods():
+            if self.alternative_auth_methods is None:
+                return self.alternative_auth_methods
+            
+            return [
+                dict(
+                    id=alt_auth_method["id"],
+                    name=alt_auth_method["name"],
+                    auth_method=alt_auth_method["name"],
+                    extra_fields=restrict_extra_fields(
+                        alt_auth_method["extra_fields"]
+                    ),
+                    public_name_i18n=alt_auth_method["public_name_i18n"],
+                    icon=alt_auth_method["icon"]
+                )
+                for alt_auth_method in self.alternative_auth_methods
+            ]
 
         if restrict:
             d.update({
-                'extra_fields': [
-                    f for f in none_list(self.extra_fields)
-                        if not f.get('private', False)
-                ],
-                'admin_fields': [
-                    f for f in none_list(self.admin_fields)
-                        if not f.get('private', True)
-                ]
+                'extra_fields': restrict_extra_fields(self.extra_fields),
+                'admin_fields': restrict_extra_fields(self.admin_fields),
+                'alternative_auth_methods': restrict_alt_auth_methods()
             })
 
         else:
             d.update({
                 'extra_fields': self.extra_fields,
+                'alternative_auth_methods': self.alternative_auth_methods,
                 'auth_method_config': self.auth_method_config,
                 'auth_method_stats': {
                     self.auth_method: Code.objects.filter(auth_event_id=self.id).count()
