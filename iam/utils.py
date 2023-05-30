@@ -1330,7 +1330,7 @@ def check_alt_auth_methods(
             'check-list': [
                 {
                     'check': 'isinstance',
-                    'help': 'check alternative_auth_methods is a list',
+                    'help': 'check alternative_auth_method is an object',
                     'type': dict
                 },
                 {
@@ -1435,7 +1435,7 @@ def check_alt_auth_methods(
             'check': 'lambda',
             'help': "check for duplicated alternative auth method ids",
             'lambda': lambda l: (
-                len(l) == len([auth_method['id'] for auth_method in l])
+                len(l) == len(set([auth_method['id'] for auth_method in l]))
             )
         }
     ]
