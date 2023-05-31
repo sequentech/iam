@@ -20,7 +20,12 @@ def get_patched_auth_event(auth_event, request):
     auth_method_config changed to match the ones related to the requested 
     alternative authentication method.
 
-    Returns (new_auth_event, error)
+    Patching is useful because many authentication and other methods can still
+    expect to find the configuration to use in those auth-event properties, and
+    thus we don't need to refactor the code o dozens of functions for the 
+    use-case of alternative auth-methods.
+
+    Returns (patched_auth_event, error).
     '''
     request = json.loads(request.body.decode('utf-8'))
     requested_alt_auth_method_id = request.get('alt_auth_method_id')
