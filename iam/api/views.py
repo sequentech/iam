@@ -1744,7 +1744,8 @@ class AuthEventView(View):
                 has_ballot_boxes=has_ballot_boxes,
                 hide_default_login_lookup_field=hide_default_login_lookup_field,
                 allow_public_census_query=allow_public_census_query,
-                support_otl_enabled=support_otl_enabled
+                support_otl_enabled=support_otl_enabled,
+                alternative_auth_methods=alternative_auth_methods
             )
             # If the election exists, we are doing an update. Else, we are 
             # doing an insert. We use this update method instead of just 

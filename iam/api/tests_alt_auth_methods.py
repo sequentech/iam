@@ -13,26 +13,16 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with iam.  If not, see <http://www.gnu.org/licenses/>.
 
-import re
-import time
-import json
 import copy
-from datetime import datetime
-from django.utils import timezone
-from django.core import mail
+from django.utils.text import slugify
 from django.test import TestCase
-from django.test import Client
-from django.test.utils import override_settings
-from django.conf import settings
 from django.contrib.auth.models import User
 
 from . import test_data
-from .models import ACL, AuthEvent, Action, BallotBox, TallySheet, SuccessfulLogin
-from authmethods.models import Code, MsgLog, OneTimeLink
-from authmethods import m_sms_otp
-from utils import HMACToken, verifyhmac, reproducible_json_dumps
-from authmethods.utils import get_cannonical_tlf, get_user_code
-from tests import parse_json_response, flush_db_load_fixture, JClient
+from .models import ACL, AuthEvent
+from authmethods.models import Code
+from utils import reproducible_json_dumps
+from .tests import parse_json_response, flush_db_load_fixture, JClient
 
 auth_event_1 = {
     "auth_method": "email",
@@ -74,7 +64,18 @@ auth_event_1 = {
         {
             "id": "sms",
             "auth_method_name": "sms",
-            "auth_method_config": {"msg": "Enter in __URL__ and put this code __CODE__"},
+            "auth_method_config": {
+                "allow_user_resend": False,
+                "authentication-action": {
+                    "mode": "vote",
+                    "mode-config": None
+                },
+                "msg": "Enter in __URL__ and put this code __CODE__",
+                "registration-action": {
+                    "mode": "vote",
+                    "mode-config": None
+                }
+            },
             "extra_fields": [
                 {
                     "name": "email",
@@ -101,6 +102,34 @@ auth_event_1 = {
         }
     ]
 }
+
+def add_slugs(extra_fields):
+    return [
+        (
+            extra_field.update({'slug': slugify(extra_field['name']).upper()})
+            or extra_field
+        )
+        for extra_field in extra_fields
+    ]
+
+def fix_auth_event_config(auth_event_config):
+    '''
+    Fixes auth_event config adding slugs to extra_fields
+    '''
+    ret = copy.deepcopy(auth_event_config)
+    ret['extra_fields'] = add_slugs(ret['extra_fields'])
+    if "alternative_auth_methods" in ret:
+        ret["alternative_auth_methods"] = [
+            (
+                alt_auth_method.update({
+                    'extra_fields': add_slugs(alt_auth_method['extra_fields'])
+                })
+                or alt_auth_method
+            )
+            for alt_auth_method in ret["alternative_auth_methods"]
+        ]
+    return ret
+
 
 class ApitTestCreateAltAuthentication(TestCase):
     '''
@@ -155,5 +184,5 @@ class ApitTestCreateAltAuthentication(TestCase):
         r = parse_json_response(response)
         self.assertEqual(
             reproducible_json_dumps(r['events']['alternative_auth_methods']),
-            reproducible_json_dumps(auth_event_1['alternative_auth_methods'])
+            reproducible_json_dumps(fix_auth_event_config(auth_event_1)['alternative_auth_methods'])
         )
