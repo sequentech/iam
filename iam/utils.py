@@ -1250,6 +1250,21 @@ def check_extra_fields(fields, mandatory_fields=dict(types=[], names=[])):
         msg += "some extra_fields may have repeated slug names\n"
     return msg
 
+def update_alt_methods_config(alternative_auth_methods):
+    '''
+    For each alt auth method, update the config to add pipelines etc
+    '''
+    from authmethods import METHODS
+    from copy import deepcopy
+    for alt_auth_method in alternative_auth_methods:
+        alt_auth_method_name = alt_auth_method['auth_method_name']
+        base_config = alt_auth_method['auth_method_config']
+        alt_auth_method['auth_method_config'] = deepcopy({
+            "config": METHODS.get(alt_auth_method_name).CONFIG,
+            "pipeline": METHODS.get(alt_auth_method_name).PIPELINES
+        })
+        alt_auth_method['auth_method_config']['config'].update(base_config)
+
 def check_alt_auth_methods(
         alternative_auth_methods, extra_fields
     ):

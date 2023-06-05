@@ -14,13 +14,15 @@
 # along with iam.  If not, see <http://www.gnu.org/licenses/>.
 
 import copy
+import json
+from django.test.utils import override_settings
 from django.utils.text import slugify
 from django.test import TestCase
 from django.contrib.auth.models import User
 
 from . import test_data
 from .models import ACL, AuthEvent
-from authmethods.models import Code
+from authmethods.models import Code, Message
 from utils import reproducible_json_dumps
 from .tests import parse_json_response, flush_db_load_fixture, JClient
 
@@ -114,8 +116,10 @@ def add_slugs(extra_fields):
 
 def fix_auth_event_config(auth_event_config):
     '''
-    Fixes auth_event config adding slugs to extra_fields
+    Fixes auth_event config adding slugs to extra_fields and pipelines to
+    auth_method_config
     '''
+    from utils import update_alt_methods_config
     ret = copy.deepcopy(auth_event_config)
     ret['extra_fields'] = add_slugs(ret['extra_fields'])
     if "alternative_auth_methods" in ret:
@@ -128,6 +132,7 @@ def fix_auth_event_config(auth_event_config):
             )
             for alt_auth_method in ret["alternative_auth_methods"]
         ]
+        update_alt_methods_config(ret["alternative_auth_methods"])
     return ret
 
 
@@ -186,3 +191,159 @@ class ApitTestCreateAltAuthentication(TestCase):
             reproducible_json_dumps(r['events']['alternative_auth_methods']),
             reproducible_json_dumps(fix_auth_event_config(auth_event_1)['alternative_auth_methods'])
         )
+
+
+class AuthMethodAltSmsTestCase(TestCase):
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        # super-admin event
+        self.aeid_special = 1
+        admin_user = User(
+            username=test_data.admin['username'], 
+            email=test_data.admin['email']
+        )
+        admin_user.set_password(test_data.admin['password'])
+        admin_user.save()
+        admin_user.userdata.event = AuthEvent.objects.get(pk=1)
+        admin_user.userdata.save()
+        self.admin_user = admin_user
+
+        self.admin_auth_data = dict(
+            email=test_data.admin['email'],
+            code="ERGERG"
+        )
+        admin_code = Code(
+            user=self.admin_user.userdata,
+            code=self.admin_auth_data['code'],
+            auth_event_id=self.aeid_special
+        )
+        admin_code.save()
+        
+        admin_acl = ACL(
+            user=self.admin_user.userdata, 
+            object_type='AuthEvent', 
+            perm='create',
+            object_id=0
+        )
+        admin_acl.save()
+
+        self.client = JClient()
+        response = self.client.authenticate(
+            self.aeid_special, self.admin_auth_data
+        )
+        self.assertEqual(response.status_code, 200)
+        response = self.client.post('/api/auth-event/', auth_event_1)
+        self.assertEqual(response.status_code, 200)
+        response = parse_json_response(response)
+        self.aeid = response['id']
+        auth_event = AuthEvent.objects.get(pk=self.aeid)
+        auth_event.status = AuthEvent.STARTED
+        auth_event.save()
+    
+        user = User(username='test1', email='test@sequentech.io')
+        user.save()
+        user.userdata.event = auth_event
+        user.userdata.tlf = '+34666666666'
+        user.userdata.metadata = dict()
+        user.userdata.save()
+        self.user = user.userdata
+        user_code = Code(
+            user=user.userdata,
+            code='AAAAAAAA',
+            auth_event_id=auth_event.pk
+        )
+        user_code.save()
+        user_message = Message(
+            tlf=user.userdata.tlf,
+            auth_event_id=auth_event.pk
+        )
+        user_message.save()
+
+        user_acl = ACL(
+            user=user.userdata, 
+            object_type='AuthEvent', 
+            perm='edit', 
+            object_id=auth_event.pk)
+        user_acl.save()
+
+        user2 = User(username='test2',email='test2@sequentech.io')
+        user2.is_active = False
+        user2.save()
+        user2.userdata.tlf = '+34766666666'
+        user2.userdata.event = auth_event
+        user2.userdata.metadata = dict()
+        user2.userdata.save()
+        user_code = Code(
+            user=user2.userdata,
+            code='BBAABBAA',
+            auth_event_id=auth_event.pk
+        )
+        user_code.save()
+
+    def test_method_email_authenticate_valid_code(self):
+        data = {
+            'code': 'AAAAAAAA',
+            'email': 'test@sequentech.io',
+        }
+        response = self.client.authenticate(self.aeid, data)
+
+        r = parse_json_response(response)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(r.get('username'), 'test1')
+
+    def test_method_email_authenticate_invalid_code(self):
+        data = {
+            'code': 'AAAAAAAA2',
+            'email': 'test@sequentech.io',
+        }
+        response = self.client.authenticate(self.aeid, data)
+
+        r = parse_json_response(response)
+        self.assertEqual(response.status_code, 400)
+
+    def test_method_alt_sms_authenticate_valid_code(self):
+        data = {
+            'alt_auth_method_id': 'sms',
+            'code': 'AAAAAAAA',
+            'tlf': '+34666666666',
+        }
+        response = self.client.authenticate(self.aeid, data)
+
+        r = parse_json_response(response)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(r.get('username'), 'test1')
+
+    def test_method_alt_sms_authenticate_invalid_alt_method1(self):
+        data = {
+            'alt_auth_method_id': 'invalid',
+            'code': 'AAAAAAAA',
+            'tlf': '+34666666666',
+        }
+        response = self.client.authenticate(self.aeid, data)
+
+        r = parse_json_response(response)
+        self.assertEqual(response.status_code, 400)
+
+    def test_method_alt_sms_authenticate_invalid_alt_method2(self):
+        data = {
+            'code': 'AAAAAAAA',
+            'tlf': '+34666666666',
+        }
+        response = self.client.authenticate(self.aeid, data)
+
+        r = parse_json_response(response)
+        self.assertEqual(response.status_code, 400)
+
+    def test_method_alt_sms_authenticate_invalid_auth(self):
+        data = {
+            'alt_auth_method_id': 'invalid',
+            'code': 'AAAAAAAA',
+            'email': 'test@sequentech.io',
+        }
+        response = self.client.authenticate(self.aeid, data)
+
+        r = parse_json_response(response)
+        self.assertEqual(response.status_code, 400)
+

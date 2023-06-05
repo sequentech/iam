@@ -35,7 +35,7 @@ def get_patched_auth_event(auth_event, request):
     if requested_alt_auth_method_id is None:
         return (auth_event, None)
     else:
-        alt_auth_methods = auth_event.alternative_auth_method_id
+        alt_auth_methods = auth_event.alternative_auth_methods
         # if an alternative auth method was requested but event has none 
         # configure, return an error
         if alt_auth_methods is None:

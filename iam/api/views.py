@@ -47,9 +47,9 @@ from authmethods.utils import reset_voter_to_preregistration
 from utils import (
     check_authmethod,
     check_extra_fields,
+    update_alt_methods_config,
     check_alt_auth_methods,
     check_admin_fields,
-    check_pipeline,
     genhmac,
     HMACToken,
     json_response,
@@ -62,7 +62,6 @@ from utils import (
     VALID_PIPELINES,
     filter_query,
     stack_trace_str,
-    reproducible_json_dumps
 )
 from .decorators import login_required, get_login_user
 from .models import (
@@ -1630,6 +1629,7 @@ class AuthEventView(View):
                 msg += check_alt_auth_methods(
                     alternative_auth_methods, extra_fields
                 )
+                update_alt_methods_config(alternative_auth_methods)
 
             admin_fields = req.get('admin_fields', None)
             if admin_fields:
