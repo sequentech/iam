@@ -397,6 +397,121 @@ def send_sms_message(receiver, msg):
         LOGGER.error('SMS NOT sent: \n%s: %s, error message %s', receiver, msg, str(error.args))
         LOGGER.error(error)
 
+def get_urls_for_alt_auth_method(
+    user,
+    code,
+    auth_event,
+    alt_auth_method
+):
+    import urllib.parse
+    '''
+    Returns a dictionary with additional urls for specific alternative
+    authentication methods
+    '''
+    template_dict = dict()
+    auth_method_id = alt_auth_method['id']
+
+    url_name = f'url_{auth_method_id}'
+    alt_auth_base_url = settings.ALT_AUTH_BASE_URL
+    base_url_value = f'{alt_auth_base_url}/{auth_method_id}/'
+    url_fields = dict()
+    url_code_fields = dict()
+    if code:
+        url_code_fields['code'] = code
+
+    for extra_field in alt_auth_method['extra_fields']:
+        if not extra_field.get('required_on_authentication'):
+            continue
+        url_field_name = extra_field.get('name')
+        url_field_type = extra_field.get('name')
+        if url_field_type == 'email':
+            url_field_value = user.value
+        if url_field_type == 'tlf':
+            url_field_value = user.userdata.tlf
+        elif url_field_type == 'password':
+            pass
+        elif url_field_type == 'otp-code':
+            if code:
+                url_code_fields[url_field_name] = code
+            pass
+        elif url_field_type == 'text' and url_field_name == 'username':
+            url_field_value = user.username
+        else:
+            if url_field_name in user.userdata.metadata:
+                url_field_value = user.userdata.metadata[url_field_name]
+        url_fields[url_field_name] = url_field_value
+
+    url_encoded_fields = urllib.parse.urlencode(url_fields)
+    template_dict[f'url_{auth_method_id}'] = \
+        f'{base_url_value}?{url_encoded_fields}'
+
+    url_fields.update(url_code_fields)
+    url2_encoded_fields = urllib.parse.urlencode(url_fields)
+    template_dict[f'url2_{auth_method_id}'] = \
+        f'{base_url_value}?{url2_encoded_fields}'
+
+    return template_dict
+
+def get_auth_message_template_vars(
+    user,
+    receiver_address,
+    auth_event,
+    base_auth_url,
+    code=None
+):
+    '''
+    Generate the auth message template variables for a given user, auth event
+    and given code if any
+    '''
+    base_home_url = settings.HOME_URL
+    home_url = template_replace_data(
+      base_home_url,
+      dict(event_id=auth_event.id)
+    )
+
+    url = template_replace_data(
+        base_auth_url,
+        dict(
+            event_id=auth_event.id,
+            receiver=receiver_address
+        )
+    )
+
+    # initialize template data dict
+    template_dict = dict(
+        event_id=auth_event.id,
+        url=url,
+        home_url=home_url
+    )
+    if code is not None:
+        template_dict['code'] = format_code(code)
+        template_dict['url2'] = url + '/' + code
+    if user.userdata.event.extra_fields:
+        for field in user.userdata.event.extra_fields:
+            if (
+                'name' in field and
+                'slug' in field and
+                field['name'] in user.userdata.metadata
+            ):
+                template_dict[field['slug']] = \
+                    user.userdata.metadata[field['name']]
+
+    if auth_event.support_otl_enabled:
+        template_dict['otl'] = get_or_create_otl(user)
+
+    if auth_event.alternative_auth_methods is not None:
+        for alt_auth_method in auth_event.alternative_auth_methods:
+            template_dict.update(
+                get_urls_for_alt_auth_method(
+                    user,
+                    code,
+                    auth_event,
+                    alt_auth_method
+                )
+            )
+
+    return template_dict
+
 def template_replace_data(templ, data):
     '''
     Replaces the data key values in the template. Used by send_code.
@@ -423,7 +538,7 @@ def send_email_code(
         LOGGER.error(
             f"send_email_code error\n" +
             f"Receiver is None for user '{user}'\n" +
-            f"authevent '{auth_event}'\n" +
+            f"authevent '{user.userdata.event}'\n" +
             f"Stack trace: \n{stack_trace_str()}"
         )
         return "Receiver is none"
@@ -432,46 +547,20 @@ def send_email_code(
     from api.models import ACL
     auth_event = user.userdata.event
     message_body = templates['message_body']
-    message_subject= templates['message_subject']
+    message_subject = templates['message_subject']
     message_html = templates.get('message_html')
 
-    base_home_url = settings.HOME_URL
-    home_url = template_replace_data(
-      base_home_url,
-      dict(event_id=auth_event.id)
+    template_dict = get_auth_message_template_vars(
+        user=user,
+        receiver_address=(
+            email_address 
+            if auth_method_receiver is None 
+            else auth_method_receiver
+        ),
+        base_auth_url = settings.EMAIL_AUTH_CODE_URL,
+        auth_event=auth_event,
+        code=code
     )
-    receiver = email_address if auth_method_receiver is None else auth_method_receiver
-    base_auth_url = settings.EMAIL_AUTH_CODE_URL
-
-    url = template_replace_data(
-        base_auth_url,
-        dict(
-            event_id=auth_event.id,
-            receiver=receiver
-        )
-    )
-
-    # initialize template data dict
-    template_dict = dict(
-        event_id=auth_event.id,
-        url=url,
-        home_url=home_url
-    )
-    if code is not None:
-        template_dict['code'] = format_code(code)
-        template_dict['url2'] = url + '/' + code
-    if user.userdata.event.extra_fields:
-        for field in user.userdata.event.extra_fields:
-            if (
-                'name' in field and
-                'slug' in field and
-                field['name'] in user.userdata.metadata
-            ):
-                template_dict[field['slug']] = user.userdata.metadata[field['name']]
-
-
-    if auth_event.support_otl_enabled:
-        template_dict['otl'] = get_or_create_otl(user)
 
     # base_msg is the base template, allows the iam superadmin to configure
     # a prefix or suffix to all messages
@@ -503,7 +592,6 @@ def send_email_code(
             message_html,
             template_dict
         )
-
 
     # store the message log in the DB
     db_message_log = MsgLog(
@@ -560,7 +648,7 @@ def send_sms_code(
         LOGGER.error(
             f"send_sms_code error\n" +
             f"Receiver is None for user '{user}'\n" +
-            f"authevent '{auth_event}'\n" +
+            f"authevent '{user.userdata.event}'\n" +
             f"Stack trace: \n{stack_trace_str()}"
         )
         return "Receiver is none"
@@ -569,42 +657,17 @@ def send_sms_code(
     auth_event = user.userdata.event
     message_body = templates['message_body']
 
-    base_home_url = settings.HOME_URL
-    home_url = template_replace_data(
-      base_home_url,
-      dict(event_id=auth_event.id)
+    template_dict = get_auth_message_template_vars(
+        user=user,
+        receiver_address=(
+            tlf_number 
+            if auth_method_receiver is None 
+            else auth_method_receiver
+        ),
+        base_auth_url = settings.SMS_AUTH_CODE_URL,
+        auth_event=auth_event,
+        code=code
     )
-    receiver = tlf_number if auth_method_receiver is None else auth_method_receiver
-    base_auth_url = settings.SMS_AUTH_CODE_URL
-
-    url = template_replace_data(
-        base_auth_url,
-        dict(
-            event_id=auth_event.id,
-            receiver=receiver
-        )
-    )
-
-    # initialize template data dict
-    template_dict = dict(
-        event_id=auth_event.id,
-        url=url,
-        home_url=home_url
-    )
-    if code is not None:
-        template_dict['code'] = format_code(code)
-        template_dict['url2'] = url + '/' + code
-    if user.userdata.event.extra_fields:
-        for field in user.userdata.event.extra_fields:
-            if (
-                'name' in field and
-                'slug' in field and
-                field['name'] in user.userdata.metadata
-            ):
-                template_dict[field['slug']] = user.userdata.metadata[field['name']]
-
-    if auth_event.support_otl_enabled:
-        template_dict['otl'] = get_or_create_otl(user)
 
     # base_msg is the base template, allows the iam superadmin to configure
     # a prefix or suffix to all messages

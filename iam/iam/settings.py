@@ -206,9 +206,10 @@ EMAIL_BASE_TEMPLATE = "__MESSAGE__\n\n -- Sequent https://sequentech.io"
 
 EMAIL_BASE_TITLE_TEMPLATE = "__TITLE__ - Sequent"
 
-HOME_URL = "https://sequent.example.com/#/election¡/__EVENT_ID__/public/home"
-SMS_AUTH_CODE_URL = "https://sequent.example.com/#/election/__EVENT_ID__/public/login/__RECEIVER__"
-EMAIL_AUTH_CODE_URL = "https://sequent.example.com/#/election/__EVENT_ID__/public/login/__RECEIVER__"
+HOME_URL = "https://sequent.example.com/election/__EVENT_ID__/public/home"
+SMS_AUTH_CODE_URL = "https://sequent.example.com/election/__EVENT_ID__/public/login/__RECEIVER__"
+EMAIL_AUTH_CODE_URL = "https://sequent.example.com/election/__EVENT_ID__/public/login/__RECEIVER__"
+ALT_AUTH_BASE_URL = "https://sequent.example.com/election/__EVENT_ID__/public/login/"
 
 SEQUENT_ELECTIONS_BASE = ["http://127.0.0.1:14443"]
 
