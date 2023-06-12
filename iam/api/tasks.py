@@ -1011,92 +1011,125 @@ def allow_tally_task(user_id, auth_event_id, parent_auth_event_id=None):
     user = get_object_or_404(User, pk=user_id)
     auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
 
-    # if this auth event has children, update also them
-    if parent_auth_event_id is None:
-        parent_auth_event = auth_event
-    else:
-        parent_auth_event = get_object_or_404(
-            AuthEvent, 
-            pk=parent_auth_event_id
-        )
-    
-    if auth_event.children_election_info is not None:
-        for child_id in auth_event.children_election_info['natural_order']:
-            allow_tally_task.apply_async(
-                args=[user_id, child_id, auth_event_id]
+    def get_parent_event(parent_event_id, auth_event):
+        # if this auth event has children, update also them
+        if parent_event_id is None:
+            return auth_event
+        else:
+            return get_object_or_404(
+                AuthEvent,
+                pk=parent_event_id
             )
 
-    # A.2 call to ballot-box
-    for callback_base in settings.SEQUENT_ELECTIONS_BASE:
-        callback_url = "%s/api/election/%s/allow-tally" % (
-            callback_base,
-            auth_event_id
-        )
-        data = {}
+    parent_auth_event = get_parent_event(parent_auth_event_id, auth_event)
 
-        req = requests.post(
-            callback_url,
-            json=data,
-            headers={
-                'Authorization': genhmac(
-                    settings.SHARED_SECRET,
-                    "1:AuthEvent:%s:allow-tally" % auth_event_id
-                ),
-                'Content-type': 'application/json'
-            }
+    auth_event_ids = []
+    if auth_event.children_election_info is not None:
+        for child_id in auth_event.children_election_info['natural_order']:
+            auth_event_ids.append(dict(
+                event_id=child_id,
+                parent_event_id=auth_event_id,
+            ))
+
+    # Do auth_event_id the last, to eliminate race conditions when having many
+    # children elections. See https://github.com/sequentech/meta/issues/104
+    auth_event_ids.append(dict(
+        event_id=auth_event_id,
+        parent_event_id=parent_auth_event_id,
+    ))
+
+    for current_event in auth_event_ids:
+        current_event_id = current_event['event_id']
+        current_event = get_object_or_404(AuthEvent, pk=current_event_id)
+    
+        parent_auth_event_id = current_event['parent_event_id']
+        parent_auth_event = get_parent_event(
+            parent_auth_event_id, current_event
         )
-        if req.status_code != 200:
-            logger.error(
+        logger.info(
+            '\n\nallow_tally_task(user_id=%r, auth_event_id=%r, parent_auth_event_id=%r): current_event_id = %r' % (
+                user_id,
+                auth_event_id,
+                parent_auth_event_id,
+                current_event_id,
+            )
+        )
+
+        # A.2 call to ballot-box
+        for callback_base in settings.SEQUENT_ELECTIONS_BASE:
+            callback_url = "%s/api/election/%s/allow-tally" % (
+                callback_base,
+                current_event_id
+            )
+            data = {}
+
+            req = requests.post(
+                callback_url,
+                json=data,
+                headers={
+                    'Authorization': genhmac(
+                        settings.SHARED_SECRET,
+                        "1:AuthEvent:%s:allow-tally" % current_event_id
+                    ),
+                    'Content-type': 'application/json'
+                }
+            )
+            if req.status_code != 200:
+                logger.error(
+                    "allow_tally_task(user_id=%r, auth_event_id=%r): post\n"\
+                    "current_event_id = '%r'\n"\
+                    "ballot_box.callback_url '%r'\n"\
+                    "ballot_box.data '%r'\n"\
+                    "ballot_box.status_code '%r'\n"\
+                    "ballot_box.text '%r'\n",\
+                    user_id,
+                    auth_event_id,
+                    current_event_id,
+                    callback_url,
+                    data,
+                    req.status_code, 
+                    req.text
+                )
+            
+                # log the action
+                action = Action(
+                    executer=user,
+                    receiver=None,
+                    action_name='authevent:allow-tally:error',
+                    event=parent_auth_event,
+                    metadata=dict(
+                        auth_event=current_event_id,
+                        request_status_code=req.status_code,
+                        request_text=req.text
+                    )
+                )
+                action.save()
+                return
+
+            logger.info(
                 "allow_tally_task(user_id=%r, auth_event_id=%r): post\n"\
+                "current_event_id = '%r'\n"\
                 "ballot_box.callback_url '%r'\n"\
                 "ballot_box.data '%r'\n"\
                 "ballot_box.status_code '%r'\n"\
                 "ballot_box.text '%r'\n",\
                 user_id,
                 auth_event_id,
+                current_event_id,
                 callback_url,
                 data,
-                req.status_code, 
+                req.status_code,
                 req.text
             )
-        
+
             # log the action
             action = Action(
                 executer=user,
                 receiver=None,
-                action_name='authevent:allow-tally:error',
+                action_name='authevent:allow-tally:success',
                 event=parent_auth_event,
                 metadata=dict(
-                    auth_event=auth_event.pk,
-                    request_status_code=req.status_code,
-                    request_text=req.text
+                    auth_event=current_event_id
                 )
             )
             action.save()
-            return
-
-        logger.info(
-            "allow_tally_task(user_id=%r, auth_event_id=%r): post\n"\
-            "ballot_box.callback_url '%r'\n"\
-            "ballot_box.data '%r'\n"\
-            "ballot_box.status_code '%r'\n"\
-            "ballot_box.text '%r'\n",\
-            user_id,
-            auth_event_id,
-            callback_url,
-            data,
-            req.status_code,
-            req.text
-        )
-
-        # log the action
-        action = Action(
-            executer=user,
-            receiver=None,
-            action_name='authevent:allow-tally:success',
-            event=parent_auth_event,
-            metadata=dict(
-                auth_event=auth_event.pk
-            )
-        )
-        action.save()
