@@ -1023,26 +1023,26 @@ def allow_tally_task(user_id, auth_event_id, parent_auth_event_id=None):
 
     parent_auth_event = get_parent_event(parent_auth_event_id, auth_event)
 
-    auth_event_ids = []
+    elements = []
     if auth_event.children_election_info is not None:
         for child_id in auth_event.children_election_info['natural_order']:
-            auth_event_ids.append(dict(
+            elements.append(dict(
                 event_id=child_id,
                 parent_event_id=auth_event_id,
             ))
 
     # Do auth_event_id the last, to eliminate race conditions when having many
     # children elections. See https://github.com/sequentech/meta/issues/104
-    auth_event_ids.append(dict(
+    elements.append(dict(
         event_id=auth_event_id,
         parent_event_id=parent_auth_event_id,
     ))
 
-    for current_event in auth_event_ids:
-        current_event_id = current_event['event_id']
+    for element in elements:
+        current_event_id = element['event_id']
         current_event = get_object_or_404(AuthEvent, pk=current_event_id)
     
-        parent_auth_event_id = current_event['parent_event_id']
+        parent_auth_event_id = element['parent_event_id']
         parent_auth_event = get_parent_event(
             parent_auth_event_id, current_event
         )
