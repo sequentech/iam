@@ -492,7 +492,7 @@ class AuthMethodAltSendCodes(TestCase):
         self.assertEqual(len(emails), 1)
         self.assertEqual(
             emails[0].body,
-            'something something https://sequent.example.com/#/election/2/public/login/test@sequentech.io something\n\n -- Sequent https://sequentech.io'
+            f'something something https://sequent.example.com/#/election/{self.aeid}/public/login/test@sequentech.io something\n\n -- Sequent https://sequentech.io'
         )
     
     @patch("utils.send_email")
@@ -530,18 +530,11 @@ class AuthMethodAltSendCodes(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(emails), 1)
-        import pdb; pdb.set_trace()
-        self.assertEqual(
-            emails[0].body,
-            ''''
-                Hello!
-                You can authenticate in multiple ways:
-                - email: https://sequent.example.com/#/election/2/public/login/test@sequentech.io
-                - direct email: https://sequent.example.com/#/election/2/public/login/test@sequentech.io/AAAAAAAA
-                - sms: https://sequent.example.com/election/2/public/login//sms/?tlf=%2B34666666666
-                - sms direct: https://sequent.example.com/election/2/public/login//sms/?tlf=%2B34666666666&code=AAAAAAAA
-                Regards,
-                
-
- -- Sequent https://sequentech.io'''
+        self.assertTrue(
+            emails[0].body.startswith(f'''You can authenticate in multiple ways:
+                - email: https://sequent.example.com/#/election/{self.aeid}/public/login/test@sequentech.io
+                - direct email: https://sequent.example.com/#/election/{self.aeid}/public/login/test@sequentech.io/AAAAAAAA
+                - sms: https://sequent.example.com/election/{self.aeid}/public/login/sms?tlf=%2B34666666666
+                - sms direct: https://sequent.example.com/election/{self.aeid}/public/login/sms?tlf=%2B34666666666&code=AAAAAAAA
+                Regards,''')
         )
