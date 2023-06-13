@@ -17,6 +17,7 @@ import copy
 import json
 from django.test.utils import override_settings
 from django.utils.text import slugify
+from unittest.mock import patch
 from django.test import TestCase
 from django.contrib.auth.models import User
 
@@ -347,3 +348,200 @@ class AuthMethodAltSmsTestCase(TestCase):
         r = parse_json_response(response)
         self.assertEqual(response.status_code, 400)
 
+class AuthMethodAltSendCodes(TestCase):
+    '''
+    Tests that the URL variables related to sending authentication codes for
+    alternative authentication methods work fine.
+    '''
+    def setUpTestData():
+        flush_db_load_fixture()
+
+    def setUp(self):
+        # super-admin event
+        self.aeid_special = 1
+
+        # admin user config
+        admin_user = User(
+            username=test_data.admin['username'], 
+            email=test_data.admin['email']
+        )
+        admin_user.set_password(test_data.admin['password'])
+        admin_user.save()
+        admin_user.userdata.event = AuthEvent.objects.get(pk=1)
+        admin_user.userdata.save()
+        self.admin_user = admin_user
+
+        self.admin_auth_data = dict(
+            email=test_data.admin['email'],
+            code="ERGERG"
+        )
+        admin_code = Code(
+            user=self.admin_user.userdata,
+            code=self.admin_auth_data['code'],
+            auth_event_id=self.aeid_special
+        )
+        admin_code.save()
+        
+        admin_acl = ACL(
+            user=self.admin_user.userdata, 
+            object_type='AuthEvent', 
+            perm='create',
+            object_id=0
+        )
+        admin_acl.save()
+
+        # auth event for testing
+        self.client = JClient()
+        response = self.client.authenticate(
+            self.aeid_special, self.admin_auth_data
+        )
+        self.assertEqual(response.status_code, 200)
+        response = self.client.post('/api/auth-event/', auth_event_1)
+        self.assertEqual(response.status_code, 200)
+        response = parse_json_response(response)
+        self.aeid = response['id']
+        auth_event = AuthEvent.objects.get(pk=self.aeid)
+        auth_event.status = AuthEvent.STARTED
+        auth_event.save()
+    
+        # election user 1
+        user = User(username='test1', email='test@sequentech.io')
+        user.save()
+        user.userdata.event = auth_event
+        user.userdata.tlf = '+34666666666'
+        user.userdata.metadata = dict()
+        user.userdata.save()
+        self.user = user.userdata
+        user_code = Code(
+            user=user.userdata,
+            code='AAAAAAAA',
+            auth_event_id=auth_event.pk
+        )
+        user_code.save()
+        user_message = Message(
+            tlf=user.userdata.tlf,
+            auth_event_id=auth_event.pk
+        )
+        user_message.save()
+
+        user_acl = ACL(
+            user=user.userdata, 
+            object_type='AuthEvent', 
+            perm='vote', 
+            object_id=auth_event.pk)
+        user_acl.save()
+    
+    @patch("utils.send_email")
+    def test_send_simple_email(self, send_email):
+        '''
+        Check that a simple URL replacement works fine
+        '''
+        # authenticate as admin
+        response = self.client.authenticate(
+            self.aeid_special, self.admin_auth_data
+        )
+        self.assertEqual(response.status_code, 200)
+
+        emails = []
+        def send_email_mock(email):
+            emails.append(email)
+
+        send_email.side_effect = send_email_mock
+
+        # send authentication codes to election users
+        response = self.client.post(
+            f'/api/auth-event/{self.aeid}/census/send_auth/',
+            dict(
+                subject='whatever',
+                msg='something something __URL__ something'
+            )
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(emails, 1)
+        self.assertEqual(
+            emails[0].body,
+            'something something https://sequent.example.com/#/election/2/public/login/test@sequentech.io something\n\n -- Sequent https://sequentech.io'
+        )
+    
+    @patch("utils.send_email")
+    def test_send_simple_email(self, send_email):
+        '''
+        Check that a simple URL replacement works fine
+        '''
+        # authenticate as admin
+        response = self.client.authenticate(
+            self.aeid_special, self.admin_auth_data
+        )
+        self.assertEqual(response.status_code, 200)
+
+        emails = []
+        def send_email_mock(email):
+            emails.append(email)
+
+        send_email.side_effect = send_email_mock
+
+        # send authentication codes to election users
+        response = self.client.post(
+            f'/api/auth-event/{self.aeid}/census/send_auth/',
+            dict(
+                subject='whatever',
+                msg='something something __URL__ something'
+            )
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(emails), 1)
+        self.assertEqual(
+            emails[0].body,
+            'something something https://sequent.example.com/#/election/2/public/login/test@sequentech.io something\n\n -- Sequent https://sequentech.io'
+        )
+    
+    @patch("utils.send_email")
+    def test_send_alt_urls_email(self, send_email):
+        '''
+        Check that alt URLs replacement works fine
+        '''
+        # authenticate as admin
+        response = self.client.authenticate(
+            self.aeid_special, self.admin_auth_data
+        )
+        self.assertEqual(response.status_code, 200)
+
+        emails = []
+        def send_email_mock(email):
+            emails.append(email)
+
+        send_email.side_effect = send_email_mock
+
+        # send authentication codes to election users
+        response = self.client.post(
+            f'/api/auth-event/{self.aeid}/census/send_auth/',
+            dict(
+                subject='whatever',
+                msg='''
+                Hello!
+                You can authenticate in multiple ways:
+                - email: __URL__
+                - direct email: __URL2__
+                - sms: __URL_SMS__
+                - sms direct: __URL2_SMS__
+                Regards,
+                '''
+            )
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(emails), 1)
+        import pdb; pdb.set_trace()
+        self.assertEqual(
+            emails[0].body,
+            ''''
+                Hello!
+                You can authenticate in multiple ways:
+                - email: https://sequent.example.com/#/election/2/public/login/test@sequentech.io
+                - direct email: https://sequent.example.com/#/election/2/public/login/test@sequentech.io/AAAAAAAA
+                - sms: https://sequent.example.com/election/2/public/login//sms/?tlf=%2B34666666666
+                - sms direct: https://sequent.example.com/election/2/public/login//sms/?tlf=%2B34666666666&code=AAAAAAAA
+                Regards,
+                
+
+ -- Sequent https://sequentech.io'''
+        )

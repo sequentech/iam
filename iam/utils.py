@@ -411,9 +411,14 @@ def get_urls_for_alt_auth_method(
     template_dict = dict()
     auth_method_id = alt_auth_method['id']
 
-    url_name = f'url_{auth_method_id}'
     alt_auth_base_url = settings.ALT_AUTH_BASE_URL
-    base_url_value = f'{alt_auth_base_url}/{auth_method_id}/'
+    url_value = template_replace_data(
+        alt_auth_base_url,
+        dict(
+            event_id=auth_event.id,
+            auth_method_id=auth_method_id
+        )
+    )
     url_fields = dict()
     url_code_fields = dict()
     if code:
@@ -443,12 +448,12 @@ def get_urls_for_alt_auth_method(
 
     url_encoded_fields = urllib.parse.urlencode(url_fields)
     template_dict[f'url_{auth_method_id}'] = \
-        f'{base_url_value}?{url_encoded_fields}'
+        f'{url_value}?{url_encoded_fields}'
 
     url_fields.update(url_code_fields)
     url2_encoded_fields = urllib.parse.urlencode(url_fields)
     template_dict[f'url2_{auth_method_id}'] = \
-        f'{base_url_value}?{url2_encoded_fields}'
+        f'{url_value}?{url2_encoded_fields}'
 
     return template_dict
 
