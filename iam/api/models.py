@@ -309,7 +309,7 @@ class AuthEvent(models.Model):
     # those launches one by one. set/get with (s|g)et_tally_status api calls
     tally_status = models.CharField(
         max_length=15, 
-        choices=AE_TALLY_STATUSES, 
+        choices=AE_TALLY_STATUSES,
         default=NOT_STARTED
     )
 
@@ -448,11 +448,11 @@ class AuthEvent(models.Model):
             return [
                 dict(
                     id=alt_auth_method["id"],
-                    name=alt_auth_method["name"],
-                    auth_method=alt_auth_method["name"],
+                    auth_method_name=alt_auth_method["auth_method_name"],
                     extra_fields=restrict_extra_fields(
                         alt_auth_method["extra_fields"]
                     ),
+                    public_name=alt_auth_method["public_name"],
                     public_name_i18n=alt_auth_method["public_name_i18n"],
                     icon=alt_auth_method["icon"]
                 )
