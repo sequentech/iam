@@ -517,15 +517,12 @@ class AuthMethodAltSendCodes(TestCase):
             f'/api/auth-event/{self.aeid}/census/send_auth/',
             dict(
                 subject='whatever',
-                msg='''
-                Hello!
-                You can authenticate in multiple ways:
+                msg='''You can authenticate in multiple ways:
                 - email: __URL__
                 - direct email: __URL2__
                 - sms: __URL_SMS__
                 - sms direct: __URL2_SMS__
-                Regards,
-                '''
+                Regards,'''
             )
         )
         self.assertEqual(response.status_code, 200)
