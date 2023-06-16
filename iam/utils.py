@@ -29,6 +29,7 @@ import inspect
 import traceback
 
 from celery import shared_task
+from django.utils.text import slugify
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
@@ -46,6 +47,7 @@ from pipelines.base import check_pipeline_conf
 from contracts import CheckException, JSONContractEncoder
 from time import sleep
 import plugins
+from contracts.base import check_contract
 
 RE_SPLIT_FILTER = re.compile('(__lt|__gt|__equals|__in)')
 RE_SPLIT_SORT = re.compile('__sort')
@@ -395,6 +397,126 @@ def send_sms_message(receiver, msg):
         LOGGER.error('SMS NOT sent: \n%s: %s, error message %s', receiver, msg, str(error.args))
         LOGGER.error(error)
 
+def get_urls_for_alt_auth_method(
+    user,
+    code,
+    auth_event,
+    alt_auth_method
+):
+    import urllib.parse
+    '''
+    Returns a dictionary with additional urls for specific alternative
+    authentication methods
+    '''
+    template_dict = dict()
+    auth_method_id = alt_auth_method['id']
+
+    alt_auth_base_url = settings.ALT_AUTH_BASE_URL
+    url_value = template_replace_data(
+        alt_auth_base_url,
+        dict(
+            event_id=auth_event.id,
+            auth_method_id=auth_method_id
+        )
+    )
+    url_fields = dict()
+    url_code_fields = dict()
+    if code:
+        url_code_fields['code'] = code
+
+    for extra_field in alt_auth_method['extra_fields']:
+        if not extra_field.get('required_on_authentication'):
+            continue
+        url_field_name = extra_field.get('name')
+        url_field_type = extra_field.get('name')
+        if url_field_type == 'email':
+            url_field_value = user.value
+        if url_field_type == 'tlf':
+            url_field_value = user.userdata.tlf
+        elif url_field_type == 'password':
+            pass
+        elif url_field_type == 'otp-code':
+            if code:
+                url_code_fields[url_field_name] = code
+            pass
+        elif url_field_type == 'text' and url_field_name == 'username':
+            url_field_value = user.username
+        else:
+            if url_field_name in user.userdata.metadata:
+                url_field_value = user.userdata.metadata[url_field_name]
+        url_fields[url_field_name] = url_field_value
+
+    url_encoded_fields = urllib.parse.urlencode(url_fields)
+    template_dict[f'url_{auth_method_id}'] = \
+        f'{url_value}?{url_encoded_fields}'
+
+    url_fields.update(url_code_fields)
+    url2_encoded_fields = urllib.parse.urlencode(url_fields)
+    template_dict[f'url2_{auth_method_id}'] = \
+        f'{url_value}?{url2_encoded_fields}'
+
+    return template_dict
+
+def get_auth_message_template_vars(
+    user,
+    receiver_address,
+    auth_event,
+    base_auth_url,
+    code=None
+):
+    '''
+    Generate the auth message template variables for a given user, auth event
+    and given code if any
+    '''
+    base_home_url = settings.HOME_URL
+    home_url = template_replace_data(
+      base_home_url,
+      dict(event_id=auth_event.id)
+    )
+
+    url = template_replace_data(
+        base_auth_url,
+        dict(
+            event_id=auth_event.id,
+            receiver=receiver_address
+        )
+    )
+
+    # initialize template data dict
+    template_dict = dict(
+        event_id=auth_event.id,
+        url=url,
+        home_url=home_url
+    )
+    if code is not None:
+        template_dict['code'] = format_code(code)
+        template_dict['url2'] = url + '/' + code
+    if user.userdata.event.extra_fields:
+        for field in user.userdata.event.extra_fields:
+            if (
+                'name' in field and
+                'slug' in field and
+                field['name'] in user.userdata.metadata
+            ):
+                template_dict[field['slug']] = \
+                    user.userdata.metadata[field['name']]
+
+    if auth_event.support_otl_enabled:
+        template_dict['otl'] = get_or_create_otl(user)
+
+    if auth_event.alternative_auth_methods is not None:
+        for alt_auth_method in auth_event.alternative_auth_methods:
+            template_dict.update(
+                get_urls_for_alt_auth_method(
+                    user,
+                    code,
+                    auth_event,
+                    alt_auth_method
+                )
+            )
+
+    return template_dict
+
 def template_replace_data(templ, data):
     '''
     Replaces the data key values in the template. Used by send_code.
@@ -421,7 +543,7 @@ def send_email_code(
         LOGGER.error(
             f"send_email_code error\n" +
             f"Receiver is None for user '{user}'\n" +
-            f"authevent '{auth_event}'\n" +
+            f"authevent '{user.userdata.event}'\n" +
             f"Stack trace: \n{stack_trace_str()}"
         )
         return "Receiver is none"
@@ -430,46 +552,20 @@ def send_email_code(
     from api.models import ACL
     auth_event = user.userdata.event
     message_body = templates['message_body']
-    message_subject= templates['message_subject']
+    message_subject = templates['message_subject']
     message_html = templates.get('message_html')
 
-    base_home_url = settings.HOME_URL
-    home_url = template_replace_data(
-      base_home_url,
-      dict(event_id=auth_event.id)
+    template_dict = get_auth_message_template_vars(
+        user=user,
+        receiver_address=(
+            email_address 
+            if auth_method_receiver is None 
+            else auth_method_receiver
+        ),
+        base_auth_url = settings.EMAIL_AUTH_CODE_URL,
+        auth_event=auth_event,
+        code=code
     )
-    receiver = email_address if auth_method_receiver is None else auth_method_receiver
-    base_auth_url = settings.EMAIL_AUTH_CODE_URL
-
-    url = template_replace_data(
-        base_auth_url,
-        dict(
-            event_id=auth_event.id,
-            receiver=receiver
-        )
-    )
-
-    # initialize template data dict
-    template_dict = dict(
-        event_id=auth_event.id,
-        url=url,
-        home_url=home_url
-    )
-    if code is not None:
-        template_dict['code'] = format_code(code)
-        template_dict['url2'] = url + '/' + code
-    if user.userdata.event.extra_fields:
-        for field in user.userdata.event.extra_fields:
-            if (
-                'name' in field and
-                'slug' in field and
-                field['name'] in user.userdata.metadata
-            ):
-                template_dict[field['slug']] = user.userdata.metadata[field['name']]
-
-
-    if auth_event.support_otl_enabled:
-        template_dict['otl'] = get_or_create_otl(user)
 
     # base_msg is the base template, allows the iam superadmin to configure
     # a prefix or suffix to all messages
@@ -501,7 +597,6 @@ def send_email_code(
             message_html,
             template_dict
         )
-
 
     # store the message log in the DB
     db_message_log = MsgLog(
@@ -558,7 +653,7 @@ def send_sms_code(
         LOGGER.error(
             f"send_sms_code error\n" +
             f"Receiver is None for user '{user}'\n" +
-            f"authevent '{auth_event}'\n" +
+            f"authevent '{user.userdata.event}'\n" +
             f"Stack trace: \n{stack_trace_str()}"
         )
         return "Receiver is none"
@@ -567,42 +662,17 @@ def send_sms_code(
     auth_event = user.userdata.event
     message_body = templates['message_body']
 
-    base_home_url = settings.HOME_URL
-    home_url = template_replace_data(
-      base_home_url,
-      dict(event_id=auth_event.id)
+    template_dict = get_auth_message_template_vars(
+        user=user,
+        receiver_address=(
+            tlf_number 
+            if auth_method_receiver is None 
+            else auth_method_receiver
+        ),
+        base_auth_url = settings.SMS_AUTH_CODE_URL,
+        auth_event=auth_event,
+        code=code
     )
-    receiver = tlf_number if auth_method_receiver is None else auth_method_receiver
-    base_auth_url = settings.SMS_AUTH_CODE_URL
-
-    url = template_replace_data(
-        base_auth_url,
-        dict(
-            event_id=auth_event.id,
-            receiver=receiver
-        )
-    )
-
-    # initialize template data dict
-    template_dict = dict(
-        event_id=auth_event.id,
-        url=url,
-        home_url=home_url
-    )
-    if code is not None:
-        template_dict['code'] = format_code(code)
-        template_dict['url2'] = url + '/' + code
-    if user.userdata.event.extra_fields:
-        for field in user.userdata.event.extra_fields:
-            if (
-                'name' in field and
-                'slug' in field and
-                field['name'] in user.userdata.metadata
-            ):
-                template_dict[field['slug']] = user.userdata.metadata[field['name']]
-
-    if auth_event.support_otl_enabled:
-        template_dict['otl'] = get_or_create_otl(user)
 
     # base_msg is the base template, allows the iam superadmin to configure
     # a prefix or suffix to all messages
@@ -1159,7 +1229,7 @@ def check_pipeline(pipe):
                 msg += "Invalid pipeline functions: %s not possible.\n" % func
     return msg
 
-def check_fields(key, value):
+def check_extra_field(key, value):
     """ Check fields in extra_fields when create auth-event. """
     from sys import maxsize
     msg = ''
@@ -1216,6 +1286,8 @@ def check_extra_fields(fields, mandatory_fields=dict(types=[], names=[])):
     for field in fields:
         fname = field.get('name')
         ftype = field.get('type')
+        if fname is None:
+            msg += "some extra_fields have no name\n"
         if fname in used_fields:
             msg += "Two fields with same name: %s.\n" % fname
         used_fields.append(fname)
@@ -1228,14 +1300,240 @@ def check_extra_fields(fields, mandatory_fields=dict(types=[], names=[])):
                 msg += "Required field %s.\n" % required
         for key in field.keys():
             if key in VALID_FIELDS:
-                msg += check_fields(key, field.get(key))
+                msg += check_extra_field(key, field.get(key))
             else:
                 msg += "Invalid extra_field: %s not possible.\n" % key
     if set(found_used_type_fields) != set(mandatory_type_fields):
         msg += "Not all mandatory type fields were found"
     if set(found_used_name_fields) != set(mandatory_name_fields):
         msg += "Not all mandatory type fields were found"
+    
+    slug_set = set()
+    for field in fields:
+        field['slug'] = slugify(field['name'])\
+            .replace("-","_")\
+            .upper()
+        slug_set.add(field['slug'])
+    if len(slug_set) != len(fields):
+        msg += "some extra_fields may have repeated slug names\n"
     return msg
+
+def update_alt_methods_config(alternative_auth_methods):
+    '''
+    For each alt auth method, update the config to add pipelines etc
+    '''
+    from authmethods import METHODS
+    from copy import deepcopy
+    for alt_auth_method in alternative_auth_methods:
+        alt_auth_method_name = alt_auth_method['auth_method_name']
+        base_config = alt_auth_method['auth_method_config']
+        alt_auth_method['auth_method_config'] = deepcopy({
+            "config": METHODS.get(alt_auth_method_name).CONFIG,
+            "pipeline": METHODS.get(alt_auth_method_name).PIPELINES
+        })
+        alt_auth_method['auth_method_config']['config'].update(base_config)
+
+def check_alt_auth_methods(
+        alternative_auth_methods, extra_fields
+    ):
+    '''
+    Check that the alternative authentication methods conform with their
+    requirements, returning any error as a string, otherwise return an empty
+    string.
+    
+    1. They contain information about the alternative
+    authentication methods supported in this Auth Event, if any. Example:
+        ```json [
+            {
+                "id": "email",
+                "auth_method_name": "email",
+                "auth_method_config": <auth_method_config>,
+                "extra_fields": <extra_fields>, 
+                "public_name": "Email",
+                "public_name_i18n": {"es": "Nombre"},
+                "icon": "{null/name/url}"
+            }
+        ]
+        ````
+    2. Check the extra_fields with `check_extra_fields(extra_fields)` that
+       returns a string with an error if there is any.
+    3. Ensure that the `check_alt_auth_methods` input parameter `extra_fields`
+       and the alternative_auth_methods[<any>].extra_fields always contain the
+       same extra_field names and matching type.
+    4. Ensure the auth_method is valid with
+       `msg = check_authmethod(auth_method)`.
+    5. Ensure that alternative_auth_methods[<any>].name are unique.
+    '''
+    from authmethods import check_config, METHODS
+    from copy import deepcopy
+    
+    if alternative_auth_methods is None:
+        return ''
+    
+    def check_and_update_config(auth_method):
+        updated_config = deepcopy(
+            METHODS.get(auth_method['auth_method_name']).CONFIG
+        )
+        updated_config.update(auth_method['auth_method_config'])
+        auth_method['auth_method_config'] = updated_config
+        return check_config(
+            auth_method['auth_method_config'],
+            auth_method['auth_method_name']
+        ) == ''
+
+    def has_same_extra_fields(extra_fields1):
+        '''
+        Check that both lists of extra fields have the same ids and types
+        '''
+        if (
+            set([extra_field['name'] for extra_field in extra_fields1]) != 
+            set([extra_field['name'] for extra_field in extra_fields])
+        ):
+            return "an alternative authentication method doesn't have the same extra fields as the default auth_method"
+        
+        # Check the extra field with the same name has the same type
+        for extra_field in extra_fields1:
+            name = extra_field['name']
+            matching_extra_field_type = [
+                extra_field2['type']
+                for extra_field2 in extra_fields
+                if extra_field2['name'] == name
+            ][0]
+            if matching_extra_field_type != extra_field['type']:
+                return "an alternative authentication method contain mismatching types for at least one extra_field with respect to the default auth_method"
+        return ''
+
+    contract = [
+        {
+            'check': 'isinstance',
+            'type': list
+        },
+        {
+            'check': "iterate-list",
+            'check-list': [
+                {
+                    'check': 'isinstance',
+                    'help': 'check alternative_auth_method is an object',
+                    'type': dict
+                },
+                {
+                    'check': 'dict-keys-exact',
+                    'help': 'check the alternative auth_method dict has all required keys',
+                    'keys': ["id", "auth_method_name", "auth_method_config", "extra_fields", "public_name", "public_name_i18n", "icon"]
+                },
+                {
+                    'check': 'index-check-list',
+                    'index': 'id',
+                    'check-list': [
+                        {
+                            'check': 'isinstance',
+                            'help': 'check the alternative auth_method is a string',
+                            'type': str
+                        }
+                    ]
+                },
+                {
+                    'check': 'index-check-list',
+                    'index': 'auth_method_name',
+                    'check-list': [
+                        {
+                            'check': 'lambda',
+                            'help': "check the alternative auth_method name is valid",
+                            'lambda': lambda auth_method_name: (
+                                check_authmethod(auth_method_name) == ''
+                            )
+                        }
+                    ]
+                },
+                {
+                    'check': 'index-check-list',
+                    'index': 'icon',
+                    'check-list': [
+                        {
+                            'check': 'lambda',
+                            'help': "check the alternative auth_method icon is null or a string",
+                            'lambda': lambda icon: (
+                                icon is None or isinstance(icon, str)
+                            )
+                        }
+                    ]
+                },
+                {
+                    'check': 'index-check-list',
+                    'index': 'public_name',
+                    'check-list': [
+                        {
+                            'check': 'isinstance',
+                            'help': "check the alternative auth_method public_name is a string",
+                            'type': str
+                        }
+                    ]
+                },
+                {
+                    'check': 'index-check-list',
+                    'index': 'public_name_i18n',
+                    'check-list': [
+                        {
+                            'check': 'isinstance',
+                            'help': "check the alternative public_name_i18n is a dict",
+                            'type': dict
+                        },
+                        {
+                            'check': 'lambda',
+                            'help': "check the alternative auth_method_i18n dict values are strings",
+                            'lambda': lambda public_name_i18n: (
+                                all([
+                                    isinstance(i18n, str)
+                                    for i18n in public_name_i18n.values()
+                                ])
+                            )
+                        }
+                    ]
+                },
+                {
+                    'check': 'lambda',
+                    'help': "check the alternative auth_method config is valid",
+                    'lambda': lambda auth_method: (
+                        check_and_update_config(auth_method)
+                    )
+                },
+                {
+                    'check': 'lambda',
+                    'help': "check the alternative auth_method extra fields are valid",
+                    'lambda': lambda auth_method: check_extra_fields(
+                        auth_method['extra_fields'],
+                        METHODS.get(auth_method['auth_method_name']).MANDATORY_FIELDS
+                    ) == ''
+                },
+                {
+                    'check': 'lambda',
+                    'help': "check the alternative auth_method has the same extra fields",
+                    'lambda': lambda auth_method: has_same_extra_fields(
+                        auth_method['extra_fields']
+                    ) == ''
+                },
+            ]
+        },
+        {
+            'check': 'lambda',
+            'help': "check for duplicated alternative auth method ids",
+            'lambda': lambda l: (
+                len(l) == len(set([auth_method['id'] for auth_method in l]))
+            )
+        }
+    ]
+    # validate input
+    try:
+        check_contract(contract, alternative_auth_methods)
+    except CheckException as error:
+        LOGGER.error(\
+            "check_alt_auth_methods()\n"\
+            "alternative_auth_methods '%r'\n"\
+            "error '%r'\n"\
+            "Stack trace: \n%s",\
+            alternative_auth_methods, error.data, stack_trace_str())
+        return JSONContractEncoder().encode(error.data)
+    return ''
 
 def check_admin_field(key, value):
     """ Check fields in admin_field when create auth-event. """
