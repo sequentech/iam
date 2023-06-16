@@ -29,7 +29,6 @@ from django.views.generic import View
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from base64 import encodestring
-from django.utils.text import slugify
 from django.db.models import Count, OuterRef, Subquery
 
 import plugins
@@ -48,8 +47,9 @@ from authmethods.utils import reset_voter_to_preregistration
 from utils import (
     check_authmethod,
     check_extra_fields,
+    update_alt_methods_config,
+    check_alt_auth_methods,
     check_admin_fields,
-    check_pipeline,
     genhmac,
     HMACToken,
     json_response,
@@ -62,7 +62,6 @@ from utils import (
     VALID_PIPELINES,
     filter_query,
     stack_trace_str,
-    reproducible_json_dumps
 )
 from .decorators import login_required, get_login_user
 from .models import (
@@ -1624,23 +1623,20 @@ class AuthEventView(View):
                     extra_fields,
                     METHODS.get(auth_method).MANDATORY_FIELDS
                 )
-                slug_set = set()
-                for field in extra_fields:
-                    if 'name' in field:
-                        field['slug'] = slugify(field['name'])\
-                            .replace("-","_")\
-                            .upper()
-                        slug_set.add(field['slug'])
-                    else:
-                        msg += "some extra_fields have no name\n"
-                if len(slug_set) != len(extra_fields):
-                    msg += "some extra_fields may have repeated slug names\n"
+
+            alternative_auth_methods = req.get('alternative_auth_methods', None)
+            if alternative_auth_methods:
+                msg += check_alt_auth_methods(
+                    alternative_auth_methods, extra_fields
+                )
+                update_alt_methods_config(alternative_auth_methods)
 
             admin_fields = req.get('admin_fields', None)
             if admin_fields:
                 msg += check_admin_fields(
                     admin_fields,
-                    METHODS.get(auth_method).MANDATORY_FIELDS)
+                    METHODS.get(auth_method).MANDATORY_FIELDS
+                )
 
             # check census mode
             census = req.get('census', '')
@@ -1748,7 +1744,8 @@ class AuthEventView(View):
                 has_ballot_boxes=has_ballot_boxes,
                 hide_default_login_lookup_field=hide_default_login_lookup_field,
                 allow_public_census_query=allow_public_census_query,
-                support_otl_enabled=support_otl_enabled
+                support_otl_enabled=support_otl_enabled,
+                alternative_auth_methods=alternative_auth_methods
             )
             # If the election exists, we are doing an update. Else, we are 
             # doing an insert. We use this update method instead of just 
@@ -1849,6 +1846,12 @@ class AuthEventView(View):
             extra_fields = req.get('extra_fields', None)
             if extra_fields:
                 msg += check_extra_fields(extra_fields)
+
+            alternative_auth_methods = req.get('alternative_auth_methods', None)
+            if alternative_auth_methods:
+                msg += check_alt_auth_methods(
+                    alternative_auth_methods, extra_fields
+                )
 
             if msg:
                 return json_response(status=400, message=msg)
