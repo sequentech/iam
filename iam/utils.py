@@ -79,7 +79,6 @@ class ErrorCodes:
     PIPELINE_INVALID_CREDENTIALS = "PIPELINE_INVALID_CREDENTIALS"
     USER_NOT_FOUND = "USER_NOT_FOUND"
     INVALID_PASSWORD_OR_CODE = "INVALID_PASSWORD_OR_CODE"
-    INVALID_CODE = "INVALID_CODE"
 
 def reproducible_json_dumps(s):
     return json.dumps(s, indent=4, ensure_ascii=False, sort_keys=True, separators=(',', ': '))
