@@ -17,7 +17,7 @@ from django.conf.urls import url
 import json
 import logging
 from django.contrib.auth.models import User
-from iam.utils import ErrorCodes
+from ..utils import ErrorCodes
 from . import register_method
 
 from utils import (

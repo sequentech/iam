@@ -25,7 +25,7 @@ from utils import (
     is_valid_url,
     verify_admin_generated_auth_code,
 )
-from iam.utils import ErrorCodes
+from ..utils import ErrorCodes
 from . import register_method
 from authmethods.utils import (
     verify_children_election_info,
