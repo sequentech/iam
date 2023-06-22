@@ -52,9 +52,7 @@ from authmethods.utils import (
 
 from contracts.base import check_contract
 from contracts import CheckException
-from enum import unique
 
-@unique
 class SmartLinkErrorCodes:
   AUTH_TOKEN_NOT_FOUND = "AUTH_TOKEN_NOT_FOUND"
   INVALID_USER_ID = "INVALID_USER_ID"

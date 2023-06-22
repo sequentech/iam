@@ -39,7 +39,6 @@ from django.core.paginator import Paginator
 from django.conf import settings
 from django.http import HttpResponse
 from django.utils import timezone
-from enum import unique
 from string import ascii_lowercase, digits, ascii_letters
 from random import choice
 from pipelines import PipeReturnvalue
@@ -62,7 +61,6 @@ def stack_trace_str():
   return "\n".join(stack_trace[:-1]) + "\n" + traceback.format_exc()
 
 
-@unique
 class ErrorCodes:
     BAD_REQUEST = "BAD_REQUEST"
     INVALID_REQUEST = "INVALID_REQUEST"
