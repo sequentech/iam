@@ -15,7 +15,7 @@
 
 import json
 import logging
-from iam.utils import ErrorCodes
+from ..utils import ErrorCodes
 from . import register_method
 from utils import (
   verifyhmac,

@@ -15,7 +15,7 @@
 
 from . import register_method
 
-from iam.utils import ErrorCodes
+from ..utils import ErrorCodes
 from utils import (
     verify_admin_generated_auth_code
 )
