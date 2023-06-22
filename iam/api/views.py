@@ -599,26 +599,35 @@ class Authenticate(View):
 
     def post(self, request, pk):
         try:
-            e = get_object_or_404(
+            auth_event = get_object_or_404(
                 AuthEvent,
                 pk=pk
             )
         except:
-            return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.AUTH_EVENT_NOT_FOUND
+            )
 
-        if (e.status != AuthEvent.STARTED and
-            e.status != AuthEvent.RESUMED and
-            e.auth_method_config.get("config", dict()).get("show_pdf") != True):
-            return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
+        if (auth_event.status != AuthEvent.STARTED and
+            auth_event.status != AuthEvent.RESUMED and
+            auth_event.auth_method_config.get("config", dict()).get("show_pdf") != True):
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.AUTH_EVENT_NOT_STARTED
+            )
 
         if not hasattr(request.user, 'account'):
-            error_kwargs = plugins.call("extend_auth", e)
+            error_kwargs = plugins.call("extend_auth", auth_event)
             if error_kwargs:
                 return json_response(**error_kwargs[0])
         try:
-            data = auth_authenticate(e, request)
+            data = auth_authenticate(auth_event, request)
         except:
-            return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST
+            )
 
         if data and 'status' in data and data['status'] == 'ok':
             user = User.objects.get(username=data['username'])
@@ -627,16 +636,21 @@ class Authenticate(View):
                 receiver=user,
                 action_name='user:authenticate',
                 event=user.userdata.event,
-                metadata=dict())
+                metadata=dict()
+            )
             action.save()
-            data["show-pdf"] = e.auth_method_config.get("config", dict()).get("show_pdf", False)
+            data["show-pdf"] = auth_event\
+                .auth_method_config\
+                .get("config", dict())\
+                .get("show_pdf", False)
 
             return json_response(data)
         else:
             return json_response(
-              status=400,
-              error_codename=data.get('error_codename'),
-              message=data.get('msg', '-'))
+                status=400,
+                error_codename=data.get('error_codename'),
+                message=data.get('msg', '-')
+            )
 authenticate = Authenticate.as_view()
 
 

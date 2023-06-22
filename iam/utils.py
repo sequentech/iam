@@ -39,7 +39,7 @@ from django.core.paginator import Paginator
 from django.conf import settings
 from django.http import HttpResponse
 from django.utils import timezone
-from enum import IntEnum, unique
+from enum import unique
 from string import ascii_lowercase, digits, ascii_letters
 from random import choice
 from pipelines import PipeReturnvalue
@@ -63,14 +63,23 @@ def stack_trace_str():
 
 
 @unique
-class ErrorCodes(IntEnum):
-    BAD_REQUEST = 1
-    INVALID_REQUEST = 2
-    INVALID_CODE = 3
-    INVALID_PERMS = 4
-    GENERAL_ERROR = 5
-    MAX_CONNECTION = 6
-    BLACKLIST = 7
+class ErrorCodes:
+    BAD_REQUEST = "BAD_REQUEST"
+    INVALID_REQUEST = "INVALID_REQUEST"
+    INVALID_CODE = "INVALID_CODE"
+    INVALID_PERMS = "INVALID_PERMS"
+    GENERAL_ERROR = "GENERAL_ERROR"
+    MAX_CONNECTION = "MAX_CONNECTION"
+    BLACKLIST = "BLACKLIST"
+    AUTH_EVENT_NOT_FOUND = "AUTH_EVENT_NOT_FOUND"
+    AUTH_EVENT_NOT_STARTED = "AUTH_EVENT_NOT_STARTED"
+    CANT_VOTE_MORE_TIMES = "CANT_VOTE_MORE_TIMES"
+    CANT_AUTHENTICATE_TO_PARENT = "CANT_AUTHENTICATE_TO_PARENT"
+    INVALID_FIELD_VALIDATION = "INVALID_FIELD_VALIDATION"
+    PIPELINE_INVALID_CREDENTIALS = "PIPELINE_INVALID_CREDENTIALS"
+    USER_NOT_FOUND = "USER_NOT_FOUND"
+    INVALID_PASSWORD_OR_CODE = "INVALID_PASSWORD_OR_CODE"
+    INVALID_CODE = "INVALID_CODE"
 
 def reproducible_json_dumps(s):
     return json.dumps(s, indent=4, ensure_ascii=False, sort_keys=True, separators=(',', ': '))
@@ -86,8 +95,6 @@ def json_response(data=None, status=200, message="", field=None, error_codename=
     if status != 200:
         if not error_codename:
             error_codename = ErrorCodes.GENERAL_ERROR
-        if isinstance(error_codename, ErrorCodes):
-            error_codename = error_codename.value
         error_data = dict(
             message=message,
             field=field, 

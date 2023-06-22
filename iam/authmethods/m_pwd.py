@@ -15,6 +15,7 @@
 
 import json
 import logging
+from iam.utils import ErrorCodes
 from . import register_method
 from django.contrib.auth.models import User
 from django.conf.urls import url
@@ -201,6 +202,20 @@ class Password:
             error, req, ae, stack_trace_str())
         return d
 
+    def error(
+            self, msg, auth_event=None, error_codename=None, internal_error=None
+        ):
+        data = {'status': 'nok', 'msg': msg, 'error_codename': error_codename}
+        LOGGER.error(\
+            "UserPassword.error\n"\
+            f"internal_error '{internal_error}'\n"\
+            f"error_codename '{error_codename}'\n"\
+            f"returning error '{data}'\n"\
+            f"auth_event '{auth_event}'\n"\
+            f"Stack trace: \n{stack_trace_str()}"
+        )
+        return data
+
     def authenticate(self, auth_event, request, mode="authenticate"):
         ret_data = {'status': 'ok'}
         req = json.loads(request.body.decode('utf-8'))
@@ -217,41 +232,71 @@ class Password:
                     user,
                     req
                 ):
-                    return self.authenticate_error(
-                        "invalid_num_successful_logins_allowed", req, auth_event
+                    return self.error(
+                        ErrorCodes.CANT_VOTE_MORE_TIMES,
+                        auth_event=auth_event,
+                        error_codename=ErrorCodes.CANT_VOTE_MORE_TIMES
                     )
 
                 return return_auth_data('UserPassword', req, request, user)
 
         msg = ""
+        if auth_event.parent is not None:
+            msg += 'you can only authenticate to parent elections'
+            return self.error(
+                msg,
+                auth_event=auth_event,
+                error_codename=ErrorCodes.CANT_AUTHENTICATE_TO_PARENT
+            )
+
         msg += check_fields_in_request(req, auth_event, mode)
         if msg:
-            LOGGER.error(\
-                "UserPassword.authenticate error\n"\
-                "error '%r'"\
-                "authevent '%r'\n"\
-                "request '%r'\n"\
-                "Stack trace: \n%s",\
-                msg, auth_event, req, stack_trace_str())
-            return self.authenticate_error("invalid-fields-check", req, auth_event)
+            return self.error(
+                msg="",
+                internal_error=msg,
+                auth_event=auth_event,
+                error_codename=ErrorCodes.INVALID_FIELD_VALIDATION
+            )
+
+        msg = check_pipeline(request, auth_event, 'authenticate')
+        if msg:
+            return self.error(
+                msg="",
+                internal_error=msg,
+                auth_event=auth_event,
+                error_codename=ErrorCodes.PIPELINE_INVALID_CREDENTIALS
+            )
 
         try:
             q = get_base_auth_query(auth_event)
             q = get_required_fields_on_auth(req, auth_event, q)
             user = User.objects.get(q)
-            if mode == "authenticate":
+        except Exception as error:
+            msg += f"can't find user with query: `{str(q)}`\nexception: `{error}`\n"
+            return self.error(
+                msg="",
+                internal_error=msg,
+                auth_event=auth_event,
+                error_codename=ErrorCodes.USER_NOT_FOUND
+            )
+        try:
+            if mode == 'authenticate':
                 post_verify_fields_on_auth(user, req, auth_event)
-        except:
-            return self.authenticate_error("user-not-found", req, auth_event)
-
-        msg = check_pipeline(request, auth_event, 'authenticate')
-        if msg:
-            return self.authenticate_error("invalid-pipeline", req, auth_event)
+        except Exception as error:
+            msg += f"exception: `{error}`\n"
+            return self.error(
+                msg="",
+                internal_error=msg,
+                auth_event=auth_event,
+                error_codename=ErrorCodes.INVALID_PASSWORD_OR_CODE
+            )
 
         if mode == "authenticate":
             if not verify_num_successful_logins(auth_event, 'UserPassword', user, req):
-                return self.authenticate_error(
-                    "invalid_num_successful_logins_allowed", req, auth_event
+                return self.error(
+                    ErrorCodes.CANT_VOTE_MORE_TIMES,
+                    auth_event=auth_event,
+                    error_codename=ErrorCodes.CANT_VOTE_MORE_TIMES
                 )
 
             LOGGER.debug(\
