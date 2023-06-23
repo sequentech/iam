@@ -24,9 +24,6 @@ from utils import (
 )
 from django.conf import settings
 from django.contrib.auth.models import User
-from utils import (
-    verify_admin_generated_auth_code
-)
 from authmethods.utils import (
     verify_children_election_info,
     check_fields_in_request,
@@ -376,6 +373,7 @@ class SmartLink:
         auth_event=auth_event,
         error_codename=ErrorCodes.PIPELINE_INVALID_CREDENTIALS
       )
+    msg = ""
     try:
       # enforce user_id to match the token user_id in the request
       req['user_id'] = user_id

@@ -244,6 +244,7 @@ class EmailPassword:
                 auth_event=auth_event,
                 error_codename=ErrorCodes.PIPELINE_INVALID_CREDENTIALS
             )
+        msg = ""
 
         try:
             q = get_base_auth_query(auth_event)

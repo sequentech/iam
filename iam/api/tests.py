@@ -1863,7 +1863,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
-        self.assertEqual(r['error_codename'], 'invalid_credentials')
+        self.assertEqual(r['error_codename'], 'BAD_REQUEST')
 
     @override_settings(**override_celery_data)
     def test_authenticate_authevent_email_fields(self):
@@ -3932,7 +3932,7 @@ class ApiTestCensusDelete(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
-        self.assertEqual(r['error_codename'], 'invalid_credentials')
+        self.assertEqual(r['error_codename'], 'BAD_REQUEST')
 
         # voter does not exist in database anymore
         self.assertEqual(User.objects.filter(id=self.census_user_id).count(), 0)
@@ -4028,7 +4028,7 @@ class ApiTestCensusDelete(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
-        self.assertEqual(r['error_codename'], 'invalid_credentials')
+        self.assertEqual(r['error_codename'], 'BAD_REQUEST')
 
         # voter does not exist in database anymore
         self.assertEqual(User.objects.filter(id=self.census_user_id).count(), 0)
@@ -4132,7 +4132,7 @@ class ApiTestActivationAndActivity(TestCase):
         response = c.authenticate(self.aeid, test_data.auth_email_default)
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
-        self.assertEqual(r['error_codename'], 'invalid_credentials')
+        self.assertEqual(r['error_codename'], 'BAD_REQUEST')
 
         # admin login
         response = c.authenticate(self.aeid, self.admin_auth_data)

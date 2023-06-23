@@ -238,8 +238,13 @@ class OpenIdConnect(object):
 
         msg = check_pipeline(request, auth_event, 'authenticate')
         if msg:
-            return self.authenticate_error("invalid-pipeline", req, auth_event,
-                message=msg)
+            return self.error(
+                msg="",
+                internal_error=msg,
+                auth_event=auth_event,
+                error_codename=ErrorCodes.PIPELINE_INVALID_CREDENTIALS
+            )
+        msg = ""
 
         if mode == "authenticate":
             if not verify_num_successful_logins(auth_event, 'OpenIdConnect', user, req):
