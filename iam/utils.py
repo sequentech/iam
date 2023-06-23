@@ -64,7 +64,6 @@ def stack_trace_str():
 class ErrorCodes:
     BAD_REQUEST = "BAD_REQUEST"
     INVALID_REQUEST = "INVALID_REQUEST"
-    INVALID_CODE = "INVALID_CODE"
     INVALID_PERMS = "INVALID_PERMS"
     GENERAL_ERROR = "GENERAL_ERROR"
     MAX_CONNECTION = "MAX_CONNECTION"
@@ -75,8 +74,13 @@ class ErrorCodes:
     CANT_AUTHENTICATE_TO_PARENT = "CANT_AUTHENTICATE_TO_PARENT"
     INVALID_FIELD_VALIDATION = "INVALID_FIELD_VALIDATION"
     PIPELINE_INVALID_CREDENTIALS = "PIPELINE_INVALID_CREDENTIALS"
-    USER_NOT_FOUND = "USER_NOT_FOUND"
-    INVALID_PASSWORD_OR_CODE = "INVALID_PASSWORD_OR_CODE"
+
+    # Note that for security reasons the following three error codes are the
+    # same. This is to prevent enumeration attacks. More information:
+    # https://web.archive.org/web/20230203194955/https://www.techtarget.com/searchsecurity/tip/What-enumeration-attacks-are-and-how-to-prevent-them
+    INVALID_CODE = "INVALID_USER_CREDENTIALS"
+    USER_NOT_FOUND = "INVALID_USER_CREDENTIALS"
+    INVALID_PASSWORD_OR_CODE = "INVALID_USER_CREDENTIALS"
 
 def reproducible_json_dumps(s):
     return json.dumps(s, indent=4, ensure_ascii=False, sort_keys=True, separators=(',', ': '))

@@ -30,7 +30,7 @@ from . import test_data
 from .models import ACL, AuthEvent, Action, BallotBox, TallySheet, SuccessfulLogin
 from authmethods.models import Code, MsgLog, OneTimeLink
 from authmethods import m_sms_otp
-from utils import HMACToken, verifyhmac, reproducible_json_dumps
+from utils import HMACToken, verifyhmac, reproducible_json_dumps, ErrorCodes
 from authmethods.utils import get_cannonical_tlf, get_user_code
 
 def flush_db_load_fixture(ffile="initial.json"):
@@ -1863,7 +1863,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
-        self.assertEqual(r['error_codename'], 'BAD_REQUEST')
+        self.assertEqual(r['error_codename'], ErrorCodes.INVALID_CODE)
 
     @override_settings(**override_celery_data)
     def test_authenticate_authevent_email_fields(self):
@@ -4132,7 +4132,7 @@ class ApiTestActivationAndActivity(TestCase):
         response = c.authenticate(self.aeid, test_data.auth_email_default)
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
-        self.assertEqual(r['error_codename'], 'BAD_REQUEST')
+        self.assertEqual(r['error_codename'], ErrorCodes.USER_NOT_FOUND)
 
         # admin login
         response = c.authenticate(self.aeid, self.admin_auth_data)
