@@ -19,13 +19,13 @@ from django.conf import settings
 from django.db.models import Q
 from django.contrib.auth.models import User
 from utils import (
+    ErrorCodes,
     constant_time_compare,
     send_codes,
     get_client_ip,
     is_valid_url,
     verify_admin_generated_auth_code,
 )
-from ..utils import ErrorCodes
 from . import register_method
 from authmethods.utils import (
     verify_children_election_info,

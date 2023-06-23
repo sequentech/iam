@@ -15,12 +15,12 @@
 
 import json
 import logging
-from ..utils import ErrorCodes
 from . import register_method
 from django.contrib.auth.models import User
 from django.conf.urls import url
 
 from utils import (
+    ErrorCodes,
     verify_admin_generated_auth_code
 )
 from authmethods.utils import (

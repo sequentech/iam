@@ -33,6 +33,7 @@ from captcha.models import Captcha
 from captcha.decorators import valid_captcha
 from contracts import CheckException, JSONContractEncoder
 from utils import (
+    ErrorCodes,
     json_response, 
     get_client_ip, 
     constant_time_compare,

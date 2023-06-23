@@ -15,8 +15,8 @@
 
 from . import register_method
 
-from ..utils import ErrorCodes
 from utils import (
+    ErrorCodes,
     verify_admin_generated_auth_code
 )
 from authmethods.utils import (

@@ -18,8 +18,8 @@ import logging
 from django.conf import settings
 from django.db.models import Q
 from django.contrib.auth.models import User
-from ..utils import ErrorCodes
 from utils import (
+    ErrorCodes,
     constant_time_compare,
     send_codes,
     get_client_ip,

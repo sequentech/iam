@@ -15,12 +15,8 @@
 
 import json
 from . import register_method
-from utils import genhmac
 from django.shortcuts import get_object_or_404, redirect
-from django.conf import settings
-from django.contrib.auth.models import User
 from django.conf.urls import url
-from django.db.models import Q
 from django.http import Http404
 
 from authmethods.utils import check_pipeline, give_perms
