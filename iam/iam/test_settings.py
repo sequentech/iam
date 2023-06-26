@@ -25,6 +25,8 @@ import os
 from datetime import timedelta
 from kombu import Exchange, Queue
 
+TESTING = True
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 # Celery config

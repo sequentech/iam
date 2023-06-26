@@ -82,6 +82,12 @@ class ErrorCodes:
     USER_NOT_FOUND = "INVALID_USER_CREDENTIALS"
     INVALID_PASSWORD_OR_CODE = "INVALID_USER_CREDENTIALS"
 
+# .. but during testing we want to test the different between those three:
+if hasattr(settings, 'TESTING') and settings.TESTING:
+    ErrorCodes.INVALID_CODE = "INVALID_CODE"
+    ErrorCodes.USER_NOT_FOUND = "USER_NOT_FOUND"
+    ErrorCodes.INVALID_PASSWORD_OR_CODE = "INVALID_PASSWORD_OR_CODE"
+
 def reproducible_json_dumps(s):
     return json.dumps(s, indent=4, ensure_ascii=False, sort_keys=True, separators=(',', ': '))
 

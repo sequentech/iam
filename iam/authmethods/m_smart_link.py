@@ -354,7 +354,7 @@ class SmartLink:
             msg="",
             internal_error=msg,
             auth_event=auth_event,
-            error_codename=ErrorCodes.AUTH_TOKEN_VERIFICATION_EXCEPTION
+            error_codename=SmartLinkErrorCodes.AUTH_TOKEN_VERIFICATION_EXCEPTION
         )
 
     if auth_event.parent is not None:
@@ -381,7 +381,7 @@ class SmartLink:
       user_query = get_required_fields_on_auth(req, auth_event, user_query)
       user = User.objects.get(user_query)
     except Exception as error:
-        msg += f"can't find user with query: `{str(q)}`\nexception: `{error}`\n"
+        msg += f"can't find user with query: `{str(user_query)}`\nexception: `{error}`\n"
         return self.error(
             msg="",
             internal_error=msg,

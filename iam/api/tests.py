@@ -2332,7 +2332,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
-        self.assertEqual(r['error_codename'], 'invalid_credentials')
+        self.assertEqual(r['error_codename'], ErrorCodes.INVALID_CODE)
 
     def _test_authenticate_authevent_sms_fields(self):
         c = JClient()
@@ -3932,7 +3932,7 @@ class ApiTestCensusDelete(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
-        self.assertEqual(r['error_codename'], 'BAD_REQUEST')
+        self.assertEqual(r['error_codename'], ErrorCodes.USER_NOT_FOUND)
 
         # voter does not exist in database anymore
         self.assertEqual(User.objects.filter(id=self.census_user_id).count(), 0)
@@ -4028,7 +4028,7 @@ class ApiTestCensusDelete(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
-        self.assertEqual(r['error_codename'], 'BAD_REQUEST')
+        self.assertEqual(r['error_codename'], ErrorCodes.USER_NOT_FOUND)
 
         # voter does not exist in database anymore
         self.assertEqual(User.objects.filter(id=self.census_user_id).count(), 0)
