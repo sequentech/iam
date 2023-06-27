@@ -623,10 +623,16 @@ class Authenticate(View):
                 return json_response(**error_kwargs[0])
         try:
             data = auth_authenticate(auth_event, request)
-        except:
+        except Exception as error:
+            LOGGER.error(
+                "Authenticate.post\n" +
+                f"req '{request}'\n" +
+                f"error '{error}'\n" +
+                f"Stack trace:\n {stack_trace_str()}"
+            )
             return json_response(
-                status=400,
-                error_codename=ErrorCodes.BAD_REQUEST
+                status=500,
+                error_codename=ErrorCodes.INTERNAL_SERVER_ERROR
             )
 
         if data and 'status' in data and data['status'] == 'ok':
