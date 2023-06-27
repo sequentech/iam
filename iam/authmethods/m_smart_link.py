@@ -17,15 +17,13 @@ import json
 import logging
 from . import register_method
 from utils import (
+  ErrorCodes,
   verifyhmac,
   HMACToken,
   verify_admin_generated_auth_code
 )
 from django.conf import settings
 from django.contrib.auth.models import User
-from utils import (
-    verify_admin_generated_auth_code
-)
 from authmethods.utils import (
     verify_children_election_info,
     check_fields_in_request,
@@ -52,6 +50,14 @@ from authmethods.utils import (
 from contracts.base import check_contract
 from contracts import CheckException
 
+class SmartLinkErrorCodes:
+  AUTH_TOKEN_NOT_FOUND = "AUTH_TOKEN_NOT_FOUND"
+  INVALID_USER_ID = "INVALID_USER_ID"
+  MISMATCHED_AUTH_EVENT = "MISMATCHED_AUTH_EVENT"
+  INVALID_PERMISSION = "INVALID_PERMISSION"
+  EXPIRED_AUTH_TOKEN = "EXPIRED_AUTH_TOKEN"
+  INVALID_AUTH_TOKEN_VERIFICATION = "INVALID_AUTH_TOKEN_VERIFICATION"
+  AUTH_TOKEN_VERIFICATION_EXCEPTION = "AUTH_TOKEN_VERIFICATION_EXCEPTION"
 
 
 LOGGER = logging.getLogger('iam')
@@ -242,15 +248,20 @@ class SmartLink:
     )
     return ret
 
-  def error(self, msg, error_codename):
-    data = {'status': 'nok', 'msg': msg, 'error_codename': error_codename}
-    LOGGER.error(\
-      "SmartLink.error\n"\
-      "error '%r'\n"\
-      "Stack trace: \n%s",\
-      data, stack_trace_str()
-    )
-    return data
+  def error(
+      self, msg, auth_event=None, error_codename=None, internal_error=None
+  ):
+      data = {'status': 'nok', 'msg': msg, 'error_codename': error_codename}
+      LOGGER.error(\
+          "SmartLink.error\n"\
+          f"internal_error '{internal_error}'\n"\
+          f"error_codename '{error_codename}'\n"\
+          f"returning error '{data}'\n"\
+          f"auth_event '{auth_event}'\n"\
+          f"Stack trace: \n{stack_trace_str()}"
+      )
+      return data
+
 
   def authenticate(self, auth_event, request):
     req = json.loads(request.body.decode('utf-8'))
@@ -262,8 +273,9 @@ class SmartLink:
     if verified:
         if not verify_num_successful_logins(auth_event, 'Email', user, req):
             return self.error(
-                "Incorrect data",
-                error_codename="invalid_credentials"
+                ErrorCodes.CANT_VOTE_MORE_TIMES,
+                auth_event=auth_event,
+                error_codename=ErrorCodes.CANT_VOTE_MORE_TIMES
             )
 
         return return_auth_data('Email', req, request, user)
@@ -271,16 +283,10 @@ class SmartLink:
     msg = ''
     auth_token = req.get('auth-token')
     if not auth_token or not isinstance(auth_token, str):
-      LOGGER.error(\
-        "SmartLink.authenticate auth-token not found or not a string\n"\
-        "authevent '%r'\n"\
-        "request '%r'\n"\
-        "Stack trace: \n%s",\
-        auth_event, req, stack_trace_str()
-      )
       return self.error(
-        msg="Incorrect data",
-        error_codename="invalid_credentials"
+          SmartLinkErrorCodes.AUTH_TOKEN_NOT_FOUND,
+          auth_event=auth_event,
+          error_codename=SmartLinkErrorCodes.AUTH_TOKEN_NOT_FOUND
       )
     
     # we will obtain it from auth_token
@@ -289,53 +295,31 @@ class SmartLink:
       hmac_token = HMACToken(auth_token)
       user_id, perm_obj, auth_event_id, perm_action, _timestamp = hmac_token.msg.split(':')
       if len(user_id) == 0:
-        LOGGER.error(\
-          "SmartLink.authenticate auth-token: invalid user_id\n"\
-          "authevent '%r'\n"\
-          "request '%r'\n"\
-          "Stack trace: \n%s",\
-          auth_event, req, stack_trace_str()
-        )
         return self.error(
-          msg="Incorrect data",
-          error_codename="invalid_credentials"
+            SmartLinkErrorCodes.INVALID_USER_ID,
+            auth_event=auth_event,
+            error_codename=SmartLinkErrorCodes.INVALID_USER_ID
         )
+
       if auth_event_id != str(auth_event.id):
-        LOGGER.error(\
-          "SmartLink.authenticate auth-token: mismatched auth_event_id\n"\
-          "authevent '%r'\n"\
-          "request '%r'\n"\
-          "Stack trace: \n%s",\
-          auth_event, req, stack_trace_str()
-        )
         return self.error(
-          msg="Incorrect data",
-          error_codename="invalid_credentials"
+            SmartLinkErrorCodes.MISMATCHED_AUTH_EVENT,
+            auth_event=auth_event,
+            error_codename=SmartLinkErrorCodes.MISMATCHED_AUTH_EVENT
         )
+
       if perm_obj != 'AuthEvent' or perm_action != 'vote':
-        LOGGER.error(\
-          "SmartLink.authenticate auth-token: invalid permission\n"\
-          "authevent '%r'\n"\
-          "request '%r'\n"\
-          "Stack trace: \n%s",\
-          auth_event, req, stack_trace_str()
-        )
         return self.error(
-          msg="Incorrect data",
-          error_codename="invalid_credentials"
+            SmartLinkErrorCodes.INVALID_PERMISSION,
+            auth_event=auth_event,
+            error_codename=SmartLinkErrorCodes.INVALID_PERMISSION
         )
 
       if not hmac_token.check_expiration(settings.TIMEOUT):
-        LOGGER.error(\
-          "SmartLink.authenticate auth-token: expired\n"\
-          "authevent '%r'\n"\
-          "request '%r'\n"\
-          "Stack trace: \n%s",\
-          auth_event, req, stack_trace_str()
-        )
         return self.error(
-          msg="Incorrect data",
-          error_codename="invalid_credentials"
+            SmartLinkErrorCodes.EXPIRED_AUTH_TOKEN,
+            auth_event=auth_event,
+            error_codename=SmartLinkErrorCodes.EXPIRED_AUTH_TOKEN
         )
       
       shared_secret = settings.SHARED_SECRET
@@ -359,84 +343,68 @@ class SmartLink:
       )
 
       if not verified:
-        LOGGER.error(\
-          "SmartLink.authenticate auth-token: invalid verification\n"\
-          "authevent '%r'\n"\
-          "request '%r'\n"\
-          "Stack trace: \n%s",\
-          auth_event, req, stack_trace_str()
-        )
         return self.error(
-          msg="Incorrect data",
-          error_codename="invalid_credentials"
+            SmartLinkErrorCodes.INVALID_AUTH_TOKEN_VERIFICATION,
+            auth_event=auth_event,
+            error_codename=SmartLinkErrorCodes.INVALID_AUTH_TOKEN_VERIFICATION
         )
-    except Exception as e:
-      LOGGER.error(\
-        "SmartLink.authenticate auth-token: invalid exception\n"\
-        "error: '%r'\n"\
-        "authevent '%r'\n"\
-        "request '%r'\n"\
-        "Stack trace: \n%s",\
-        e, auth_event, req, stack_trace_str()
-      )
-      return self.error(
-        msg="Incorrect data",
-        error_codename="invalid_credentials"
-      )
+    except Exception as error:
+        msg += f"exception: `{error}`\n"
+        return self.error(
+            msg="",
+            internal_error=msg,
+            auth_event=auth_event,
+            error_codename=SmartLinkErrorCodes.AUTH_TOKEN_VERIFICATION_EXCEPTION
+        )
 
     if auth_event.parent is not None:
       msg += 'you can only authenticate to parent elections'
-      LOGGER.error(\
-        "SmartLink.authenticate error\n"\
-        "error '%r'"\
-        "authevent '%r'\n"\
-        "request '%r'\n"\
-        "Stack trace: \n%s",\
-        msg, auth_event, req, stack_trace_str()
+      return self.error(
+          msg,
+          auth_event=auth_event,
+          error_codename=ErrorCodes.CANT_AUTHENTICATE_TO_PARENT
       )
-      return self.error("Incorrect data", error_codename="invalid_credentials")
 
     msg = check_pipeline(request, auth_event, 'authenticate')
     if msg:
-      LOGGER.error(\
-        "SmartLink.authenticate error\n"\
-        "error '%r'\n"\
-        "authevent '%r'\n"\
-        "request '%r'\n"\
-        "Stack trace: \n%s",\
-        msg, auth_event, req, stack_trace_str()
+      return self.error(
+        msg="",
+        internal_error=msg,
+        auth_event=auth_event,
+        error_codename=ErrorCodes.PIPELINE_INVALID_CREDENTIALS
       )
-      return self.error("Incorrect data", error_codename="invalid_credentials")
-
+    msg = ""
     try:
       # enforce user_id to match the token user_id in the request
       req['user_id'] = user_id
       user_query = get_base_auth_query(auth_event)
       user_query = get_required_fields_on_auth(req, auth_event, user_query)
       user = User.objects.get(user_query)
-      post_verify_fields_on_auth(user, req, auth_event)
-    except:
-      LOGGER.error(\
-        "SmartLink.authenticate error\n"\
-        "user not found with these characteristics: user-id '%r'\n"\
-        "authevent '%r'\n"\
-        "is_active True\n"\
-        "request '%r'\n"\
-        "Stack trace: \n%s",\
-        user_id, auth_event, req, stack_trace_str()
-      )
-      return self.error("Incorrect data", error_codename="invalid_credentials")
+    except Exception as error:
+        msg += f"can't find user with query: `{str(user_query)}`\nexception: `{error}`\n"
+        return self.error(
+            msg="",
+            internal_error=msg,
+            auth_event=auth_event,
+            error_codename=ErrorCodes.USER_NOT_FOUND
+        )
+    try:
+        post_verify_fields_on_auth(user, req, auth_event)
+    except Exception as error:
+        msg += f"exception: `{error}`\n"
+        return self.error(
+            msg="",
+            internal_error=msg,
+            auth_event=auth_event,
+            error_codename=ErrorCodes.INVALID_PASSWORD_OR_CODE
+        )
 
     if not verify_num_successful_logins(auth_event, 'SmartLink', user, req):
-      LOGGER.error(\
-        "SmartLink.authenticate error too many logins\n"\
-        "authevent '%r'\n"\
-        "is_active True\n"\
-        "request '%r'\n"\
-        "Stack trace: \n%s",\
-        auth_event, req, stack_trace_str()
-      )
-      return self.error("Incorrect data", error_codename="invalid_credentials")
+        return self.error(
+            ErrorCodes.CANT_VOTE_MORE_TIMES,
+            auth_event=auth_event,
+            error_codename=ErrorCodes.CANT_VOTE_MORE_TIMES
+        )
 
     return return_auth_data('SmartLink', req, request, user, auth_event)
 

@@ -28,7 +28,7 @@ from api.models import AuthEvent, ACL, UserData, SuccessfulLogin
 from .m_email import Email
 from .m_sms import Sms
 from .models import Message, Code
-from utils import genhmac
+from utils import genhmac, ErrorCodes
 
 
 class AuthMethodTestCase(TestCase):
@@ -414,7 +414,7 @@ class AuthMethodSmsTestCase(TestCase):
         response = self.c.authenticate(self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = json.loads(response.content.decode('utf-8'))
-        self.assertEqual(r['error_codename'], 'invalid_credentials')
+        self.assertEqual(r['error_codename'], ErrorCodes.INVALID_CODE)
 
     def test_method_sms_get_perm(self): # Fix
         auth = { 'tlf': '+34666666666', 'code': 'AAAAAAAA',

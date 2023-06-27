@@ -16,6 +16,7 @@
 from . import register_method
 
 from utils import (
+    ErrorCodes,
     verify_admin_generated_auth_code
 )
 from authmethods.utils import (
@@ -138,6 +139,20 @@ class OpenIdConnect(object):
             error, message, req, ae, stack_trace_str())
         return d
 
+    def error(
+            self, msg, auth_event=None, error_codename=None, internal_error=None
+        ):
+        data = {'status': 'nok', 'msg': msg, 'error_codename': error_codename}
+        LOGGER.error(\
+            "OpenIdConnect.error\n"\
+            f"internal_error '{internal_error}'\n"\
+            f"error_codename '{error_codename}'\n"\
+            f"returning error '{data}'\n"\
+            f"auth_event '{auth_event}'\n"\
+            f"Stack trace: \n{stack_trace_str()}"
+        )
+        return data
+
     def authenticate(self, auth_event, request, mode='authenticate'):
         ret_data = {'status': 'ok'}
         req = json.loads(request.body.decode('utf-8'))
@@ -154,11 +169,20 @@ class OpenIdConnect(object):
                     user,
                     req
                 ):
-                    return self.authenticate_error(
-                        "invalid_num_successful_logins_allowed", req, auth_event
+                    return self.error(
+                        ErrorCodes.CANT_VOTE_MORE_TIMES,
+                        auth_event=auth_event,
+                        error_codename=ErrorCodes.CANT_VOTE_MORE_TIMES
                     )
 
                 return return_auth_data('OpenIdConnect', req, request, user)
+
+        if auth_event.parent is not None:
+            return self.error(
+                msg,
+                auth_event=auth_event,
+                error_codename=ErrorCodes.CANT_AUTHENTICATE_TO_PARENT
+            )
 
         id_token = req.get('id_token', '')
         provider_id = req.get('provider', '')
@@ -200,7 +224,6 @@ class OpenIdConnect(object):
         # get user_id and get/create user
         user_id = id_token_dict['sub']
         try:
-
             user_query = get_base_auth_query(auth_event)
             user_query["userdata__metadata__contains"]={"sub": user_id}
             user = User.objects.get(user_query)
@@ -215,13 +238,20 @@ class OpenIdConnect(object):
 
         msg = check_pipeline(request, auth_event, 'authenticate')
         if msg:
-            return self.authenticate_error("invalid-pipeline", req, auth_event,
-                message=msg)
+            return self.error(
+                msg="",
+                internal_error=msg,
+                auth_event=auth_event,
+                error_codename=ErrorCodes.PIPELINE_INVALID_CREDENTIALS
+            )
+        msg = ""
 
         if mode == "authenticate":
             if not verify_num_successful_logins(auth_event, 'OpenIdConnect', user, req):
-                return self.authenticate_error(
-                    "invalid_num_successful_logins_allowed", req, auth_event
+                return self.error(
+                    ErrorCodes.CANT_VOTE_MORE_TIMES,
+                    auth_event=auth_event,
+                    error_codename=ErrorCodes.CANT_VOTE_MORE_TIMES
                 )
 
             LOGGER.debug(\

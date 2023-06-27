@@ -15,12 +15,8 @@
 
 import json
 from . import register_method
-from utils import genhmac
 from django.shortcuts import get_object_or_404, redirect
-from django.conf import settings
-from django.contrib.auth.models import User
 from django.conf.urls import url
-from django.db.models import Q
 from django.http import Http404
 
 from authmethods.utils import check_pipeline, give_perms
@@ -116,6 +112,19 @@ class DNIE:
     )
     dni_definition = { "name": "dni", "type": "text", "required": True, "min": 2, "max": 200, "required_on_authentication": True }
 
+    def error(
+            self, msg, auth_event=None, error_codename=None, internal_error=None
+        ):
+        data = {'status': 'nok', 'msg': msg, 'error_codename': error_codename}
+        LOGGER.error(\
+            "DNIE.error\n"\
+            f"internal_error '{internal_error}'\n"\
+            f"error_codename '{error_codename}'\n"\
+            f"returning error '{data}'\n"\
+            f"auth_event '{auth_event}'\n"\
+            f"Stack trace: \n{stack_trace_str()}"
+        )
+        return data
 
     def authenticate_error(self):
         d = {'status': 'nok'}

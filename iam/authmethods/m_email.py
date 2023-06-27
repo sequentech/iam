@@ -18,6 +18,7 @@ import logging
 from django.conf import settings
 from django.contrib.auth.models import User
 from utils import (
+    ErrorCodes,
     constant_time_compare,
     send_codes,
     get_client_ip,
@@ -438,13 +439,17 @@ class Email:
             req, validation, auth_event, ret, stack_trace_str())
         return ret
 
-    def error(self, msg, error_codename):
+    def error(
+            self, msg, auth_event=None, error_codename=None, internal_error=None
+        ):
         data = {'status': 'nok', 'msg': msg, 'error_codename': error_codename}
         LOGGER.error(\
             "Email.error\n"\
-            "error '%r'\n"\
-            "Stack trace: \n%s",\
-            data, stack_trace_str()
+            f"internal_error '{internal_error}'\n"\
+            f"error_codename '{error_codename}'\n"\
+            f"returning error '{data}'\n"\
+            f"auth_event '{auth_event}'\n"\
+            f"Stack trace: \n{stack_trace_str()}"
         )
         return data
 
@@ -679,8 +684,9 @@ class Email:
         if verified:
             if not verify_num_successful_logins(auth_event, 'Email', user, req):
                 return self.error(
-                    "Incorrect data",
-                    error_codename="invalid_credentials"
+                    ErrorCodes.CANT_VOTE_MORE_TIMES,
+                    auth_event=auth_event,
+                    error_codename=ErrorCodes.CANT_VOTE_MORE_TIMES
                 )
 
             return return_auth_data('Email', req, request, user)
@@ -688,59 +694,64 @@ class Email:
         msg = ''
         if auth_event.parent is not None:
             msg += 'you can only authenticate to parent elections'
-            LOGGER.error(\
-                "Email.authenticate error\n"\
-                "error '%r'"\
-                "authevent '%r'\n"\
-                "request '%r'\n"\
-                "Stack trace: \n%s",\
-                msg, auth_event, req, stack_trace_str())
-            return self.error("Incorrect data", error_codename="invalid_credentials")
+            return self.error(
+                msg,
+                auth_event=auth_event,
+                error_codename=ErrorCodes.CANT_AUTHENTICATE_TO_PARENT
+            )
 
         msg += check_field_type(self.code_definition, req.get('code'), 'authenticate')
         msg += check_field_value(self.code_definition, req.get('code'), 'authenticate')
         msg += check_fields_in_request(req, auth_event, 'authenticate')
         if msg:
-            LOGGER.error(\
-                "Email.authenticate error\n"\
-                "error '%r'"\
-                "authevent '%r'\n"\
-                "request '%r'\n"\
-                "Stack trace: \n%s",\
-                msg, auth_event, req, stack_trace_str())
-            return self.error("Incorrect data", error_codename="invalid_credentials")
+            return self.error(
+                msg="",
+                internal_error=msg,
+                auth_event=auth_event,
+                error_codename=ErrorCodes.INVALID_FIELD_VALIDATION
+            )
 
         msg = check_pipeline(request, auth_event, 'authenticate')
         if msg:
-            LOGGER.error(\
-                "Email.authenticate error\n"\
-                "error '%r'\n"\
-                "authevent '%r'\n"\
-                "request '%r'\n"\
-                "Stack trace: \n%s",\
-                msg, auth_event, req, stack_trace_str())
-            return self.error("Incorrect data", error_codename="invalid_credentials")
+            return self.error(
+                msg="",
+                internal_error=msg,
+                auth_event=auth_event,
+                error_codename=ErrorCodes.PIPELINE_INVALID_CREDENTIALS
+            )
+        msg = ""
 
         try:
             q = get_base_auth_query(auth_event)
             q = get_required_fields_on_auth(req, auth_event, q)
             user = User.objects.get(q)
+        except Exception as error:
+            msg += f"can't find user with query: `{str(q)}`\nexception: `{error}`\n"
+            return self.error(
+                msg="",
+                internal_error=msg,
+                auth_event=auth_event,
+                error_codename=ErrorCodes.USER_NOT_FOUND
+            )
+        try:
             otp_field_code = post_verify_fields_on_auth(user, req, auth_event)
-        except:
-            LOGGER.error(\
-                "Email.authenticate error\n"\
-                "user not found with these characteristics: \n"\
-                "authevent '%r'\n"\
-                "is_active True\n"\
-                "request '%r'\n"\
-                "Stack trace: \n%s",\
-                auth_event, req, stack_trace_str())
-            return self.error("Incorrect data", error_codename="invalid_credentials")
+        except Exception as error:
+            msg += f"exception: `{error}`\n"
+            return self.error(
+                msg="",
+                internal_error=msg,
+                auth_event=auth_event,
+                error_codename=ErrorCodes.INVALID_PASSWORD_OR_CODE
+            )
 
         user_auth_event = user.userdata.event
 
         if not verify_num_successful_logins(user_auth_event, 'Email', user, req):
-            return self.error("Incorrect data", error_codename="invalid_credentials")
+            return self.error(
+                ErrorCodes.CANT_VOTE_MORE_TIMES,
+                auth_event=auth_event,
+                error_codename=ErrorCodes.CANT_VOTE_MORE_TIMES
+            )
 
         if otp_field_code is not None:
             code = otp_field_code
@@ -750,31 +761,22 @@ class Email:
                 timeout_seconds=None
             )
         if not code:
-            LOGGER.error(\
-                "Email.authenticate error\n"\
-                "Code not found on db for user '%r'\n"\
-                "and code '%r'\n"\
-                "authevent '%r'\n"\
-                "request '%r'\n"\
-                "Stack trace: \n%s",\
-                user.userdata,\
-                req.get('code').upper(),\
-                auth_event, req, stack_trace_str())
-            return self.error("Incorrect data", error_codename="invalid_credentials")
+            msg += f"code not found in the database for user `{user.userdata}` and requested code `{req.get('code').upper()}`\n"
+            return self.error(
+                msg="",
+                internal_error=msg,
+                auth_event=auth_event,
+                error_codename=ErrorCodes.INVALID_CODE
+            )
 
-        if not constant_time_compare(req.get('code').upper(), code.code):  
-            LOGGER.error(\
-                "Email.authenticate error\n"\
-                "Code mismatch for user '%r'\n"\
-                "Code received '%r'\n"\
-                "and latest code in the db for the user '%r'\n"\
-                "authevent '%r'\n"\
-                "request '%r'\n"\
-                "Stack trace: \n%s",\
-                user.userdata, req.get('code').upper(), code.code, auth_event, req,\
-                stack_trace_str())
-
-            return self.error("Incorrect data", error_codename="invalid_credentials")
+        if not constant_time_compare(req.get('code').upper(), code.code):
+            msg += f"code mismatch for user `{user.userdata}`: [dbcode = `{code.code}`] != [requested code = `{req.get('code').upper()}`]\n"
+            return self.error(
+                msg="",
+                internal_error=msg,
+                auth_event=auth_event,
+                error_codename=ErrorCodes.INVALID_CODE
+            )
 
         return return_auth_data('Email', req, request, user)
 

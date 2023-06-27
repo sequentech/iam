@@ -33,6 +33,7 @@ from captcha.models import Captcha
 from captcha.decorators import valid_captcha
 from contracts import CheckException, JSONContractEncoder
 from utils import (
+    ErrorCodes,
     json_response, 
     get_client_ip, 
     constant_time_compare,
@@ -1064,12 +1065,13 @@ def post_verify_fields_on_auth(user, req, auth_event, mode="auth"):
                 mode != "resend-auth" and
                 type_field != 'otp-code'
             ):
-                raise Exception()
+                raise Exception(f"field_name {field_name} missing")
 
             field_value = req.get(field_name, '')
             if type_field == 'password':
                 if not user.check_password(field_value):
-                    raise Exception()
+                    raise Exception("Invalid Password")
+
             # we do not verify otp-code in mode 'resend-auth', since the
             # whole point is to send the auth-code before being able to verify
             # it
@@ -1088,7 +1090,7 @@ def post_verify_fields_on_auth(user, req, auth_event, mode="auth"):
                         f"field name '{field_name}'\n" +
                         f"Stack trace: \n{stack_trace_str()}"
                     )
-                    raise Exception()
+                    raise Exception('Error running parse_otp_code_field')
 
                 # get the field value, because in otp-code it's always under the
                 # key 'code'
@@ -1102,7 +1104,7 @@ def post_verify_fields_on_auth(user, req, auth_event, mode="auth"):
                         f"field name '{field_name}'\n" +
                         f"Stack trace: \n{stack_trace_str()}"
                     )
-                    raise Exception()
+                    raise Exception('Error: code is not a string')
 
                 timeout = settings.SMS_OTP_EXPIRE_SECONDS
                 if otp_field_code is None:
@@ -1118,7 +1120,7 @@ def post_verify_fields_on_auth(user, req, auth_event, mode="auth"):
                         f"field name '{field_name}'\n" +
                         f"Stack trace: \n{stack_trace_str()}"
                     )
-                    raise Exception()
+                    raise Exception(f"Code not found on db for user '{user.userdata}'")
 
                 if not constant_time_compare(
                     field_value.upper(),
@@ -1134,7 +1136,7 @@ def post_verify_fields_on_auth(user, req, auth_event, mode="auth"):
                         f"field name '{field_name}'\n" +
                         f"Stack trace: \n{stack_trace_str()}"
                     )
-                    raise Exception()
+                    raise Exception(f"Code mismatch for user '{user.userdata}'")
 
     # disable the user code if any
     if otp_field_code is not None:
