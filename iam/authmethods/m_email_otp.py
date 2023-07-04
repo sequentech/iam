@@ -134,6 +134,44 @@ class EmailOtp:
         'keys': ['msg', 'subject', 'registration-action', 'authentication-action']
       },
       {
+          'check': 'index-check-list',
+          'index': 'msg_i18n',
+          'optional': True,
+          'check-list': [
+              {
+                  'check': 'isinstance',
+                  'type': dict
+              },
+              {   # keys are strings
+                  'check': 'lambda',
+                  'lambda': lambda d: all([isinstance(k, str) for k in d.keys()])
+              },
+              {   # values are strings
+                  'check': 'lambda',
+                  'lambda': lambda d: all([isinstance(k, str) for k in d.values()])
+              },
+          ]
+      },
+      {
+          'check': 'index-check-list',
+          'index': 'subject_i18n',
+          'optional': True,
+          'check-list': [
+              {
+                  'check': 'isinstance',
+                  'type': dict
+              },
+              {   # keys are strings
+                  'check': 'lambda',
+                  'lambda': lambda d: all([isinstance(k, str) for k in d.keys()])
+              },
+              {   # values are strings
+                  'check': 'lambda',
+                  'lambda': lambda d: all([isinstance(k, str) for k in d.values()])
+              },
+          ]
+      },
+      {
         'check': 'index-check-list',
         'index': 'msg',
         'check-list': [
