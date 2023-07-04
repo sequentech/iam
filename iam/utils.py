@@ -1062,6 +1062,7 @@ def send_codes(
 # CHECKERS AUTHEVENT
 VALID_FIELDS = (
   'name',
+  'name_i18n',
   'help',
   'type',
   'required',
