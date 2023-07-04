@@ -137,7 +137,7 @@ CHILDREN_ELECTION_INFO_CONTRACT = [
                                 'type': dict
                             },
                             {
-                                'check': 'dict-keys-exist',
+                                'check': 'dict-keys-exact',
                                 'keys': ['id', 'title', 'events']
                             },
                             {
@@ -180,7 +180,7 @@ CHILDREN_ELECTION_INFO_CONTRACT = [
                                         'check': "iterate-list",
                                         'check-list': [
                                             {
-                                                'check': 'dict-keys-exact',
+                                                'check': 'dict-keys-exist',
                                                 'keys': ['event_id', 'title']
                                             },
                                             {
@@ -210,30 +210,30 @@ CHILDREN_ELECTION_INFO_CONTRACT = [
                                                         'range': [1, 254]
                                                     }
                                                 ]
+                                            },
+                                            {
+                                                'check': 'index-check-list',
+                                                'index': 'title_i18n',
+                                                'optional': True,
+                                                'check-list': [
+                                                    {
+                                                        'check': 'isinstance',
+                                                        'type': dict
+                                                    },
+                                                    {   # keys are strings
+                                                        'check': 'lambda',
+                                                        'lambda': lambda d: all([isinstance(k, str) for k in d.keys()])
+                                                    },
+                                                    {   # values are strings
+                                                        'check': 'lambda',
+                                                        'lambda': lambda d: all([isinstance(k, str) for k in d.values()])
+                                                    },
+                                                ]
                                             }
                                         ]
                                     }
                                 ]
-                            },
-                            {
-                                'check': 'index-check-list',
-                                'index': 'title_i18n',
-                                'optional': True,
-                                'check-list': [
-                                    {
-                                        'check': 'isinstance',
-                                        'type': dict
-                                    },
-                                    {   # keys are strings
-                                        'check': 'lambda',
-                                        'lambda': lambda d: all([isinstance(k, str) for k in d.keys()])
-                                    },
-                                    {   # values are strings
-                                        'check': 'lambda',
-                                        'lambda': lambda d: all([isinstance(k, str) for k in d.values()])
-                                    },
-                                ]
-                            },
+                            }
                         ]
                     }
                 ]
