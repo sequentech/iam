@@ -45,6 +45,9 @@ from authmethods.utils import (
     authenticate_otl
 )
 
+from contracts.base import check_contract, JsonTypeEncoder
+from contracts import CheckException
+
 LOGGER = logging.getLogger('iam')
 
 
@@ -86,8 +89,73 @@ class Password:
         "required_on_authentication": True
     }
 
+    CONFIG_CONTRACT = [
+      {
+        'check': 'isinstance',
+        'type': dict
+      },
+      {
+          'check': 'index-check-list',
+          'index': 'msg_i18n',
+          'optional': True,
+          'check-list': [
+              {
+                  'check': 'isinstance',
+                  'type': dict
+              },
+              {   # keys are strings
+                  'check': 'lambda',
+                  'lambda': lambda d: all([isinstance(k, str) for k in d.keys()])
+              },
+              {   # values are strings
+                  'check': 'lambda',
+                  'lambda': lambda d: all([isinstance(k, str) for k in d.values()])
+              },
+          ]
+      },
+      {
+          'check': 'index-check-list',
+          'index': 'subject_i18n',
+          'optional': True,
+          'check-list': [
+              {
+                  'check': 'isinstance',
+                  'type': dict
+              },
+              {   # keys are strings
+                  'check': 'lambda',
+                  'lambda': lambda d: all([isinstance(k, str) for k in d.keys()])
+              },
+              {   # values are strings
+                  'check': 'lambda',
+                  'lambda': lambda d: all([isinstance(k, str) for k in d.values()])
+              },
+          ]
+      }
+    ]
+
     def check_config(self, config):
-        return ''
+        """ Check config when create auth-event. """
+        if config is None:
+            return ''
+        try:
+            check_contract(self.CONFIG_CONTRACT, config)
+            LOGGER.debug(\
+                "OpenId.check_config success\n"\
+                "config '%r'\n"\
+                "returns ''\n"\
+                "Stack trace: \n%s",\
+                config, stack_trace_str())
+            return ''
+        except CheckException as e:
+            LOGGER.error(\
+                "OpenId.check_config error\n"\
+                "error '%r'\n"\
+                "config '%r'\n"\
+                "Stack trace: \n%s",\
+                e.data, config, stack_trace_str())
+            return json.dumps(e.data, cls=JsonTypeEncoder)
+
 
     def census(self, auth_event, request):
         req = json.loads(request.body.decode('utf-8'))

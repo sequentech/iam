@@ -14,17 +14,26 @@
 # along with iam.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
+import logging
 from . import register_method
 from django.shortcuts import get_object_or_404, redirect
 from django.conf.urls import url
 from django.http import Http404
 
-from authmethods.utils import check_pipeline, give_perms
+from authmethods.utils import (
+    check_pipeline,
+    give_perms,
+    stack_trace_str
+)
 
 from api.models import AuthEvent
 
 from utils import json_response
 
+from contracts.base import check_contract, JsonTypeEncoder
+from contracts import CheckException
+
+LOGGER = logging.getLogger('iam')
 
 def testview(request):
     req = request.GET
@@ -112,6 +121,51 @@ class DNIE:
     )
     dni_definition = { "name": "dni", "type": "text", "required": True, "min": 2, "max": 200, "required_on_authentication": True }
 
+    CONFIG_CONTRACT = [
+      {
+        'check': 'isinstance',
+        'type': dict
+      },
+      {
+          'check': 'index-check-list',
+          'index': 'msg_i18n',
+          'optional': True,
+          'check-list': [
+              {
+                  'check': 'isinstance',
+                  'type': dict
+              },
+              {   # keys are strings
+                  'check': 'lambda',
+                  'lambda': lambda d: all([isinstance(k, str) for k in d.keys()])
+              },
+              {   # values are strings
+                  'check': 'lambda',
+                  'lambda': lambda d: all([isinstance(k, str) for k in d.values()])
+              },
+          ]
+      },
+      {
+          'check': 'index-check-list',
+          'index': 'subject_i18n',
+          'optional': True,
+          'check-list': [
+              {
+                  'check': 'isinstance',
+                  'type': dict
+              },
+              {   # keys are strings
+                  'check': 'lambda',
+                  'lambda': lambda d: all([isinstance(k, str) for k in d.keys()])
+              },
+              {   # values are strings
+                  'check': 'lambda',
+                  'lambda': lambda d: all([isinstance(k, str) for k in d.values()])
+              },
+          ]
+      }
+    ]
+
     def error(
             self, msg, auth_event=None, error_codename=None, internal_error=None
         ):
@@ -135,7 +189,26 @@ class DNIE:
         return d
 
     def check_config(self, config):
-        return ''
+        """ Check config when create auth-event. """
+        if config is None:
+            return ''
+        try:
+            check_contract(self.CONFIG_CONTRACT, config)
+            LOGGER.debug(\
+                "Dnie.check_config success\n"\
+                "config '%r'\n"\
+                "returns ''\n"\
+                "Stack trace: \n%s",\
+                config, stack_trace_str())
+            return ''
+        except CheckException as e:
+            LOGGER.error(\
+                "Dnie.check_config error\n"\
+                "error '%r'\n"\
+                "config '%r'\n"\
+                "Stack trace: \n%s",\
+                e.data, config, stack_trace_str())
+            return json.dumps(e.data, cls=JsonTypeEncoder)
 
     def census(self, ae, request):
         req = json.loads(request.body.decode('utf-8'))
