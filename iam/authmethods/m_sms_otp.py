@@ -156,26 +156,7 @@ class SmsOtp:
               },
               {   # values are strings
                   'check': 'lambda',
-                  'lambda': lambda d: all([isinstance(k, str) for k in d.values()])
-              },
-          ]
-      },
-      {
-          'check': 'index-check-list',
-          'index': 'subject_i18n',
-          'optional': True,
-          'check-list': [
-              {
-                  'check': 'isinstance',
-                  'type': dict
-              },
-              {   # keys are strings
-                  'check': 'lambda',
-                  'lambda': lambda d: all([isinstance(k, str) for k in d.keys()])
-              },
-              {   # values are strings
-                  'check': 'lambda',
-                  'lambda': lambda d: all([isinstance(k, str) for k in d.values()])
+                  'lambda': lambda d: all([isinstance(k, str) and len(k) > 0 and len(k) <= 200 for k in d.values()])
               },
           ]
       },
@@ -207,6 +188,25 @@ class SmsOtp:
             'range': [1, 5000]
           }
         ]
+      },
+      {
+          'check': 'index-check-list',
+          'index': 'html_message_i18n',
+          'optional': True,
+          'check-list': [
+              {
+                  'check': 'isinstance',
+                  'type': dict
+              },
+              {   # keys are strings
+                  'check': 'lambda',
+                  'lambda': lambda d: all([isinstance(k, str) for k in d.keys()])
+              },
+              {   # values are strings
+                  'check': 'lambda',
+                  'lambda': lambda d: all([isinstance(k, str) and len(k) > 0 and len(k) <= 5000 for k in d.values()])
+              },
+          ]
       },
       {
         'check': 'index-check-list',
