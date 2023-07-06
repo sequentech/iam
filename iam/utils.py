@@ -1064,6 +1064,7 @@ VALID_FIELDS = (
   'name',
   'name_i18n',
   'help',
+  'help_i18n',
   'type',
   'required',
   'autofill',
@@ -1262,7 +1263,7 @@ def check_extra_field(key, value):
     if key == 'name' or key == 'help':
         if len(value) > settings.MAX_SIZE_NAME_EXTRA_FIELD or len(value) < 1:
             msg += "Invalid extra_fields: bad %s.\n" % key
-    elif key == 'name_i18n':
+    elif key == 'name_i18n' or key == 'help_i18n':
         msg += check_translation_field(key, value, "Invalid extra_fields:")
     elif key == 'type':
         if not value in VALID_TYPE_FIELDS:
