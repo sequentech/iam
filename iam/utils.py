@@ -1062,7 +1062,9 @@ def send_codes(
 # CHECKERS AUTHEVENT
 VALID_FIELDS = (
   'name',
+  'name_i18n',
   'help',
+  'help_i18n',
   'type',
   'required',
   'autofill',
@@ -1241,6 +1243,19 @@ def check_pipeline(pipe):
                 msg += "Invalid pipeline functions: %s not possible.\n" % func
     return msg
 
+def check_translation_field(key, value, prefix):
+    msg = ''
+    if not isinstance(value, dict):
+        msg += "%s bad %s.\n" % (prefix, key)
+    else:
+        for k, v in value:
+            if not isinstance(k, str) or not isinstance(v, str) or \
+                len(k) > settings.MAX_SIZE_NAME_EXTRA_FIELD or len(k) < 1 or \
+                len(v) > settings.MAX_SIZE_NAME_EXTRA_FIELD or len(v) < 1:
+                msg += "%s bad %s.\n" % (prefix, key)
+                break
+    return msg
+
 def check_extra_field(key, value):
     """ Check fields in extra_fields when create auth-event. """
     from sys import maxsize
@@ -1248,6 +1263,8 @@ def check_extra_field(key, value):
     if key == 'name' or key == 'help':
         if len(value) > settings.MAX_SIZE_NAME_EXTRA_FIELD or len(value) < 1:
             msg += "Invalid extra_fields: bad %s.\n" % key
+    elif key == 'name_i18n' or key == 'help_i18n':
+        msg += check_translation_field(key, value, "Invalid extra_fields:")
     elif key == 'type':
         if not value in VALID_TYPE_FIELDS:
             msg += "Invalid extra_fields: bad %s.\n" % key
