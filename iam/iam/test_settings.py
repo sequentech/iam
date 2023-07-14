@@ -137,6 +137,7 @@ MIDDLEWARE = (
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'api.middleware.CurrentUserMiddleware'
 )
 
 # change the test runner to the one provided by celery so that the tests that

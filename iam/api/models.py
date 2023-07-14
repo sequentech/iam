@@ -14,7 +14,8 @@
 # along with iam.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
-import itertools
+from datetime import datetime
+from celery.task.control import revoke
 from django.db import models
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.core.exceptions import ValidationError
@@ -24,16 +25,21 @@ from django.contrib.postgres import fields
 from jsonfield import JSONField
 
 from django.dispatch import receiver
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.db.models import Q
 from django.conf import settings
-from utils import genhmac
 from django.utils import timezone
 
 from contracts.base import check_contract
 from contracts import CheckException
+from marshmallow import Schema, fields
+from marshmallow.exceptions import ValidationError as MarshMallowValidationError
 from django.db.models import CharField
 from django.db.models.functions import Length
+
+from utils import genhmac
+from api.middleware import CurrentUserMiddleware
+from api.tasks import set_status_task
 
 CharField.register_lookup(Length, 'length')
 
@@ -280,6 +286,50 @@ def children_event_id_list_validator(value):
         except CheckException as e:
             raise ValidationError(str(e.data))
 
+class ScheduledEventSchema(Schema):
+    '''
+    Schema for elements in the ScheduledEventsSchema, which have a date and
+    an associated task_id.
+    '''
+    event_at = fields.AwareDateTime(
+        allow_none=True, load_default=None, dump_default=None
+    )
+    task_id = fields.String(
+        allow_none=True, load_default=None, dump_default=None, dump_only=True
+    )
+
+
+class ScheduledEventsSchema(Schema):
+    '''
+    Schema for the AuthEvent.scheduled_events field
+    '''
+    start_voting = fields.Nested(
+        ScheduledEventSchema,
+        allow_none=True,
+        load_default=None,
+        dump_default=None
+    )
+    end_voting = fields.Nested(
+        ScheduledEventSchema,
+        allow_none=True,
+        load_default=None,
+        dump_default=None
+    )
+
+
+def get_schema_validator(klass):
+    '''
+    Given a Marshmallow Schema class, returns a Django field validator function
+    '''
+    def validator(data):
+        try:
+            klass().validate(data)
+        except MarshMallowValidationError as error:
+            # Convert the marshmallow validation error to a Django one,
+            # because Django doesn't know how to handle marshmallow exceptions.
+            raise ValidationError(error.messages)
+    return validator
+
 
 class AuthEvent(models.Model):
     '''
@@ -323,6 +373,25 @@ class AuthEvent(models.Model):
     #     }
     # ]
     alternative_auth_methods = JSONField(blank=True, db_index=False, null=True)
+
+    # the election scheduled events, like start, stop, allow_tally, tally.
+    # Example:
+    # {
+    #     "start_voting": {
+    #         "event_at": "2023-07-13T09:42:12.564355",
+    #         "task_id": None
+    #     },
+    #     "end_voting": {
+    #         "event_at": "2023-07-13T09:42:12.564355",
+    #         "task_id": "7f560718-24d2-4a96-824d-da3787703a06"
+    #     }
+    # }
+    scheduled_events = JSONField(
+        blank=True,
+        db_index=False,
+        null=True,
+        validators=[get_schema_validator(ScheduledEventsSchema)]
+    )
 
     # used by iam_celery to know what tallies to launch, and to serialize
     # those launches one by one. set/get with (s|g)et_tally_status api calls
@@ -444,6 +513,7 @@ class AuthEvent(models.Model):
                  'allow_user_resend': self.check_allow_user_resend()
                }
             },
+            'scheduled_events': self.scheduled_events,
             'openid_connect_providers': [
                 provider['public_info']
                 for provider in settings.OPENID_CONNECT_PROVIDERS_CONF
@@ -601,8 +671,131 @@ class AuthEvent(models.Model):
             to_user.userdata.metadata[name] = value
         to_user.userdata.save()
 
+    def allow_set_status(self, status):
+        '''
+        Returns true if the new status is allowed
+        '''
+        if not settings.ENFORCE_STATE_CONTROLS:
+            return True
+
+        if (
+            status == AuthEvent.STARTED and
+            self.status != AuthEvent.NOT_STARTED
+        ) or (
+            status == AuthEvent.SUSPENDED and
+            self.status != AuthEvent.STARTED and
+            self.status != AuthEvent.RESUMED
+        ) or (
+            status == AuthEvent.RESUMED and
+            self.status != AuthEvent.SUSPENDED
+        ) or (
+            status == AuthEvent.PENDING and
+            self.status != AuthEvent.STOPPED
+        ) or (
+            status == AuthEvent.SUCCESS and
+            self.status != AuthEvent.PENDING
+        ) or (
+            status == AuthEvent.STOPPED and
+            self.status != AuthEvent.STARTED and
+            self.status != AuthEvent.RESUMED and
+            self.status != AuthEvent.SUSPENDED
+        ):
+            return False
+
     def __str__(self):
         return "%s - %s" % (self.id, self.census)
+
+
+@receiver(pre_save, sender=AuthEvent)
+def update_scheduled_events(_sender, instance):
+    '''
+    Update the scheduled events in django celery
+    '''
+    old_instance = None
+    try:
+        old_instance = AuthEvent.objects.get(pk=instance.pk)
+    except:
+        # It's a new instance so it has no previous state
+        pass
+
+    # scheduled_events can be empty, but once a task_id has been assigned, it
+    # cannot be removed unless it has been revoked in this very function. No
+    # other part of the code changes an scheduled event task_id. This allows us
+    # to reliably update and revoke tasks by looking them up using the task_id.
+    default_events = dict(
+        start_voting=None,
+        end_voting=None,
+        allow_tally=None,
+        tally=None
+    )
+    events = (instance.scheduled_events
+        if instance.scheduled_events != None
+        else default_events
+    )
+    old_events = (old_instance.scheduled_events
+        if old_instance != None and old_instance.scheduled_events != None
+        else default_events
+    )
+    main_event = (instance.parent if instance.parent != None else instance)
+    user = CurrentUserMiddleware.get_current_user()
+    for event_name, event_data in events.items():
+        old_event_data = old_events.get(event_name, None)
+        old_event_date = (
+            old_event_data['event_at']
+            if old_event_data != None
+            else None
+        )
+        event_date = (
+            event_data['event_at']
+            if event_data != None
+            else None
+        )
+
+        # nothing changed so we should just continue
+        if old_event_date == event_date:
+            continue
+        # date changed, so we need to cancel previous task if there was one
+        if isinstance(event_data.get('task_id'), str):
+            task_id = event_data.get('task_id')
+            revoke(task_id)
+
+            # log the action
+            action = Action(
+                executer=user,
+                receiver=None,
+                action_name=f'authevent:{event_name}:revoked',
+                event=main_event,
+                metadata=dict(
+                    auth_event=instance.pk,
+                    old_event_date=old_event_date,
+                    old_task_id=task_id
+                )
+            )
+            action.save()
+        # we need to schedule the new task
+        if event_date != None:
+            event_data['task_id'] = set_status_task.apply_async(
+                args=[
+                    event_name,
+                    user.id,
+                    main_event.id
+                ],
+                eta=datetime.fromisoformat(event_date),
+                retry=False
+            )
+            # log the action
+            action = Action(
+                executer=user,
+                receiver=None,
+                action_name=f'authevent:{event_name}:scheduled',
+                event=main_event,
+                metadata=dict(
+                    auth_event=instance.pk,
+                    new_event_date=event_date,
+                    new_task_id=task_id
+                )
+            )
+            action.save()
 
 
 STATUSES = (
@@ -726,7 +919,7 @@ def create_user_data(sender, instance, created, *args, **kwargs):
     ud.save()
 
 
-# List of allowed actions used as only valid values for the Action model
+# List of allowed  used as only valid values for the Action model
 # action_name column
 ALLOWED_ACTIONS = (
     ('authevent:create', 'authevent:create'),
