@@ -15,7 +15,7 @@
 
 import json
 from datetime import datetime
-from celery.task.control import revoke
+from celery import current_app
 from django.db import models
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.core.exceptions import ValidationError
@@ -32,14 +32,13 @@ from django.utils import timezone
 
 from contracts.base import check_contract
 from contracts import CheckException
-from marshmallow import Schema, fields
+from marshmallow import Schema, fields as marshmallow_fields
 from marshmallow.exceptions import ValidationError as MarshMallowValidationError
 from django.db.models import CharField
 from django.db.models.functions import Length
 
 from utils import genhmac
 from api.middleware import CurrentUserMiddleware
-from api.tasks import set_status_task
 
 CharField.register_lookup(Length, 'length')
 
@@ -291,10 +290,10 @@ class ScheduledEventSchema(Schema):
     Schema for elements in the ScheduledEventsSchema, which have a date and
     an associated task_id.
     '''
-    event_at = fields.AwareDateTime(
+    event_at = marshmallow_fields.AwareDateTime(
         allow_none=True, load_default=None, dump_default=None
     )
-    task_id = fields.String(
+    task_id = marshmallow_fields.String(
         allow_none=True, load_default=None, dump_default=None, dump_only=True
     )
 
@@ -303,13 +302,13 @@ class ScheduledEventsSchema(Schema):
     '''
     Schema for the AuthEvent.scheduled_events field
     '''
-    start_voting = fields.Nested(
+    start_voting = marshmallow_fields.Nested(
         ScheduledEventSchema,
         allow_none=True,
         load_default=None,
         dump_default=None
     )
-    end_voting = fields.Nested(
+    end_voting = marshmallow_fields.Nested(
         ScheduledEventSchema,
         allow_none=True,
         load_default=None,
@@ -757,7 +756,7 @@ def update_scheduled_events(_sender, instance):
         # date changed, so we need to cancel previous task if there was one
         if isinstance(event_data.get('task_id'), str):
             task_id = event_data.get('task_id')
-            revoke(task_id)
+            current_app.control.revoke(task_id)
 
             # log the action
             action = Action(
@@ -774,6 +773,7 @@ def update_scheduled_events(_sender, instance):
             action.save()
         # we need to schedule the new task
         if event_date != None:
+            from api.tasks import set_status_task
             event_data['task_id'] = set_status_task.apply_async(
                 args=[
                     event_name,
