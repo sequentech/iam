@@ -706,7 +706,7 @@ class AuthEvent(models.Model):
 
 
 @receiver(pre_save, sender=AuthEvent)
-def update_scheduled_events(_sender, instance):
+def update_scheduled_events(sender, instance, **kwargs):
     '''
     Update the scheduled events in django celery
     '''
