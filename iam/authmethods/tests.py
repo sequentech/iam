@@ -1286,7 +1286,7 @@ class TestOTPCodeExtraField(TestCase):
 
         # resend auth code should not work as this auth event is not email-otp
         # nor sms-otp and has no otp-code field 
-        is_otp = ['email-otp', 'sms-otp'] in auth_event.auth_method
+        is_otp = auth_event.auth_method in ['email-otp', 'sms-otp']
         auth_event.save()
         response = client.post(
             f'/api/auth-event/{auth_event.id}/resend_auth_code/',
