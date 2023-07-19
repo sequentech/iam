@@ -1286,16 +1286,18 @@ class TestOTPCodeExtraField(TestCase):
 
         # resend auth code should not work as this auth event is not email-otp
         # nor sms-otp and has no otp-code field 
+        is_otp = auth_event.auth_method in ['email-otp', 'sms-otp']
         auth_event.save()
         response = client.post(
             f'/api/auth-event/{auth_event.id}/resend_auth_code/',
             resend_auth_codes_data
         )
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200 if is_otp else 400)
 
         # Check that the number of codes associated with this voter did not
         # change
-        self.assertEqual(voter.userdata.codes.count(), initial_codes_count)
+        expected_count = initial_codes_count + 1 if is_otp else initial_codes_count
+        self.assertEqual(voter.userdata.codes.count(), expected_count)
 
         # add the otp-code field to the auth event
         auth_event.extra_fields.append(
@@ -1322,11 +1324,12 @@ class TestOTPCodeExtraField(TestCase):
             f'/api/auth-event/{auth_event.id}/resend_auth_code/',
             resend_auth_codes_data
         )
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200 if is_otp else 400)
 
         # Check that the number of codes associated with this voter did not
         # change
-        self.assertEqual(voter.userdata.codes.count(), initial_codes_count)
+        expected_count = expected_count + 1 if is_otp else initial_codes_count
+        self.assertEqual(voter.userdata.codes.count(), expected_count)
 
         auth_event.auth_method_config['config']['allow_user_resend'] = True
         auth_event.save()
@@ -1339,7 +1342,8 @@ class TestOTPCodeExtraField(TestCase):
         self.assertEqual(response.status_code, 200)
 
         # Check that there's still one more new code associated with this voter
-        self.assertEqual(voter.userdata.codes.count(), initial_codes_count + 1)
+        expected_count = expected_count + 1 if is_otp else initial_codes_count + 1
+        self.assertEqual(voter.userdata.codes.count(), expected_count)
 
         # get the code and authenticate with it
         code = voter.userdata.codes.order_by('-created')[0]
@@ -1364,7 +1368,9 @@ class TestOTPCodeExtraField(TestCase):
             resend_auth_codes_data
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(voter.userdata.codes.count(), initial_codes_count + 2)
+
+        expected_count = expected_count + 1 if is_otp else initial_codes_count + 2
+        self.assertEqual(voter.userdata.codes.count(), expected_count)
         code = voter.userdata.codes.order_by('-created')[0]
         credentials['code'] = code.code
         response = client.authenticate(auth_event.id, credentials)

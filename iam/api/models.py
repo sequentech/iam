@@ -386,10 +386,13 @@ class AuthEvent(models.Model):
     # false otherwise
     def check_allow_user_resend(self):
        return (
-            isinstance(self.auth_method_config, dict) and
-            isinstance(self.auth_method_config.get('config', None), dict) and
-            True == self.auth_method_config['config']\
-                .get('allow_user_resend', None)
+            self.auth_method in ['email-otp', 'sms-otp'] or
+            (
+                isinstance(self.auth_method_config, dict) and
+                isinstance(self.auth_method_config.get('config', None), dict) and
+                True == self.auth_method_config['config']\
+                    .get('allow_user_resend', None)
+            )
        )
 
     def serialize(self, restrict=False):
