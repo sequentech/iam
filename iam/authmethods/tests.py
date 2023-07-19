@@ -1328,7 +1328,7 @@ class TestOTPCodeExtraField(TestCase):
 
         # Check that the number of codes associated with this voter did not
         # change
-        expected_count = initial_codes_count + 2 if is_otp else initial_codes_count
+        expected_count = expected_count + 1 if is_otp else initial_codes_count
         self.assertEqual(voter.userdata.codes.count(), expected_count)
 
         auth_event.auth_method_config['config']['allow_user_resend'] = True
@@ -1342,7 +1342,8 @@ class TestOTPCodeExtraField(TestCase):
         self.assertEqual(response.status_code, 200)
 
         # Check that there's still one more new code associated with this voter
-        self.assertEqual(voter.userdata.codes.count(), initial_codes_count + 1)
+        expected_count = expected_count + 1 if is_otp else initial_codes_count + 1
+        self.assertEqual(voter.userdata.codes.count(), expected_count)
 
         # get the code and authenticate with it
         code = voter.userdata.codes.order_by('-created')[0]
@@ -1367,7 +1368,9 @@ class TestOTPCodeExtraField(TestCase):
             resend_auth_codes_data
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(voter.userdata.codes.count(), initial_codes_count + 2)
+
+        expected_count = expected_count + 1 if is_otp else initial_codes_count + 2
+        self.assertEqual(voter.userdata.codes.count(), expected_count)
         code = voter.userdata.codes.order_by('-created')[0]
         credentials['code'] = code.code
         response = client.authenticate(auth_event.id, credentials)
