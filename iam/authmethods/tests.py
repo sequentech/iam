@@ -1329,7 +1329,7 @@ class TestOTPCodeExtraField(TestCase):
         # Check that the number of codes associated with this voter did not
         # change
         expected_count = initial_codes_count + 2 if is_otp else initial_codes_count
-        self.assertEqual(voter.userdata.codes.count(), initial_codes_count)
+        self.assertEqual(voter.userdata.codes.count(), expected_count)
 
         auth_event.auth_method_config['config']['allow_user_resend'] = True
         auth_event.save()
