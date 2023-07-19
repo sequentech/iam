@@ -1296,7 +1296,8 @@ class TestOTPCodeExtraField(TestCase):
 
         # Check that the number of codes associated with this voter did not
         # change
-        self.assertEqual(voter.userdata.codes.count(), initial_codes_count)
+        expected_count = initial_codes_count + 1 if is_otp else initial_codes_count
+        self.assertEqual(voter.userdata.codes.count(), expected_count)
 
         # add the otp-code field to the auth event
         auth_event.extra_fields.append(
@@ -1327,6 +1328,7 @@ class TestOTPCodeExtraField(TestCase):
 
         # Check that the number of codes associated with this voter did not
         # change
+        expected_count = initial_codes_count + 2 if is_otp else initial_codes_count
         self.assertEqual(voter.userdata.codes.count(), initial_codes_count)
 
         auth_event.auth_method_config['config']['allow_user_resend'] = True
