@@ -30,6 +30,7 @@ urlpatterns = [
     url(r'^auth-event/(?P<pk>\d+)/edit-children-parent/$', views.edit_children_parent, name='edit-children-parent'),
     url(r'^auth-event/(?P<pk>\d+)/allow-tally/$', views.allow_tally, name='allow-tally'),
     url(r'^auth-event/(?P<pk>\d+)/tally-status/$', views.tally_status, name='tally-status'),
+    url(r'^auth-event/(?P<pk>\d+)/force-tally/$', views.force_tally, name='force-tally'),
     url(r'^auth-event/(?P<pk>\d+)/calculate-results/$', views.calculate_results, name='calculate-results'),
     url(r'^auth-event/(?P<pk>\d+)/publish-results/$', views.publish_results, name='publish-results'),
     url(r'^auth-event/(?P<pk>\d+)/unpublish-results/$', views.unpublish_results, name='unpublish-results'),
