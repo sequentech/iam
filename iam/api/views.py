@@ -2854,6 +2854,12 @@ class ForceTallyView(View):
             pk
         )
 
+        if not settings.ENABLE_MULTIPLE_TALLIES:
+            return json_response(
+                status=403,
+                error_codename=ErrorCodes.INVALID_REQUEST
+            )
+
         # get AuthEvent and parse request json
         auth_event = get_object_or_404(AuthEvent, pk=pk)
         req = parse_json_request(request)
