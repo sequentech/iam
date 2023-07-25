@@ -76,6 +76,8 @@ ALLOW_DEREGISTER = True
 
 ALLOW_HTML_EMAILS = False
 
+ENABLE_MULTIPLE_TALLIES = False
+
 AWS_SNS_MESSAGE_ATTRIBUTES = {}
 
 # If this option is true, when an user tries to register and the user is

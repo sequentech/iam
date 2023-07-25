@@ -347,9 +347,11 @@ def update_tally_status(auth_event):
         ballot_box_request.text
     )
     updated_election = parse_json_request(ballot_box_request)
+    tally_state = updated_election['payload']['tally_state']
     election_state = updated_election['payload']['state']
 
-    if election_state in ['tally_error', 'stopped', 'started']:
+    if ('tally_error' == tally_state or \
+        (election_state in ['stopped', 'started']) and not settings.ENABLE_MULTIPLE_TALLIES):
         auth_event.tally_status = AuthEvent.NOT_STARTED
         auth_event.save()
 
@@ -364,7 +366,7 @@ def update_tally_status(auth_event):
             )
         )
         action.save()
-    elif election_state in ['tally_ok', 'results_ok', 'results_pub']:
+    elif tally_state in ['tally_ok', 'results_ok'] or 'results_pub' == election_state:
         auth_event.tally_status = AuthEvent.SUCCESS
         auth_event.save()
         
@@ -380,7 +382,7 @@ def update_tally_status(auth_event):
         )
         action.save()
 
-        if election_state == 'tally_ok':
+        if 'tally_ok' == tally_state:
             event_id_list = [
                 dict(id=auth_event.pk, config=None)
             ]

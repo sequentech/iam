@@ -2839,7 +2839,6 @@ class TallySheetView(View):
 
 tally_sheet = login_required(TallySheetView.as_view())
 
-
 class TallyStatusView(View):
 
     def post(self, request, pk):
@@ -2861,7 +2860,7 @@ class TallyStatusView(View):
 
         # cannot launch tally on an election whose voting period is still open
         # or has not even started.
-        if auth_event.status != AuthEvent.STOPPED:
+        if auth_event.status != AuthEvent.STOPPED and not settings.ENABLE_MULTIPLE_TALLIES:
             return json_response(
                 status=400,
                 error_codename=ErrorCodes.BAD_REQUEST
@@ -2933,7 +2932,7 @@ class TallyStatusView(View):
         
         # set the pending status accordingly
         for auth_event_to_tally in auth_events:
-            if (
+            if settings.ENABLE_MULTIPLE_TALLIES or (
                 auth_event_to_tally.tally_status == AuthEvent.NOT_STARTED or
                 (
                     auth_event_to_tally.tally_status == AuthEvent.PENDING and
