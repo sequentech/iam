@@ -8,7 +8,7 @@ billiard==3.6.4.0
 boto3==1.21.38
 botocore==1.24.38
 celery==5.2.3
-certifi==2022.12.7
+certifi==2023.7.22
 cfgv==3.3.1
 chardet==3.0.4
 charset-normalizer==2.0.12
@@ -56,7 +56,7 @@ psycopg2-binary==2.8.6
 ptyprocess==0.5.1
 pycparser==2.21
 pycryptodomex==3.12.0
-Pygments==2.10.0
+Pygments==2.15.0
 pyjwkest==1.4.2
 PyJWT==2.4.0
 PySocks==1.7.1
@@ -64,7 +64,7 @@ python-dateutil==2.5.3
 pytz==2021.3
 PyYAML==6.0
 raven==5.19.0
-reportlab==3.6.11
+reportlab==3.6.13
 requests==2.31.0
 s3transfer==0.5.2
 simplegeneric==0.8.1
