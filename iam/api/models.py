@@ -777,8 +777,12 @@ def update_scheduled_events(sender, instance, **kwargs):
             action.save()
         # we need to schedule the new task
         if event_date != None:
+            eta = datetime.fromisoformat(event_date)
+            if eta < datetime.now():
+                print("not scheduling event in the past")
+                continue
             from api.tasks import set_status_task
-            event_data['task_id'] = set_status_task.apply_async(
+            task_id = event_data['task_id'] = set_status_task.apply_async(
                 args=[
                     alt_status[event_name],
                     user.id,

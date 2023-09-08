@@ -1584,7 +1584,7 @@ class AuthEventView(View):
             scheduled_events = req.get('scheduled_events', None)
             if scheduled_events:
                 try:
-                    ScheduledEventsSchema().validate(scheduled_events)
+                    ScheduledEventsSchema().load(scheduled_events)
                 except MarshMallowValidationError as error:
                     msg += str(error.messages)
 
@@ -3093,10 +3093,10 @@ class ScheduledEventsView(View):
             pk
         )
 
-        # parse and validate input
+        # validate input
         req_json = parse_json_request(request)
         try:
-            ScheduledEventsSchema().validate(req_json)
+            ScheduledEventsSchema().load(req_json)
         except MarshMallowValidationError as error:
             return json_response(
                 status=400,
