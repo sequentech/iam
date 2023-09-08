@@ -3095,16 +3095,8 @@ class ScheduledEventsView(View):
 
         # parse and validate input
         req_json = parse_json_request(request)
-        if (
-            "scheduled_events" not in req_json or
-            not isinstance(req_json['scheduled_events'], dict)
-        ):
-            return json_response(
-                status=400,
-                error_codename=ErrorCodes.BAD_REQUEST
-            )
         try:
-            ScheduledEventsSchema().validate(req_json['scheduled_events'])
+            ScheduledEventsSchema().validate(req_json)
         except MarshMallowValidationError as error:
             return json_response(
                 status=400,
@@ -3112,7 +3104,7 @@ class ScheduledEventsView(View):
                 error_codename=ErrorCodes.BAD_REQUEST
             )
 
-        scheduled_events = req_json['scheduled_events']
+        scheduled_events = req_json
 
         auth_event = get_object_or_404(AuthEvent, pk=pk)
         auth_event.scheduled_events = scheduled_events

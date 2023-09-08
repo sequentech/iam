@@ -944,10 +944,6 @@ ALLOWED_ACTIONS = (
     ('authevent:start_voting:revoked', 'authevent:start_voting:revoked'),
     ('authevent:end_voting:scheduled', 'authevent:end_voting:scheduled'),
     ('authevent:end_voting:revoked', 'authevent:end_voting:revoked'),
-    ('authevent:allow_tally:scheduled', 'authevent:allow_tally:scheduled'),
-    ('authevent:allow_tally:revoked', 'authevent:allow_tally:revoked'),
-    ('authevent:tally:scheduled', 'authevent:tally:scheduled'),
-    ('authevent:tally:revoked', 'authevent:tally:revoked'),
 )
 
 class Action(models.Model):
