@@ -727,6 +727,14 @@ def update_scheduled_events(sender, instance, **kwargs):
         allow_tally=None,
         tally=None
     )
+
+    alt_status = dict(
+        start_voting='started',
+        end_voting='stopped',
+        allow_tally='allow-tally',
+        tally='tally',
+    )
+
     events = (instance.scheduled_events
         if instance.scheduled_events != None
         else default_events
@@ -776,7 +784,7 @@ def update_scheduled_events(sender, instance, **kwargs):
             from api.tasks import set_status_task
             event_data['task_id'] = set_status_task.apply_async(
                 args=[
-                    event_name,
+                    alt_status[event_name],
                     user.id,
                     main_event.id
                 ],
@@ -919,7 +927,7 @@ def create_user_data(sender, instance, created, *args, **kwargs):
     ud.save()
 
 
-# List of allowed  used as only valid values for the Action model
+# List of allowed actions used as only valid values for the Action model
 # action_name column
 ALLOWED_ACTIONS = (
     ('authevent:create', 'authevent:create'),
@@ -936,6 +944,14 @@ ALLOWED_ACTIONS = (
     ('user:added-to-census', 'user:added-to-census'),
     ('user:deleted-from-census', 'user:deleted-from-census'),
     ('user:resend-authcode', 'user:resend-authcode'),
+    ('authevent:start_voting:scheduled', 'authevent:start_voting:scheduled'),
+    ('authevent:start_voting:revoked', 'authevent:start_voting:revoked'),
+    ('authevent:end_voting:scheduled', 'authevent:end_voting:scheduled'),
+    ('authevent:end_voting:revoked', 'authevent:end_voting:revoked'),
+    ('authevent:allow_tally:scheduled', 'authevent:allow_tally:scheduled'),
+    ('authevent:allow_tally:revoked', 'authevent:allow_tally:revoked'),
+    ('authevent:tally:scheduled', 'authevent:tally:scheduled'),
+    ('authevent:tally:revoked', 'authevent:tally:revoked'),
 )
 
 class Action(models.Model):

@@ -29,4 +29,7 @@ class CurrentUserMiddleware:
 
     @staticmethod
     def get_current_user():
-        return _user.value
+        if hasattr(_user, "value"):
+            return _user.value
+        else:
+            return None

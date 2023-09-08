@@ -1132,13 +1132,15 @@ def allow_tally_task(user_id, auth_event_id, parent_auth_event_id=None):
 
 @shared_task(name='api.tasks.set_status')
 def set_status_task(status, user_id, auth_event_id, parent_auth_event_id=None):
-    alt_status = dict(
-        notstarted="notstarted",
-        start='started',
-        stop='stopped',
-        suspend='suspended',
-        resume='resumed'
-    )
+    alt_status = {
+        'notstarted': 'notstarted',
+        'start': 'started',
+        'stop': 'stopped',
+        'suspend': 'suspended',
+        'resume': 'resumed',
+        'allow-tally': 'allow-tally',
+        'tallly': 'tally',
+    }
     def set_status_inner(auth_event):
         auth_event.status = alt_status[status]
         auth_event.save()
