@@ -724,15 +724,11 @@ def update_scheduled_events(sender, instance, **kwargs):
     default_events = dict(
         start_voting=None,
         end_voting=None,
-        allow_tally=None,
-        tally=None
     )
 
     alt_status = dict(
         start_voting='started',
         end_voting='stopped',
-        allow_tally='allow-tally',
-        tally='tally',
     )
 
     events = (instance.scheduled_events

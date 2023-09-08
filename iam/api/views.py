@@ -75,7 +75,8 @@ from .models import (
     UserData,
     BallotBox,
     TallySheet,
-    children_election_info_validator
+    children_election_info_validator,
+    ScheduledEventsSchema
 )
 
 from .tasks import (
@@ -1701,7 +1702,8 @@ class AuthEventView(View):
                 hide_default_login_lookup_field=hide_default_login_lookup_field,
                 allow_public_census_query=allow_public_census_query,
                 support_otl_enabled=support_otl_enabled,
-                alternative_auth_methods=alternative_auth_methods
+                alternative_auth_methods=alternative_auth_methods,
+                scheduled_events=scheduled_events,
             )
             # If the election exists, we are doing an update. Else, we are 
             # doing an insert. We use this update method instead of just 
@@ -3074,6 +3076,50 @@ class UnpublishResultsView(View):
 
         return json_response()
 unpublish_results = login_required(UnpublishResultsView.as_view())
+
+
+
+class ScheduledEventsView(View):
+
+    def post(self, request, pk):
+        '''
+        Schedules authevent events such as start or stop of an election.
+        '''
+        # check permissions
+        permission_required(
+            request.user,
+            'AuthEvent',
+            ['edit', 'schedule-events'],
+            pk
+        )
+
+        # parse and validate input
+        req_json = parse_json_request(request)
+        if (
+            "scheduled_events" not in req_json or
+            not isinstance(req_json['scheduled_events'], dict)
+        ):
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST
+            )
+        try:
+            ScheduledEventsSchema().validate(req_json['scheduled_events'])
+        except MarshMallowValidationError as error:
+            return json_response(
+                status=400,
+                message=str(error.messages),
+                error_codename=ErrorCodes.BAD_REQUEST
+            )
+
+        scheduled_events = req_json['scheduled_events']
+
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        auth_event.scheduled_events = scheduled_events
+        auth_event.save()
+
+        return json_response()
+scheduled_events = login_required(ScheduledEventsView.as_view())
 
 
 class SetPublicCandidatesView(View):

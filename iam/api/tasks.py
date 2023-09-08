@@ -1138,8 +1138,6 @@ def set_status_task(status, user_id, auth_event_id, parent_auth_event_id=None):
         'stop': 'stopped',
         'suspend': 'suspended',
         'resume': 'resumed',
-        'allow-tally': 'allow-tally',
-        'tallly': 'tally',
     }
     def set_status_inner(auth_event):
         auth_event.status = alt_status[status]
