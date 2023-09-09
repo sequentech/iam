@@ -1059,10 +1059,7 @@ def run_ballot_box_action(
         if not apply_callback:
             continue
         for callback_base in settings.SEQUENT_ELECTIONS_BASE:
-            callback_url = f"{callback_base}/api/election/{current_event_id}/{action_name}" % (
-                callback_base,
-                current_event_id
-            )
+            callback_url = f"{callback_base}/api/election/{current_event_id}/{action_name}"
             data = {}
 
             req = requests.post(
