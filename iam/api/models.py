@@ -808,7 +808,7 @@ def update_scheduled_events(sender, instance, **kwargs):
                 ],
                 eta=eta,
                 retry=False
-            )
+            ).id
             # log the action
             action = Action(
                 executer=user,
