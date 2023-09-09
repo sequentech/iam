@@ -748,19 +748,36 @@ def update_scheduled_events(sender, instance, **kwargs):
             if old_event_data != None
             else None
         )
+        old_task_id = (
+            old_event_data.get('task_id')
+            if old_event_data != None
+            else None
+        )
         event_date = (
             event_data['event_at']
             if event_data != None
             else None
         )
+        task_id = (
+            event_data.get('task_id')
+            if event_data != None
+            else None
+        )
+
+        # first ensure only this function changes task_ids
+        if old_task_id != task_id and event_data != None:
+            event_data['task_id'] = old_task_id
 
         # nothing changed so we should just continue
         if old_event_date == event_date:
             continue
+
         # date changed, so we need to cancel previous task if there was one
-        if isinstance(event_data.get('task_id'), str):
-            task_id = event_data.get('task_id')
-            current_app.control.revoke(task_id)
+        if isinstance(old_event_data.get('task_id'), str):
+            current_app.control.revoke(old_task_id)
+
+            # change the task id to None since now we revoked it
+            event_data['task_id'] = None
 
             # log the action
             action = Action(
@@ -771,14 +788,15 @@ def update_scheduled_events(sender, instance, **kwargs):
                 metadata=dict(
                     auth_event=instance.pk,
                     old_event_date=old_event_date,
-                    old_task_id=task_id
+                    old_task_id=old_task_id
                 )
             )
             action.save()
+
         # we need to schedule the new task
         if event_date != None:
             eta = datetime.fromisoformat(event_date)
-            if eta < datetime.now():
+            if eta < timezone.now():
                 print("not scheduling event in the past")
                 continue
             from api.tasks import set_status_task

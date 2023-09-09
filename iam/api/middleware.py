@@ -14,6 +14,7 @@
 # along with iam.  If not, see <http://www.gnu.org/licenses/>.
 
 from threading import local
+from .decorators import get_login_user
 
 _user = local()
 
@@ -22,7 +23,7 @@ class CurrentUserMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        _user.value = request.user
+        _user.value, _, _ = get_login_user(request)
         response = self.get_response(request)
         _user.value = None  # clear the user after processing the request
         return response
