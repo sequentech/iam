@@ -1046,7 +1046,7 @@ def run_ballot_box_action(
         current_event = get_object_or_404(AuthEvent, pk=current_event_id)
         if auth_event_callback_func != None:
             auth_event_callback_func(current_event)
-    
+
         parent_auth_event_id = element['parent_event_id']
         parent_auth_event = get_parent_event(
             parent_auth_event_id, current_event
@@ -1148,5 +1148,5 @@ def set_status_task(status, user_id, auth_event_id, parent_auth_event_id=None):
         user_id=user_id,
         auth_event_id=auth_event_id,
         auth_event_callback_func=set_status_inner,
-        apply_callback=(status in ['started', 'stopped', 'suspended', 'resumed'])
+        apply_callback=(status in ['start', 'stop', 'suspend', 'resume'])
     )
