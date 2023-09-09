@@ -727,8 +727,8 @@ def update_scheduled_events(sender, instance, **kwargs):
     )
 
     alt_status = dict(
-        start_voting='started',
-        end_voting='stopped',
+        start_voting='start',
+        end_voting='stop',
     )
 
     events = (instance.scheduled_events
@@ -773,7 +773,7 @@ def update_scheduled_events(sender, instance, **kwargs):
             continue
 
         # date changed, so we need to cancel previous task if there was one
-        if isinstance(old_event_data.get('task_id'), str):
+        if old_task_id != None:
             current_app.control.revoke(old_task_id)
 
             # change the task id to None since now we revoked it
@@ -806,7 +806,7 @@ def update_scheduled_events(sender, instance, **kwargs):
                     user.id,
                     main_event.id
                 ],
-                eta=datetime.fromisoformat(event_date),
+                eta=eta,
                 retry=False
             )
             # log the action
