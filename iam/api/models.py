@@ -27,7 +27,6 @@ from jsonfield import JSONField
 from django.dispatch import receiver
 from django.db.models.signals import post_save, pre_save
 from django.db.models import Q
-from django.db import transaction
 from django.conf import settings
 from django.utils import timezone
 
@@ -810,24 +809,20 @@ def update_scheduled_events(sender, instance, **kwargs):
                 eta=eta,
                 retry=False
             ).id
-            # log the action
-            action = Action(
-                executer=user,
-                receiver=None,
-                action_name=f'authevent:{event_name}:scheduled',
-                event=main_event,
-                metadata=dict(
-                    auth_event=instance.pk,
-                    new_event_date=event_date,
-                    new_task_id=task_id
+            # log the action, only if authevent is created
+            if main_event.pk != None:
+                action = Action(
+                    executer=user,
+                    receiver=None,
+                    action_name=f'authevent:{event_name}:scheduled',
+                    event=main_event,
+                    metadata=dict(
+                        auth_event=instance.pk,
+                        new_event_date=event_date,
+                        new_task_id=task_id
+                    )
                 )
-            )
-            # saving on commit, because otherwise main_event might not have been
-            # created yet and it could raise the following exception:
-            #
-            # ValueError: save() prohibited to prevent data loss due to unsaved
-            # related object 'event'.
-            transaction.on_commit(lambda: action.save())
+                action.save()
 
 STATUSES = (
     ('act', 'Active'),
