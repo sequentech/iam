@@ -777,7 +777,8 @@ def update_scheduled_events(sender, instance, **kwargs):
             current_app.control.revoke(old_task_id)
 
             # change the task id to None since now we revoked it
-            event_data['task_id'] = None
+            if event_data != None:
+                event_data['task_id'] = None
 
             # log the action
             action = Action(
