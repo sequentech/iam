@@ -996,19 +996,20 @@ def set_public_candidates_task(
         )
         action.save()
 
-@shared_task(name='api.tasks.allow_tally')
-def allow_tally_task(user_id, auth_event_id, parent_auth_event_id=None):
+def run_ballot_box_action(
+    action_name,
+    user_id,
+    auth_event_id,
+    parent_auth_event_id=None,
+    auth_event_callback_func=None,
+    apply_callback=True
+):
     '''
-    Launches the allow tally ballot-box call in a task. 
-    If the election has children, also launches the call for
-    those.
+    Launches the a ballot box action call in a task. If the election has
+    children, also launches the call for those.
     '''
     logger.info(
-        '\n\nallow_tally_task(user_id=%r, auth_event_id=%r, parent_auth_event_id=%r)' % (
-            user_id,
-            auth_event_id,
-            parent_auth_event_id
-        )
+        f'\n\n{action_name}_task(user_id={user_id}, auth_event_id={auth_event_id}, parent_auth_event_id={parent_auth_event_id})'
     )
     user = get_object_or_404(User, pk=user_id)
     auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
@@ -1043,26 +1044,22 @@ def allow_tally_task(user_id, auth_event_id, parent_auth_event_id=None):
     for element in elements:
         current_event_id = element['event_id']
         current_event = get_object_or_404(AuthEvent, pk=current_event_id)
-    
+        if auth_event_callback_func != None:
+            auth_event_callback_func(current_event)
+
         parent_auth_event_id = element['parent_event_id']
         parent_auth_event = get_parent_event(
             parent_auth_event_id, current_event
         )
         logger.info(
-            '\n\nallow_tally_task(user_id=%r, auth_event_id=%r, parent_auth_event_id=%r): current_event_id = %r' % (
-                user_id,
-                auth_event_id,
-                parent_auth_event_id,
-                current_event_id,
-            )
+            f'\n\n{action_name}_task(user_id={user_id}, auth_event_id={auth_event_id}, parent_auth_event_id={parent_auth_event_id}): current_event_id = {current_event_id}'
         )
 
         # A.2 call to ballot-box
+        if not apply_callback:
+            continue
         for callback_base in settings.SEQUENT_ELECTIONS_BASE:
-            callback_url = "%s/api/election/%s/allow-tally" % (
-                callback_base,
-                current_event_id
-            )
+            callback_url = f"{callback_base}/api/election/{current_event_id}/{action_name}"
             data = {}
 
             req = requests.post(
@@ -1071,33 +1068,26 @@ def allow_tally_task(user_id, auth_event_id, parent_auth_event_id=None):
                 headers={
                     'Authorization': genhmac(
                         settings.SHARED_SECRET,
-                        "1:AuthEvent:%s:allow-tally" % current_event_id
+                        f"1:AuthEvent:{current_event_id}:{action_name}"
                     ),
                     'Content-type': 'application/json'
                 }
             )
             if req.status_code != 200:
                 logger.error(
-                    "allow_tally_task(user_id=%r, auth_event_id=%r): post\n"\
-                    "current_event_id = '%r'\n"\
-                    "ballot_box.callback_url '%r'\n"\
-                    "ballot_box.data '%r'\n"\
-                    "ballot_box.status_code '%r'\n"\
-                    "ballot_box.text '%r'\n",\
-                    user_id,
-                    auth_event_id,
-                    current_event_id,
-                    callback_url,
-                    data,
-                    req.status_code, 
-                    req.text
+                    f"{action_name}_task(user_id={user_id}, auth_event_id={auth_event_id}): post\n"
+                    f"current_event_id = '{current_event_id}'\n"
+                    f"ballot_box.callback_url '{callback_url}'\n"
+                    f"ballot_box.data '{data}'\n"
+                    f"ballot_box.status_code '{req.status_code}'\n"
+                    f"ballot_box.text '{req.text}'\n"
                 )
             
                 # log the action
                 action = Action(
                     executer=user,
                     receiver=None,
-                    action_name='authevent:allow-tally:error',
+                    action_name=f'authevent:{action_name}:error',
                     event=parent_auth_event,
                     metadata=dict(
                         auth_event=current_event_id,
@@ -1109,29 +1099,51 @@ def allow_tally_task(user_id, auth_event_id, parent_auth_event_id=None):
                 return
 
             logger.info(
-                "allow_tally_task(user_id=%r, auth_event_id=%r): post\n"\
-                "current_event_id = '%r'\n"\
-                "ballot_box.callback_url '%r'\n"\
-                "ballot_box.data '%r'\n"\
-                "ballot_box.status_code '%r'\n"\
-                "ballot_box.text '%r'\n",\
-                user_id,
-                auth_event_id,
-                current_event_id,
-                callback_url,
-                data,
-                req.status_code,
-                req.text
+                f"{action_name}_task(user_id={user_id}, auth_event_id={auth_event_id}): post\n"
+                f"current_event_id = '{current_event_id}'\n"
+                f"ballot_box.callback_url '{callback_url}'\n"
+                f"ballot_box.data '{data}'\n"
+                f"ballot_box.status_code '{req.status_code}'\n"
+                f"ballot_box.text '{req.text}'\n"
             )
 
             # log the action
             action = Action(
                 executer=user,
                 receiver=None,
-                action_name='authevent:allow-tally:success',
+                action_name=f'authevent:{action_name}:success',
                 event=parent_auth_event,
                 metadata=dict(
                     auth_event=current_event_id
                 )
             )
             action.save()
+
+
+@shared_task(name='api.tasks.allow_tally')
+def allow_tally_task(user_id, auth_event_id, parent_auth_event_id=None):
+    run_ballot_box_action(
+        'allow-tally', user_id, auth_event_id, parent_auth_event_id
+    )
+
+
+@shared_task(name='api.tasks.set_status')
+def set_status_task(status, user_id, auth_event_id, parent_auth_event_id=None):
+    alt_status = {
+        'notstarted': 'notstarted',
+        'start': 'started',
+        'stop': 'stopped',
+        'suspend': 'suspended',
+        'resume': 'resumed',
+    }
+    def set_status_inner(auth_event):
+        auth_event.status = alt_status[status]
+        auth_event.save()
+
+    run_ballot_box_action(
+        action_name=status,
+        user_id=user_id,
+        auth_event_id=auth_event_id,
+        auth_event_callback_func=set_status_inner,
+        apply_callback=(status in ['start', 'stop', 'suspend', 'resume'])
+    )

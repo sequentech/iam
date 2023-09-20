@@ -30,6 +30,7 @@ from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from base64 import encodestring
 from django.db.models import Count, OuterRef, Subquery
+from marshmallow.exceptions import ValidationError as MarshMallowValidationError
 
 import plugins
 from authmethods import (
@@ -74,14 +75,17 @@ from .models import (
     UserData,
     BallotBox,
     TallySheet,
-    children_election_info_validator
+    children_election_info_validator,
+    ScheduledEventsSchema
 )
+
 from .tasks import (
     census_send_auth_task,
     update_ballot_boxes_config,
     publish_results_task,
     unpublish_results_task,
     allow_tally_task,
+    set_status_task,
     calculate_results_task,
     set_public_candidates_task
 )
@@ -1137,37 +1141,15 @@ class AuthEventStatus(View):
             # update AuthEvent
             if auth_event.status != status:
                 # enforce state transitions make sense
-                if settings.ENFORCE_STATE_CONTROLS:
-                    if (
-                        status == AuthEvent.STARTED and
-                        auth_event.status != AuthEvent.NOT_STARTED
-                    ) or (
-                        status == AuthEvent.SUSPENDED and
-                        auth_event.status != AuthEvent.STARTED and
-                        auth_event.status != AuthEvent.RESUMED
-                    ) or (
-                        status == AuthEvent.RESUMED and
-                        auth_event.status != AuthEvent.SUSPENDED
-                    ) or (
-                        status == AuthEvent.PENDING and
-                        auth_event.status != AuthEvent.STOPPED
-                    ) or (
-                        status == AuthEvent.SUCCESS and
-                        auth_event.status != AuthEvent.PENDING
-                    ) or (
-                        status == AuthEvent.STOPPED and
-                        auth_event.status != AuthEvent.STARTED and
-                        auth_event.status != AuthEvent.RESUMED and
-                        auth_event.status != AuthEvent.SUSPENDED
-                    ):
-                        return json_response(
-                            status=400,
-                            data=dict(
-                                next_status=status,
-                                current_status=auth_event.status
-                            ),
-                            error_codename="INVALID_STATUS_TRANSITION"
-                        )
+                if not auth_event.allow_set_status(status):
+                    return json_response(
+                        status=400,
+                        data=dict(
+                            next_status=status,
+                            current_status=auth_event.status
+                        ),
+                        error_codename="INVALID_STATUS_TRANSITION"
+                    )
 
                 auth_event.status = status
                 auth_event.save()
@@ -1185,66 +1167,14 @@ class AuthEventStatus(View):
                     metadata=metadata
                 )
                 action.save()
-            
-            # update in ballot-box
-            if alt in ['start', 'stop', 'suspend', 'resume']:
-                for callback_base in settings.SEQUENT_ELECTIONS_BASE:
-                    callback_url = "%s/api/election/%s/%s" % (
-                        callback_base,
-                        auth_event.id,
-                        alt
-                    )
-                    data = "[]"
 
-                    ballot_box_request = requests.post(
-                        callback_url,
-                        json=data,
-                        headers={
-                            'Authorization': genhmac(
-                                settings.SHARED_SECRET,
-                                "1:AuthEvent:%s:%s" % (auth_event.id, alt)
-                            ),
-                            'Content-type': 'application/json'
-                        }
-                    )
-                    if ballot_box_request.status_code != 200:
-                        LOGGER.error(\
-                            "AuthEventStatus.post\n"\
-                            "ballot_box.callback_url '%r'\n"\
-                            "ballot_box.data '%r'\n"\
-                            "ballot_box.status_code '%r'\n"\
-                            "ballot_box.text '%r'\n",\
-                            callback_url, 
-                            data, 
-                            ballot_box_request.status_code, 
-                            ballot_box_request.text
-                        )
-
-                        return json_response(
-                            status=500,
-                            error_codename=ErrorCodes.GENERAL_ERROR
-                        )
-
-                    # if new status is stop and tally_status is pending, move it to
-                    if (
-                        alt == 'stop' and
-                        auth_event.tally_status != AuthEvent.NOT_STARTED
-                    ):
-                        auth_event.tally_status = AuthEvent.NOT_STARTED
-                        auth_event.save()
-
-
-                    LOGGER.info(\
-                        "AuthEventStatus.post\n"\
-                        "ballot_box.callback_url '%r'\n"\
-                        "ballot_box.data '%r'\n"\
-                        "ballot_box.status_code '%r'\n"\
-                        "ballot_box.text '%r'\n",\
-                        callback_url, 
-                        data, 
-                        ballot_box_request.status_code, 
-                        ballot_box_request.text
-                    )
+        set_status_task.apply_async(
+            args=[
+                alt,
+                request.user.id,
+                main_auth_event.id
+            ]
+        )
 
         return json_response(
             status=200, 
@@ -1651,6 +1581,13 @@ class AuthEventView(View):
                 )
                 update_alt_methods_config(alternative_auth_methods)
 
+            scheduled_events = req.get('scheduled_events', None)
+            if scheduled_events:
+                try:
+                    ScheduledEventsSchema().load(scheduled_events)
+                except MarshMallowValidationError as error:
+                    msg += str(error.messages)
+
             admin_fields = req.get('admin_fields', None)
             if admin_fields:
                 msg += check_admin_fields(
@@ -1765,7 +1702,8 @@ class AuthEventView(View):
                 hide_default_login_lookup_field=hide_default_login_lookup_field,
                 allow_public_census_query=allow_public_census_query,
                 support_otl_enabled=support_otl_enabled,
-                alternative_auth_methods=alternative_auth_methods
+                alternative_auth_methods=alternative_auth_methods,
+                scheduled_events=scheduled_events,
             )
             # If the election exists, we are doing an update. Else, we are 
             # doing an insert. We use this update method instead of just 
@@ -3138,6 +3076,42 @@ class UnpublishResultsView(View):
 
         return json_response()
 unpublish_results = login_required(UnpublishResultsView.as_view())
+
+
+
+class ScheduledEventsView(View):
+
+    def post(self, request, pk):
+        '''
+        Schedules authevent events such as start or stop of an election.
+        '''
+        # check permissions
+        permission_required(
+            request.user,
+            'AuthEvent',
+            ['edit', 'schedule-events'],
+            pk
+        )
+
+        # validate input
+        req_json = parse_json_request(request)
+        try:
+            ScheduledEventsSchema().load(req_json)
+        except MarshMallowValidationError as error:
+            return json_response(
+                status=400,
+                message=str(error.messages),
+                error_codename=ErrorCodes.BAD_REQUEST
+            )
+
+        scheduled_events = req_json
+
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        auth_event.scheduled_events = scheduled_events
+        auth_event.save()
+
+        return json_response()
+scheduled_events = login_required(ScheduledEventsView.as_view())
 
 
 class SetPublicCandidatesView(View):

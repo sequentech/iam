@@ -41,6 +41,7 @@ jsonfield==2.0.2
 kombu==5.2.3
 Mako==1.2.2
 MarkupSafe==2.0.1
+marshmallow==3.19.0
 matplotlib-inline==0.1.3
 nodeenv==1.6.0
 nose==1.3.7

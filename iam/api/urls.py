@@ -29,6 +29,7 @@ urlpatterns = [
     url(r'^auth-event/(?P<pk>\d+)/$', views.authevent, name='authevent'),
     url(r'^auth-event/(?P<pk>\d+)/edit-children-parent/$', views.edit_children_parent, name='edit-children-parent'),
     url(r'^auth-event/(?P<pk>\d+)/allow-tally/$', views.allow_tally, name='allow-tally'),
+    url(r'^auth-event/(?P<pk>\d+)/scheduled-events/$', views.scheduled_events, name='scheduled-events'),
     url(r'^auth-event/(?P<pk>\d+)/tally-status/$', views.tally_status, name='tally-status'),
     url(r'^auth-event/(?P<pk>\d+)/calculate-results/$', views.calculate_results, name='calculate-results'),
     url(r'^auth-event/(?P<pk>\d+)/publish-results/$', views.publish_results, name='publish-results'),
