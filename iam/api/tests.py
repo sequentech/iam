@@ -1664,7 +1664,7 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
         self.assertEqual(response.status_code, 400)
         r = parse_json_response(response)
-        self.assertEqual(r['error_codename'], 'AUTH_EVENT_NOT_STARTED')
+        self.assertEqual(r['error_codename'], 'INVALID_REQUEST')
 
         # good: self.aeid.census = close but allow_user_resend = True
         self.ae.auth_method_config['config']['allow_user_resend'] = True
