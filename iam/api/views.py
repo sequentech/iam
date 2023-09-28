@@ -35,6 +35,7 @@ from marshmallow.exceptions import ValidationError as MarshMallowValidationError
 import plugins
 from authmethods import (
     auth_authenticate,
+    get_patched_auth_event,
     auth_authenticate_otl,
     auth_census,
     auth_register,
@@ -1067,18 +1068,31 @@ class ResendAuthCode(View):
 
     def post(self, request, pk):
         auth_event = get_object_or_404(AuthEvent, pk=pk)
+
+        # we need the patched auth event to account for alternative auth method
+        # when calling to function check_allow_user_resend()
+        (patched_auth_event, error) = get_patched_auth_event(auth_event, request)
+        if error is not None:
+            return json_response(
+                status=500,
+                error_codename=ErrorCodes.INTERNAL_SERVER_ERROR
+            )
+
+        # if registration is closed, check that resend auth codes is allowed
         if (
             auth_event.census == 'close' and
-            not auth_event.check_allow_user_resend()
+            not patched_auth_event.check_allow_user_resend()
         ):
             return json_response(
                 status=400,
-                error_codename="AUTH_EVENT_NOT_STARTED")
-        # registration is closed
+                error_codename="INVALID_REQUEST")
+        
+        # if registration is open, check that resend auth codes is allowed and
+        # the auth event is started
         if (
             (
                 auth_event.census == 'open' or
-                auth_event.check_allow_user_resend()
+                patched_auth_event.check_allow_user_resend()
             ) and
             auth_event.status != AuthEvent.STARTED and
             auth_event.status != AuthEvent.RESUMED
