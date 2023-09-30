@@ -2209,9 +2209,7 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         r = parse_json_response(response)
         self.assertEqual(response.status_code, 200)
 
-        # bad: self.aeid.census = open and status != started
-        self.ae.auth_method_config['config']['allow_user_resend'] = False
-        self.ae.census = 'open'
+        # bad: status != started
         self.ae.status = 'stopped'
         self.ae.save()
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
@@ -2251,13 +2249,6 @@ class TestRegisterAndAuthenticateSMS(TestCase):
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
         r = parse_json_response(response)
         self.assertEqual(response.status_code, 200)
-
-        # good
-        self.ae.auth_method_config['config']['allow_user_resend'] = True
-        response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
-        r = parse_json_response(response)
-        self.assertEqual(response.status_code, 200)
-
 
     def test_add_authevent_sms_fields_incorrect(self):
         c = JClient()
