@@ -938,7 +938,7 @@ def get_user_code(user, timeout_seconds=None):
 
 def disable_previous_user_codes(user, auth_event):
     # do not disable previous codes if using fixed codes
-    if auth_event.auth_method_config['config']['fixed-code']:
+    if auth_event.auth_method_config.get('config', {}).get('fixed-code', False):
         return
     Code\
         .objects\
