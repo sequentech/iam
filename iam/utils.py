@@ -345,7 +345,7 @@ def verify_admin_generated_auth_code(
         )
         return False, None
 
-    disable_previous_user_codes(user)
+    disable_previous_user_codes(user, auth_event)
 
     if not constant_time_compare(req_data['code'], code.code):  
         LOGGER.error(

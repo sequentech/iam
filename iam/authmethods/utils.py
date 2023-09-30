@@ -936,7 +936,10 @@ def get_user_code(user, timeout_seconds=None):
         .order_by('-created')\
         .first()
 
-def disable_previous_user_codes(user):
+def disable_previous_user_codes(user, auth_event):
+    # do not disable previous codes if using fixed codes
+    if auth_event.auth_method_config['config']['fixed-code']:
+        return
     Code\
         .objects\
         .filter(
@@ -1140,7 +1143,7 @@ def post_verify_fields_on_auth(user, req, auth_event, mode="auth"):
 
     # disable the user code if any
     if otp_field_code is not None:
-        disable_previous_user_codes(user)
+        disable_previous_user_codes(user, auth_event)
 
     return otp_field_code
 
