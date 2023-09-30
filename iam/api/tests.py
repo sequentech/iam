@@ -1666,15 +1666,14 @@ class TestRegisterAndAuthenticateEmail(TestCase):
         r = parse_json_response(response)
         self.assertEqual(r['error_codename'], 'INVALID_REQUEST')
 
-        # good: self.aeid.census = close but allow_user_resend = True
+        # good: allow_user_resend = True
         self.ae.auth_method_config['config']['allow_user_resend'] = True
         self.ae.save()
         response = c.post('/api/auth-event/%d/resend_auth_code/' % self.aeid, data)
         r = parse_json_response(response)
         self.assertEqual(response.status_code, 200)
 
-        # bad: self.aeid.census = open and status != started
-        self.ae.auth_method_config['config']['allow_user_resend'] = False
+        # bad: status != started
         self.ae.census = 'open'
         self.ae.status = 'stopped'
         self.ae.save()
