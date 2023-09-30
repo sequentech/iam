@@ -1435,7 +1435,13 @@ def resend_auth_code(
         args=[
             [user.id,],
             get_client_ip(request)
-        ]
+        ],
+        # since the auth_event might have been patched, we need to pass the
+        # potentially patched auth_method and config
+        kwargs={
+            "auth_method": auth_event.auth_method,
+            "config": auth_event.auth_method_config.get('config')
+        }
     )
     LOGGER.info(
         f"{logger_name}.resend_auth_code.\n"\
