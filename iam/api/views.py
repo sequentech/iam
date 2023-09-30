@@ -1078,25 +1078,14 @@ class ResendAuthCode(View):
                 error_codename=ErrorCodes.INTERNAL_SERVER_ERROR
             )
 
-        # if registration is closed, check that resend auth codes is allowed
-        if (
-            auth_event.census == 'close' and
-            not patched_auth_event.check_allow_user_resend()
-        ):
+        # check that resend auth codes is allowed
+        if not patched_auth_event.check_allow_user_resend():
             return json_response(
                 status=400,
                 error_codename="INVALID_REQUEST")
-        
-        # if registration is open, check that resend auth codes is allowed and
-        # the auth event is started
-        if (
-            (
-                auth_event.census == 'open' or
-                patched_auth_event.check_allow_user_resend()
-            ) and
-            auth_event.status != AuthEvent.STARTED and
-            auth_event.status != AuthEvent.RESUMED
-        ):
+
+        # check auth event is started
+        if auth_event.status not in [AuthEvent.STARTED, AuthEvent.RESUMED]:
             return json_response(
                 status=400,
                 error_codename="AUTH_EVENT_NOT_STARTED")
