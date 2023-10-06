@@ -700,6 +700,8 @@ class AuthEvent(models.Model):
             self.status != AuthEvent.SUSPENDED
         ):
             return False
+        else:
+            return True
 
     def __str__(self):
         return "%s - %s" % (self.id, self.census)
