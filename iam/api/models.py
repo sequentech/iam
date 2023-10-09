@@ -142,7 +142,7 @@ CHILDREN_ELECTION_INFO_CONTRACT = [
                                 'type': dict
                             },
                             {
-                                'check': 'dict-keys-exact',
+                                'check': 'dict-keys-exist',
                                 'keys': ['id', 'title', 'events']
                             },
                             {
