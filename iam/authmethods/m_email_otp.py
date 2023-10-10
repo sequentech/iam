@@ -833,7 +833,7 @@ class EmailOtp:
         # if otp_field_code is not None then post_verify_fields_on_auth already
         # disabled the user code
         if otp_field_code is None:
-            disable_previous_user_codes(user)
+            disable_previous_user_codes(user, auth_event)
 
         if not constant_time_compare(req.get('code').upper(), code.code):
             msg += f"code mismatch for user `{user.userdata}`: [dbcode = `{code.code}`] != [requested code = `{req.get('code').upper()}`]\n"
