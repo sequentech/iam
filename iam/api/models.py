@@ -142,7 +142,7 @@ CHILDREN_ELECTION_INFO_CONTRACT = [
                                 'type': dict
                             },
                             {
-                                'check': 'dict-keys-exact',
+                                'check': 'dict-keys-exist',
                                 'keys': ['id', 'title', 'events']
                             },
                             {
@@ -171,6 +171,25 @@ CHILDREN_ELECTION_INFO_CONTRACT = [
                                         'check': 'length',
                                         'range': [1, 254]
                                     }
+                                ]
+                            },
+                            {
+                                'check': 'index-check-list',
+                                'index': 'title_i18n',
+                                'optional': True,
+                                'check-list': [
+                                    {
+                                        'check': 'isinstance',
+                                        'type': dict
+                                    },
+                                    {   # keys are strings
+                                        'check': 'lambda',
+                                        'lambda': lambda d: all([isinstance(k, str) for k in d.keys()])
+                                    },
+                                    {   # values are strings
+                                        'check': 'lambda',
+                                        'lambda': lambda d: all([isinstance(k, str) for k in d.values()])
+                                    },
                                 ]
                             },
                             {
