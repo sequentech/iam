@@ -110,26 +110,20 @@ def census_send_auth_task(
         isinstance(config['force_create_otl'], bool) and
         config.get('force_create_otl', False)
     )
-    
-    def split_array(arr, size=1000):
-        return [arr[i:i+size] for i in range(0, len(arr), size)]
-    
-    split_census = split_array(census)
 
+    logger.info("census_send_auth_task(pk = %r): send_codes.apply_async with census_size = %r" % (pk, len(census)))
     # splitting in multiple jobs
-    for split_census_arr in split_census:
-        logger.info("census_send_auth_task(pk = %r): send_codes.apply_async with census_size = %r" % (pk, len(split_census_arr)))
-        send_codes.apply_async(
-            args=[
-                split_census_arr,
-                ip,
-                auth_method,
-                config,
-                sender_uid,
-                pk,
-                force_create_otl
-            ]
-        )
+    send_codes.apply_async(
+        args=[
+            census,
+            ip,
+            auth_method,
+            config,
+            sender_uid,
+            pk,
+            force_create_otl
+        ]
+    )
 
 def launch_tally(auth_event):
     '''
