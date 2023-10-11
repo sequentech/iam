@@ -1011,6 +1011,7 @@ def send_codes(
     eid=None,
     force_create_otl=False
 ):
+    LOGGER.info("send_codes(): called with eid=%r, len(users) %r" % (eid, len(users)))
     from api.models import Action, AuthEvent
     from authmethods.models import OneTimeLink
 

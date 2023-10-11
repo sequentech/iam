@@ -90,6 +90,11 @@ class Command(BaseCommand):
       DELETE FROM api_userdata
       USING users_to_delete
       WHERE api_userdata.id = users_to_delete.userdata_id
+    ),
+    delete_authmethods_code AS (
+      DELETE FROM authmethods_code
+      USING users_to_delete
+      WHERE authmethods_code.user_id=users_to_delete.user_id
     )
     DELETE FROM auth_user
     USING users_to_delete
