@@ -2203,16 +2203,17 @@ class CensusSendAuth(View):
             if req.get('filter', None):
                 config['filter'] = req.get('filter', None)
         else:
-            send_error = census_send_auth_task(
+            census_send_auth_task.apply_async(
+                args=[
                 pk,
                 get_client_ip(request),
                 None,
                 userids,
                 auth_method,
                 request.user.id,
-                **extra_req)
-            if send_error:
-                return json_response(**send_error)
+                ],
+                kwargs=extra_req
+            )
             return json_response(data)
 
         if config.get('msg', None) is not None:
@@ -2233,15 +2234,16 @@ class CensusSendAuth(View):
                     status=400,
                     error_codename=ErrorCodes.BAD_REQUEST)
 
-        send_error = census_send_auth_task(
+        census_send_auth_task.apply_async(
+            args=[
             pk,
             get_client_ip(request),
             config, userids,
             auth_method,
             request.user.id,
-            **extra_req)
-        if send_error:
-            return json_response(**send_error)
+            ],
+            kwargs=extra_req
+        )
         return json_response(data)
 census_send_auth = login_required(CensusSendAuth.as_view())
 

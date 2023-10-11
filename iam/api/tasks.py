@@ -36,6 +36,7 @@ def parse_json_request(request):
     '''
     return json.loads(request.content.decode('utf-8'))
 
+@shared_task(name='api.tasks.census_send_auth_task')
 def census_send_auth_task(
     pk,
     ip,
@@ -84,6 +85,7 @@ def census_send_auth_task(
         userdata = UserData.objects.filter(user__in=users)
         new_census = ACL.objects.filter(perm="vote", object_type="AuthEvent", object_id=str(pk), user__in=userdata)
 
+    logger.info("census_send_auth_task(pk = %r): users.len() = %r, new_census.len()" % (users.len(), new_census.len()))
     census = []
     if e.auth_method == auth_method:
         census = [i.user.user.id for i in new_census]
@@ -93,6 +95,8 @@ def census_send_auth_task(
                census.append(item.user.user.id)
            elif "email" == auth_method and item.user.user.email:
                census.append(item.user.user.id)
+    logger.info("census_send_auth_task(pk = %r): len(final_census) = %r" % (len(census)))
+    return
 
     extend_errors = plugins.call("extend_send_message", e, len(census), kwargs)
     if extend_errors:
