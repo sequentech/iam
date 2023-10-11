@@ -95,6 +95,11 @@ class Command(BaseCommand):
       DELETE FROM authmethods_code
       USING users_to_delete
       WHERE authmethods_code.user_id=users_to_delete.user_id
+    ),
+    delete_authmethods_onetimelink AS (
+      DELTE FROM authmethods_onetimelink
+      USING users_to_delete
+      WHERE authmethods_onetimelink.user_id=users_to_delete.user_id
     )
     DELETE FROM auth_user
     USING users_to_delete
