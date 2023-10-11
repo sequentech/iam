@@ -85,7 +85,7 @@ def census_send_auth_task(
         userdata = UserData.objects.filter(user__in=users)
         new_census = ACL.objects.filter(perm="vote", object_type="AuthEvent", object_id=str(pk), user__in=userdata)
 
-    logger.info("census_send_auth_task(pk = %r): users.len() = %r, new_census.len()" % (users.len(), new_census.len()))
+    logger.info("census_send_auth_task(pk = %r): new_census.count() = %r" % (pk, new_census.count()))
     census = []
     if e.auth_method == auth_method:
         census = [i.user.user.id for i in new_census]
@@ -95,8 +95,7 @@ def census_send_auth_task(
                census.append(item.user.user.id)
            elif "email" == auth_method and item.user.user.email:
                census.append(item.user.user.id)
-    logger.info("census_send_auth_task(pk = %r): len(final_census) = %r" % (len(census)))
-    return
+    logger.info("census_send_auth_task(pk = %r): len(final_census) = %r" % (pk, len(census)))
 
     extend_errors = plugins.call("extend_send_message", e, len(census), kwargs)
     if extend_errors:
@@ -111,10 +110,26 @@ def census_send_auth_task(
         isinstance(config['force_create_otl'], bool) and
         config.get('force_create_otl', False)
     )
-    logger.info("census_send_auth_task(pk = %r): send_codes.apply_async" % pk)
-    send_codes.apply_async(
-        args=[census, ip, auth_method, config, sender_uid, pk, force_create_otl]
-    )
+    
+    def split_array(arr, size=1000):
+        return [arr[i:i+size] for i in range(0, len(arr), size)]
+    
+    split_census = split_array(census)
+
+    # splitting in multiple jobs
+    for split_census_arr in split_census:
+        logger.info("census_send_auth_task(pk = %r): send_codes.apply_async with census_size = %r" % (pk, len(split_census_arr)))
+        send_codes.apply_async(
+            args=[
+                split_census_arr,
+                ip,
+                auth_method,
+                config,
+                sender_uid,
+                pk,
+                force_create_otl
+            ]
+        )
 
 def launch_tally(auth_event):
     '''
