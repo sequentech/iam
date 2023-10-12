@@ -74,11 +74,17 @@ new_captcha = NewCaptcha.as_view()
 
 
 def getsize(font, text):
-    if hasattr(font, 'getoffset'):
+    if hasattr(font, 'getbbox'):
+        left, top, right, bottom = font.getbbox(text)
+        width = abs(right - left)
+        height =  abs(top - bottom)
+        return [width, height]
+    elif hasattr(font, 'getoffset'):
         return [x + y for x, y in zip(font.getsize(text), font.getoffset(text))]
-    else:
+    elif hasattr(font, 'getsize'):
         return font.getsize(text)
-
+    else:
+        raise Exception('Font has not known properties to get its size')
 
 def noise_arcs(draw, image):
     fg_color = '#001100'
