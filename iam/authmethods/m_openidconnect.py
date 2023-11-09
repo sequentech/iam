@@ -20,6 +20,12 @@ from utils import (
     verify_admin_generated_auth_code
 )
 from authmethods.utils import (
+    verify_children_election_info,
+    check_fields_in_request,
+    verify_valid_children_elections,
+    exists_unique_user,
+    exist_user,
+    add_unique_user,
     create_user,
     get_base_auth_query,
     give_perms,
@@ -50,8 +56,10 @@ from oic.utils.keyio import KeyJar
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 from oic.utils.time_util import utc_time_sans_frac
 
-from contracts.base import check_contract, JsonTypeEncoder
-from contracts import CheckException
+from marshmallow import Schema, fields as marshmallow_fields, validate
+from marshmallow.exceptions import ValidationError as MarshMallowValidationError
+
+from contracts.base import JsonTypeEncoder
 
 LOGGER = logging.getLogger('iam')
 
@@ -59,6 +67,73 @@ LOGGER = logging.getLogger('iam')
 def testview(request, param):
     data = {'status': 'ok'}
     return json_response(data)
+
+class OIDCProviderSchema(Schema):
+    '''
+    Schema for an OIDC Provider Configuration
+    '''
+    id = marshmallow_fields.String(
+        required=True, allow_none=False
+    )
+    title = marshmallow_fields.String(
+        required=True, allow_none=False
+    )
+    description = marshmallow_fields.String(
+        required=True, allow_none=False
+    )
+    icon = marshmallow_fields.Url(
+        required=True, allow_none=False, schemes=["https"]
+    )
+    authorization_endpoint = marshmallow_fields.Url(
+        required=True, allow_none=False, schemes=["https"]
+    )
+    client_id = marshmallow_fields.String(
+        required=True, allow_none=False
+    )
+    issuer = marshmallow_fields.Url(
+        required=True, allow_none=False, schemes=["https"]
+    )
+    token_endpoint = marshmallow_fields.Url(
+        required=True, allow_none=False, schemes=["https"]
+    )
+    jwks_uri = marshmallow_fields.Url(
+        required=True, allow_none=False, schemes=["https"]
+    )
+    logout_uri = marshmallow_fields.Url(
+        required=True, allow_none=False, schemes=["https"]
+    )
+    client_secret = marshmallow_fields.String(
+        required=True, allow_none=False
+    )
+
+    def get_public_info(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "description": self.description,
+            "icon": self.icon,
+            "authorization_endpoint": self.authorization_endpoint,
+            "client_id": self.client_id,
+            "issuer": self.issuer,
+            "token_endpoint": self.token_endpoint,
+            "jwks_uri": self.jwks_uri,
+            "logout_uri": self.logout_uri,
+        }
+
+    def get_private_info(self):
+        return {
+            "client_secret": self.client_secret,
+        }
+
+
+class OIDCConfigSchema(Schema):
+    '''
+    Schema for the AuthEvent.scheduled_events field
+    '''
+    oidc_providers = marshmallow_fields.List(
+        OIDCProviderSchema,
+        validate=[validate.Length(min=1, max=20)]
+    )
 
 
 class OpenIdConnect(object):
@@ -93,78 +168,18 @@ class OpenIdConnect(object):
         "required_on_authentication": True
     }
 
-    CONFIG_CONTRACT = [
-        {
-        'check': 'isinstance',
-        'type': dict
-        },
-        {
-            'check': 'index-check-list',
-            'index': 'msg_i18n',
-            'optional': True,
-            'check-list': [
-                {
-                    'check': 'isinstance',
-                    'type': dict
-                },
-                {   # keys are strings
-                    'check': 'lambda',
-                    'lambda': lambda d: all([isinstance(k, str) for k in d.keys()])
-                },
-                {   # values are strings
-                    'check': 'lambda',
-                    'lambda': lambda d: all([isinstance(k, str) and len(k) > 0 and len(k) <= 200 for k in d.values()])
-                },
-            ]
-        },
-        {
-            'check': 'index-check-list',
-            'index': 'subject_i18n',
-            'optional': True,
-            'check-list': [
-                {
-                    'check': 'isinstance',
-                    'type': dict
-                },
-                {   # keys are strings
-                    'check': 'lambda',
-                    'lambda': lambda d: all([isinstance(k, str) for k in d.keys()])
-                },
-                {   # values are strings
-                    'check': 'lambda',
-                    'lambda': lambda d: all([isinstance(k, str) and len(k) > 0 and len(k) <= 1024 for k in d.values()])
-                },
-            ]
-        },
-        {
-            'check': 'index-check-list',
-            'index': 'html_message_i18n',
-            'optional': True,
-            'check-list': [
-                {
-                    'check': 'isinstance',
-                    'type': dict
-                },
-                {   # keys are strings
-                    'check': 'lambda',
-                    'lambda': lambda d: all([isinstance(k, str) for k in d.keys()])
-                },
-                {   # values are strings
-                    'check': 'lambda',
-                    'lambda': lambda d: all([isinstance(k, str)  and len(k) > 0 and len(k) <= 5000 for k in d.values()])
-                },
-            ]
-        }
-    ]
+    providers = dict()
 
-    PROVIDERS = dict()
+    def init_providers(self, auth_event):
+        self.providers = dict()
+        providers = OIDCConfigSchema()\
+            .load(auth_event.auth_method_config['config'])
 
-    def __init__(self):
-        for conf in settings.OPENID_CONNECT_PROVIDERS_CONF:
+        for provider in providers:
             keyjar = KeyJar()
             keyjar.add(
-                conf['public_info']['issuer'],
-                conf['public_info']['jwks_uri']
+                provider.issuer,
+                provider.jwks_uri
             )
 
             client = Client(
@@ -174,110 +189,245 @@ class OpenIdConnect(object):
 
             client.provider_info = ProviderConfigurationResponse(
                 version='1.0',
-                **conf['public_info']
+                **provider.get_public_info()
             )
             registration_data = dict(
-              client_id=conf['public_info']['client_id'],
-              **conf["private_config"]
+              client_id=provider.client_id,
+              **provider.get_private_config()
             )
             registration_response = RegistrationResponse().from_dict(registration_data)
             client.store_registration_info(registration_response)
 
-            self.PROVIDERS[conf['public_info']['id']] = dict(
-                conf=conf,
+            self.providers[provider.id] = dict(
+                provider=provider,
                 client=client
             )
 
     def check_config(self, config):
-        """ Check config when create auth-event. """
+        """
+        Check config when creating the auth-event.
+        """
         if config is None:
             return ''
         try:
-            check_contract(self.CONFIG_CONTRACT, config)
-            LOGGER.debug(\
-                "OpenId.check_config success\n"\
-                "config '%r'\n"\
-                "returns ''\n"\
-                "Stack trace: \n%s",\
-                config, stack_trace_str())
-            return ''
-        except CheckException as e:
-            LOGGER.error(\
-                "OpenId.check_config error\n"\
-                "error '%r'\n"\
-                "config '%r'\n"\
-                "Stack trace: \n%s",\
-                e.data, config, stack_trace_str())
-            return json.dumps(e.data, cls=JsonTypeEncoder)
+            OIDCConfigSchema.validate(config)
+            ret_value = ''
+            LOGGER.debug(
+                "OpenId.check_config success\n"
+                f"config '{config}'\n"
+                f"returns '{ret_value}'"
+                f"Stack trace: \n{stack_trace_str()}"
+            )
+            return ret_value
+        except MarshMallowValidationError as error:
+            ret_value = json.dumps(error.messages, cls=JsonTypeEncoder)
+            LOGGER.error(
+                "OpenId.check_config error\n"
+                f"config '{config}'\n"
+                f"returns '{ret_value}'"
+                f"Stack trace: \n{stack_trace_str()}"
+            )
+            return ret_value
 
-    def census(self, ae, request):
-        return {'status': 'ok'}
+    def census(self, auth_event, request):
+        req = json.loads(request.body.decode('utf-8'))
+        validation = req.get('field-validation', 'enabled') == 'enabled'
 
-    def authenticate_error(self, error, req, ae, message=""):
-        d = {'status': 'nok'}
-        LOGGER.error(\
-            "OpenIdConnect.authenticate error\n"\
-            "error '%r'\n"\
-            "message '%r'\n"\
-            "request '%r'\n"\
-            "authevent '%r'\n"\
-            "Stack trace: \n%s",\
-            error, message, req, ae, stack_trace_str())
-        return d
+        msg = ''
+        unique_users = dict()
+        
+        # cannot add voters to an election with invalid children election info
+        if auth_event.children_election_info is not None:
+            try:
+                verify_children_election_info(
+                    auth_event, request.user, ['edit', 'census-add']
+                )
+            except:
+                return self.error(
+                    "Incorrect data",
+                    error_codename="invalid_data",
+                    internal_error=(
+                        f"request '{req}'\n"
+                        f"error in verify_children_election_info '{msg}'"
+                    ),
+                    auth_event=auth_event,
+                    method_name="census",
+                )
+
+        for census_element in req.get('census'):
+            msg += check_fields_in_request(
+              census_element, 
+              auth_event, 
+              'census', 
+              validation=validation
+            )
+
+            if auth_event.children_election_info is not None:
+                try:
+                    verify_valid_children_elections(auth_event, census_element)
+                except:
+                    return self.error(
+                        "Incorrect data",
+                        error_codename="invalid_data",
+                        internal_error=(
+                            f"request '{req}'\n"
+                            f"error in verify_valid_children_elections '{msg}'"
+                        ),
+                        auth_event=auth_event,
+                        method_name="census",
+                    )
+
+            if validation:
+                exists, extra_msg = exists_unique_user(
+                    unique_users,
+                    census_element,
+                    auth_event
+                )
+                msg += extra_msg
+                if not exists:
+                    add_unique_user(
+                        unique_users,
+                        census_element,
+                        auth_event
+                    )
+                    msg += exist_user(census_element, auth_event)
+            else:
+                if msg:
+                    LOGGER.debug(
+                        "OpenIdConnect.census warning\n"
+                        f"error (but validation disabled) '{msg}'\n"
+                        f"request '{req}'\n"
+                        f"validation '{validation}'\n"
+                        f"authevent '{auth_event}'\n"
+                        f"returns '{ret}'\n"
+                        f"Stack trace: \n{stack_trace_str()}"
+                    )
+                    msg = ''
+                    continue
+                exist = exist_user(census_element, auth_event)
+                if exist and not exist.count('None'):
+                    continue
+                # By default we creates the user as active we don't check
+                # the pipeline
+                u = create_user(census_element, auth_event, True, request.user)
+                give_perms(u, auth_event)
+        if msg and validation:
+            return self.error(
+                "Incorrect data",
+                error_codename="invalid_credentials",
+                internal_error=f"request '{req}'\n msg=`{msg}`",
+                auth_event=auth_event,
+                method_name="census"
+            )
+
+        if validation:
+            for census_element in req.get('census'):
+                # By default we creates the user as active we don't check
+                # the pipeline
+                u = create_user(census_element, auth_event, True, request.user)
+                give_perms(u, auth_event)
+        
+        ret = {'status': 'ok'}
+        LOGGER.debug(
+            "OpenIdConnect.census\n"
+            f"request '{req}'\n"
+            f"validation '{validation}'\n"
+            f"authevent '{auth_event}'\n"
+            f"returns '{ret}'\n"
+            f"Stack trace: \n{stack_trace_str()}"
+        )
+        return ret
 
     def error(
-            self, msg, auth_event=None, error_codename=None, internal_error=None
+            self, 
+            msg, 
+            auth_event=None,
+            error_codename=None,
+            internal_error=None,
+            method_name="error",
         ):
         data = {'status': 'nok', 'msg': msg, 'error_codename': error_codename}
-        LOGGER.error(\
-            "OpenIdConnect.error\n"\
-            f"internal_error '{internal_error}'\n"\
-            f"error_codename '{error_codename}'\n"\
-            f"returning error '{data}'\n"\
-            f"auth_event '{auth_event}'\n"\
+        LOGGER.error(
+            f"OpenIdConnect.{method_name}\n"
+            f"internal_error '{internal_error}'\n"
+            f"error_codename '{error_codename}'\n"
+            f"returning error '{data}'\n"
+            f"auth_event '{auth_event}'\n"
             f"Stack trace: \n{stack_trace_str()}"
         )
         return data
 
     def authenticate(self, auth_event, request, mode='authenticate'):
+        try:
+            self.init_providers(self.auth_event)
+        except MarshMallowValidationError as error:
+            return self.error(
+                ErrorCodes.INTERNAL_SERVER_ERROR,
+                error_codename=ErrorCodes.INTERNAL_SERVER_ERROR,
+                internal_error=(
+                    f"request '{req}'\n"
+                    f"error parsing config '{error}'"
+                ),
+                auth_event=auth_event,
+                method_name="authenticate",
+            )
+
         ret_data = {'status': 'ok'}
         req = json.loads(request.body.decode('utf-8'))
-        if mode == 'authenticate':
-            verified, user = verify_admin_generated_auth_code(
-                auth_event=auth_event,
-                req_data=req,
-                log_prefix="OpenIdConnect"
-            )
-            if verified:
-                if not verify_num_successful_logins(
-                    auth_event,
-                    'OpenIdConnect',
-                    user,
-                    req
-                ):
-                    return self.error(
-                        ErrorCodes.CANT_VOTE_MORE_TIMES,
-                        auth_event=auth_event,
-                        error_codename=ErrorCodes.CANT_VOTE_MORE_TIMES
-                    )
+        verified, user = verify_admin_generated_auth_code(
+            auth_event=auth_event,
+            req_data=req,
+            log_prefix="OpenIdConnect"
+        )
+        if verified:
+            if not verify_num_successful_logins(
+                auth_event,
+                'OpenIdConnect',
+                user,
+                req
+            ):
+                return self.error(
+                    ErrorCodes.CANT_VOTE_MORE_TIMES,
+                    error_codename=ErrorCodes.CANT_VOTE_MORE_TIMES,
+                    internal_error=(
+                        f"request '{req}'\n"
+                        f"error in verify_num_successful_logins"
+                    ),
+                    auth_event=auth_event,
+                    method_name="authenticate",
+                )
 
-                return return_auth_data('OpenIdConnect', req, request, user)
+            return return_auth_data('OpenIdConnect', req, request, user)
 
         if auth_event.parent is not None:
             return self.error(
                 msg,
+                error_codename=ErrorCodes.CANT_AUTHENTICATE_TO_PARENT,
+                internal_error=(
+                    f"request '{req}'\n"
+                    f"auth_event.parent is not None"
+                ),
                 auth_event=auth_event,
-                error_codename=ErrorCodes.CANT_AUTHENTICATE_TO_PARENT
+                method_name="authenticate",
             )
 
         id_token = req.get('id_token', '')
         provider_id = req.get('provider', '')
         nonce = req.get('nonce', '')
 
-        if provider_id not in self.PROVIDERS:
-            return self.authenticate_error("invalid-provider", req, auth_event)
+        if provider_id not in self.providers:
+            return self.error(
+                ErrorCodes.INVALID_FIELD_VALIDATION,
+                error_codename=ErrorCodes.INVALID_FIELD_VALIDATION,
+                internal_error=(
+                    f"request '{req}'\n"
+                    f"provider-id '{provider_id}' not found"
+                ),
+                auth_event=auth_event,
+                method_name="authenticate",
+            )
 
-        provider = self.PROVIDERS[provider_id]
+        provider = self.providers[provider_id]
         # parses and verifies/validates the id token
         id_token_obj = provider['client'].parse_response(
             AuthorizationResponse,
@@ -287,25 +437,72 @@ class OpenIdConnect(object):
             scope="openid"
         )
         if not id_token_obj:
-            return self.authenticate_error("invalid-id-token", req, auth_event,
-                message="id_token_obj is empty")
+            return self.error(
+                ErrorCodes.INVALID_REQUEST,
+                error_codename=ErrorCodes.INVALID_REQUEST,
+                internal_error=(
+                    f"request '{req}'\n"
+                    f"invalid-id-token, id_token_obj is empty"
+                ),
+                auth_event=auth_event,
+                method_name="authenticate",
+            )
 
         # verify nonce securely
         id_token_dict = id_token_obj.to_dict()
         if not constant_time_compare(id_token_dict['nonce'], nonce):
-            return self.authenticate_error("invalid-nonce", req, auth_event,
-                message="'%r' != '%r'" % (id_token_dict['nonce'], nonce))
+            return self.error(
+                ErrorCodes.INVALID_REQUEST,
+                error_codename=ErrorCodes.INVALID_REQUEST,
+                internal_error=(
+                    f"request '{req}'\n"
+                    f"invalid-nonce, {id_token_dict['nonce']} != {nonce}"
+                ),
+                auth_event=auth_event,
+                method_name="authenticate",
+            )
 
         # verify client_id
-        if not constant_time_compare(id_token_dict['aud'], provider['conf']['public_info']['client_id']):
-            return self.authenticate_error("invalid-aud", req, auth_event,
-                message="'%r' != '%r'" % (id_token_dict['aud'], provider['conf']['public_info']['client_id']))
+        if not constant_time_compare(
+            id_token_dict['aud'], 
+            provider['conf']['public_info']['client_id']
+        ):
+            return self.error(
+                ErrorCodes.INVALID_REQUEST,
+                error_codename=ErrorCodes.INVALID_REQUEST,
+                internal_error=(
+                    f"request '{req}'\n"
+                    f"invalid-aud, {id_token_dict['aud']} != {provider['conf']['public_info']['client_id']}"
+                ),
+                auth_event=auth_event,
+                method_name="authenticate",
+            )
 
         # verify expiration
         current_timestamp = utc_time_sans_frac()
         if id_token_dict['exp'] < current_timestamp:
-            return self.authenticate_error("invalid-exp", req, auth_event,
-                message="'%r' != '%r'" % (id_token_dict['exp'], current_timestamp))
+            return self.error(
+                ErrorCodes.INVALID_REQUEST,
+                error_codename=ErrorCodes.INVALID_REQUEST,
+                internal_error=(
+                    f"request '{req}'\n"
+                    f"invalid-exp, {id_token_dict['exp']} >= {current_timestamp}"
+                ),
+                auth_event=auth_event,
+                method_name="authenticate",
+            )
+
+        msg = check_pipeline(request, auth_event, 'authenticate')
+        if msg:
+            return self.error(
+                ErrorCodes.PIPELINE_INVALID_CREDENTIALS,
+                internal_error=(
+                    f"request '{req}'\n"
+                    f"msg '{msg}'"
+                ),
+                auth_event=auth_event,
+                error_codename=ErrorCodes.PIPELINE_INVALID_CREDENTIALS
+            )
 
         # get user_id and get/create user
         user_id = id_token_dict['sub']
@@ -313,65 +510,57 @@ class OpenIdConnect(object):
             user_query = get_base_auth_query(auth_event)
             user_query["userdata__metadata__contains"]={"sub": user_id}
             user = User.objects.get(user_query)
-        except:
-            user = create_user(
-                req=dict(sub=user_id),
-                ae=auth_event,
-                active=True,
-                creator=request.user
-            )
-            give_perms(user, auth_event)
-
-        msg = check_pipeline(request, auth_event, 'authenticate')
-        if msg:
-            return self.error(
-                msg="",
-                internal_error=msg,
-                auth_event=auth_event,
-                error_codename=ErrorCodes.PIPELINE_INVALID_CREDENTIALS
-            )
-        msg = ""
-
-        if mode == "authenticate":
-            if not verify_num_successful_logins(auth_event, 'OpenIdConnect', user, req):
+        except Exception as error:
+            msg += f"can't find user with query: `{str(q)}`\nexception: `{error}`\n"
+            if auth_event.census == 'close':
                 return self.error(
-                    ErrorCodes.CANT_VOTE_MORE_TIMES,
+                    msg=ErrorCodes.USER_NOT_FOUND,
+                    internal_error=(
+                        f"request '{req}'\n"
+                        f"msg '{msg}'"
+                    ),
                     auth_event=auth_event,
-                    error_codename=ErrorCodes.CANT_VOTE_MORE_TIMES
+                    error_codename=ErrorCodes.USER_NOT_FOUND
                 )
+            else:
+                user = create_user(
+                    req=dict(sub=user_id),
+                    ae=auth_event,
+                    active=True,
+                    creator=request.user
+                )
+                give_perms(user, auth_event)
 
-            LOGGER.debug(\
-                "OpenIdConnect.authenticate success\n"\
-                "returns '%r'\n"\
-                "authevent '%r'\n"\
-                "id_token_dict '%r'\n"\
-                "request '%r'\n"\
-                "Stack trace: \n%s",\
-                ret_data, auth_event, id_token_dict, req, stack_trace_str()
-            )
-            return return_auth_data(
-                'OpenIdConnect', 
-                req, 
-                request, 
-                user,
-                auth_event, 
-                extra_debug="id_token_dict '%r'\n" % id_token_dict
+        if not verify_num_successful_logins(
+            auth_event, 'OpenIdConnect', user, req
+        ):
+            return self.error(
+                ErrorCodes.CANT_VOTE_MORE_TIMES,
+                internal_error=(
+                    f"request '{req}'\n"
+                    f"error in verify_num_successful_logins"
+                ),
+                auth_event=auth_event,
+                error_codename=ErrorCodes.CANT_VOTE_MORE_TIMES
             )
 
-        LOGGER.debug(\
-            "OpenIdConnect.authenticate success\n"\
-            "returns '%r'\n"\
-            "authevent '%r'\n"\
-            "id_token_dict '%r'\n"\
-            "request '%r'\n"\
-            "Stack trace: \n%s",\
-            ret_data, auth_event, id_token_dict, req, stack_trace_str()
+        LOGGER.debug(
+            "OpenIdConnect.authenticate success\n"
+            "OpenIdConnect.census\n"
+            f"request '{req}'\n"
+            f"id_token_dict '{id_token_dict}'\n"
+            f"authevent '{auth_event}'\n"
+            f"returns '{ret_data}'\n"
+            f"Stack trace: \n{stack_trace_str()}"
         )
-        return ret_data
-
-    def public_census_query(self, ae, request):
-        # whatever
-        return self.authenticate(ae, request, "census-query")
+        return return_auth_data(
+            'OpenIdConnect', 
+            req, 
+            request, 
+            user,
+            auth_event, 
+            extra_debug="id_token_dict '%r'\n" % id_token_dict
+        )
 
     def resend_auth_code(self, auth_event, request):
         return resend_auth_code(

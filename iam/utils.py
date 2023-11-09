@@ -802,6 +802,7 @@ def send_code(
     auth_method = auth_event.auth_method
     auth_config = auth_event.auth_method_config.get('config')
 
+
     # The auth_method_receiver is part of the __LINK__ or __LINK2__ in message
     # templates, and is dependent on the authentication method
     if auth_method in ['sms', 'sms-otp']:
