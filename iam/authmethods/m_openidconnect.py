@@ -75,7 +75,7 @@ def testview(request, param):
 
 
 class OIDCConfigSchema(Schema):
-    provider_names = marshmallow_fields.List(
+    provider_ids = marshmallow_fields.List(
         marshmallow_fields.String,
         validate=[validate.Length(min=1)]
     )
@@ -115,16 +115,16 @@ class OpenIdConnect(object):
     providers = dict()
 
     def init_providers(self, auth_event):
-        provider_names = OIDCConfigSchema()\
-            .load(auth_event.auth_method_config['config']).provider_names
+        provider_ids = OIDCConfigSchema()\
+            .load(auth_event.auth_method_config['config']).provider_ids
         self.providers = dict()
 
-        for provider_name in provider_names:
+        for provider_id in provider_ids:
             provider = next(
                 (
                     provider
                     for provider in auth_event.oidc_providers
-                    if provider["id"] == provider_name
+                    if provider["id"] == provider_id
                 ),
                 None
             )
@@ -364,7 +364,7 @@ class OpenIdConnect(object):
             )
 
         id_token = req.get('id_token', '')
-        provider_id = req.get('provider', '')
+        provider_id = req.get('provider_id', '')
         nonce = req.get('nonce', '')
 
         if provider_id not in self.providers:
