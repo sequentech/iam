@@ -5,7 +5,7 @@ from django.contrib.postgres.fields import JSONField
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('api', '0053_authapi_oidc_providers'),
+        ('api', '0052_authapi_scheduled_events'),
     ]
 
     operations = [
