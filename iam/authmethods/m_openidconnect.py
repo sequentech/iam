@@ -162,7 +162,7 @@ class OpenIdConnect(object):
         if config is None:
             return ''
         try:
-            OIDCConfigSchema.validate(config)
+            OIDCConfigSchema.validate(data=config)
             ret_value = ''
             LOGGER.debug(
                 "OpenId.check_config success\n"

@@ -408,7 +408,7 @@ def get_schema_validator(klass):
     '''
     def validator(data):
         try:
-            klass().validate(data)
+            klass().validate(data=data)
         except MarshMallowValidationError as error:
             # Convert the marshmallow validation error to a Django one,
             # because Django doesn't know how to handle marshmallow exceptions.
