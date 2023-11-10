@@ -157,7 +157,10 @@ class OpenIdConnect(object):
 
     def get_public_config(self, auth_event):
         return dict(
-            provider_ids=auth_event.auth_method_config["config"]["provider_ids"]
+            provider_ids=auth_event\
+                .auth_method_config\
+                .get("config", {})\
+                .get("provider_ids", [])
         )
 
     def check_config(self, config):
