@@ -629,7 +629,7 @@ class AuthEvent(models.Model):
             'scheduled_events': self.scheduled_events,
             'oidc_providers': [
                 dict(public_info=provider["public_info"])
-                for provider in self.oidc_providers
+                for provider in none_list(self.oidc_providers)
             ],
             'support_otl_enabled': self.support_otl_enabled,
             'inside_authenticate_otl_period': self.inside_authenticate_otl_period
