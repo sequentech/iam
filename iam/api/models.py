@@ -598,14 +598,14 @@ class AuthEvent(models.Model):
 
     def get_public_config(self):
         from authmethods import METHODS
-        public_config = {
+        base_config = {
             'allow_user_resend': self.check_allow_user_resend()
         }
         if not hasattr(METHODS[self.auth_method], "get_public_config"):
-            return public_config
+            return base_config
         public_config = {
-            **public_config,
-            **METHODS[self.auth_method].get_public_config(),
+            **base_config,
+            **METHODS[self.auth_method].get_public_config(self),
         }
         return public_config
 
