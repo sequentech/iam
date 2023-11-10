@@ -605,6 +605,11 @@ class AuthEvent(models.Model):
         # auth codes sent by authmethod
         from authmethods.models import Code
 
+        def none_list(e):
+          if e is None:
+              return []
+          return e
+
         d = {
             'id': self.id,
             'auth_method': self.auth_method,
@@ -634,11 +639,6 @@ class AuthEvent(models.Model):
             'support_otl_enabled': self.support_otl_enabled,
             'inside_authenticate_otl_period': self.inside_authenticate_otl_period
         }
-
-        def none_list(e):
-          if e is None:
-              return []
-          return e
         
         def restrict_extra_fields(fields):
             return [
