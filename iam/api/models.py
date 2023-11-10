@@ -388,11 +388,11 @@ class OIDCProviderSchema(Schema):
     Schema for an OIDC Provider Configuration
     '''
     public_info = marshmallow_fields.Nested(
-        OIDCPPrivateInfoSchema,
+        OIDCPPublicInfoSchema,
         allow_none=False
     )
     private_info = marshmallow_fields.Nested(
-        OIDCPPublicInfoSchema,
+        OIDCPPrivateInfoSchema,
         allow_none=False
     )
 
@@ -596,6 +596,19 @@ class AuthEvent(models.Model):
             )
        )
 
+    def get_public_config(self):
+        from authmethods import METHODS
+        public_config = {
+            'allow_user_resend': self.check_allow_user_resend()
+        }
+        if not hasattr(METHODS[self.auth_method], "get_public_config"):
+            return public_config
+        public_config = {
+            **public_config,
+            **METHODS[self.auth_method].get_public_config(),
+        }
+        return public_config
+
     def serialize(self, restrict=False):
         '''
         Used to serialize data when the user has priviledges to see all the data
@@ -627,9 +640,7 @@ class AuthEvent(models.Model):
             'parent_id': self.parent.id if self.parent is not None else None,
             'children_election_info': self.children_election_info,
             'auth_method_config': {
-               'config': {
-                 'allow_user_resend': self.check_allow_user_resend()
-               }
+               'config': self.get_public_config()
             },
             'scheduled_events': self.scheduled_events,
             'oidc_providers': [

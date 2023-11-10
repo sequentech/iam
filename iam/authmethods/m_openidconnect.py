@@ -155,6 +155,11 @@ class OpenIdConnect(object):
                 client=client
             )
 
+    def get_public_config(self, auth_event):
+        return dict(
+            provider_ids=auth_event.auth_method_config["config"]["provider_ids"]
+        )
+
     def check_config(self, config):
         """
         Check config when creating the auth-event.
@@ -165,18 +170,18 @@ class OpenIdConnect(object):
             OIDCConfigSchema().validate(data=config)
             ret_value = ''
             LOGGER.debug(
-                "OpenId.check_config success\n"
+                "OpenIdConnect.check_config success\n"
                 f"config '{config}'\n"
-                f"returns '{ret_value}'"
+                f"returns '{ret_value}'\n"
                 f"Stack trace: \n{stack_trace_str()}"
             )
             return ret_value
         except MarshMallowValidationError as error:
             ret_value = json.dumps(error.messages, cls=JsonTypeEncoder)
             LOGGER.error(
-                "OpenId.check_config error\n"
+                "OpenIdConnect.check_config error\n"
                 f"config '{config}'\n"
-                f"returns '{ret_value}'"
+                f"returns '{ret_value}'\n"
                 f"Stack trace: \n{stack_trace_str()}"
             )
             return ret_value
