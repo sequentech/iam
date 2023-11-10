@@ -77,7 +77,8 @@ from .models import (
     BallotBox,
     TallySheet,
     children_election_info_validator,
-    ScheduledEventsSchema
+    ScheduledEventsSchema,
+    OIDCProviderSchema
 )
 
 from .tasks import (
@@ -1591,6 +1592,13 @@ class AuthEventView(View):
                 except MarshMallowValidationError as error:
                     msg += str(error.messages)
 
+            oidc_providers = req.get('oidc_providers', None)
+            if oidc_providers:
+                try:
+                    OIDCProviderSchema(many=True).load(oidc_providers)
+                except MarshMallowValidationError as error:
+                    msg += str(error.messages)
+
             admin_fields = req.get('admin_fields', None)
             if admin_fields:
                 msg += check_admin_fields(
@@ -1707,6 +1715,7 @@ class AuthEventView(View):
                 support_otl_enabled=support_otl_enabled,
                 alternative_auth_methods=alternative_auth_methods,
                 scheduled_events=scheduled_events,
+                oidc_providers=oidc_providers,
             )
             # If the election exists, we are doing an update. Else, we are 
             # doing an insert. We use this update method instead of just 

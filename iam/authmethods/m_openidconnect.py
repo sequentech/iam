@@ -56,7 +56,11 @@ from oic.utils.keyio import KeyJar
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 from oic.utils.time_util import utc_time_sans_frac
 
-from marshmallow import Schema, fields as marshmallow_fields, validate
+from marshmallow import (
+    Schema,
+    fields as marshmallow_fields,
+    validate
+)
 from marshmallow.exceptions import ValidationError as MarshMallowValidationError
 
 from contracts.base import JsonTypeEncoder
@@ -68,73 +72,13 @@ def testview(request, param):
     data = {'status': 'ok'}
     return json_response(data)
 
-class OIDCProviderSchema(Schema):
-    '''
-    Schema for an OIDC Provider Configuration
-    '''
-    id = marshmallow_fields.String(
-        required=True, allow_none=False
-    )
-    title = marshmallow_fields.String(
-        required=True, allow_none=False
-    )
-    description = marshmallow_fields.String(
-        required=True, allow_none=False
-    )
-    icon = marshmallow_fields.Url(
-        required=True, allow_none=False, schemes=["https"]
-    )
-    authorization_endpoint = marshmallow_fields.Url(
-        required=True, allow_none=False, schemes=["https"]
-    )
-    client_id = marshmallow_fields.String(
-        required=True, allow_none=False
-    )
-    issuer = marshmallow_fields.Url(
-        required=True, allow_none=False, schemes=["https"]
-    )
-    token_endpoint = marshmallow_fields.Url(
-        required=True, allow_none=False, schemes=["https"]
-    )
-    jwks_uri = marshmallow_fields.Url(
-        required=True, allow_none=False, schemes=["https"]
-    )
-    logout_uri = marshmallow_fields.Url(
-        required=True, allow_none=False, schemes=["https"]
-    )
-    client_secret = marshmallow_fields.String(
-        required=True, allow_none=False
-    )
-
-    def get_public_info(self):
-        return {
-            "id": self.id,
-            "title": self.title,
-            "description": self.description,
-            "icon": self.icon,
-            "authorization_endpoint": self.authorization_endpoint,
-            "client_id": self.client_id,
-            "issuer": self.issuer,
-            "token_endpoint": self.token_endpoint,
-            "jwks_uri": self.jwks_uri,
-            "logout_uri": self.logout_uri,
-        }
-
-    def get_private_info(self):
-        return {
-            "client_secret": self.client_secret,
-        }
 
 
 class OIDCConfigSchema(Schema):
-    '''
-    Schema for the AuthEvent.scheduled_events field
-    '''
-    oidc_providers = marshmallow_fields.List(
-        OIDCProviderSchema,
-        validate=[validate.Length(min=1, max=20)]
+    provider_names = marshmallow_fields.List(
+        marshmallow_fields.String,
+        validate=[validate.Length(min=1)]
     )
-
 
 class OpenIdConnect(object):
     '''
@@ -171,15 +115,23 @@ class OpenIdConnect(object):
     providers = dict()
 
     def init_providers(self, auth_event):
+        provider_names = OIDCConfigSchema()\
+            .load(auth_event.auth_method_config['config']).provider_names
         self.providers = dict()
-        providers = OIDCConfigSchema()\
-            .load(auth_event.auth_method_config['config'])
 
-        for provider in providers:
+        for provider_name in provider_names:
+            provider = next(
+                (
+                    provider
+                    for provider in auth_event.oidc_providers
+                    if provider["id"] == provider_name
+                ),
+                None
+            )
             keyjar = KeyJar()
             keyjar.add(
-                provider.issuer,
-                provider.jwks_uri
+                provider["issuer"],
+                provider["jwks_uri"]
             )
 
             client = Client(
@@ -189,16 +141,16 @@ class OpenIdConnect(object):
 
             client.provider_info = ProviderConfigurationResponse(
                 version='1.0',
-                **provider.get_public_info()
+                **provider["public_info"]
             )
             registration_data = dict(
               client_id=provider.client_id,
-              **provider.get_private_config()
+                **provider["private_info"]
             )
             registration_response = RegistrationResponse().from_dict(registration_data)
             client.store_registration_info(registration_response)
 
-            self.providers[provider.id] = dict(
+            self.providers[provider["id"]] = dict(
                 provider=provider,
                 client=client
             )
