@@ -14,12 +14,16 @@
 # along with iam.  If not, see <http://www.gnu.org/licenses/>.
 
 from . import register_method
+from django.db.models import Q
 
 from utils import (
     ErrorCodes,
     verify_admin_generated_auth_code
 )
 from authmethods.utils import (
+    post_verify_fields_on_auth,
+    get_required_fields_on_auth,
+    populate_fields_from_source_claims,
     verify_children_election_info,
     check_fields_in_request,
     verify_valid_children_elections,
@@ -106,6 +110,8 @@ class OpenIdConnect(object):
         "name": "sub",
         "type": "text",
         "required": True,
+        "userid_field": True,
+        "source_claim": "email",
         "min": 1,
         "max": 255,
         "unique": True,
@@ -115,8 +121,7 @@ class OpenIdConnect(object):
     providers = dict()
 
     def init_providers(self, auth_event):
-        provider_ids = OIDCConfigSchema()\
-            .load(auth_event.auth_method_config['config']).provider_ids
+        provider_ids = auth_event.auth_method_config['config']["provider_ids"]
         self.providers = dict()
 
         for provider_id in provider_ids:
@@ -124,14 +129,14 @@ class OpenIdConnect(object):
                 (
                     provider
                     for provider in auth_event.oidc_providers
-                    if provider["id"] == provider_id
+                    if provider["public_info"]["id"] == provider_id
                 ),
                 None
             )
             keyjar = KeyJar()
             keyjar.add(
-                provider["issuer"],
-                provider["jwks_uri"]
+                provider["public_info"]["issuer"],
+                provider["public_info"]["jwks_uri"]
             )
 
             client = Client(
@@ -144,7 +149,7 @@ class OpenIdConnect(object):
                 **provider["public_info"]
             )
             registration_data = dict(
-              client_id=provider.client_id,
+              client_id=provider["public_info"]["client_id"],
                 **provider["private_info"]
             )
             registration_response = RegistrationResponse().from_dict(registration_data)
@@ -318,8 +323,9 @@ class OpenIdConnect(object):
         return data
 
     def authenticate(self, auth_event, request, mode='authenticate'):
+        req = json.loads(request.body.decode('utf-8'))
         try:
-            self.init_providers(self.auth_event)
+            self.init_providers(auth_event)
         except MarshMallowValidationError as error:
             return self.error(
                 ErrorCodes.INTERNAL_SERVER_ERROR,
@@ -333,7 +339,6 @@ class OpenIdConnect(object):
             )
 
         ret_data = {'status': 'ok'}
-        req = json.loads(request.body.decode('utf-8'))
         verified, user = verify_admin_generated_auth_code(
             auth_event=auth_event,
             req_data=req,
@@ -425,14 +430,14 @@ class OpenIdConnect(object):
         # verify client_id
         if not constant_time_compare(
             id_token_dict['aud'], 
-            provider['conf']['public_info']['client_id']
+            provider['provider']['public_info']['client_id']
         ):
             return self.error(
                 ErrorCodes.INVALID_REQUEST,
                 error_codename=ErrorCodes.INVALID_REQUEST,
                 internal_error=(
                     f"request '{req}'\n"
-                    f"invalid-aud, {id_token_dict['aud']} != {provider['conf']['public_info']['client_id']}"
+                    f"invalid-aud, {id_token_dict['aud']} != {provider['provider']['public_info']['client_id']}"
                 ),
                 auth_event=auth_event,
                 method_name="authenticate",
@@ -452,6 +457,10 @@ class OpenIdConnect(object):
                 method_name="authenticate",
             )
 
+        # once we have verified id_token_dict, then we can populate req with
+        # data from the verified claims contained in id_token_dict
+        req = populate_fields_from_source_claims(req, id_token_dict, auth_event)
+
         msg = check_pipeline(request, auth_event, 'authenticate')
         if msg:
             return self.error(
@@ -464,14 +473,17 @@ class OpenIdConnect(object):
                 error_codename=ErrorCodes.PIPELINE_INVALID_CREDENTIALS
             )
 
-        # get user_id and get/create user
-        user_id = id_token_dict['sub']
         try:
             user_query = get_base_auth_query(auth_event)
-            user_query["userdata__metadata__contains"]={"sub": user_id}
+            user_query = get_required_fields_on_auth(
+                req, auth_event, user_query
+            )
             user = User.objects.get(user_query)
         except Exception as error:
-            msg += f"can't find user with query: `{str(q)}`\nexception: `{error}`\n"
+            msg = (
+                f"can't find user with query: `{str(user_query)}`\n"
+                f"exception: `{error}`\n"
+            )
             if auth_event.census == 'close':
                 return self.error(
                     msg=ErrorCodes.USER_NOT_FOUND,
@@ -484,12 +496,26 @@ class OpenIdConnect(object):
                 )
             else:
                 user = create_user(
-                    req=dict(sub=user_id),
+                    req=req,
                     ae=auth_event,
                     active=True,
                     creator=request.user
                 )
                 give_perms(user, auth_event)
+
+        try:
+            post_verify_fields_on_auth(user, req, auth_event)
+        except Exception as error:
+            msg += f"exception: `{error}`\n"
+            return self.error(
+                msg=ErrorCodes.INVALID_PASSWORD_OR_CODE,
+                internal_error=(
+                    f"request '{req}'\n"
+                    f"msg '{msg}'"
+                ),
+                auth_event=auth_event,
+                error_codename=ErrorCodes.INVALID_PASSWORD_OR_CODE
+            )
 
         if not verify_num_successful_logins(
             auth_event, 'OpenIdConnect', user, req
@@ -518,8 +544,7 @@ class OpenIdConnect(object):
             req, 
             request, 
             user,
-            auth_event, 
-            extra_debug="id_token_dict '%r'\n" % id_token_dict
+            auth_event
         )
 
     def resend_auth_code(self, auth_event, request):

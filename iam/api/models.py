@@ -361,6 +361,9 @@ class OIDCPPublicInfoSchema(Schema):
     client_id = marshmallow_fields.String(
         required=True, allow_none=False
     )
+    scope = marshmallow_fields.String(
+        required=True, allow_none=False
+    )
     issuer = marshmallow_fields.Url(
         required=True, allow_none=False, schemes=["https"]
     )

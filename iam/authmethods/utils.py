@@ -861,7 +861,7 @@ def generate_username(req, ae):
         if 'userid_field' in extra.keys() and extra.get('userid_field'):
             val = req.get(extra.get('name', ""))
             if not isinstance(val, str):
-              val = ""
+                val = ""
             userid_fields.append(val)
 
     if len(userid_fields) == 0:
@@ -1726,3 +1726,23 @@ def get_base_auth_query(auth_event, ignore_generated_code=False):
             is_active=True
         )
     return q
+
+def populate_fields_from_source_claims(req, id_token_dict, auth_event):
+    '''
+    once verified id_token_dict, this function populates req with data from the
+    verified claims contained in id_token_dict
+    '''
+    if not auth_event.extra_fields:
+        return req
+
+    for extra_field in auth_event.extra_fields:
+        if "source_claim" not in extra_field:
+            continue
+
+        source_claim = extra_field["source_claim"]
+        if source_claim not in id_token_dict:
+            continue
+
+        req[source_claim] = id_token_dict[source_claim]
+
+    return req

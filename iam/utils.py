@@ -1119,7 +1119,10 @@ VALID_FIELDS = (
 
   # Used to match this extra field during authentication in One Time Links
   # (OTLs).
-  'match_against_census_on_otl_authentication'
+  'match_against_census_on_otl_authentication',
+
+  # Source claim from a third party
+  'source_claim',
 )
 REQUIRED_FIELDS = ('name', 'type', 'required_on_authentication')
 VALID_PIPELINES = (
