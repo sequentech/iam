@@ -1743,6 +1743,7 @@ def populate_fields_from_source_claims(req, id_token_dict, auth_event):
         if source_claim not in id_token_dict:
             continue
 
-        req[source_claim] = id_token_dict[source_claim]
+        field_name = extra_field["name"]
+        req[field_name] = id_token_dict[source_claim]
 
     return req
