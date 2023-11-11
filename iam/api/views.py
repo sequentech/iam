@@ -1595,7 +1595,8 @@ class AuthEventView(View):
             oidc_providers = req.get('oidc_providers', None)
             if oidc_providers:
                 try:
-                    OIDCProviderSchema(many=True).load(oidc_providers)
+                    OIDCProviderSchema(many=True, partial=False)\
+                        .validate(data=oidc_providers)
                 except MarshMallowValidationError as error:
                     msg += str(error.messages)
 

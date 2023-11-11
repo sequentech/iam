@@ -155,7 +155,7 @@ class OpenIdConnect(object):
             registration_response = RegistrationResponse().from_dict(registration_data)
             client.store_registration_info(registration_response)
 
-            self.providers[provider["id"]] = dict(
+            self.providers[provider["public_info"]["id"]] = dict(
                 provider=provider,
                 client=client
             )
