@@ -497,7 +497,7 @@ class OpenIdConnect(object):
             else:
                 user = create_user(
                     req=req,
-                    ae=auth_event,
+                    auth_event=auth_event,
                     active=True,
                     creator=request.user
                 )

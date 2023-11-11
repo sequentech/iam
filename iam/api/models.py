@@ -392,11 +392,13 @@ class OIDCProviderSchema(Schema):
     '''
     public_info = marshmallow_fields.Nested(
         OIDCPPublicInfoSchema,
-        allow_none=False
+        allow_none=False,
+        required=True
     )
     private_info = marshmallow_fields.Nested(
         OIDCPPrivateInfoSchema,
-        allow_none=False
+        allow_none=False,
+        required=True
     )
 
     @decorators.validates_schema(pass_original=True)
