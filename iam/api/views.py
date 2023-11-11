@@ -1569,7 +1569,7 @@ class AuthEventView(View):
             })
             config = req.get('auth_method_config', None)
             if config:
-                msg += check_config(config, auth_method)
+                msg += check_config(config, auth_method, req)
 
             extra_fields = req.get('extra_fields', None)
             if extra_fields:
@@ -1590,15 +1590,15 @@ class AuthEventView(View):
                 try:
                     ScheduledEventsSchema().load(scheduled_events)
                 except MarshMallowValidationError as error:
-                    msg += str(error.messages)
+                    msg += "scheduled_events: " + str(error.messages)
 
             oidc_providers = req.get('oidc_providers', None)
             if oidc_providers:
                 try:
-                    OIDCProviderSchema(many=True, partial=False)\
-                        .validate(data=oidc_providers)
+                    OIDCProviderSchema(many=True)\
+                        .load(data=oidc_providers)
                 except MarshMallowValidationError as error:
-                    msg += str(error.messages)
+                    msg += "oidc_providers: " + str(error.messages)
 
             admin_fields = req.get('admin_fields', None)
             if admin_fields:
@@ -1812,7 +1812,7 @@ class AuthEventView(View):
 
             config = req.get('auth_method_config', None)
             if config:
-                msg += check_config(config, auth_method)
+                msg += check_config(config, auth_method, req)
 
             extra_fields = req.get('extra_fields', None)
             if extra_fields:

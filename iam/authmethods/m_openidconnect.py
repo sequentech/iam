@@ -84,6 +84,27 @@ class OIDCConfigSchema(Schema):
         validate=[validate.Length(min=1)]
     )
 
+    def validate_oidc_providers(self, request_data):
+        '''
+        Validate that the provider ids are part of the oidc_providers in
+        `request_data`
+        '''
+        for provider_id in self.provider_ids:
+            provider = next(
+                (
+                    provider
+                    for provider in request_data.get("oidc_providers", [])
+                    if provider["public_info"]["id"] == provider_id
+                ),
+                None
+            )
+            if not provider:
+                raise Exception(
+                    f"Provider with id=`{provider_id}` not found in "
+                    "`oidc_providers`"
+                )
+
+
 class OpenIdConnect(object):
     '''
     Allows authentication with OpenID Connect 1.0
@@ -168,14 +189,16 @@ class OpenIdConnect(object):
                 .get("provider_ids", [])
         )
 
-    def check_config(self, config):
+    def check_config(self, config, data):
         """
         Check config when creating the auth-event.
         """
         if config is None:
             return ''
         try:
-            OIDCConfigSchema().validate(data=config)
+            config_obj = OIDCConfigSchema().load(data=config)
+            config_obj.validate_oidc_providers(data)
+
             ret_value = ''
             LOGGER.debug(
                 "OpenIdConnect.check_config success\n"

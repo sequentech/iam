@@ -72,11 +72,11 @@ def get_patched_auth_event(auth_event, request):
                 patched_auth_event.extra_fields = alt_auth_method['extra_fields']
                 return (patched_auth_event, None)
 
-def check_config(config, auth_method):
+def check_config(config, auth_method, data):
     """
     Check config when creating an auth-event
     """
-    return METHODS[auth_method].check_config(config)
+    return METHODS[auth_method].check_config(config, data)
 
 def auth_census(auth_event, data):
     (patched_auth_event, error) = get_patched_auth_event(auth_event, data)

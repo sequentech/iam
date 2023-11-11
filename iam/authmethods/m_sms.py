@@ -361,7 +361,7 @@ class Sms:
         )
         return data
 
-    def check_config(self, config):
+    def check_config(self, config, data):
         """ Check config when creating auth-event. """
         msg = ''
         try:
