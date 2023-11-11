@@ -65,6 +65,7 @@ from marshmallow import (
     fields as marshmallow_fields,
     validate
 )
+from marshmallow.utils import EXCLUDE
 from marshmallow.exceptions import ValidationError as MarshMallowValidationError
 
 from contracts.base import JsonTypeEncoder
@@ -84,12 +85,12 @@ class OIDCConfigSchema(Schema):
         validate=[validate.Length(min=1)]
     )
 
-    def validate_oidc_providers(self, request_data):
+    def validate_oidc_providers(self, data, request_data):
         '''
         Validate that the provider ids are part of the oidc_providers in
         `request_data`
         '''
-        for provider_id in self.provider_ids:
+        for provider_id in data["provider_ids"]:
             provider = next(
                 (
                     provider
@@ -99,9 +100,11 @@ class OIDCConfigSchema(Schema):
                 None
             )
             if not provider:
-                raise Exception(
-                    f"Provider with id=`{provider_id}` not found in "
-                    "`oidc_providers`"
+                raise MarshMallowValidationError(
+                    message=(
+                        f"Provider with id=`{provider_id}` not found in "
+                        "`oidc_providers`"
+                    )
                 )
 
 
@@ -196,8 +199,9 @@ class OpenIdConnect(object):
         if config is None:
             return ''
         try:
-            config_obj = OIDCConfigSchema().load(data=config)
-            config_obj.validate_oidc_providers(data)
+            schema = OIDCConfigSchema()
+            config_obj = schema.load(data=config, unknown=EXCLUDE)
+            schema.validate_oidc_providers(config_obj, data)
 
             ret_value = ''
             LOGGER.debug(
