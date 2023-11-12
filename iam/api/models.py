@@ -663,6 +663,7 @@ class AuthEvent(models.Model):
             ]
 
         def restrict_alt_auth_methods():
+            from authmethods import patch_auth_event
             if self.alternative_auth_methods is None:
                 return self.alternative_auth_methods
             
@@ -675,7 +676,10 @@ class AuthEvent(models.Model):
                     ),
                     public_name=alt_auth_method["public_name"],
                     public_name_i18n=alt_auth_method["public_name_i18n"],
-                    icon=alt_auth_method["icon"]
+                    icon=alt_auth_method["icon"],
+                    auth_method_config=patch_auth_event(
+                        self.id, alt_auth_method
+                    ).get_public_config()
                 )
                 for alt_auth_method in self.alternative_auth_methods
             ]
