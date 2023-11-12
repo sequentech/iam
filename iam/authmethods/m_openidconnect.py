@@ -90,6 +90,12 @@ class OIDCConfigSchema(Schema):
         Validate that the provider ids are part of the oidc_providers in
         `request_data`
         '''
+        if "provider_ids" not in data:
+            raise MarshMallowValidationError(
+                message=(
+                    f"provider_ids not found in `auth_method_config.config`"
+                )
+            )
         for provider_id in data["provider_ids"]:
             provider = next(
                 (

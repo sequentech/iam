@@ -1580,9 +1580,7 @@ class AuthEventView(View):
 
             alternative_auth_methods = req.get('alternative_auth_methods', None)
             if alternative_auth_methods:
-                msg += check_alt_auth_methods(
-                    alternative_auth_methods, extra_fields
-                )
+                msg += check_alt_auth_methods(req)
                 update_alt_methods_config(alternative_auth_methods)
 
             scheduled_events = req.get('scheduled_events', None)
@@ -1820,9 +1818,8 @@ class AuthEventView(View):
 
             alternative_auth_methods = req.get('alternative_auth_methods', None)
             if alternative_auth_methods:
-                msg += check_alt_auth_methods(
-                    alternative_auth_methods, extra_fields
-                )
+                msg += check_alt_auth_methods(req)
+                update_alt_methods_config(alternative_auth_methods)
 
             if msg:
                 return json_response(status=400, message=msg)

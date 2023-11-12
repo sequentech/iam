@@ -1368,7 +1368,7 @@ def update_alt_methods_config(alternative_auth_methods):
         alt_auth_method['auth_method_config']['config'].update(base_config)
 
 def check_alt_auth_methods(
-        alternative_auth_methods, extra_fields
+        auth_event_data
     ):
     '''
     Check that the alternative authentication methods conform with their
@@ -1400,6 +1400,11 @@ def check_alt_auth_methods(
     '''
     from authmethods import check_config, METHODS
     from copy import deepcopy
+
+    alternative_auth_methods = auth_event_data.get(
+        'alternative_auth_methods', []
+    )
+    extra_fields = auth_event_data.get('extra_fields', [])
     
     if alternative_auth_methods is None:
         return ''
@@ -1412,7 +1417,8 @@ def check_alt_auth_methods(
         auth_method['auth_method_config'] = updated_config
         return check_config(
             auth_method['auth_method_config'],
-            auth_method['auth_method_name']
+            auth_method['auth_method_name'],
+            auth_event_data
         ) == ''
 
     def has_same_extra_fields(extra_fields1):
