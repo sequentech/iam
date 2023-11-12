@@ -2224,19 +2224,28 @@ class CensusSendAuth(View):
             return json_response(data)
 
         if config.get('msg', None) is not None:
-            if type(config.get('msg', '')) != str or len(config.get('msg', '')) > settings.MAX_AUTH_MSG_SIZE[e.auth_method]:
+            if (
+                type(config.get('msg', '')) != str or
+                len(config.get('msg', '')) > settings.MAX_AUTH_MSG_SIZE[auth_method]
+            ):
                 return json_response(
                     status=400,
                     error_codename=ErrorCodes.BAD_REQUEST)
 
         if config.get('html_message', None) is not None:
-            if type(config.get('html_message', '')) != str or len(config.get('html_message', '')) > settings.MAX_AUTH_MSG_SIZE[e.auth_method]:
+            if (
+                type(config.get('html_message', '')) != str or
+                len(config.get('html_message', '')) > settings.MAX_AUTH_MSG_SIZE[auth_method]
+            ):
                 return json_response(
                     status=400,
                     error_codename=ErrorCodes.BAD_REQUEST)
 
         if config.get('filter', None) is not None:
-            if type(config.get('filter', None)) != str or config.get('filter', None) not in ['voted', 'not_voted']:
+            if (
+                type(config.get('filter', None)) != str or
+                config.get('filter', None) not in ['voted', 'not_voted']
+            ):
                 return json_response(
                     status=400,
                     error_codename=ErrorCodes.BAD_REQUEST)
