@@ -61,22 +61,31 @@ def get_patched_auth_event(auth_event, request):
         # alternative authentication method
         for alt_auth_method in alt_auth_methods:
             if alt_auth_method['id'] == requested_alt_auth_method_id:
-                from api.models import AuthEvent
-                # obtain a new instance of patched_auth_event and patch it to
-                # not allow saving and change the extra_fields, auth_method and 
-                # auth_method_config
-                patched_auth_event = AuthEvent.objects.get(pk=auth_event.id)
-                patched_auth_event.save = patched_auth_event_save
-                patched_auth_event.auth_method = alt_auth_method['auth_method_name']
-                patched_auth_event.auth_method_config = alt_auth_method['auth_method_config']
-                patched_auth_event.extra_fields = alt_auth_method['extra_fields']
+                patched_auth_event = patch_auth_event(
+                    auth_event.id,
+                    alt_auth_method
+                )
                 return (patched_auth_event, None)
 
-def check_config(config, auth_method):
+def patch_auth_event(auth_event_id, alt_auth_method):
+    '''
+    obtain a new instance of patched_auth_event and patch it to
+    not allow saving and change the extra_fields, auth_method and
+    auth_method_config
+    '''
+    from api.models import AuthEvent
+    patched_auth_event = AuthEvent.objects.get(pk=auth_event_id)
+    patched_auth_event.save = patched_auth_event_save
+    patched_auth_event.auth_method = alt_auth_method['auth_method_name']
+    patched_auth_event.auth_method_config = alt_auth_method['auth_method_config']
+    patched_auth_event.extra_fields = alt_auth_method['extra_fields']
+    return patched_auth_event
+
+def check_config(config, auth_method, data):
     """
     Check config when creating an auth-event
     """
-    return METHODS[auth_method].check_config(config)
+    return METHODS[auth_method].check_config(config, data)
 
 def auth_census(auth_event, data):
     (patched_auth_event, error) = get_patched_auth_event(auth_event, data)
