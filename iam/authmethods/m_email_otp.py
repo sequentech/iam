@@ -373,7 +373,7 @@ class EmailOtp:
       }
     ]
 
-    def check_config(self, config):
+    def check_config(self, config, data):
         """ Check config when create auth-event. """
         msg = ''
         try:

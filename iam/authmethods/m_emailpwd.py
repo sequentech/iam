@@ -152,7 +152,7 @@ class EmailPassword:
         }
     ]
 
-    def check_config(self, config):
+    def check_config(self, config, data):
         """ Check config when create auth-event. """
         if config is None:
             return ''
