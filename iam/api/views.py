@@ -77,7 +77,8 @@ from .models import (
     BallotBox,
     TallySheet,
     children_election_info_validator,
-    ScheduledEventsSchema
+    ScheduledEventsSchema,
+    OIDCProviderSchema
 )
 
 from .tasks import (
@@ -1568,7 +1569,7 @@ class AuthEventView(View):
             })
             config = req.get('auth_method_config', None)
             if config:
-                msg += check_config(config, auth_method)
+                msg += check_config(config, auth_method, req)
 
             extra_fields = req.get('extra_fields', None)
             if extra_fields:
@@ -1579,9 +1580,7 @@ class AuthEventView(View):
 
             alternative_auth_methods = req.get('alternative_auth_methods', None)
             if alternative_auth_methods:
-                msg += check_alt_auth_methods(
-                    alternative_auth_methods, extra_fields
-                )
+                msg += check_alt_auth_methods(req)
                 update_alt_methods_config(alternative_auth_methods)
 
             scheduled_events = req.get('scheduled_events', None)
@@ -1589,7 +1588,15 @@ class AuthEventView(View):
                 try:
                     ScheduledEventsSchema().load(scheduled_events)
                 except MarshMallowValidationError as error:
-                    msg += str(error.messages)
+                    msg += "scheduled_events: " + str(error.messages)
+
+            oidc_providers = req.get('oidc_providers', None)
+            if oidc_providers:
+                try:
+                    OIDCProviderSchema(many=True)\
+                        .load(data=oidc_providers)
+                except MarshMallowValidationError as error:
+                    msg += "oidc_providers: " + str(error.messages)
 
             admin_fields = req.get('admin_fields', None)
             if admin_fields:
@@ -1707,6 +1714,7 @@ class AuthEventView(View):
                 support_otl_enabled=support_otl_enabled,
                 alternative_auth_methods=alternative_auth_methods,
                 scheduled_events=scheduled_events,
+                oidc_providers=oidc_providers,
             )
             # If the election exists, we are doing an update. Else, we are 
             # doing an insert. We use this update method instead of just 
@@ -1802,7 +1810,7 @@ class AuthEventView(View):
 
             config = req.get('auth_method_config', None)
             if config:
-                msg += check_config(config, auth_method)
+                msg += check_config(config, auth_method, req)
 
             extra_fields = req.get('extra_fields', None)
             if extra_fields:
@@ -1810,9 +1818,8 @@ class AuthEventView(View):
 
             alternative_auth_methods = req.get('alternative_auth_methods', None)
             if alternative_auth_methods:
-                msg += check_alt_auth_methods(
-                    alternative_auth_methods, extra_fields
-                )
+                msg += check_alt_auth_methods(req)
+                update_alt_methods_config(alternative_auth_methods)
 
             if msg:
                 return json_response(status=400, message=msg)
@@ -2163,18 +2170,26 @@ class CensusSendAuth(View):
 
         data = {'msg': 'Sent successful'}
         # first, validate input
-        e = get_object_or_404(AuthEvent, pk=pk)
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
 
         try:
             req = parse_json_request(request)
         except:
-            return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
+            return json_response(
+                status=400, error_codename=ErrorCodes.BAD_REQUEST
+            )
 
         userids = req.get("user-ids", None)
         if userids is None:
-            permission_required(request.user, 'AuthEvent', ['edit', 'send-auth-all'], pk)
+            permission_required(
+                request.user, 'AuthEvent', ['edit', 'send-auth-all'], pk
+            )
         extra_req = req.get('extra', {})
-        auth_method = req.get("auth-method", None)
+        auth_method = (
+            req.get("auth-method", None)
+            if req.get("auth-method", None)
+            else auth_event.auth_method
+        )
         # force extra_req type to be a dict
         if not isinstance(extra_req, dict):
             return json_response(
@@ -2217,19 +2232,28 @@ class CensusSendAuth(View):
             return json_response(data)
 
         if config.get('msg', None) is not None:
-            if type(config.get('msg', '')) != str or len(config.get('msg', '')) > settings.MAX_AUTH_MSG_SIZE[e.auth_method]:
+            if (
+                type(config.get('msg', '')) != str or
+                len(config.get('msg', '')) > settings.MAX_AUTH_MSG_SIZE[auth_method]
+            ):
                 return json_response(
                     status=400,
                     error_codename=ErrorCodes.BAD_REQUEST)
 
         if config.get('html_message', None) is not None:
-            if type(config.get('html_message', '')) != str or len(config.get('html_message', '')) > settings.MAX_AUTH_MSG_SIZE[e.auth_method]:
+            if (
+                type(config.get('html_message', '')) != str or
+                len(config.get('html_message', '')) > settings.MAX_AUTH_MSG_SIZE[auth_method]
+            ):
                 return json_response(
                     status=400,
                     error_codename=ErrorCodes.BAD_REQUEST)
 
         if config.get('filter', None) is not None:
-            if type(config.get('filter', None)) != str or config.get('filter', None) not in ['voted', 'not_voted']:
+            if (
+                type(config.get('filter', None)) != str or
+                config.get('filter', None) not in ['voted', 'not_voted']
+            ):
                 return json_response(
                     status=400,
                     error_codename=ErrorCodes.BAD_REQUEST)

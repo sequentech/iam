@@ -32,7 +32,11 @@ from django.utils import timezone
 
 from contracts.base import check_contract
 from contracts import CheckException
-from marshmallow import Schema, fields as marshmallow_fields
+from marshmallow import (
+    Schema,
+    fields as marshmallow_fields,
+    decorators
+)
 from marshmallow.exceptions import ValidationError as MarshMallowValidationError
 from django.db.models import CharField
 from django.db.models.functions import Length
@@ -335,13 +339,81 @@ class ScheduledEventsSchema(Schema):
     )
 
 
+class OIDCPPublicInfoSchema(Schema):
+    '''
+    Schema for an OIDC Provider Public Info Configuration
+    '''
+    id = marshmallow_fields.String(
+        required=True, allow_none=False
+    )
+    title = marshmallow_fields.String(
+        required=True, allow_none=False
+    )
+    description = marshmallow_fields.String(
+        required=True, allow_none=False
+    )
+    icon = marshmallow_fields.Url(
+        required=True, allow_none=False, schemes=["https"]
+    )
+    authorization_endpoint = marshmallow_fields.Url(
+        required=True, allow_none=False, schemes=["https"]
+    )
+    client_id = marshmallow_fields.String(
+        required=True, allow_none=False
+    )
+    scope = marshmallow_fields.String(
+        required=True, allow_none=False
+    )
+    issuer = marshmallow_fields.Url(
+        required=True, allow_none=False, schemes=["https"]
+    )
+    token_endpoint = marshmallow_fields.Url(
+        required=True, allow_none=False, schemes=["https"]
+    )
+    jwks_uri = marshmallow_fields.Url(
+        required=True, allow_none=False, schemes=["https"]
+    )
+    logout_uri = marshmallow_fields.Url(
+        required=True, allow_none=False, schemes=["https"]
+    )
+
+
+class OIDCPPrivateInfoSchema(Schema):
+    '''
+    Schema for an OIDC Provider Private Info Configuration
+    '''
+    client_secret = marshmallow_fields.String(
+        required=True, allow_none=False
+    )
+
+class OIDCProviderSchema(Schema):
+    '''
+    Schema for an OIDC Provider Configuration
+    '''
+    public_info = marshmallow_fields.Nested(
+        OIDCPPublicInfoSchema,
+        allow_none=False,
+        required=True
+    )
+    private_info = marshmallow_fields.Nested(
+        OIDCPPrivateInfoSchema,
+        allow_none=False,
+        required=True
+    )
+
+    @decorators.validates_schema(pass_original=True)
+    def validate_schema(self, data, original_data, **kwargs):
+        if not original_data:
+            raise ValidationError('The list must have at least one element.')
+
+
 def get_schema_validator(klass):
     '''
     Given a Marshmallow Schema class, returns a Django field validator function
     '''
     def validator(data):
         try:
-            klass().validate(data)
+            klass().validate(data=data)
         except MarshMallowValidationError as error:
             # Convert the marshmallow validation error to a Django one,
             # because Django doesn't know how to handle marshmallow exceptions.
@@ -409,6 +481,34 @@ class AuthEvent(models.Model):
         db_index=False,
         null=True,
         validators=[get_schema_validator(ScheduledEventsSchema)]
+    )
+
+    # the OIDC providers used in this election
+    # Example:
+    # [
+    #     {
+    #         "public_info": {
+    #             "id": "google",
+    #             "title": "Google",
+    #             "description": "Authenticate with Google",
+    #             "icon": "https://www.google.com/favicon.ico",
+    #             "authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+    #             "client_id": "<CLIENT_ID>.apps.googleusercontent.com",
+    #             "issuer": "https://accounts.google.com",
+    #             "token_endpoint": "https://oauth2.googleapis.com/token",
+    #             "jwks_uri": "https://www.googleapis.com/oauth2/v3/certs",
+    #             "logout_uri": "https://accounts.google.com/o/oauth2/v2/auth_logout"
+    #         },
+    #         "private_info": {
+    #             "client_secret": "<CLIENT_SECRET>"
+    #         }
+    #     }
+    # ]
+    oidc_providers = JSONField(
+        blank=True,
+        db_index=False,
+        null=True,
+        validators=[get_schema_validator(OIDCProviderSchema(many=True))]
     )
 
     # used by iam_celery to know what tallies to launch, and to serialize
@@ -501,6 +601,19 @@ class AuthEvent(models.Model):
             )
        )
 
+    def get_public_config(self):
+        from authmethods import METHODS
+        base_config = {
+            'allow_user_resend': self.check_allow_user_resend()
+        }
+        if not hasattr(METHODS[self.auth_method], "get_public_config"):
+            return base_config
+        public_config = {
+            **base_config,
+            **METHODS[self.auth_method].get_public_config(self),
+        }
+        return public_config
+
     def serialize(self, restrict=False):
         '''
         Used to serialize data when the user has priviledges to see all the data
@@ -509,6 +622,11 @@ class AuthEvent(models.Model):
         '''
         # auth codes sent by authmethod
         from authmethods.models import Code
+
+        def none_list(e):
+          if e is None:
+              return []
+          return e
 
         d = {
             'id': self.id,
@@ -527,23 +645,16 @@ class AuthEvent(models.Model):
             'parent_id': self.parent.id if self.parent is not None else None,
             'children_election_info': self.children_election_info,
             'auth_method_config': {
-               'config': {
-                 'allow_user_resend': self.check_allow_user_resend()
-               }
+               'config': self.get_public_config()
             },
             'scheduled_events': self.scheduled_events,
-            'openid_connect_providers': [
-                provider['public_info']
-                for provider in settings.OPENID_CONNECT_PROVIDERS_CONF
+            'oidc_providers': [
+                dict(public_info=provider["public_info"])
+                for provider in none_list(self.oidc_providers)
             ],
             'support_otl_enabled': self.support_otl_enabled,
             'inside_authenticate_otl_period': self.inside_authenticate_otl_period
         }
-
-        def none_list(e):
-          if e is None:
-              return []
-          return e
         
         def restrict_extra_fields(fields):
             return [
@@ -552,6 +663,7 @@ class AuthEvent(models.Model):
             ]
 
         def restrict_alt_auth_methods():
+            from authmethods import patch_auth_event
             if self.alternative_auth_methods is None:
                 return self.alternative_auth_methods
             
@@ -564,7 +676,12 @@ class AuthEvent(models.Model):
                     ),
                     public_name=alt_auth_method["public_name"],
                     public_name_i18n=alt_auth_method["public_name_i18n"],
-                    icon=alt_auth_method["icon"]
+                    icon=alt_auth_method["icon"],
+                    auth_method_config=dict(
+                        config=patch_auth_event(
+                            self.id, alt_auth_method
+                        ).get_public_config()
+                    )
                 )
                 for alt_auth_method in self.alternative_auth_methods
             ]

@@ -171,7 +171,7 @@ class SmartLink:
     required_on_authentication=True
   )
 
-  def check_config(self, config):
+  def check_config(self, config, data):
     if config is not None:
       try:
         check_contract(self.CONFIG_CONTRACT, config)

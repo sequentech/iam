@@ -43,18 +43,18 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
         '''
         # None is valid
         ret = check_alt_auth_methods(
-            alternative_auth_methods=None, extra_fields=[]
+            dict(alternative_auth_methods=None, extra_fields=[])
         )
         self.assertEqual(ret, '')
 
         # Empty list is valid
         ret = check_alt_auth_methods(
-            alternative_auth_methods=[], extra_fields=[]
+            dict(alternative_auth_methods=[], extra_fields=[])
         )
         self.assertEqual(ret, '')
 
         # None is still valid independently of the extra_fields
-        ret = check_alt_auth_methods(
+        ret = check_alt_auth_methods(dict(
             alternative_auth_methods=None,
             extra_fields=[
                 {
@@ -75,11 +75,11 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
                     "required_on_authentication": True
                 },
             ]
-        )
+        ))
         self.assertEqual(ret, '')
 
     def test_basic(self):
-        ret = check_alt_auth_methods(
+        ret = check_alt_auth_methods(dict(
             alternative_auth_methods=[
                 {
                     "id": "email",
@@ -128,7 +128,7 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
                     "required_on_authentication": True
                 },
             ]
-        )
+        ))
         self.assertEqual(ret, '')
 
     def test_invalid_types(self):
@@ -137,37 +137,37 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
         '''
         # alternative_auth_methods must be a list or None, not a number
         ret = check_alt_auth_methods(
-            alternative_auth_methods=33, extra_fields=[]
+            dict(alternative_auth_methods=33, extra_fields=[])
         )
         self.assertNotEqual(ret, '')
 
         # alternative_auth_methods must be a list or None, not a dict
         ret = check_alt_auth_methods(
-            alternative_auth_methods=dict(), extra_fields=[]
+            dict(alternative_auth_methods=dict(), extra_fields=[])
         )
         self.assertNotEqual(ret, '')
 
         # Check the alternative auth method fails when it's not an object
-        ret = check_alt_auth_methods(
+        ret = check_alt_auth_methods(dict(
             alternative_auth_methods=[
                 "not-an-object"
             ],
             extra_fields=[]
-        )
+        ))
         self.assertNotEqual(ret, '')
 
         # Check the alternative auth method fails when it's not an object
-        ret = check_alt_auth_methods(
+        ret = check_alt_auth_methods(dict(
             alternative_auth_methods=[
                 123
             ],
             extra_fields=[]
-        )
+        ))
         self.assertNotEqual(ret, '')
 
     def test_id_field(self):
         # Check the alternative auth method fails when it's missing "id" field
-        ret = check_alt_auth_methods(
+        ret = check_alt_auth_methods(dict(
             alternative_auth_methods=[
                 {
                     "id_": "email",
@@ -180,11 +180,11 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
                 }
             ],
             extra_fields=self.email_extra_fields()
-        )
+        ))
         self.assertNotEqual(ret, '')
 
         # Check the alternative auth method fails when id field is not a string
-        ret = check_alt_auth_methods(
+        ret = check_alt_auth_methods(dict(
             alternative_auth_methods=[
                 {
                     "id": dict(email="email"),
@@ -197,11 +197,11 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
                 }
             ],
             extra_fields=self.email_extra_fields()
-        )
+        ))
         self.assertNotEqual(ret, '')
 
         # Check the alternative auth method works when id field is text
-        ret = check_alt_auth_methods(
+        ret = check_alt_auth_methods(dict(
             alternative_auth_methods=[
                 {
                     "id": "email",
@@ -214,12 +214,12 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
                 }
             ],
             extra_fields=self.email_extra_fields()
-        )
+        ))
         self.assertEqual(ret, '')
 
     def test_id_field_duplicated(self):
         # Check the alternative auth method fails when id field is not a string
-        ret = check_alt_auth_methods(
+        ret = check_alt_auth_methods(dict(
             alternative_auth_methods=[
                 {
                     "id": "email",
@@ -241,11 +241,11 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
                 },
             ],
             extra_fields=self.email_extra_fields()
-        )
+        ))
         self.assertNotEqual(ret, '')
 
         # Check the alternative auth method fails when id field is not a string
-        ret = check_alt_auth_methods(
+        ret = check_alt_auth_methods(dict(
             alternative_auth_methods=[
                 {
                     "id": "email",
@@ -267,7 +267,7 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
                 },
             ],
             extra_fields=self.email_extra_fields()
-        )
+        ))
         self.assertEqual(ret, '')
 
     def test_id_validate_other_fields(self):
@@ -275,7 +275,7 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
         Validate other alt auth method fields
         '''
         # invalid auth_method_name type
-        ret = check_alt_auth_methods(
+        ret = check_alt_auth_methods(dict(
             alternative_auth_methods=[
                 {
                     "id": "email",
@@ -288,11 +288,11 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
                 },
             ],
             extra_fields=self.email_extra_fields()
-        )
+        ))
         self.assertNotEqual(ret, '')
 
         # inexistent auth method name
-        ret = check_alt_auth_methods(
+        ret = check_alt_auth_methods(dict(
             alternative_auth_methods=[
                 {
                     "id": "email",
@@ -305,11 +305,11 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
                 },
             ],
             extra_fields=self.email_extra_fields()
-        )
+        ))
         self.assertNotEqual(ret, '')
 
         # invalid auth_method_config
-        ret = check_alt_auth_methods(
+        ret = check_alt_auth_methods(dict(
             alternative_auth_methods=[
                 {
                     "id": "email",
@@ -322,11 +322,11 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
                 },
             ],
             extra_fields=self.email_extra_fields()
-        )
+        ))
         self.assertNotEqual(ret, '')
 
         # invalid public_name
-        ret = check_alt_auth_methods(
+        ret = check_alt_auth_methods(dict(
             alternative_auth_methods=[
                 {
                     "id": "email",
@@ -339,12 +339,12 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
                 },
             ],
             extra_fields=self.email_extra_fields()
-        )
+        ))
         self.assertNotEqual(ret, '')
 
     def test_id_validate_public_name_i18n(self):
         # invalid public_name_i18n
-        ret = check_alt_auth_methods(
+        ret = check_alt_auth_methods(dict(
             alternative_auth_methods=[
                 {
                     "id": "email",
@@ -357,11 +357,11 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
                 },
             ],
             extra_fields=self.email_extra_fields()
-        )
+        ))
         self.assertNotEqual(ret, '')
 
         # invalid public_name_i18n 2
-        ret = check_alt_auth_methods(
+        ret = check_alt_auth_methods(dict(
             alternative_auth_methods=[
                 {
                     "id": "email",
@@ -374,11 +374,11 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
                 },
             ],
             extra_fields=self.email_extra_fields()
-        )
+        ))
         self.assertNotEqual(ret, '')
 
         # valid public_name_i18n
-        ret = check_alt_auth_methods(
+        ret = check_alt_auth_methods(dict(
             alternative_auth_methods=[
                 {
                     "id": "email",
@@ -391,7 +391,7 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
                 },
             ],
             extra_fields=self.email_extra_fields()
-        )
+        ))
         self.assertEqual(ret, '')
 
     def test_id_validate_extra_fields_equal_names(self):
@@ -399,7 +399,7 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
         extra fields should be the same name in all alt auth methods 
         '''
         # mismatched name
-        ret = check_alt_auth_methods(
+        ret = check_alt_auth_methods(dict(
             alternative_auth_methods=[
                 {
                     "id": "email",
@@ -430,11 +430,11 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
                     "required_on_authentication": True
                 },
             ]
-        )
+        ))
         self.assertNotEqual(ret, '')
 
         # extra field, called "name and surname"
-        ret = check_alt_auth_methods(
+        ret = check_alt_auth_methods(dict(
             alternative_auth_methods=[
                 {
                     "id": "email",
@@ -474,11 +474,11 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
                     "required_on_authentication": True
                 },
             ]
-        )
+        ))
         self.assertNotEqual(ret, '')
 
         # one alt auth method has different extra field name, the other is fine
-        ret = check_alt_auth_methods(
+        ret = check_alt_auth_methods(dict(
             alternative_auth_methods=[
                 {
                     "id": "email",
@@ -536,7 +536,7 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
                     "required_on_authentication": True
                 },
             ]
-        )
+        ))
         self.assertNotEqual(ret, '')
 
     def test_id_validate_extra_fields_equal_types(self):
@@ -544,7 +544,7 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
         extra fields should be the same type
         '''
         # mismatched type
-        ret = check_alt_auth_methods(
+        ret = check_alt_auth_methods(dict(
             alternative_auth_methods=[
                 {
                     "id": "email",
@@ -575,5 +575,5 @@ class CheckAltAuthMethodsTestCase(BaseTestCase):
                     "required_on_authentication": True
                 },
             ]
-        )
+        ))
         self.assertNotEqual(ret, '')

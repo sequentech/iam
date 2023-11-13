@@ -1180,7 +1180,7 @@ class TestAuthEvent(TestCase):
                 'hide_default_login_lookup_field': False,
                 'parent_id': None,
                 'children_election_info': None,
-                'openid_connect_providers': [],
+                'oidc_providers': [],
                 'scheduled_events': None,
                 'total_votes': 0,
                 'tally_status': 'notstarted',

@@ -802,6 +802,7 @@ def send_code(
     auth_method = auth_event.auth_method
     auth_config = auth_event.auth_method_config.get('config')
 
+
     # The auth_method_receiver is part of the __LINK__ or __LINK2__ in message
     # templates, and is dependent on the authentication method
     if auth_method in ['sms', 'sms-otp']:
@@ -1118,7 +1119,10 @@ VALID_FIELDS = (
 
   # Used to match this extra field during authentication in One Time Links
   # (OTLs).
-  'match_against_census_on_otl_authentication'
+  'match_against_census_on_otl_authentication',
+
+  # Source claim from a third party
+  'source_claim',
 )
 REQUIRED_FIELDS = ('name', 'type', 'required_on_authentication')
 VALID_PIPELINES = (
@@ -1364,7 +1368,7 @@ def update_alt_methods_config(alternative_auth_methods):
         alt_auth_method['auth_method_config']['config'].update(base_config)
 
 def check_alt_auth_methods(
-        alternative_auth_methods, extra_fields
+        auth_event_data
     ):
     '''
     Check that the alternative authentication methods conform with their
@@ -1396,6 +1400,11 @@ def check_alt_auth_methods(
     '''
     from authmethods import check_config, METHODS
     from copy import deepcopy
+
+    alternative_auth_methods = auth_event_data.get(
+        'alternative_auth_methods', []
+    )
+    extra_fields = auth_event_data.get('extra_fields', [])
     
     if alternative_auth_methods is None:
         return ''
@@ -1408,7 +1417,8 @@ def check_alt_auth_methods(
         auth_method['auth_method_config'] = updated_config
         return check_config(
             auth_method['auth_method_config'],
-            auth_method['auth_method_name']
+            auth_method['auth_method_name'],
+            auth_event_data
         ) == ''
 
     def has_same_extra_fields(extra_fields1):
