@@ -2170,18 +2170,26 @@ class CensusSendAuth(View):
 
         data = {'msg': 'Sent successful'}
         # first, validate input
-        e = get_object_or_404(AuthEvent, pk=pk)
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
 
         try:
             req = parse_json_request(request)
         except:
-            return json_response(status=400, error_codename=ErrorCodes.BAD_REQUEST)
+            return json_response(
+                status=400, error_codename=ErrorCodes.BAD_REQUEST
+            )
 
         userids = req.get("user-ids", None)
         if userids is None:
-            permission_required(request.user, 'AuthEvent', ['edit', 'send-auth-all'], pk)
+            permission_required(
+                request.user, 'AuthEvent', ['edit', 'send-auth-all'], pk
+            )
         extra_req = req.get('extra', {})
-        auth_method = req.get("auth-method", None)
+        auth_method = (
+            req.get("auth-method", None)
+            if req.get("auth-method", None)
+            else auth_event.auth_method
+        )
         # force extra_req type to be a dict
         if not isinstance(extra_req, dict):
             return json_response(
