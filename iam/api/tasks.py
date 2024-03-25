@@ -348,6 +348,20 @@ def update_tally_status(auth_event):
             ballot_box_request.status_code, 
             ballot_box_request.text
         )
+        auth_event.tally_status = AuthEvent.NOT_STARTED
+        auth_event.save()
+
+        # log the action
+        action = Action(
+            executer=None,
+            receiver=None,
+            action_name='authevent:tally:error-during-tally',
+            event=parent_auth_event,
+            metadata=dict(
+                auth_event=auth_event.pk
+            )
+        )
+        action.save()
         return
 
     logger.info(
@@ -368,7 +382,7 @@ def update_tally_status(auth_event):
             auth_event.id,
             updated_election['payload']['error']
         )
-        return
+
     tally_state = updated_election['payload']['tally_state']
     election_state = updated_election['payload']['state']
 
