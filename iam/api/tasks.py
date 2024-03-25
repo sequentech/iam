@@ -348,6 +348,7 @@ def update_tally_status(auth_event):
             ballot_box_request.status_code, 
             ballot_box_request.text
         )
+        return
 
     logger.info(
         "update_tally_status(auth_event_id=%d): post\n" +
