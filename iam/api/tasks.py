@@ -359,6 +359,7 @@ def update_tally_status(auth_event):
         ballot_box_request.status_code, 
         ballot_box_request.text
     )
+    updated_election = parse_json_request(ballot_box_request)
     if 'error' in updated_election['payload']:
         logger.error(
             "update_tally_status(auth_event_id=%d)" +
@@ -366,7 +367,7 @@ def update_tally_status(auth_event):
             auth_event.id,
             updated_election['payload']['error']
         )
-    updated_election = parse_json_request(ballot_box_request)
+        return
     tally_state = updated_election['payload']['tally_state']
     election_state = updated_election['payload']['state']
 
