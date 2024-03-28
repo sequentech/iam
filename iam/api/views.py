@@ -2351,6 +2351,11 @@ class CensusResetVoter(View):
 
 census_reset_voter = login_required(CensusResetVoter.as_view())
 
+class Turnout(View):
+    def get(self, request, pk):
+        return 1
+turnout = login_required(Turnout.as_view())
+
 class GetImage(View):
     def get(self, request, pk, uid):
         permission_required(request.user, 'AuthEvent', 'edit', pk)
