@@ -2366,7 +2366,7 @@ class Turnout(View):
             data[id] = {
                 'users': id_ae.len_census(),
                 'total_votes': id_ae.get_num_votes(),
-                'votes_per_hour': id_ae.get_votes_per_hour()
+                'votes_per_hour': list(id_ae.get_votes_per_hour())
             }
         return json_response(data)
 
