@@ -20,13 +20,14 @@ from django.db import models
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
+from django.db.models.functions import TruncHour
 
 from django.contrib.postgres import fields
 from jsonfield import JSONField
 
 from django.dispatch import receiver
 from django.db.models.signals import post_save, pre_save
-from django.db.models import Q
+from django.db.models import Q, Count, DateTimeField
 from django.conf import settings
 from django.utils import timezone
 
@@ -762,6 +763,27 @@ class AuthEvent(models.Model):
             )\
             .order_by('user_id', '-created')\
             .distinct('user_id')
+    
+    def get_votes_per_hour(self):
+        '''
+        Returns the number of votes per hour in this election and in
+        children elections (if any).
+        '''
+        if self.children_election_info:
+            children_election_ids = self.children_election_info['natural_order']
+        else:
+            children_election_ids = []
+        return SuccessfulLogin.objects\
+            .filter(
+                Q(auth_event_id=self.pk) |
+                Q(auth_event__parent_id=self.pk) |
+                Q(auth_event__parent_id__in=children_election_ids)
+            )\
+            .annotate(hour=TruncHour('created'))\
+            .values('hour')\
+            .annotate(login_count=Count('id'))\
+            .order_by('hour')
+
 
     def get_num_votes(self):
         '''

@@ -2365,7 +2365,8 @@ class Turnout(View):
             id_ae = get_object_or_404(AuthEvent, pk=pk)
             data[id] = {
                 'users': id_ae.len_census(),
-                'total_votes': id_ae.get_num_votes()
+                'total_votes': id_ae.get_num_votes(),
+                'votes_per_hour': id_ae.get_votes_per_hour()
             }
         return json_response(data)
 
