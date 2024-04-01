@@ -20,6 +20,7 @@ import requests
 import mimetypes
 from datetime import datetime
 from django import forms
+from django.core import serializers
 from django.conf import settings
 from django.http import Http404
 from django.db.models import Q, IntegerField
@@ -2366,7 +2367,7 @@ class Turnout(View):
             data[id] = {
                 'users': id_ae.len_census(),
                 'total_votes': id_ae.get_num_votes(),
-                'votes_per_hour': list(id_ae.get_votes_per_hour())
+                'votes_per_hour': id_ae.get_votes_per_hour()
             }
         return json_response(data)
 

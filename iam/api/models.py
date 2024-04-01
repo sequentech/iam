@@ -770,19 +770,34 @@ class AuthEvent(models.Model):
         children elections (if any).
         '''
         if self.children_election_info:
-            children_election_ids = self.children_election_info['natural_order']
+            parents2 = self.children_election_info['natural_order']
         else:
-            children_election_ids = []
-        return SuccessfulLogin.objects\
+            parents2 = []
+
+        q_base = SuccessfulLogin.objects\
             .filter(
                 Q(auth_event_id=self.pk) |
                 Q(auth_event__parent_id=self.pk) |
-                Q(auth_event__parent_id__in=children_election_ids)
-            )\
+                Q(auth_event__parent_id__in=parents2)
+            )
+        subquery_distinct = q_base\
+            .order_by('user_id', '-created')\
+            .distinct('user_id')
+
+        q = q_base\
             .annotate(hour=TruncHour('created'))\
             .values('hour')\
-            .annotate(login_count=Count('id'))\
-            .order_by('hour')
+            .annotate(votes=Count('user_id'))\
+            .order_by('hour')\
+            .filter(id__in=subquery_distinct)
+        
+        return [
+                dict(
+                    hour=str(obj['hour']),
+                    votes=obj['votes']
+                )
+                for obj in q
+            ]
 
 
     def get_num_votes(self):
