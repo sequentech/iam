@@ -360,8 +360,8 @@ def update_tally_status(auth_event):
         ballot_box_request.text
     )
     updated_election = parse_json_request(ballot_box_request)
-    tally_state = updated_election['payload']['tally_state']
-    election_state = updated_election['payload']['state']
+    tally_state = updated_election['payload']['tally_state'] if 'tally_state' in updated_election['payload'] else None
+    election_state = updated_election['payload']['state'] if 'state' in updated_election['payload'] else None
 
     if ('tally_error' == tally_state or \
         (election_state in ['stopped', 'started']) and not settings.ENABLE_MULTIPLE_TALLIES):
