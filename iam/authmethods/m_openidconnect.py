@@ -16,7 +16,6 @@
 from . import register_method
 from django.db.models import Q
 
-
 from utils import (
     ErrorCodes,
     verify_admin_generated_auth_code
@@ -72,6 +71,8 @@ from marshmallow.exceptions import ValidationError as MarshMallowValidationError
 from contracts.base import JsonTypeEncoder
 
 import requests
+import jwt
+import base64
 
 LOGGER = logging.getLogger('iam')
 
@@ -447,6 +448,31 @@ class OpenIdConnect(object):
         print(r)
         response = r.json()
         id_token = response['id_token']
+        access_token = response["access_token"]
+        from celery.contrib import rdb; rdb.set_trace()
+
+        # setup a PyJWKClient to get the appropriate signing key
+        jwks_client = jwt.PyJWKClient(provider['provider']['public_info']["jwks_uri"])
+
+        # get signing_key from id_token
+        signing_key = jwks_client.get_signing_key_from_jwt(id_token)
+
+        # now, decode_complete to get payload + header
+        data = jwt.decode_complete(
+            id_token,
+            key=signing_key.key,
+            algorithms=["RS256"],
+            audience=provider['provider']['public_info']['client_id'],
+        )
+        payload, header = data["payload"], data["header"]
+
+        # get the pyjwt algorithm object
+        alg_obj = jwt.get_algorithm_by_name(header["alg"])
+
+        # compute at_hash, then validate / assert
+        digest = alg_obj.compute_hash_digest(access_token)
+        at_hash = base64.urlsafe_b64encode(digest[: (len(digest) // 2)]).rstrip("=")
+        assert at_hash == payload["at_hash"]
 
         # parses and verifies/validates the id token
         id_token_obj = provider['client'].parse_response(
@@ -456,6 +482,7 @@ class OpenIdConnect(object):
             keyjar=provider['client'].keyjar,
             scope="openid"
         )
+
         if not id_token_obj:
             return self.error(
                 ErrorCodes.INVALID_REQUEST,
