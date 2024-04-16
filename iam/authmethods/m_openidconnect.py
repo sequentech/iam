@@ -16,6 +16,7 @@
 from . import register_method
 from django.db.models import Q
 
+
 from utils import (
     ErrorCodes,
     verify_admin_generated_auth_code
@@ -69,6 +70,8 @@ from marshmallow.utils import EXCLUDE
 from marshmallow.exceptions import ValidationError as MarshMallowValidationError
 
 from contracts.base import JsonTypeEncoder
+
+import requests
 
 LOGGER = logging.getLogger('iam')
 
@@ -410,7 +413,7 @@ class OpenIdConnect(object):
             )
 
         #id_token = req.get('id_token', '')
-        token = req.get('token', '')
+        code = req.get('code', '')
         provider_id = req.get('provider_id', '')
         nonce = req.get('nonce', '')
 
@@ -427,6 +430,24 @@ class OpenIdConnect(object):
             )
 
         provider = self.providers[provider_id]
+
+        url = provider['provider']['public_info']['token_endpoint']
+        data = {
+            'code': code,
+            'client_id': provider['provider']['public_info']['client_id'],
+            'client_secret': provider['provider']['private_info']['client_secret'],
+            'redirect_uri': "https://felix-dev.sequentech.io/election/login-openid-connect-redirect",
+            'grant_type': "authorization_code",
+        }
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        r = requests.post(url, data=data, headers=headers)
+        print("FFF request result is:")
+        print(r)
+        response = r.json()
+        id_token = response['id_token']
+
         # parses and verifies/validates the id token
         id_token_obj = provider['client'].parse_response(
             AuthorizationResponse,
