@@ -409,7 +409,8 @@ class OpenIdConnect(object):
                 method_name="authenticate",
             )
 
-        id_token = req.get('id_token', '')
+        #id_token = req.get('id_token', '')
+        token = req.get('token', '')
         provider_id = req.get('provider_id', '')
         nonce = req.get('nonce', '')
 
