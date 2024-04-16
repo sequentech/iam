@@ -448,8 +448,6 @@ class OpenIdConnect(object):
         print(r)
         response = r.json()
         id_token = response['id_token']
-        access_token = response["access_token"]
-        from celery.contrib import rdb; rdb.set_trace()
 
         # setup a PyJWKClient to get the appropriate signing key
         jwks_client = jwt.PyJWKClient(provider['provider']['public_info']["jwks_uri"])
@@ -458,31 +456,14 @@ class OpenIdConnect(object):
         signing_key = jwks_client.get_signing_key_from_jwt(id_token)
 
         # now, decode_complete to get payload + header
-        data = jwt.decode_complete(
+        algorithms = ["none","HS256","HS384","HS512","RS256","RS384","RS512","ES256","ES256K","ES384","ES521","ES512","PS256","PS384","PS512","EdDSA"]
+        id_token_obj = jwt.api_jwt.decode_complete(
             id_token,
             key=signing_key.key,
-            algorithms=["RS256"],
+            algorithms=algorithms,
             audience=provider['provider']['public_info']['client_id'],
+            options={"verify_signature": True}
         )
-        payload, header = data["payload"], data["header"]
-
-        # get the pyjwt algorithm object
-        alg_obj = jwt.get_algorithm_by_name(header["alg"])
-
-        # compute at_hash, then validate / assert
-        digest = alg_obj.compute_hash_digest(access_token)
-        at_hash = base64.urlsafe_b64encode(digest[: (len(digest) // 2)]).rstrip("=")
-        assert at_hash == payload["at_hash"]
-
-        # parses and verifies/validates the id token
-        id_token_obj = provider['client'].parse_response(
-            AuthorizationResponse,
-            info=id_token,
-            sformat="jwt",
-            keyjar=provider['client'].keyjar,
-            scope="openid"
-        )
-
         if not id_token_obj:
             return self.error(
                 ErrorCodes.INVALID_REQUEST,
@@ -494,6 +475,7 @@ class OpenIdConnect(object):
                 auth_event=auth_event,
                 method_name="authenticate",
             )
+        id_token_dict = id_token_obj["payload"]
 
         # verify nonce securely
         id_token_dict = id_token_obj.to_dict()
