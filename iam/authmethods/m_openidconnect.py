@@ -478,7 +478,6 @@ class OpenIdConnect(object):
         id_token_dict = id_token_obj["payload"]
 
         # verify nonce securely
-        id_token_dict = id_token_obj.to_dict()
         if not constant_time_compare(id_token_dict['nonce'], nonce):
             return self.error(
                 ErrorCodes.INVALID_REQUEST,
