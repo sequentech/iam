@@ -70,6 +70,10 @@ from marshmallow.exceptions import ValidationError as MarshMallowValidationError
 
 from contracts.base import JsonTypeEncoder
 
+import requests
+import jwt
+import base64
+
 LOGGER = logging.getLogger('iam')
 
 
@@ -409,7 +413,8 @@ class OpenIdConnect(object):
                 method_name="authenticate",
             )
 
-        id_token = req.get('id_token', '')
+        #id_token = req.get('id_token', '')
+        code = req.get('code', '')
         provider_id = req.get('provider_id', '')
         nonce = req.get('nonce', '')
 
@@ -426,13 +431,37 @@ class OpenIdConnect(object):
             )
 
         provider = self.providers[provider_id]
-        # parses and verifies/validates the id token
-        id_token_obj = provider['client'].parse_response(
-            AuthorizationResponse,
-            info=id_token,
-            sformat="jwt",
-            keyjar=provider['client'].keyjar,
-            scope="openid"
+
+        url = provider['provider']['public_info']['token_endpoint']
+        redirect_uri = settings.EMAIL_AUTH_CODE_URL.replace("__EVENT_ID__/public/login/__RECEIVER__", "login-openid-connect-redirect")
+        data = {
+            'code': code,
+            'client_id': provider['provider']['public_info']['client_id'],
+            'client_secret': provider['provider']['private_info']['client_secret'],
+            'redirect_uri': redirect_uri,
+            'grant_type': "authorization_code",
+        }
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        r = requests.post(url, data=data, headers=headers)
+        response = r.json()
+        id_token = response['id_token']
+
+        # setup a PyJWKClient to get the appropriate signing key
+        jwks_client = jwt.PyJWKClient(provider['provider']['public_info']["jwks_uri"])
+
+        # get signing_key from id_token
+        signing_key = jwks_client.get_signing_key_from_jwt(id_token)
+
+        # now, decode_complete to get payload + header
+        algorithms = ["none","HS256","HS384","HS512","RS256","RS384","RS512","ES256","ES256K","ES384","ES521","ES512","PS256","PS384","PS512","EdDSA"]
+        id_token_obj = jwt.api_jwt.decode_complete(
+            id_token,
+            key=signing_key.key,
+            algorithms=algorithms,
+            audience=provider['provider']['public_info']['client_id'],
+            options={"verify_signature": True}
         )
         if not id_token_obj:
             return self.error(
@@ -445,9 +474,9 @@ class OpenIdConnect(object):
                 auth_event=auth_event,
                 method_name="authenticate",
             )
+        id_token_dict = id_token_obj["payload"]
 
         # verify nonce securely
-        id_token_dict = id_token_obj.to_dict()
         if not constant_time_compare(id_token_dict['nonce'], nonce):
             return self.error(
                 ErrorCodes.INVALID_REQUEST,
