@@ -433,11 +433,12 @@ class OpenIdConnect(object):
         provider = self.providers[provider_id]
 
         url = provider['provider']['public_info']['token_endpoint']
+        redirect_uri = settings.EMAIL_AUTH_CODE_URL.replace("__EVENT_ID__/public/login/__RECEIVER__", "login-openid-connect-redirect")
         data = {
             'code': code,
             'client_id': provider['provider']['public_info']['client_id'],
             'client_secret': provider['provider']['private_info']['client_secret'],
-            'redirect_uri': "https://felix-dev.sequentech.io/election/login-openid-connect-redirect",
+            'redirect_uri': redirect_uri,
             'grant_type': "authorization_code",
         }
         headers = {
