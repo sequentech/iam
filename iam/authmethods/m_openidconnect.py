@@ -445,8 +445,6 @@ class OpenIdConnect(object):
             'Content-Type': 'application/x-www-form-urlencoded'
         }
         r = requests.post(url, data=data, headers=headers)
-        print("FFF request result is:")
-        print(r)
         response = r.json()
         id_token = response['id_token']
 
