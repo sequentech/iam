@@ -382,7 +382,7 @@ class OpenIdConnect(object):
             log_prefix="OpenIdConnect"
         )
         LOGGER.debug(
-            f"verify_admin_generated_auth_code: verificed = '{verified}'\n"
+            f"verify_admin_generated_auth_code: verified = '{verified}'\n"
         )
         if verified:
             if not verify_num_successful_logins(
@@ -454,6 +454,9 @@ class OpenIdConnect(object):
             f"had response: {r}\n"
         )
         response = r.json()
+        LOGGER.debug(
+            f"with json {response}\n"
+        )
         id_token = response['id_token']
 
         # setup a PyJWKClient to get the appropriate signing key
