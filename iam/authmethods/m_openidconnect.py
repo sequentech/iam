@@ -381,6 +381,9 @@ class OpenIdConnect(object):
             req_data=req,
             log_prefix="OpenIdConnect"
         )
+        LOGGER.debug(
+            f"verify_admin_generated_auth_code: verified = '{verified}'\n"
+        )
         if verified:
             if not verify_num_successful_logins(
                 auth_event,
@@ -445,7 +448,15 @@ class OpenIdConnect(object):
             'Content-Type': 'application/x-www-form-urlencoded'
         }
         r = requests.post(url, data=data, headers=headers)
+        LOGGER.debug(
+            f"code request to '{url}'\n"
+            f"with data {data}\n"
+            f"had response: {r}\n"
+        )
         response = r.json()
+        LOGGER.debug(
+            f"with json {response}\n"
+        )
         id_token = response['id_token']
 
         # setup a PyJWKClient to get the appropriate signing key
@@ -462,6 +473,9 @@ class OpenIdConnect(object):
             algorithms=algorithms,
             audience=provider['provider']['public_info']['client_id'],
             options={"verify_signature": True}
+        )
+        LOGGER.debug(
+            f"id token decoded to {id_token_obj}\n"
         )
         if not id_token_obj:
             return self.error(
@@ -522,6 +536,9 @@ class OpenIdConnect(object):
         # once we have verified id_token_dict, then we can populate req with
         # data from the verified claims contained in id_token_dict
         req = populate_fields_from_source_claims(req, id_token_dict, auth_event)
+        LOGGER.debug(
+            f"populated request is {req}\n"
+        )
 
         msg = check_pipeline(request, auth_event, 'authenticate')
         if msg:
