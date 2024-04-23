@@ -309,6 +309,22 @@ def launch_virtual_tally(auth_event):
         ]
     )
 
+def handle_update_tally_status_error(auth_event, parent_auth_event):
+    auth_event.tally_status = AuthEvent.NOT_STARTED
+    auth_event.save()
+
+    # log the action
+    action = Action(
+        executer=None,
+        receiver=None,
+        action_name='authevent:tally:error-during-tally',
+        event=parent_auth_event,
+        metadata=dict(
+            auth_event=auth_event.pk
+        )
+    )
+    action.save()
+
 def update_tally_status(auth_event):
     '''
     Receives the status from ballot-box and updates the AuthEvent.
@@ -348,6 +364,8 @@ def update_tally_status(auth_event):
             ballot_box_request.status_code, 
             ballot_box_request.text
         )
+        handle_update_tally_status_error(auth_event, parent_auth_event)
+        return
 
     logger.info(
         "update_tally_status(auth_event_id=%d): post\n" +
@@ -360,25 +378,22 @@ def update_tally_status(auth_event):
         ballot_box_request.text
     )
     updated_election = parse_json_request(ballot_box_request)
+    if 'error' in updated_election['payload']:
+        logger.error(
+            "update_tally_status(auth_event_id=%d)" +
+            "error: '%r'\n",
+            auth_event.id,
+            updated_election['payload']['error']
+        )
+        handle_update_tally_status_error(auth_event, parent_auth_event)
+        return
+
     tally_state = updated_election['payload']['tally_state'] if 'tally_state' in updated_election['payload'] else None
     election_state = updated_election['payload']['state'] if 'state' in updated_election['payload'] else None
 
     if ('tally_error' == tally_state or \
         (election_state in ['stopped', 'started']) and not settings.ENABLE_MULTIPLE_TALLIES):
-        auth_event.tally_status = AuthEvent.NOT_STARTED
-        auth_event.save()
-
-        # log the action
-        action = Action(
-            executer=None,
-            receiver=None,
-            action_name='authevent:tally:error-during-tally',
-            event=parent_auth_event,
-            metadata=dict(
-                auth_event=auth_event.pk
-            )
-        )
-        action.save()
+        handle_update_tally_status_error(auth_event, parent_auth_event)
     elif tally_state in ['tally_ok', 'results_ok'] or 'results_pub' == election_state:
         auth_event.tally_status = AuthEvent.SUCCESS
         auth_event.save()
