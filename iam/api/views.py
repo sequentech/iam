@@ -20,6 +20,7 @@ import requests
 import mimetypes
 from datetime import datetime
 from django import forms
+from django.core import serializers
 from django.conf import settings
 from django.http import Http404
 from django.db.models import Q, IntegerField
@@ -2350,6 +2351,27 @@ class CensusResetVoter(View):
         return json_response(data)
 
 census_reset_voter = login_required(CensusResetVoter.as_view())
+
+class Turnout(View):
+    def get(self, request, pk):
+        permission_required(request.user, 'AuthEvent', 'view', pk)
+        ae = get_object_or_404(AuthEvent, pk=pk)
+
+        ids = [pk]
+        data = {}
+        if ae.children_election_info:
+            ids.extend(ae.children_election_info['natural_order'])
+
+        for id in ids:
+            id_ae = get_object_or_404(AuthEvent, pk=pk)
+            data[id] = {
+                'users': id_ae.len_census(),
+                'total_votes': id_ae.get_num_votes(),
+                'votes_per_hour': id_ae.get_votes_per_hour()
+            }
+        return json_response(data)
+
+turnout = login_required(Turnout.as_view())
 
 class GetImage(View):
     def get(self, request, pk, uid):

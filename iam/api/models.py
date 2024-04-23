@@ -20,13 +20,14 @@ from django.db import models
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
+from django.db.models.functions import TruncHour
 
 from django.contrib.postgres import fields
 from jsonfield import JSONField
 
 from django.dispatch import receiver
 from django.db.models.signals import post_save, pre_save
-from django.db.models import Q
+from django.db.models import Q, Count, DateTimeField
 from django.conf import settings
 from django.utils import timezone
 
@@ -762,6 +763,42 @@ class AuthEvent(models.Model):
             )\
             .order_by('user_id', '-created')\
             .distinct('user_id')
+    
+    def get_votes_per_hour(self):
+        '''
+        Returns the number of votes per hour in this election and in
+        children elections (if any).
+        '''
+        if self.children_election_info:
+            parents2 = self.children_election_info['natural_order']
+        else:
+            parents2 = []
+
+        q_base = SuccessfulLogin.objects\
+            .filter(
+                Q(auth_event_id=self.pk) |
+                Q(auth_event__parent_id=self.pk) |
+                Q(auth_event__parent_id__in=parents2)
+            )
+        subquery_distinct = q_base\
+            .order_by('user_id', '-created')\
+            .distinct('user_id')
+
+        q = q_base\
+            .annotate(hour=TruncHour('created'))\
+            .values('hour')\
+            .annotate(votes=Count('user_id'))\
+            .order_by('hour')\
+            .filter(id__in=subquery_distinct)
+        
+        return [
+                dict(
+                    hour=str(obj['hour']),
+                    votes=obj['votes']
+                )
+                for obj in q
+            ]
+
 
     def get_num_votes(self):
         '''

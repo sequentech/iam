@@ -388,8 +388,8 @@ def update_tally_status(auth_event):
         handle_update_tally_status_error(auth_event, parent_auth_event)
         return
 
-    tally_state = updated_election['payload']['tally_state']
-    election_state = updated_election['payload']['state']
+    tally_state = updated_election['payload']['tally_state'] if 'tally_state' in updated_election['payload'] else None
+    election_state = updated_election['payload']['state'] if 'state' in updated_election['payload'] else None
 
     if ('tally_error' == tally_state or \
         (election_state in ['stopped', 'started']) and not settings.ENABLE_MULTIPLE_TALLIES):
