@@ -2363,7 +2363,7 @@ class Turnout(View):
             ids.extend(ae.children_election_info['natural_order'])
 
         for id in ids:
-            id_ae = get_object_or_404(AuthEvent, pk=pk)
+            id_ae = get_object_or_404(AuthEvent, pk=id)
             data[id] = {
                 'users': id_ae.len_census(),
                 'total_votes': id_ae.get_num_votes(),
