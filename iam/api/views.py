@@ -1510,14 +1510,8 @@ class LivePreviewView(View):
             Uploads the configuration for a live preview
         '''
         try:
-            req = parse_json_request(request)
+            election_config = parse_json_request(request)
         except:
-            return json_response(
-                status=400,
-                error_codename=ErrorCodes.BAD_REQUEST)
-        
-        election_config = req.get('election_config', None)
-        if not isinstance(election_config, dict):
             return json_response(
                 status=400,
                 error_codename=ErrorCodes.BAD_REQUEST)
