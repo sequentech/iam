@@ -1521,7 +1521,7 @@ class LivePreviewView(View):
         
         os.makedirs(preview_dir, exist_ok=True)
 
-        preview_file = os.path.join(preview_dir, preview_id)
+        preview_file = os.path.join(preview_dir, f"{preview_id}.json")
         with open(preview_file, "w") as file:
             json.dump(election_config, file)
 
