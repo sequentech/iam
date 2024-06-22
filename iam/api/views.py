@@ -1534,12 +1534,12 @@ class LivePreviewView(View):
         data = {'status': 'ok', 'id': preview_id}
         return json_response(data)
 
-    def get(self, request, preview_id):
+    def get(self, request, pk):
         """
         Gets the configuration for a live preview by ID
         """
         preview_dir = settings.STATIC_PREVIEW_PATH
-        preview_file = os.path.join(preview_dir, f"{preview_id}.json")
+        preview_file = os.path.join(preview_dir, f"{pk}.json")
 
         if not os.path.exists(preview_file):
             raise Http404("Configuration not found.")
@@ -1548,6 +1548,8 @@ class LivePreviewView(View):
             election_config = json.load(file)
 
         return json_response(election_config)
+
+live_preview = LivePreviewView.as_view()
 
 class AuthEventView(View):
     @login_required

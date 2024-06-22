@@ -61,6 +61,7 @@ urlpatterns = [
     url(r'^auth-event/(?P<pk>\d+)/census/reset-voter/$', views.census_reset_voter, name='census_reset_voter'),
     url(r'^auth-event/(?P<pk>\d+)/(?P<status>(notstarted|started|stopped|suspended|resumed))/$', views.ae_status, name='ae_status'),
     url(r'^auth-event/(?P<pk>\d+)/turnout/$', views.turnout, name='turnout'),
+    url(r'^auth-event/(?P<pk>[-\w]+)/live-preview/$', views.live_preview, name='live-preview'),
     url(r'^auth-event/module/$', views.authevent_module, name='authevent_module'),
     url(r'^auth-event/module/(?P<name>[-\w]+)/$', views.authevent_module, name='authevent_module'),
 
