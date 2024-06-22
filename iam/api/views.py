@@ -18,6 +18,7 @@ import os
 import json
 import requests
 import mimetypes
+import uuid
 from datetime import datetime
 from django import forms
 from django.core import serializers
@@ -1501,6 +1502,48 @@ class EditChildrenParentView(View):
         return json_response(data)
 
 edit_children_parent = EditChildrenParentView.as_view()
+
+class LivePreviewView(View):
+    @login_required
+    def post(request, pk=None):
+        '''
+            Uploads the configuration for a live preview
+        '''
+        try:
+            election_config = parse_json_request(request)
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+
+        preview_id = str(uuid.uuid4())
+        preview_dir = settings.STATIC_PREVIEW_PATH
+        
+        os.makedirs(preview_dir, exist_ok=True)
+
+        preview_file = os.path.join(preview_dir, f"{preview_id}.json")
+        with open(preview_file, "w") as file:
+            json.dump(election_config, file)
+
+        data = {'status': 'ok', 'id': preview_id}
+        return json_response(data)
+
+    def get(self, request, pk):
+        """
+        Gets the configuration for a live preview by ID
+        """
+        preview_dir = settings.STATIC_PREVIEW_PATH
+        preview_file = os.path.join(preview_dir, f"{pk}.json")
+
+        if not os.path.exists(preview_file):
+            raise Http404("Configuration not found.")
+
+        with open(preview_file, "r") as file:
+            election_config = json.load(file)
+
+        return json_response(election_config)
+
+live_preview = LivePreviewView.as_view()
 
 class AuthEventView(View):
     @login_required
