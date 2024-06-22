@@ -198,6 +198,7 @@ ENFORCE_STATE_CONTROLS = False
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATIC_PREVIEW_PATH = os.path.join(BASE_DIR, 'static', 'preview')
 
 # cors
 CORS_ORIGIN_ALLOW_ALL = False
