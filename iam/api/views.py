@@ -1523,7 +1523,7 @@ class LivePreviewView(View):
 
         preview_file = os.path.join(preview_dir, preview_id)
         with open(preview_file, "w") as file:
-            file.write(election_config)
+            json.dump(election_config, file)
 
         data = {'status': 'ok', 'id': preview_id}
         return json_response(data)
