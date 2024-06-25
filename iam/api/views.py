@@ -53,6 +53,7 @@ from utils import (
     check_extra_fields,
     update_alt_methods_config,
     check_alt_auth_methods,
+    return_auth_data,
     check_admin_fields,
     genhmac,
     HMACToken,
@@ -791,6 +792,13 @@ class Ping(View):
             data = {
               'auth-token': genhmac(settings.SHARED_SECRET, u.username)
             }
+            auth_event = get_object_or_404(AuthEvent, pk=pk)
+            req = {}
+            auth_data = return_auth_data('Ping', req, request, user, auth_event)
+            if 'vote-permission-token' in auth_data:
+                data['vote-permission-token'] = auth_data['vote-permission-token']
+            if 'vote-children-info' in auth_data:
+                data['vote-children-info'] = auth_data['vote-children-info']
             status = 200
         else:
             data = error
