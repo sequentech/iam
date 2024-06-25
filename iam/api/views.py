@@ -47,13 +47,15 @@ from authmethods import (
     check_config,
     METHODS,
 )
-from authmethods.utils import reset_voter_to_preregistration
+from authmethods.utils import (
+    return_auth_data,
+    reset_voter_to_preregistration,
+)
 from utils import (
     check_authmethod,
     check_extra_fields,
     update_alt_methods_config,
     check_alt_auth_methods,
-    return_auth_data,
     check_admin_fields,
     genhmac,
     HMACToken,
