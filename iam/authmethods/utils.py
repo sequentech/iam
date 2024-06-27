@@ -1627,7 +1627,6 @@ def return_auth_data(logger_name, req_json, request, user, auth_event=None):
             return {
                 'auth-event-id': event_id,
                 'vote-permission-token': access_token,
-                'access-token': access_token,
                 'num-successful-logins-allowed': max_num_successful_logins,
                 'num-successful-logins': num_successful_logins
             }

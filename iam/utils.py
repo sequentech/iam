@@ -53,7 +53,7 @@ RE_SPLIT_SORT = re.compile('__sort')
 RE_INT = re.compile('^\d+$')
 RE_BOOL = re.compile('^(true|false)$')
 LOGGER = getLogger('iam.notify')
-ACCESS_TOKEN_STR = 'access-token'
+TIMEOUT_TOKEN_STR = 'timeout-token'
 
 def stack_trace_str():
   frame = inspect.currentframe()
@@ -199,7 +199,7 @@ def genhmac(key, msg):
 def generate_access_token_hmac(key, msg, validity):
     timestamp = int(timezone.now().timestamp())
     expiry_timestamp = timestamp + validity
-    msg = "%s:%s:%s:%s" % (msg, str(expiry_timestamp), ACCESS_TOKEN_STR, str(timestamp))
+    msg = "%s:%s:%s:%s" % (msg, str(expiry_timestamp), TIMEOUT_TOKEN_STR, str(timestamp))
 
     h = hmac.new(key, msg.encode('utf-8'), "sha256")
     return 'khmac:///sha-256;' + h.hexdigest() + '/' + msg
@@ -220,7 +220,6 @@ def verifyhmac(key, msg, seconds=300, at=None):
 # msg_split = ['admin' , '1719446123']
 # timestamp = '1719446123'
 
-# admin:expiry:access-token:1719446123
 class HMACToken:
     def __init__(self, token):
         self.token = token
@@ -232,8 +231,8 @@ class HMACToken:
         msg_split = self.msg.split(':')
         self.timestamp = msg_split[-1]
 
-        is_access_token = len(msg_split) >= 4 and ACCESS_TOKEN_STR == msg_split[-2]
-        self.expiry_timestamp = msg_split[-3] if is_access_token else False
+        has_expiry = len(msg_split) >= 4 and TIMEOUT_TOKEN_STR == msg_split[-2]
+        self.expiry_timestamp = msg_split[-3] if has_expiry else False
 
         if len(msg_split) >= 5:
             self.userid = ':'.join(msg_split[0:-4])
