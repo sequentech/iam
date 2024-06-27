@@ -372,7 +372,7 @@ class SmartLink:
             error_codename=SmartLinkErrorCodes.INVALID_PERMISSION
         )
 
-      if not hmac_token.check_expiration(auth_event.refresh_token_duration_secs):
+      if not hmac_token.check_expiration(settings.TIMEOUT):
         return self.error(
             SmartLinkErrorCodes.EXPIRED_AUTH_TOKEN,
             auth_event=auth_event,
