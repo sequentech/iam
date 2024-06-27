@@ -589,6 +589,23 @@ class AuthEvent(models.Model):
     )
     based_in = models.IntegerField(null=True) # auth_event_id
 
+
+    # 0 means any number of logins is allowed
+    refresh_token_duration_secs = models.IntegerField(
+        default=600,
+        validators=[
+            MinValueValidator(0)
+        ]
+    )
+
+    # 0 means any number of logins is allowed
+    access_token_duration_secs = models.IntegerField(
+        default=120,
+        validators=[
+            MinValueValidator(0)
+        ]
+    )
+
     # will return true if allow_user_resend is defined and it's True,
     # false otherwise
     def check_allow_user_resend(self):
