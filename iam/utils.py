@@ -232,8 +232,8 @@ class HMACToken:
         msg_split = self.msg.split(':')
         self.timestamp = msg_split[-1]
 
-        self.is_access_token = len(msg_split) >= 4 and ACCESS_TOKEN_STR == msg_split[-2]
-        self.expiry_timestamp = msg_split[-3]
+        is_access_token = len(msg_split) >= 4 and ACCESS_TOKEN_STR == msg_split[-2]
+        self.expiry_timestamp = msg_split[-3] if is_access_token else False
 
         if len(msg_split) >= 5:
             self.userid = ':'.join(msg_split[0:-4])
@@ -247,7 +247,7 @@ class HMACToken:
         returns true iff the token hasn't expired
         '''
         now = timezone.now()
-        if self.is_access_token:
+        if False != self.expiry_timestamp:
             expiry_date = datetime.datetime.fromtimestamp(
                 int(self.expiry_timestamp),
                 tz=timezone.get_current_timezone()
