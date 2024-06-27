@@ -28,7 +28,7 @@ def get_auth_key(request):
             key = request.META.get('HTTP_HTTP_AUTH', None)
     return key
 
-def get_login_user(request):
+def get_login_user(request, is_access_token = True):
     key = get_auth_key(request)
     hmac_token = None
 
@@ -38,6 +38,9 @@ def get_login_user(request):
     try:
       hmac_token = HMACToken(key)
       user = User.objects.get(username=hmac_token.get_userid())
+
+      if hmac_token.is_access_token != is_access_token:
+          return None, dict(error_codename="invalid_token_type"), hmac_token
 
       # admin auth event has a different timeout
       if user.userdata.event_id == settings.ADMIN_AUTH_ID:
