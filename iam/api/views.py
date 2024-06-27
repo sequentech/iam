@@ -670,7 +670,6 @@ class Authenticate(View):
             )
 authenticate = Authenticate.as_view()
 
-
 class AuthenticateOtl(View):
     ''' Authenticate into the iam '''
 

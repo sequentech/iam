@@ -39,6 +39,7 @@ from utils import (
     constant_time_compare,
     permission_required,
     genhmac,
+    generate_access_token_hmac,
     stack_trace_str,
     generate_code,
     send_codes,
@@ -1588,14 +1589,15 @@ def return_auth_data(logger_name, req_json, request, user, auth_event=None):
         username = user.username.decode('utf-8')
     data['username'] = username
 
-    # generate the user auth-token
-    data['auth-token'] = genhmac(settings.SHARED_SECRET, user.username)
     if auth_event is None:
         auth_event = user.userdata.event
 
+    # generate the user auth-token
+    data['auth-token'] = generate_access_token_hmac(settings.SHARED_SECRET, user.username, auth_event.refresh_token_duration_secs)
+
     if auth_event.children_election_info is None:
         msg = ':'.join((user.username, 'AuthEvent', str(auth_event.id), 'vote'))
-        data['vote-permission-token'] = genhmac(settings.SHARED_SECRET, msg)
+        data['vote-permission-token'] = generate_access_token_hmac(settings.SHARED_SECRET, msg, auth_event.access_token_duration_secs)
     else:
         def get_child_info(event_id):
             auth_event = AuthEvent.objects.get(pk=event_id)
@@ -1618,13 +1620,14 @@ def return_auth_data(logger_name, req_json, request, user, auth_event=None):
             ):
 
                 msg = ':'.join((user.username, 'AuthEvent', str(event_id), 'vote'))
-                auth_token = genhmac(settings.SHARED_SECRET, msg)
+                access_token = generate_access_token_hmac(settings.SHARED_SECRET, msg, auth_event.access_token_duration_secs)
             else:
-                auth_token = None
+                access_token = None
             
             return {
                 'auth-event-id': event_id,
-                'vote-permission-token': auth_token,
+                'vote-permission-token': access_token,
+                'access-token': access_token,
                 'num-successful-logins-allowed': max_num_successful_logins,
                 'num-successful-logins': num_successful_logins
             }
