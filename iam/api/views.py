@@ -58,6 +58,7 @@ from utils import (
     check_alt_auth_methods,
     check_admin_fields,
     genhmac,
+    generate_access_token_hmac,
     HMACToken,
     json_response,
     paginate,
@@ -1235,8 +1236,9 @@ class GetPerms(View):
                 error_codename=ErrorCodes.BAD_REQUEST)
 
         msg = ':'.join((request.user.username, object_type, str(obj_id), filtered_perms))
+        auth_event = request.user.userdata.event
 
-        data['permission-token'] = genhmac(settings.SHARED_SECRET, msg)
+        data['permission-token'] = generate_access_token_hmac(settings.SHARED_SECRET, msg, auth_event.access_token_duration_secs)
         return json_response(data)
 getperms = login_required(GetPerms.as_view())
 
