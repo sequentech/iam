@@ -791,12 +791,12 @@ class Ping(View):
         data = {}
 
         if u and error is None:
-            data = {
-              'auth-token': genhmac(settings.SHARED_SECRET, u.username)
-            }
+            data = {}
             auth_event = get_object_or_404(AuthEvent, pk=pk)
             req = {}
             auth_data = return_auth_data('Ping', req, request, u, auth_event)
+            if 'vote-permission-token' in auth_data:
+                data['auth-token'] = auth_data['auth-token']
             if 'vote-permission-token' in auth_data:
                 data['vote-permission-token'] = auth_data['vote-permission-token']
             if 'vote-children-info' in auth_data:
