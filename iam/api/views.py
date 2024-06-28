@@ -57,7 +57,6 @@ from utils import (
     update_alt_methods_config,
     check_alt_auth_methods,
     check_admin_fields,
-    genhmac,
     generate_access_token_hmac,
     HMACToken,
     json_response,
