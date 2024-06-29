@@ -234,12 +234,12 @@ class HMACToken:
         has_expiry = len(msg_split) >= 4 and TIMEOUT_TOKEN_STR == msg_split[-2]
         self.expiry_timestamp = msg_split[-3] if has_expiry else False
 
-        if len(msg_split) >= 5:
-            self.userid = ':'.join(msg_split[0:-4])
-            self.other_values = msg_split[-4:-1]
+        if len(msg_split) >= 7:
+            self.userid = ':'.join(msg_split[0:-6])
+            self.other_values = msg_split[-6:-3]
         else:
             self.userid = msg_split[0]
-            self.other_values = msg_split[1:-1]
+            self.other_values = msg_split[1:-3]
 
     def check_expiration(self, seconds=300):
         '''
