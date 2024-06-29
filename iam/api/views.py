@@ -1908,7 +1908,7 @@ class AuthEventView(View):
             action.save()
 
 
-        data = {'status': 'ok', 'id': ae.pk, 'perm': acl.get_hmac()}
+        data = {'status': 'ok', 'id': ae.pk, 'perm': acl.get_hmac(ae.refresh_token_duration_secs)}
         return json_response(data)
 
     def get(self, request, pk=None):
