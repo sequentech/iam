@@ -25,7 +25,7 @@ from celery import shared_task
 
 import plugins
 from authmethods.sms_provider import SMSProvider
-from utils import send_codes, genhmac, reproducible_json_dumps
+from utils import send_codes, generate_access_token_hmac, reproducible_json_dumps
 from .models import Action, AuthEvent, BallotBox, TallySheet
 
 logger = get_task_logger(__name__)
@@ -156,9 +156,10 @@ def launch_tally(auth_event):
         callback_url,
         json=[],
         headers={
-            'Authorization': genhmac(
+            'Authorization': generate_access_token_hmac(
                 settings.SHARED_SECRET,
-                "1:AuthEvent:%s:tally" % auth_event.id
+                "1:AuthEvent:%s:tally" % auth_event.id,
+                auth_event.refresh_token_duration_secs
             ),
             'Content-type': 'application/json'
         }
@@ -244,9 +245,10 @@ def launch_virtual_tally(auth_event):
         callback_url,
         json=reproducible_json_dumps({}),
         headers={
-            'Authorization': genhmac(
+            'Authorization': generate_access_token_hmac(
                 settings.SHARED_SECRET,
-                "1:AuthEvent:%s:tally" % auth_event.id
+                "1:AuthEvent:%s:tally" % auth_event.id,
+                auth_event.refresh_token_duration_secs
             ),
             'Content-type': 'application/json'
         }
@@ -545,9 +547,10 @@ def update_ballot_boxes_config(auth_event_id):
             callback_url,
             json=ballot_boxes_config,
             headers={
-                'Authorization': genhmac(
+                'Authorization': generate_access_token_hmac(
                     settings.SHARED_SECRET,
-                    "1:AuthEvent:%s:update-ballot-boxes-results-config" % auth_event_id
+                    "1:AuthEvent:%s:update-ballot-boxes-results-config" % auth_event_id,
+                    auth_event_id.refresh_token_duration_secs
                 ),
                 'Content-type': 'application/json'
             }
@@ -618,9 +621,10 @@ def calculate_results_task(user_id, event_id_list):
             callback_url,
             data=config,
             headers={
-                'Authorization': genhmac(
+                'Authorization': generate_access_token_hmac(
                     settings.SHARED_SECRET,
-                    "1:AuthEvent:%s:calculate-results" % auth_event_id
+                    "1:AuthEvent:%s:calculate-results" % auth_event_id,
+                    auth_event.refresh_token_duration_secs
                 ),
                 'Content-type': 'application/json'
             }
@@ -732,9 +736,10 @@ def publish_results_task(user_id, auth_event_id, visit_children, parent_auth_eve
             callback_url,
             json=data,
             headers={
-                'Authorization': genhmac(
+                'Authorization': generate_access_token_hmac(
                     settings.SHARED_SECRET,
-                    "1:AuthEvent:%s:publish-results" % auth_event_id
+                    "1:AuthEvent:%s:publish-results" % auth_event_id,
+                    auth_event.refresh_token_duration_secs
                 ),
                 'Content-type': 'application/json'
             }
@@ -840,9 +845,10 @@ def unpublish_results_task(user_id, auth_event_id, parent_auth_event_id=None):
             callback_url,
             json=data,
             headers={
-                'Authorization': genhmac(
+                'Authorization': generate_access_token_hmac(
                     settings.SHARED_SECRET,
-                    "1:AuthEvent:%s:publish-results" % auth_event_id
+                    "1:AuthEvent:%s:publish-results" % auth_event_id,
+                    auth_event.refresh_token_duration_secs
                 ),
                 'Content-type': 'application/json'
             }
@@ -955,9 +961,10 @@ def set_public_candidates_task(
             callback_url,
             json=data,
             headers={
-                'Authorization': genhmac(
+                'Authorization': generate_access_token_hmac(
                     settings.SHARED_SECRET,
-                    "1:AuthEvent:%s:set-public-candidates" % auth_event_id
+                    "1:AuthEvent:%s:set-public-candidates" % auth_event_id,
+                    auth_event.refresh_token_duration_secs
                 ),
                 'Content-type': 'application/json'
             }
@@ -1094,9 +1101,10 @@ def run_ballot_box_action(
                 callback_url,
                 json=data,
                 headers={
-                    'Authorization': genhmac(
+                    'Authorization': generate_access_token_hmac(
                         settings.SHARED_SECRET,
-                        f"1:AuthEvent:{current_event_id}:{action_name}"
+                        f"1:AuthEvent:{current_event_id}:{action_name}",
+                        current_event.refresh_token_duration_secs
                     ),
                     'Content-type': 'application/json'
                 }

@@ -92,7 +92,7 @@ def dnie_auth(request, authid):
     #    u = ud.user
 
     #msg = ':'.join((u.username, "AuthEvent", ae.id, "vote"))
-    #khmac = genhmac(settings.SHARED_SECRET, msg)
+    #khmac = generate_access_token_hmac(settings.SHARED_SECRET, msg, ae.refresh_token_duration_secs)
     #head, path = khmac.split(";")[1]
     #array = path.split("/")
     #hash, msg = array[0], array[1]

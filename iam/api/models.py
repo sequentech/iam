@@ -42,7 +42,7 @@ from marshmallow.exceptions import ValidationError as MarshMallowValidationError
 from django.db.models import CharField
 from django.db.models.functions import Length
 
-from utils import genhmac
+from utils import generate_access_token_hmac
 from api.middleware import CurrentUserMiddleware
 
 CharField.register_lookup(Length, 'length')
@@ -588,6 +588,23 @@ class AuthEvent(models.Model):
         ]
     )
     based_in = models.IntegerField(null=True) # auth_event_id
+
+
+    # 0 means any number of logins is allowed
+    refresh_token_duration_secs = models.IntegerField(
+        default=600,
+        validators=[
+            MinValueValidator(0)
+        ]
+    )
+
+    # 0 means any number of logins is allowed
+    access_token_duration_secs = models.IntegerField(
+        default=120,
+        validators=[
+            MinValueValidator(0)
+        ]
+    )
 
     # will return true if allow_user_resend is defined and it's True,
     # false otherwise
@@ -1224,9 +1241,9 @@ class ACL(models.Model):
         }
         return d
 
-    def get_hmac(self):
+    def get_hmac(self, validity):
         msg = ':'.join((self.user.user.username, self.object_type, str(self.object_id), self.perm))
-        khmac = genhmac(settings.SHARED_SECRET, msg)
+        khmac = generate_access_token_hmac(settings.SHARED_SECRET, msg, validity)
         return khmac
 
     def __str__(self):

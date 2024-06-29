@@ -3101,14 +3101,16 @@ class TestCallback(TestCase):
         self.u = u.userdata
         self.uid = u.id
 
-    def genhmac(self, key, msg):
+    def generate_access_token_hmac(self, key, msg):
         import hmac
 
         if not key or not msg:
            return
 
         timestamp = int(timezone.now().timestamp())
-        msg = "%s:%s" % (msg, str(timestamp))
+        validity = 120
+        expiry_timestamp = timestamp + validity
+        msg = "%s:%s:%s:%s" % (msg, str(expiry_timestamp), "timeout-token", str(timestamp))
 
         h = hmac.new(key, msg.encode('utf-8'), "sha256")
         return 'khmac:///sha-256;' + h.hexdigest() + '/' + msg
@@ -3117,7 +3119,7 @@ class TestCallback(TestCase):
     def test_callback(self):
         c = JClient()
         timed_auth = "test:AuthEvent:%d:Callback" % self.aeid
-        hmac = self.genhmac(settings.SHARED_SECRET, timed_auth)
+        hmac = self.generate_access_token_hmac(settings.SHARED_SECRET, timed_auth)
         c.set_auth_token(hmac)
         response = c.post('/api/auth-event/%d/callback/' % self.aeid, {})
         self.assertEqual(response.status_code, 200)
@@ -3275,11 +3277,13 @@ class TestRevotes(TestCase):
     def setUpTestData():
         flush_db_load_fixture()
 
-    def genhmac(self, key, msg):
+    def generate_access_token_hmac(self, key, msg):
         import hmac
         import datetime
         timestamp = int(timezone.now().timestamp())
-        msg = "%s:%s" % (msg, str(timestamp))
+        validity = 120
+        expiry_timestamp = timestamp + validity
+        msg = "%s:%s:%s:%s" % (msg, str(expiry_timestamp), "timeout-token", str(timestamp))
 
         h = hmac.new(key, msg.encode('utf-8'), "sha256")
         return 'khmac:///sha-256;' + h.hexdigest() + '/' + msg
@@ -3348,7 +3352,7 @@ class TestRevotes(TestCase):
         self.assertEqual(response.status_code, 200)
         response = c.authenticate(self.aeid, test_data.auth_email_default1)
         self.assertEqual(response.status_code, 200)
-        auth_token = self.genhmac(settings.SHARED_SECRET, "%s:AuthEvent:%d:RegisterSuccessfulLogin" % (cuser.username, self.aeid))
+        auth_token = self.generate_access_token_hmac(settings.SHARED_SECRET, "%s:AuthEvent:%d:RegisterSuccessfulLogin" % (cuser.username, self.aeid))
         c.set_auth_token(auth_token)
         response = c.post('/api/auth-event/%d/successful_login/%s' % (self.aeid, cuser.username), {})
         self.assertEqual(response.status_code, 200)
@@ -3364,7 +3368,7 @@ class TestRevotes(TestCase):
         self.assertEqual(response.status_code, 200)
         response = c.authenticate(self.aeid, test_data.auth_email_default1)
         self.assertEqual(response.status_code, 200)
-        auth_token = self.genhmac(settings.SHARED_SECRET, "%s:AuthEvent:%d:RegisterSuccessfulLogin" % (cuser.username, self.aeid))
+        auth_token = self.generate_access_token_hmac(settings.SHARED_SECRET, "%s:AuthEvent:%d:RegisterSuccessfulLogin" % (cuser.username, self.aeid))
         c.set_auth_token(auth_token)
         response = c.post('/api/auth-event/%d/successful_login/%s' % (self.aeid, cuser.username), {})
         self.assertEqual(response.status_code, 200)
@@ -3394,7 +3398,7 @@ class TestRevotes(TestCase):
         for i in range(0, 50):
             response = c.authenticate(self.aeid, test_data.auth_email_default1)
             self.assertEqual(response.status_code, 200)
-            auth_token = self.genhmac(settings.SHARED_SECRET, "%s:AuthEvent:%d:RegisterSuccessfulLogin" % (cuser.username, self.aeid))
+            auth_token = self.generate_access_token_hmac(settings.SHARED_SECRET, "%s:AuthEvent:%d:RegisterSuccessfulLogin" % (cuser.username, self.aeid))
             c.set_auth_token(auth_token)
             response = c.post('/api/auth-event/%d/successful_login/%s' % (self.aeid, cuser.username), {})
 

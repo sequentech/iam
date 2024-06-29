@@ -53,7 +53,7 @@ RE_SPLIT_SORT = re.compile('__sort')
 RE_INT = re.compile('^\d+$')
 RE_BOOL = re.compile('^(true|false)$')
 LOGGER = getLogger('iam.notify')
-
+TIMEOUT_TOKEN_STR = 'timeout-token'
 
 def stack_trace_str():
   frame = inspect.currentframe()
@@ -196,6 +196,13 @@ def genhmac(key, msg):
     h = hmac.new(key, msg.encode('utf-8'), "sha256")
     return 'khmac:///sha-256;' + h.hexdigest() + '/' + msg
 
+def generate_access_token_hmac(key, msg, validity):
+    timestamp = int(timezone.now().timestamp())
+    expiry_timestamp = timestamp + validity
+    msg = "%s:%s:%s:%s" % (msg, str(expiry_timestamp), TIMEOUT_TOKEN_STR, str(timestamp))
+
+    h = hmac.new(key, msg.encode('utf-8'), "sha256")
+    return 'khmac:///sha-256;' + h.hexdigest() + '/' + msg
 
 def verifyhmac(key, msg, seconds=300, at=None):
     if at is None:
@@ -206,6 +213,12 @@ def verifyhmac(key, msg, seconds=300, at=None):
 
     valid = valid and at.check_expiration(seconds)
     return valid
+# khmac:///sha-256;2a03ad3ecee88f645833a1a0eb99a7e43a8599a473997cb2f606872e33b1928a/admin:1719446123
+# data = 2a03ad3ecee88f645833a1a0eb99a7e43a8599a473997cb2f606872e33b1928a/admin:1719446123
+# hash = 2a03ad3ecee88f645833a1a0eb99a7e43a8599a473997cb2f606872e33b1928a
+# msg = admin:1719446123
+# msg_split = ['admin' , '1719446123']
+# timestamp = '1719446123'
 
 class HMACToken:
     def __init__(self, token):
@@ -217,22 +230,34 @@ class HMACToken:
         self.hash, self.msg = data.split('/', 1)
         msg_split = self.msg.split(':')
         self.timestamp = msg_split[-1]
-        if len(msg_split) >= 5:
-            self.userid = ':'.join(msg_split[0:-4])
-            self.other_values = msg_split[-4:-1]
+
+        has_expiry = len(msg_split) >= 4 and TIMEOUT_TOKEN_STR == msg_split[-2]
+        self.expiry_timestamp = msg_split[-3] if has_expiry else False
+
+        if len(msg_split) >= 7:
+            self.userid = ':'.join(msg_split[0:-6])
+            self.other_values = msg_split[-6:-3]
         else:
             self.userid = msg_split[0]
-            self.other_values = msg_split[1:-1]
+            self.other_values = msg_split[1:-3]
 
     def check_expiration(self, seconds=300):
-        t = self.timestamp
-        n = timezone.now()
-        d = datetime.datetime.fromtimestamp(
-            int(t),
-            tz=timezone.get_current_timezone()
-        )
-        d = d + datetime.timedelta(seconds=seconds)
-        return d > n
+        '''
+        returns true iff the token hasn't expired
+        '''
+        now = timezone.now()
+        if False != self.expiry_timestamp:
+            expiry_date = datetime.datetime.fromtimestamp(
+                int(self.expiry_timestamp),
+                tz=timezone.get_current_timezone()
+            )
+        else:
+            expiry_date = datetime.datetime.fromtimestamp(
+                int(self.timestamp),
+                tz=timezone.get_current_timezone()
+            )
+            expiry_date = expiry_date + datetime.timedelta(seconds=seconds)
+        return expiry_date > now
 
     def get_userid(self):
         '''
