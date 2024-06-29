@@ -1579,6 +1579,7 @@ def return_auth_data(logger_name, req_json, request, user, auth_event=None):
     user_logged_in.send(sender=user.__class__, request=request, user=user)
     user.save()
 
+
     # this is the data that will be returned
     data = {'status': 'ok'}
 
@@ -1591,8 +1592,11 @@ def return_auth_data(logger_name, req_json, request, user, auth_event=None):
     if auth_event is None:
         auth_event = user.userdata.event
 
+    is_admin = user.userdata.event_id == settings.ADMIN_AUTH_ID
+    
     # generate the user auth-token
-    data['auth-token'] = generate_access_token_hmac(settings.SHARED_SECRET, user.username, auth_event.refresh_token_duration_secs)
+    if 'Ping' != logger_name or is_admin:
+        data['auth-token'] = generate_access_token_hmac(settings.SHARED_SECRET, user.username, auth_event.refresh_token_duration_secs)
 
     if auth_event.children_election_info is None:
         msg = ':'.join((user.username, 'AuthEvent', str(auth_event.id), 'vote'))
