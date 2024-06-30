@@ -1237,7 +1237,7 @@ class GetPerms(View):
         msg = ':'.join((request.user.username, object_type, str(obj_id), filtered_perms))
         auth_event = request.user.userdata.event
 
-        data['permission-token'] = generate_access_token_hmac(settings.SHARED_SECRET, msg, auth_event.access_token_duration_secs)
+        data['permission-token'] = generate_access_token_hmac(settings.SHARED_SECRET, msg, auth_event.get_refresh_token_duration_secs())
         return json_response(data)
 getperms = login_required(GetPerms.as_view())
 
@@ -1908,7 +1908,7 @@ class AuthEventView(View):
             action.save()
 
 
-        data = {'status': 'ok', 'id': ae.pk, 'perm': acl.get_hmac(ae.refresh_token_duration_secs)}
+        data = {'status': 'ok', 'id': ae.pk, 'perm': acl.get_hmac(ae.get_refresh_token_duration_secs())}
         return json_response(data)
 
     def get(self, request, pk=None):

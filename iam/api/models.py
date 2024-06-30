@@ -590,21 +590,28 @@ class AuthEvent(models.Model):
     based_in = models.IntegerField(null=True) # auth_event_id
 
 
-    # 0 means any number of logins is allowed
     refresh_token_duration_secs = models.IntegerField(
-        default=600,
+        default=0,
         validators=[
             MinValueValidator(0)
         ]
     )
 
-    # 0 means any number of logins is allowed
     access_token_duration_secs = models.IntegerField(
-        default=120,
+        default=0,
         validators=[
             MinValueValidator(0)
         ]
     )
+
+    def get_refresh_token_duration_secs(self):
+        if self.refresh_token_duration_secs > 0:
+            return self.refresh_token_duration_secs 
+        is_admin = settings.ADMIN_AUTH_ID == self.id
+        return settings.ADMIN_TIMEOUT if is_admin else settings.REFRESH_TIMEOUT
+
+    def get_access_token_duration_secs(self):
+        return self.access_token_duration_secs if self.access_token_duration_secs > 0 else settings.TIMEOUT
 
     # will return true if allow_user_resend is defined and it's True,
     # false otherwise

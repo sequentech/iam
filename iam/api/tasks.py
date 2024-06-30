@@ -159,7 +159,7 @@ def launch_tally(auth_event):
             'Authorization': generate_access_token_hmac(
                 settings.SHARED_SECRET,
                 "1:AuthEvent:%s:tally" % auth_event.id,
-                auth_event.refresh_token_duration_secs
+                auth_event.get_refresh_token_duration_secs()
             ),
             'Content-type': 'application/json'
         }
@@ -248,7 +248,7 @@ def launch_virtual_tally(auth_event):
             'Authorization': generate_access_token_hmac(
                 settings.SHARED_SECRET,
                 "1:AuthEvent:%s:tally" % auth_event.id,
-                auth_event.refresh_token_duration_secs
+                auth_event.get_refresh_token_duration_secs()
             ),
             'Content-type': 'application/json'
         }
@@ -550,7 +550,7 @@ def update_ballot_boxes_config(auth_event_id):
                 'Authorization': generate_access_token_hmac(
                     settings.SHARED_SECRET,
                     "1:AuthEvent:%s:update-ballot-boxes-results-config" % auth_event_id,
-                    auth_event_id.refresh_token_duration_secs
+                    auth_event_id.get_refresh_token_duration_secs()
                 ),
                 'Content-type': 'application/json'
             }
@@ -624,7 +624,7 @@ def calculate_results_task(user_id, event_id_list):
                 'Authorization': generate_access_token_hmac(
                     settings.SHARED_SECRET,
                     "1:AuthEvent:%s:calculate-results" % auth_event_id,
-                    auth_event.refresh_token_duration_secs
+                    auth_event.get_refresh_token_duration_secs()
                 ),
                 'Content-type': 'application/json'
             }
@@ -739,7 +739,7 @@ def publish_results_task(user_id, auth_event_id, visit_children, parent_auth_eve
                 'Authorization': generate_access_token_hmac(
                     settings.SHARED_SECRET,
                     "1:AuthEvent:%s:publish-results" % auth_event_id,
-                    auth_event.refresh_token_duration_secs
+                    auth_event.get_refresh_token_duration_secs()
                 ),
                 'Content-type': 'application/json'
             }
@@ -848,7 +848,7 @@ def unpublish_results_task(user_id, auth_event_id, parent_auth_event_id=None):
                 'Authorization': generate_access_token_hmac(
                     settings.SHARED_SECRET,
                     "1:AuthEvent:%s:publish-results" % auth_event_id,
-                    auth_event.refresh_token_duration_secs
+                    auth_event.get_refresh_token_duration_secs()
                 ),
                 'Content-type': 'application/json'
             }
@@ -964,7 +964,7 @@ def set_public_candidates_task(
                 'Authorization': generate_access_token_hmac(
                     settings.SHARED_SECRET,
                     "1:AuthEvent:%s:set-public-candidates" % auth_event_id,
-                    auth_event.refresh_token_duration_secs
+                    auth_event.get_refresh_token_duration_secs()
                 ),
                 'Content-type': 'application/json'
             }
@@ -1104,7 +1104,7 @@ def run_ballot_box_action(
                     'Authorization': generate_access_token_hmac(
                         settings.SHARED_SECRET,
                         f"1:AuthEvent:{current_event_id}:{action_name}",
-                        current_event.refresh_token_duration_secs
+                        current_event.get_refresh_token_duration_secs()
                     ),
                     'Content-type': 'application/json'
                 }

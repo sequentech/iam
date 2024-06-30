@@ -1593,14 +1593,14 @@ def return_auth_data(logger_name, req_json, request, user, auth_event=None):
         auth_event = user.userdata.event
 
     is_admin = user.userdata.event_id == settings.ADMIN_AUTH_ID
-    
+
     # generate the user auth-token
     if 'Ping' != logger_name or is_admin:
-        data['auth-token'] = generate_access_token_hmac(settings.SHARED_SECRET, user.username, auth_event.refresh_token_duration_secs)
+        data['auth-token'] = generate_access_token_hmac(settings.SHARED_SECRET, user.username, auth_event.get_refresh_token_duration_secs())
 
     if auth_event.children_election_info is None:
         msg = ':'.join((user.username, 'AuthEvent', str(auth_event.id), 'vote'))
-        data['vote-permission-token'] = generate_access_token_hmac(settings.SHARED_SECRET, msg, auth_event.access_token_duration_secs)
+        data['vote-permission-token'] = generate_access_token_hmac(settings.SHARED_SECRET, msg, auth_event.get_refresh_token_duration_secs())
     else:
         def get_child_info(event_id):
             auth_event = AuthEvent.objects.get(pk=event_id)
@@ -1623,7 +1623,7 @@ def return_auth_data(logger_name, req_json, request, user, auth_event=None):
             ):
 
                 msg = ':'.join((user.username, 'AuthEvent', str(event_id), 'vote'))
-                access_token = generate_access_token_hmac(settings.SHARED_SECRET, msg, auth_event.access_token_duration_secs)
+                access_token = generate_access_token_hmac(settings.SHARED_SECRET, msg, auth_event.get_refresh_token_duration_secs())
             else:
                 access_token = None
             
