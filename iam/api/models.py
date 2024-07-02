@@ -611,7 +611,7 @@ class AuthEvent(models.Model):
         return settings.ADMIN_TIMEOUT if is_admin else settings.REFRESH_TIMEOUT
 
     def get_access_token_duration_secs(self):
-        return self.access_token_duration_secs if self.access_token_duration_secs > 0 else settings.TIMEOUT
+        return self.access_token_duration_secs if self.access_token_duration_secs > 0 else settings.ACCESS_TIMEOUT
 
     # will return true if allow_user_resend is defined and it's True,
     # false otherwise

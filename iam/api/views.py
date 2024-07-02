@@ -1237,7 +1237,7 @@ class GetPerms(View):
         msg = ':'.join((request.user.username, object_type, str(obj_id), filtered_perms))
         auth_event = request.user.userdata.event
 
-        data['permission-token'] = generate_access_token_hmac(settings.SHARED_SECRET, msg, auth_event.get_refresh_token_duration_secs())
+        data['permission-token'] = generate_access_token_hmac(settings.SHARED_SECRET, msg, auth_event.get_access_token_duration_secs())
         return json_response(data)
 getperms = login_required(GetPerms.as_view())
 

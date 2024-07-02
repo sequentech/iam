@@ -395,7 +395,7 @@ class SmartLink:
       verified = verifyhmac(
         key=shared_secret,
         msg=hmac_token.msg,
-        seconds=settings.TIMEOUT,
+        seconds=settings.SMARTLINK_TIMEOUT,
         at=hmac_token
       )
 
