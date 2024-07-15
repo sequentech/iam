@@ -28,7 +28,7 @@ from api.models import AuthEvent, ACL, UserData, SuccessfulLogin
 from .m_email import Email
 from .m_sms import Sms
 from .models import Message, Code
-from utils import genhmac, ErrorCodes
+from utils import generate_access_token_hmac, ErrorCodes
 
 
 class AuthMethodTestCase(TestCase):
@@ -262,9 +262,10 @@ class AuthMethodSmartLinkTestCase(TestCase):
           'vote'
         ])
         data = {
-          'auth-token': genhmac(
+          'auth-token': generate_access_token_hmac(
             key=settings.SHARED_SECRET,
-            msg=message
+            msg=message,
+            validity=self.auth_event.refresh_token_duration_secs
           )
         }
         response = c.authenticate(self.auth_event.id, data)
@@ -290,9 +291,10 @@ class AuthMethodSmartLinkTestCase(TestCase):
           'vote'
         ])
         data = {
-          'auth-token': genhmac(
+          'auth-token': generate_access_token_hmac(
             key=settings.SHARED_SECRET,
-            msg=message
+            msg=message,
+            validity=self.auth_event.refresh_token_duration_secs
           )
         }
         response = c.authenticate(self.auth_event.id, data)
