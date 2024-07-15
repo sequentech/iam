@@ -57,7 +57,7 @@ from utils import (
     update_alt_methods_config,
     check_alt_auth_methods,
     check_admin_fields,
-    genhmac,
+    generate_access_token_hmac,
     HMACToken,
     json_response,
     paginate,
@@ -670,7 +670,6 @@ class Authenticate(View):
             )
 authenticate = Authenticate.as_view()
 
-
 class AuthenticateOtl(View):
     ''' Authenticate into the iam '''
 
@@ -791,12 +790,12 @@ class Ping(View):
         data = {}
 
         if u and error is None:
-            data = {
-              'auth-token': genhmac(settings.SHARED_SECRET, u.username)
-            }
+            data = {}
             auth_event = get_object_or_404(AuthEvent, pk=pk)
             req = {}
             auth_data = return_auth_data('Ping', req, request, u, auth_event)
+            if 'auth-token' in auth_data:
+                data['auth-token'] = auth_data['auth-token']
             if 'vote-permission-token' in auth_data:
                 data['vote-permission-token'] = auth_data['vote-permission-token']
             if 'vote-children-info' in auth_data:
@@ -1236,8 +1235,9 @@ class GetPerms(View):
                 error_codename=ErrorCodes.BAD_REQUEST)
 
         msg = ':'.join((request.user.username, object_type, str(obj_id), filtered_perms))
+        auth_event = request.user.userdata.event
 
-        data['permission-token'] = genhmac(settings.SHARED_SECRET, msg)
+        data['permission-token'] = generate_access_token_hmac(settings.SHARED_SECRET, msg, auth_event.get_access_token_duration_secs())
         return json_response(data)
 getperms = login_required(GetPerms.as_view())
 
@@ -1908,7 +1908,7 @@ class AuthEventView(View):
             action.save()
 
 
-        data = {'status': 'ok', 'id': ae.pk, 'perm': acl.get_hmac()}
+        data = {'status': 'ok', 'id': ae.pk, 'perm': acl.get_hmac(ae.get_refresh_token_duration_secs())}
         return json_response(data)
 
     def get(self, request, pk=None):

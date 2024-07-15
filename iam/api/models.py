@@ -42,7 +42,7 @@ from marshmallow.exceptions import ValidationError as MarshMallowValidationError
 from django.db.models import CharField
 from django.db.models.functions import Length
 
-from utils import genhmac
+from utils import generate_access_token_hmac
 from api.middleware import CurrentUserMiddleware
 
 CharField.register_lookup(Length, 'length')
@@ -588,6 +588,30 @@ class AuthEvent(models.Model):
         ]
     )
     based_in = models.IntegerField(null=True) # auth_event_id
+
+
+    refresh_token_duration_secs = models.IntegerField(
+        default=0,
+        validators=[
+            MinValueValidator(0)
+        ]
+    )
+
+    access_token_duration_secs = models.IntegerField(
+        default=0,
+        validators=[
+            MinValueValidator(0)
+        ]
+    )
+
+    def get_refresh_token_duration_secs(self):
+        if self.refresh_token_duration_secs > 0:
+            return self.refresh_token_duration_secs 
+        is_admin = settings.ADMIN_AUTH_ID == self.id
+        return settings.ADMIN_TIMEOUT if is_admin else settings.REFRESH_TIMEOUT
+
+    def get_access_token_duration_secs(self):
+        return self.access_token_duration_secs if self.access_token_duration_secs > 0 else settings.ACCESS_TIMEOUT
 
     # will return true if allow_user_resend is defined and it's True,
     # false otherwise
@@ -1224,9 +1248,9 @@ class ACL(models.Model):
         }
         return d
 
-    def get_hmac(self):
+    def get_hmac(self, validity):
         msg = ':'.join((self.user.user.username, self.object_type, str(self.object_id), self.perm))
-        khmac = genhmac(settings.SHARED_SECRET, msg)
+        khmac = generate_access_token_hmac(settings.SHARED_SECRET, msg, validity)
         return khmac
 
     def __str__(self):
