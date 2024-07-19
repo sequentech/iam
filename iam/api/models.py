@@ -535,6 +535,7 @@ class AuthEvent(models.Model):
     inside_authenticate_otl_period = models.BooleanField(default=False)
     has_ballot_boxes = models.BooleanField(default=True)
     allow_public_census_query = models.BooleanField(default=True)
+    force_census_query = models.BooleanField(default=True)
 
     # allows to hide default login lookup field during the authentication
     # step. For example, in email authentication it would not show the
@@ -661,6 +662,7 @@ class AuthEvent(models.Model):
             'has_ballot_boxes': self.has_ballot_boxes,
             'tally_status': self.tally_status,
             'allow_public_census_query': self.allow_public_census_query,
+            'force_census_query': self.force_census_query,
             'created': (self.created.isoformat()
                         if hasattr(self.created, 'isoformat')
                         else self.created),
