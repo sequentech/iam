@@ -1699,6 +1699,11 @@ class AuthEventView(View):
                 return json_response(
                     status=400,
                     error_codename="INVALID_PUBLIC_CENSUS_QUERY")
+            force_census_query = req.get('force_census_query', False)
+            if not isinstance(force_census_query, bool):
+                return json_response(
+                    status=400,
+                    error_codename="INVALID_FORCE_CENSUS_QUERY")
 
             based_in = req.get('based_in', None)
             if (
@@ -1765,6 +1770,7 @@ class AuthEventView(View):
                 has_ballot_boxes=has_ballot_boxes,
                 hide_default_login_lookup_field=hide_default_login_lookup_field,
                 allow_public_census_query=allow_public_census_query,
+                force_census_query=force_census_query,
                 support_otl_enabled=support_otl_enabled,
                 alternative_auth_methods=alternative_auth_methods,
                 scheduled_events=scheduled_events,

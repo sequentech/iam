@@ -1149,6 +1149,7 @@ class TestAuthEvent(TestCase):
         auth_event = {
             'events': {
                 'allow_public_census_query': False,
+                'force_census_query': False,
                 'alternative_auth_methods': None,
                 'auth_method': 'email',
                 'created': '2018-03-29T11:20:30.656486+00:00',
