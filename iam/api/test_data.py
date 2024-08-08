@@ -1554,7 +1554,7 @@ def generate_auth_event_and_voter_credentials(auth_method):
     authentication method.
     '''
     from api.models import AuthEvent
-    from authmethods.utils import genhmac
+    from authmethods.utils import generate_access_token_hmac
     from authmethods.models import Code
     auth_event = None
     voter = None
@@ -1834,14 +1834,15 @@ def generate_auth_event_and_voter_credentials(auth_method):
         voter.userdata.save()
 
         credentials = {
-          'auth-token': genhmac(
+          'auth-token': generate_access_token_hmac(
             key=settings.SHARED_SECRET,
             msg=':'.join([
                 voter.userdata.metadata['user_id'],
                 'AuthEvent',
                 str(auth_event.id),
                 'vote'
-            ])
+            ]),
+            validity=auth_event.refresh_token_duration_secs
           )
         }
     else:
