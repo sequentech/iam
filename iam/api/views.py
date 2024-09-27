@@ -903,28 +903,35 @@ class Archive(View):
     '''
     def post(self, request, pk):
         permission_required(request.user, 'AuthEvent', ['edit', 'archive'], pk)
+
+        def archive_pk(auth_event):
+            # Get all edit and view perms and convert edit into unarchive and view
+            # into view-archived permissions
+            acls = ACL.objects.filter(
+                perm__in=['edit', 'view'],
+                object_type='AuthEvent',
+                object_id=auth_event.id
+            )
+            converter_map = dict(edit='unarchive', view='view-archived')
+            for acl in acls:
+                acl.perm = converter_map[acl.perm]
+                acl.save()
+
+            # register the action
+            action = Action(
+                executer=request.user,
+                receiver=None,
+                action_name='authevent:archive',
+                event=auth_event,
+                metadata=dict())
+            action.save()
+
         auth_event = get_object_or_404(AuthEvent, pk=pk)
-
-        # Get all edit and view perms and convert edit into unarchive and view
-        # into view-archived permissions
-        acls = ACL.objects.filter(
-            perm__in=['edit', 'view'],
-            object_type='AuthEvent',
-            object_id=pk
-        )
-        converter_map = dict(edit='unarchive', view='view-archived')
-        for acl in acls:
-            acl.perm = converter_map[acl.perm]
-            acl.save()
-
-        # register the action
-        action = Action(
-            executer=request.user,
-            receiver=None,
-            action_name='authevent:archive',
-            event=auth_event,
-            metadata=dict())
-        action.save()
+        children = AuthEvent.objects.filter(parent_id=pk)
+        
+        archive_pk(auth_event)
+        for child in children:
+            archive_pk(child)
 
         return json_response()
 archive = login_required(Archive.as_view())
@@ -936,30 +943,37 @@ class Unarchive(View):
     '''
     def post(self, request, pk):
         permission_required(request.user, 'AuthEvent', ['unarchive'], pk)
-        auth_event = get_object_or_404(AuthEvent, pk=pk)
 
-        # Reverts the archiving of an auth-event
-        acls = ACL.objects.filter(
-            perm__in=['unarchive', 'view-archived'],
-            object_type='AuthEvent',
-            object_id=pk
-        )
-        converter_map = {
-            'unarchive': 'edit',
-            'view-archived': 'view'
-        }
-        for acl in acls:
-            acl.perm = converter_map[acl.perm]
-            acl.save()
+        def unarchive_pk(auth_event):
+            # Reverts the archiving of an auth-event
+            acls = ACL.objects.filter(
+                perm__in=['unarchive', 'view-archived'],
+                object_type='AuthEvent',
+                object_id=auth_event.id
+            )
+            converter_map = {
+                'unarchive': 'edit',
+                'view-archived': 'view'
+            }
+            for acl in acls:
+                acl.perm = converter_map[acl.perm]
+                acl.save()
+            
+            # register the action
+            action = Action(
+                executer=request.user,
+                receiver=None,
+                action_name='authevent:unarchive',
+                event=auth_event,
+                metadata=dict())
+            action.save()
+
+        auth_event = get_object_or_404(AuthEvent, pk=pk)
+        children = AuthEvent.objects.filter(parent_id=pk)
         
-        # register the action
-        action = Action(
-            executer=request.user,
-            receiver=None,
-            action_name='authevent:unarchive',
-            event=auth_event,
-            metadata=dict())
-        action.save()
+        unarchive_pk(auth_event)
+        for child in children:
+            unarchive_pk(child)
 
         return json_response()
 unarchive = login_required(Unarchive.as_view())
