@@ -535,7 +535,7 @@ class OpenIdConnect(object):
 
         # once we have verified id_token_dict, then we can populate req with
         # data from the verified claims contained in id_token_dict
-        req = populate_fields_from_source_claims(req, id_token_dict, auth_event)
+        req = populate_fields_from_source_claims(req, id_token_dict, auth_event, provider_id)
         LOGGER.debug(
             f"populated request is {req}\n"
         )
