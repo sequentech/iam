@@ -1732,7 +1732,7 @@ def get_base_auth_query(auth_event, ignore_generated_code=False):
         )
     return q
 
-def populate_fields_from_source_claims(req, id_token_dict, auth_event):
+def populate_fields_from_source_claims(req, id_token_dict, auth_event, provider_id):
     '''
     once verified id_token_dict, this function populates req with data from the
     verified claims contained in id_token_dict
@@ -1745,6 +1745,18 @@ def populate_fields_from_source_claims(req, id_token_dict, auth_event):
             continue
 
         source_claim = extra_field["source_claim"]
+
+        if source_claim is None:
+            continue
+
+        # If source_claim is a dict, get the source_claim for the provider_id
+        if isinstance(source_claim, dict):
+            if provider_id in source_claim:
+                source_claim = source_claim[provider_id]
+            else:
+                # Skip if provider_id not found in source_claim map
+                continue
+
         if source_claim not in id_token_dict:
             continue
 
