@@ -6,7 +6,7 @@
 [coverage_link]: https://coveralls.io/r/sequentech/iam?branch=master
 
 # Introduction
-
+ 
 The iam is an isolated server-side component that provides
 authentication and authorization primitives. It's is completely decoupled
 from sequent-core, and it's ignorant of concepts like "election", "vote" or
