@@ -3382,6 +3382,25 @@ class DeleteElections(View):
                 status=400,
                 error_codename=ErrorCodes.BAD_REQUEST)
         
+        for election_id in election_ids:
+            permission_required(request.user, 'AuthEvent', ['edit', 'delete'], pk)
+
+            election_obj = AuthEvent.objects.get(pk=election_id)
+
+            action = Action(
+                executer=request.user,
+                receiver=None,
+                action_name="authevent:delete",
+                event=election_obj,
+                metadata=dict(
+                    auth_event_id=election_obj.id,
+                    auth_event_name=election_obj.name
+                )
+            )
+
+            action.save()
+            election_obj.delete()
+        
         data = {'status': 'ok'}
         return json_response(data)
 
