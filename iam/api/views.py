@@ -3386,10 +3386,10 @@ class DeleteElections(View):
             permission_required(request.user, 'AuthEvent', ['edit', 'delete'], election_id)
 
             election_obj = AuthEvent.objects.get(pk=election_id)
-            children = election_obj.children.all()
-            children.append(election_obj.id)
+            children_pks = [child.id for child in election_obj.children.all()]
+            children_pks.append(election_obj.id)
             # delete event and children in ballot box:
-            for pk in children:
+            for pk in children_pks:
                 pk_obj = AuthEvent.objects.get(pk=pk)
                 ballot_box_base = settings.SEQUENT_ELECTIONS_BASE[0]
                 ballot_box_url = "%s/api/election/%s/delete" % (
