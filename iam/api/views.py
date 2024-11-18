@@ -3411,7 +3411,7 @@ class DeleteElections(View):
 
                 LOGGER.info(
                     "DeleteElections.post\n" +
-                    "pk '%d'\n" +
+                    "delete pk (Ballot Box) '%d'\n" +
                     "ballot_box_url '%r'\n" +
                     "ballot_box_request.status_code '%r'\n" +
                     "ballot_box_request.text '%r'\n",
