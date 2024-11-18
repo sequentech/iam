@@ -63,6 +63,7 @@ urlpatterns = [
     url(r'^auth-event/(?P<pk>\d+)/turnout/$', views.turnout, name='turnout'),
     url(r'^auth-event/(?P<pk>[-\w]+)/live-preview/$', views.live_preview, name='live-preview'),
     url(r'^auth-event/live-preview/$', views.live_preview, name='live-preview'),
+    url(r'^auth-event/delete-elections/$', views.delete_elections, name='delete-elections'),
     url(r'^auth-event/module/$', views.authevent_module, name='authevent_module'),
     url(r'^auth-event/module/(?P<name>[-\w]+)/$', views.authevent_module, name='authevent_module'),
 

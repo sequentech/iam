@@ -3366,3 +3366,23 @@ class GetHighestAutheventView(View):
             highest_id=highest_pk
         ))
 get_highest_authevent = login_required(GetHighestAutheventView.as_view())
+
+
+class DeleteElections(View):
+    @login_required
+    def post(request, pk=None):
+        '''
+            Uploads the configuration for a live preview
+        '''
+        try:
+            elections_json = parse_json_request(request)
+            election_ids = elections_json['election-ids']
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+        
+        data = {'status': 'ok'}
+        return json_response(data)
+
+delete_elections = DeleteElections.as_view()
