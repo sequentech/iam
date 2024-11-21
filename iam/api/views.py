@@ -3366,3 +3366,69 @@ class GetHighestAutheventView(View):
             highest_id=highest_pk
         ))
 get_highest_authevent = login_required(GetHighestAutheventView.as_view())
+
+
+class DeleteElections(View):
+    @login_required
+    def post(request, pk=None):
+        '''
+            Uploads the configuration for a live preview
+        '''
+        try:
+            elections_json = parse_json_request(request)
+            election_ids = elections_json['election-ids']
+        except:
+            return json_response(
+                status=400,
+                error_codename=ErrorCodes.BAD_REQUEST)
+        
+        for election_id in election_ids:
+            permission_required(request.user, 'AuthEvent', ['edit', 'delete'], election_id)
+
+            election_obj = AuthEvent.objects.get(pk=election_id)
+            children_pks = [child.id for child in election_obj.children.all()]
+            children_pks.append(election_obj.id)
+            # delete event and children in ballot box:
+            for pk in children_pks:
+                pk_obj = AuthEvent.objects.get(pk=pk)
+                ballot_box_base = settings.SEQUENT_ELECTIONS_BASE[0]
+                ballot_box_url = "%s/api/election/%s/delete" % (
+                    ballot_box_base,
+                    pk
+                )
+                ballot_box_request = requests.post(
+                    ballot_box_url,
+                    json=[],
+                    headers={
+                        'Authorization': generate_access_token_hmac(
+                            settings.SHARED_SECRET,
+                            "1:AuthEvent:%s:edit|delete" % pk,
+                            pk_obj.get_refresh_token_duration_secs()
+                        ),
+                        'Content-type': 'application/json'
+                    }
+                )
+
+                LOGGER.info(
+                    "DeleteElections.post\n" +
+                    "delete pk (Ballot Box) '%d'\n" +
+                    "ballot_box_url '%r'\n" +
+                    "ballot_box_request.status_code '%r'\n" +
+                    "ballot_box_request.text '%r'\n",
+                    pk,
+                    ballot_box_url,
+                    ballot_box_request.status_code, 
+                    ballot_box_request.text
+                )
+                if ballot_box_request.status_code != 200:
+                    return json_response(
+                        status=500,
+                        error_codename=ErrorCodes.INTERNAL_SERVER_ERROR
+                    )
+                
+            election_obj.delete()
+        
+        data = {'status': 'ok'}
+        return json_response(data)
+
+delete_elections = DeleteElections.as_view()
