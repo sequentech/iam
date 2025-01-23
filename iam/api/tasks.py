@@ -1173,6 +1173,8 @@ def set_status_task(status, user_id, auth_event_id, parent_auth_event_id=None):
         'resume': 'resumed',
     }
     def set_status_inner(auth_event):
+        if status in ['allow-tally', 'tally']:
+            return
         auth_event.status = alt_status[status]
         auth_event.save()
 
@@ -1181,5 +1183,5 @@ def set_status_task(status, user_id, auth_event_id, parent_auth_event_id=None):
         user_id=user_id,
         auth_event_id=auth_event_id,
         auth_event_callback_func=set_status_inner,
-        apply_callback=(status in ['start', 'stop', 'suspend', 'resume'])
+        apply_callback=(status in ['start', 'stop', 'suspend', 'resume', 'allow-tally', 'tally'])
     )
