@@ -2903,7 +2903,7 @@ tally_sheet = login_required(TallySheetView.as_view())
 
 class TallyStatusView(View):
 
-    def tally_status_post(self, pk, req, user):
+    def tally_status_post(pk, req, user):
         '''
         Launches the tallly in a celery background task. If the
         election has children, also launches the tally for them.
