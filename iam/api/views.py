@@ -2903,22 +2903,14 @@ tally_sheet = login_required(TallySheetView.as_view())
 
 class TallyStatusView(View):
 
-    def post(self, request, pk):
+    def tally_status_post(pk, req, user):
         '''
         Launches the tallly in a celery background task. If the
         election has children, also launches the tally for them.
         '''
-        # check permissions
-        permission_required(
-            request.user, 
-            'AuthEvent', 
-            ['edit', 'tally'], 
-            pk
-        )
 
         # get AuthEvent and parse request json
         auth_event = get_object_or_404(AuthEvent, pk=pk)
-        req = parse_json_request(request)
 
         # cannot launch tally on an election whose voting period is still open
         # or has not even started.
@@ -3016,7 +3008,7 @@ class TallyStatusView(View):
 
                 # log the action
                 action = Action(
-                    executer=request.user,
+                    executer=user,
                     receiver=None,
                     action_name='authevent:tally',
                     event=auth_event,
@@ -3034,6 +3026,24 @@ class TallyStatusView(View):
         # we don't launch the tally here, it will be catched by
         # celery task
         return json_response()
+
+    def post(self, request, pk):
+        '''
+        Launches the tallly in a celery background task. If the
+        election has children, also launches the tally for them.
+        '''
+        # check permissions
+        permission_required(
+            request.user, 
+            'AuthEvent', 
+            ['edit', 'tally'], 
+            pk
+        )
+
+        # get AuthEvent and parse request json
+        req = parse_json_request(request)
+        self.tally_status_post(pk, req, request.user)
+        
 
     def get(self, request, pk):
         '''

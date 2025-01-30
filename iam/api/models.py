@@ -338,6 +338,18 @@ class ScheduledEventsSchema(Schema):
         load_default=None,
         dump_default=None
     )
+    allow_tally = marshmallow_fields.Nested(
+        ScheduledEventSchema,
+        allow_none=True,
+        load_default=None,
+        dump_default=None
+    )
+    start_tally = marshmallow_fields.Nested(
+        ScheduledEventSchema,
+        allow_none=True,
+        load_default=None,
+        dump_default=None
+    )
 
 
 class OIDCPPublicInfoSchema(Schema):
@@ -925,11 +937,15 @@ def update_scheduled_events(sender, instance, **kwargs):
     default_events = dict(
         start_voting=None,
         end_voting=None,
+        allow_tally=None,
+        start_tally=None,
     )
 
     alt_status = dict(
         start_voting='start',
         end_voting='stop',
+        allow_tally='allow-tally',
+        start_tally='tally',
     )
 
     events = (instance.scheduled_events
@@ -1168,6 +1184,10 @@ ALLOWED_ACTIONS = (
     ('authevent:start_voting:revoked', 'authevent:start_voting:revoked'),
     ('authevent:end_voting:scheduled', 'authevent:end_voting:scheduled'),
     ('authevent:end_voting:revoked', 'authevent:end_voting:revoked'),
+    ('authevent:allow_tally:scheduled', 'authevent:allow_tally:scheduled'),
+    ('authevent:allow_tally:revoked', 'authevent:allow_tally:revoked'),
+    ('authevent:start_tally:scheduled', 'authevent:start_tally:scheduled'),
+    ('authevent:start_tally:revoked', 'authevent:start_tally:revoked'),
 )
 
 class Action(models.Model):

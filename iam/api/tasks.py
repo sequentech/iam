@@ -26,6 +26,7 @@ from celery import shared_task
 import plugins
 from authmethods.sms_provider import SMSProvider
 from utils import send_codes, generate_access_token_hmac, reproducible_json_dumps
+from api import views
 from .models import Action, AuthEvent, BallotBox, TallySheet
 
 logger = get_task_logger(__name__)
@@ -1031,6 +1032,28 @@ def set_public_candidates_task(
         )
         action.save()
 
+def run_start_tally(
+    user_id,
+    auth_event_id,
+):
+    '''
+    Launches the a ballot box action call in a task. If the election has
+    children, also launches the call for those.
+    '''
+    logger.info(
+        f'\n\nrun_start_tally_task(user_id={user_id}, auth_event_id={auth_event_id})'
+    )
+    user = get_object_or_404(User, pk=user_id)
+    auth_event = get_object_or_404(AuthEvent, pk=auth_event_id)
+    elements =  auth_event.children_election_info['natural_order'] if auth_event.children_election_info else []
+    req = {
+        "children_election_ids": elements,
+        "force_tally": "force-all",
+        "mode": "all"
+    }
+
+    views.TallyStatusView.tally_status_post(auth_event_id, req, user)
+
 def run_ballot_box_action(
     action_name,
     user_id,
@@ -1173,13 +1196,21 @@ def set_status_task(status, user_id, auth_event_id, parent_auth_event_id=None):
         'resume': 'resumed',
     }
     def set_status_inner(auth_event):
+        if status in ['allow-tally', 'tally']:
+            return
         auth_event.status = alt_status[status]
         auth_event.save()
-
-    run_ballot_box_action(
-        action_name=status,
-        user_id=user_id,
-        auth_event_id=auth_event_id,
-        auth_event_callback_func=set_status_inner,
-        apply_callback=(status in ['start', 'stop', 'suspend', 'resume'])
-    )
+    
+    if 'tally' == status:
+        run_start_tally(
+            user_id=user_id,
+            auth_event_id=auth_event_id,
+        )
+    else:
+        run_ballot_box_action(
+            action_name=status,
+            user_id=user_id,
+            auth_event_id=auth_event_id,
+            auth_event_callback_func=set_status_inner,
+            apply_callback=(status in ['start', 'stop', 'suspend', 'resume', 'allow-tally', 'tally'])
+        )
