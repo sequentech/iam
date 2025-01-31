@@ -792,6 +792,11 @@ class Ping(View):
         if u and error is None:
             data = {}
             auth_event = get_object_or_404(AuthEvent, pk=pk)
+            if auth_event.status in [AuthEvent.STOPPED, AuthEvent.SUSPENDED, AuthEvent.SUCCESS]:
+                return json_response(
+                    status=400,
+                    error_codename=ErrorCodes.BAD_REQUEST
+                )
             req = {}
             auth_data = return_auth_data('Ping', req, request, u, auth_event)
             if 'auth-token' in auth_data:
