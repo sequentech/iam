@@ -3047,7 +3047,7 @@ class TallyStatusView(View):
 
         # get AuthEvent and parse request json
         req = parse_json_request(request)
-        TallyStatusView.tally_status_post(pk, req, request.user)
+        return TallyStatusView.tally_status_post(pk, req, request.user)
         
 
     def get(self, request, pk):
