@@ -2046,7 +2046,27 @@ class AuthEventView(View):
         permission_required(request.user, 'AuthEvent', ['edit', 'delete'], pk)
 
         ae = AuthEvent.objects.get(pk=pk)
+
+        # Collect all election IDs that will be deleted (parent + children via CASCADE)
+        election_ids_to_cleanup = [str(pk)]
+
+        # If this is a virtual election with children, collect their IDs too
+        # (they will be CASCADE deleted by Django, but their ACLs won't be)
+        if ae.children_election_info:
+            children_ids = ae.children_election_info.get('natural_order', [])
+            election_ids_to_cleanup.extend([str(child_id) for child_id in children_ids])
+
+        # Delete the AuthEvent (and CASCADE delete children)
         ae.delete()
+
+        # Manually delete orphaned ACLs for all affected elections
+        deleted_acls = ACL.objects.filter(
+            object_type='AuthEvent',
+            object_id__in=election_ids_to_cleanup
+        ).delete()
+
+        if deleted_acls[0] > 0:
+            print(f"Deleted {deleted_acls[0]} orphaned ACL records for elections {election_ids_to_cleanup}")
 
         data = {'status': 'ok'}
         return json_response(data)
