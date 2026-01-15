@@ -2050,11 +2050,17 @@ class AuthEventView(View):
         # Collect all election IDs that will be deleted (parent + children via CASCADE)
         election_ids_to_cleanup = [str(pk)]
 
-        # If this is a virtual election with children, collect their IDs too
-        # (they will be CASCADE deleted by Django, but their ACLs won't be)
+        # Collect children IDs using Django's ForeignKey relationship
+        # (children have parent=ae and will be CASCADE deleted)
+        children_from_fk = list(ae.children.values_list('id', flat=True))
+        election_ids_to_cleanup.extend([str(child_id) for child_id in children_from_fk])
+
+        # Also check children_election_info JSONField as fallback
         if ae.children_election_info:
             children_ids = ae.children_election_info.get('natural_order', [])
-            election_ids_to_cleanup.extend([str(child_id) for child_id in children_ids])
+            for child_id in children_ids:
+                if str(child_id) not in election_ids_to_cleanup:
+                    election_ids_to_cleanup.append(str(child_id))
 
         # Delete the AuthEvent (and CASCADE delete children)
         ae.delete()
