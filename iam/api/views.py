@@ -3422,7 +3422,7 @@ class DeleteElections(View):
             return json_response(
                 status=400,
                 error_codename=ErrorCodes.BAD_REQUEST)
-        
+
         for election_id in election_ids:
             try:
                 permission_required(request.user, 'AuthEvent', ['edit', 'delete'], election_id)
@@ -3430,6 +3430,10 @@ class DeleteElections(View):
                 election_obj = AuthEvent.objects.get(pk=election_id)
                 children_pks = [child.id for child in election_obj.children.all()]
                 children_pks.append(election_obj.id)
+
+                # Collect all election IDs for ACL cleanup (as strings)
+                election_ids_to_cleanup = [str(pk) for pk in children_pks]
+
                 # delete event and children in ballot box:
                 for pk in children_pks:
                     try:
@@ -3460,7 +3464,7 @@ class DeleteElections(View):
                             "ballot_box_request.text '%r'\n",
                             pk,
                             ballot_box_url,
-                            ballot_box_request.status_code, 
+                            ballot_box_request.status_code,
                             ballot_box_request.text
                         )
                         if ballot_box_request.status_code != 200:
@@ -3470,12 +3474,23 @@ class DeleteElections(View):
                             )
                     except Exception as err:
                         print(f"Exception deleting child {pk} for election {election_id}: {err}")
-                    
+
                 election_obj.delete()
+
+                # Manually delete orphaned ACLs for all affected elections
+                deleted_acls = ACL.objects.filter(
+                    object_type='AuthEvent',
+                    object_id__in=election_ids_to_cleanup
+                ).delete()
+
+                if deleted_acls[0] > 0:
+                    LOGGER.info(
+                        f"Deleted {deleted_acls[0]} orphaned ACL records for elections {election_ids_to_cleanup}"
+                    )
             except Exception as err:
                 print(f"Exception deleting election {election_id}: {err}")
-                
-        
+
+
         data = {'status': 'ok'}
         return json_response(data)
 
