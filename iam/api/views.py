@@ -2046,7 +2046,33 @@ class AuthEventView(View):
         permission_required(request.user, 'AuthEvent', ['edit', 'delete'], pk)
 
         ae = AuthEvent.objects.get(pk=pk)
+
+        # Collect all election IDs that will be deleted (parent + children via CASCADE)
+        election_ids_to_cleanup = [str(pk)]
+
+        # Collect children IDs using Django's ForeignKey relationship
+        # (children have parent=ae and will be CASCADE deleted)
+        children_from_fk = list(ae.children.values_list('id', flat=True))
+        election_ids_to_cleanup.extend([str(child_id) for child_id in children_from_fk])
+
+        # Also check children_election_info JSONField as fallback
+        if ae.children_election_info:
+            children_ids = ae.children_election_info.get('natural_order', [])
+            for child_id in children_ids:
+                if str(child_id) not in election_ids_to_cleanup:
+                    election_ids_to_cleanup.append(str(child_id))
+
+        # Delete the AuthEvent (and CASCADE delete children)
         ae.delete()
+
+        # Manually delete orphaned ACLs for all affected elections
+        deleted_acls = ACL.objects.filter(
+            object_type='AuthEvent',
+            object_id__in=election_ids_to_cleanup
+        ).delete()
+
+        if deleted_acls[0] > 0:
+            print(f"Deleted {deleted_acls[0]} orphaned ACL records for elections {election_ids_to_cleanup}")
 
         data = {'status': 'ok'}
         return json_response(data)
@@ -3396,7 +3422,7 @@ class DeleteElections(View):
             return json_response(
                 status=400,
                 error_codename=ErrorCodes.BAD_REQUEST)
-        
+
         for election_id in election_ids:
             try:
                 permission_required(request.user, 'AuthEvent', ['edit', 'delete'], election_id)
@@ -3404,6 +3430,10 @@ class DeleteElections(View):
                 election_obj = AuthEvent.objects.get(pk=election_id)
                 children_pks = [child.id for child in election_obj.children.all()]
                 children_pks.append(election_obj.id)
+
+                # Collect all election IDs for ACL cleanup (as strings)
+                election_ids_to_cleanup = [str(pk) for pk in children_pks]
+
                 # delete event and children in ballot box:
                 for pk in children_pks:
                     try:
@@ -3434,7 +3464,7 @@ class DeleteElections(View):
                             "ballot_box_request.text '%r'\n",
                             pk,
                             ballot_box_url,
-                            ballot_box_request.status_code, 
+                            ballot_box_request.status_code,
                             ballot_box_request.text
                         )
                         if ballot_box_request.status_code != 200:
@@ -3444,12 +3474,23 @@ class DeleteElections(View):
                             )
                     except Exception as err:
                         print(f"Exception deleting child {pk} for election {election_id}: {err}")
-                    
+
                 election_obj.delete()
+
+                # Manually delete orphaned ACLs for all affected elections
+                deleted_acls = ACL.objects.filter(
+                    object_type='AuthEvent',
+                    object_id__in=election_ids_to_cleanup
+                ).delete()
+
+                if deleted_acls[0] > 0:
+                    LOGGER.info(
+                        f"Deleted {deleted_acls[0]} orphaned ACL records for elections {election_ids_to_cleanup}"
+                    )
             except Exception as err:
                 print(f"Exception deleting election {election_id}: {err}")
-                
-        
+
+
         data = {'status': 'ok'}
         return json_response(data)
 
