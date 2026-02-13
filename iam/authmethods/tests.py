@@ -21,6 +21,7 @@ from django.test.utils import override_settings
 
 import json
 import time
+import hmac as hmac_module
 from datetime import datetime
 from api import test_data
 from api.tests import JClient, flush_db_load_fixture
@@ -302,6 +303,34 @@ class AuthMethodSmartLinkTestCase(TestCase):
         r = json.loads(response.content.decode('utf-8'))
         self.assertEqual(r['username'], self.user2.username)
         self.assertTrue(r['auth-token'].startswith('khmac:///sha-256'))
+
+    def test_authenticate_future_timestamp_rejected(self):
+        '''
+        A SmartLink token whose timestamp is in the future should be rejected.
+        This reproduces the bug where check_expiration only verified the upper
+        bound (token not yet expired) but never checked that the timestamp was
+        not in the future, allowing pre-generated SmartLinks to be used early.
+        '''
+        c = JClient()
+        user_id = self.user.userdata.metadata['user_id']
+        auth_event_id = str(self.auth_event.id)
+
+        # Create a timestamp 1 hour in the future
+        future_timestamp = int(time.time()) + 3600
+
+        # Build the message in genhmac format (same as the reported URL token)
+        msg = f"{user_id}:AuthEvent:{auth_event_id}:vote:{future_timestamp}"
+
+        # Sign with shared secret
+        shared_secret = settings.SHARED_SECRET
+        h = hmac_module.new(shared_secret, msg.encode('utf-8'), 'sha256')
+        auth_token = f"khmac:///sha-256;{h.hexdigest()}/{msg}"
+
+        data = {'auth-token': auth_token}
+        response = c.authenticate(self.auth_event.id, data)
+        self.assertEqual(response.status_code, 400)
+        r = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(r['error_codename'], 'EXPIRED_AUTH_TOKEN')
 
 
 class AuthMethodSmsTestCase(TestCase):
