@@ -618,13 +618,15 @@ class OpenIdConnect(object):
             f"returns '{ret_data}'\n"
             f"Stack trace: \n{stack_trace_str()}"
         )
-        return return_auth_data(
-            'OpenIdConnect', 
-            req, 
-            request, 
+        auth_data = return_auth_data(
+            'OpenIdConnect',
+            req,
+            request,
             user,
             auth_event
         )
+        auth_data['id-token'] = id_token
+        return auth_data
 
     def resend_auth_code(self, auth_event, request):
         return resend_auth_code(
