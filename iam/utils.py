@@ -246,17 +246,22 @@ class HMACToken:
         returns true iff the token hasn't expired
         '''
         now = timezone.now()
+
+        # Reject tokens whose creation timestamp is in the future
+        token_date = datetime.datetime.fromtimestamp(
+            int(self.timestamp),
+            tz=timezone.get_current_timezone()
+        )
+        if token_date > now:
+            return False
+
         if False != self.expiry_timestamp:
             expiry_date = datetime.datetime.fromtimestamp(
                 int(self.expiry_timestamp),
                 tz=timezone.get_current_timezone()
             )
         else:
-            expiry_date = datetime.datetime.fromtimestamp(
-                int(self.timestamp),
-                tz=timezone.get_current_timezone()
-            )
-            expiry_date = expiry_date + datetime.timedelta(seconds=seconds)
+            expiry_date = token_date + datetime.timedelta(seconds=seconds)
         return expiry_date > now
 
     def get_userid(self):
